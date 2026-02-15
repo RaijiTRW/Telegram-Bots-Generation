@@ -1,0 +1,337 @@
+{
+  "locale": "ru",
+  "auth": {
+    "login": {
+      "title": "Добро пожаловать",
+      "subtitle": "Войдите в свой аккаунт",
+      "email": "Email адрес",
+      "password": "Пароль",
+      "submit": "Войти",
+      "noAccount": "Нет аккаунта?",
+      "signUp": "Зарегистрироваться",
+      "forgotPassword": "Забыли пароль?",
+      "errors": {
+        "invalidCredentials": "Неверный email или пароль",
+        "emailTaken": "Email уже зарегистрирован",
+        "weakPassword": "Пароль слишком слабый",
+        "passwordsMismatch": "Пароли не совпадают"
+      }
+    },
+    "signup": {
+      "title": "Создать аккаунт",
+      "subtitle": "Начните прямо сейчас",
+      "fullName": "Полное имя",
+      "email": "Email адрес",
+      "password": "Пароль",
+      "confirmPassword": "Подтвердите пароль",
+      "submit": "Создать аккаунт",
+      "hasAccount": "Уже есть аккаунт?",
+      "signIn": "Войти"
+    }
+  },
+  "dashboard": {
+    "nav": {
+      "home": "Главная",
+      "bots": "Боты",
+      "profile": "Профиль",
+      "settings": "Настройки",
+      "logout": "Выйти"
+    },
+    "welcome": "Добро пожаловать, {name}!",
+    "stats": {
+      "bots": "Всего ботов",
+      "active": "Активных",
+      "users": "Пользователей",
+      "messages": "Сообщений"
+    },
+    "home": {
+      "title": "Главная",
+      "overview": "Обзор вашей учетной записи",
+      "quickActions": "Быстрые действия",
+      "quickActionsDesc": "Начните с создания своего первого бота",
+      "createBot": "Создать нового бота",
+      "viewDocs": "Просмотреть документацию"
+    },
+    "bots": {
+      "title": "Боты",
+      "manage": "Управляйте своими Telegram ботами",
+      "noBots": "Ботов пока нет",
+      "noBotsDesc": "Создайте своего первого Telegram бота, чтобы начать автоматизировать рабочие процессы.",
+      "createFirst": "Создать первого бота",
+      "viewTemplates": "Смотреть шаблоны"
+    },
+    "profile": {
+      "title": "Профиль",
+      "fullName": "Полное имя",
+      "email": "Email",
+      "avatar": "Аватар",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "manage": "Управляйте настройками своей учетной записи",
+      "yourName": "Ваше Имя",
+      "verifiedAccount": "Подтвержденный аккаунт",
+      "profileInfo": "Информация профиля",
+      "username": "Имя пользователя",
+      "emailNotChangeable": "Адрес электронной почты нельзя изменить",
+      "bio": "О себе",
+      "bioPlaceholder": "Расскажите немного о себе...",
+      "lastUpdate": "Последнее обновление: Никогда"
+    },
+    "settings": {
+      "title": "Настройки",
+      "manage": "Управляйте настройками приложения",
+      "quickSettings": "Быстрые настройки",
+      "quickSettingsDesc": "Доступ к часто используемым опциям",
+      "changeProfile": "Изменить профиль",
+      "changePassword": "Изменить пароль",
+      "changePasswordDesc": "Обновите ваш пароль",
+      "privacy": "Конфиденциальность",
+      "privacyDesc": "Управление данными",
+      "notifications": "Уведомления",
+      "notificationsDesc": "Управляйте настройками уведомлений",
+      "emailNotif": "Email уведомления",
+      "emailNotifDesc": "Получайте обновления о ваших ботах по email",
+      "pushNotif": "Push уведомления",
+      "pushNotifDesc": "Получайте уведомления в браузере",
+      "weeklyDigest": "Еженедельный дайджест",
+      "weeklyDigestDesc": "Обзор активности ваших ботов",
+      "security": "Безопасность",
+      "securityDesc": "Защитите свой аккаунт",
+      "twoFactor": "Двухфакторная аутентификация",
+      "twoFactorDesc": "Добавьте дополнительный уровень защиты",
+      "loginAlerts": "Уведомления о входах",
+      "loginAlertsDesc": "Получайте уведомления о новых входах",
+      "appearance": "Оформление",
+      "appearanceDesc": "Настройте внешний вид",
+      "darkTheme": "Темная тема",
+      "darkThemeDesc": "Использовать темную тему во всем приложении",
+      "compactMode": "Компактный режим",
+      "compactModeDesc": "Показывать больше контента на экране",
+      "languageRegion": "Язык и регион",
+      "languageRegionDesc": "Установите свои предпочтения",
+      "language": "Язык",
+      "timezone": "Часовой пояс",
+      "dangerZone": "Опасная зона",
+      "dangerZoneDesc": "Безвозвратно удалить аккаунт и все данные",
+      "deleteAccount": "Удалить аккаунт"
+    }
+  },
+  "header": {
+    "logo": "TFlow",
+    "welcomeBack": "Добро пожаловать",
+    "nav": {
+      "features": "Возможности",
+      "templates": "Шаблоны",
+      "pricing": "Цены",
+      "docs": "Документация"
+    },
+    "buttons": {
+      "login": "Войти",
+      "createBot": "Создать бота"
+    },
+    "userMenu": {
+      "dashboard": "Дашборд",
+      "profile": "Профиль",
+      "settings": "Настройки",
+      "logout": "Выйти"
+    }
+  },
+  "hero": {
+    "title": "Создавайте ботов со",
+    "titleHighlight": "скоростью мысли.",
+    "subtitle": "Опишите своего бота простым языком. Наблюдайте, как ИИ строит логику, настраивает функции и разворачивает — всё в реальном времени.",
+    "placeholder": "Опишите вашего бота...",
+    "button": "Сгенерировать и запустить",
+    "quickStart": [
+      {
+        "label": "FAQ бот",
+        "prompt": "Создай FAQ бота для технической поддержки"
+      },
+      {
+        "label": "Запись на услуги",
+        "prompt": "Создай бота для записи на услуги салона красоты"
+      },
+      {
+        "label": "AI-консультант",
+        "prompt": "Создай AI-консультанта для онлайн-магазина"
+      }
+    ]
+  },
+  "engine": {
+    "badge": "Двигатель",
+    "title": "От текста до развернутого бота",
+    "subtitle": "Наблюдайте, как ваше описание превращается в полностью функционального Telegram бота за секунды.",
+    "scrollHint": "Прокрутите, чтобы увидеть процесс",
+    "buildingStructure": "Создание структуры...",
+    "botName": "Мой бот",
+    "deployedSuccessfully": "Успешно развернуто",
+    "stages": {
+      "analyze": "Анализ",
+      "analyzeDesc": "Понимание требований",
+      "build": "Создание",
+      "buildDesc": "Построение логики",
+      "configure": "Настройка",
+      "configureDesc": "Добавление функций",
+      "deploy": "Развертывание",
+      "deployDesc": "Запуск"
+    },
+    "words": {
+      "sales": "продажи",
+      "catalog": "каталог",
+      "orders": "заказы",
+      "AI": "ИИ",
+      "automation": "автоматизация",
+      "support": "поддержка"
+    }
+  },
+  "monitoring": {
+    "title": "Круглосуточный мониторинг",
+    "subtitleFirst": "Мы следим за вашими ботами",
+    "subtitleHighlight": "чтобы вам не приходилось",
+    "subtitleSecond": "Мы следим за аптаймом 24/7. Если Telegram изменит API — ваш бот обновится автоматически.",
+    "statusTitle": "Все системы работают",
+    "statusSubtitle": "ботов в сети",
+    "features": {
+      "updates": "Автоматические обновления API",
+      "uptime": "Мониторинг аптайма в реальном времени",
+      "alerts": "Мгновенные уведомления об ошибках"
+    }
+  },
+  "visualControl": {
+    "title": "Визуальный редактор для тех, кто ценит",
+    "titleHighlight1": "контроль",
+    "titleAnd": ", и AI для тех, кто ценит",
+    "titleHighlight2": "время",
+    "subtitle": "Создавайте интерфейс бота с помощью перетаскивания. Позвольте AI предлагать умные улучшения на основе лучших практик.",
+    "badge": "Visual Architect 2.0",
+    "features": [
+      {
+        "icon": "Settings",
+        "title": "Команды",
+        "description": "Настраивайте команды бота и их поведение"
+      },
+      {
+        "icon": "MessageSquare",
+        "title": "Сообщения",
+        "description": "Редактируйте текстовые ответы и авто-сообщения"
+      },
+      {
+        "icon": "MousePointer",
+        "title": "Кнопки",
+        "description": "Создавайте интерактивные кнопки и меню"
+      }
+    ],
+    "editor_title": "Редактор бота",
+    "editor_tools": "ИНСТРУМЕНТЫ",
+    "editor_elements": "ЭЛЕМЕНТЫ",
+    "editor_properties": "СВОЙСТВА",
+    "editor_elementLabels_text": "Текст",
+    "editor_elementLabels_button": "Кнопка",
+    "editor_elementLabels_image": "Изображение",
+    "editor_canvasElements_welcome": "Приветственное сообщение",
+    "editor_canvasElements_catalog": "Смотреть каталог",
+    "editor_canvasElements_support": "Поддержка",
+    "editor_properties_text": "Текст",
+    "editor_properties_style": "Стиль",
+    "editor_properties_selectElement": "Выберите элемент",
+    "editor_aiSuggestions": "AI Предложения",
+    "editor_aiSuggestion": "AI Предложение",
+    "editor_suggestions_payment": "Добавить интеграцию оплаты?",
+    "editor_suggestions_carousel": "Добавить карусель товаров?",
+    "editor_suggestions_auth": "Добавить аутентификацию?",
+    "tabs_design": "Дизайн",
+    "tabs_layers": "Слои",
+    "tabs_content": "Контент",
+    "tabs_settings": "Настройки",
+    "elementLabels_text": "Текст",
+    "elementLabels_button": "Кнопка",
+    "elementLabels_image": "Изображение",
+    "canvasElements_welcome": "Приветственное сообщение",
+    "canvasElements_catalog": "Смотреть каталог",
+    "canvasElements_support": "Поддержка",
+    "properties_text": "Текст",
+    "properties_style": "Стиль",
+    "properties_selectElement": "Выберите элемент",
+    "aiSuggestions": "AI Предложения",
+    "aiSuggestion": "AI Предложение",
+    "suggestions_payment": "Добавить интеграцию оплаты?",
+    "suggestions_carousel": "Добавить карусель товаров?",
+    "suggestions_auth": "Добавить аутентификацию?",
+    "editor": {
+      "title": "Редактор бота",
+      "tools": "ИНСТРУМЕНТЫ",
+      "elements": "ЭЛЕМЕНТЫ",
+      "properties": "СВОЙСТВА"
+    }
+  },
+  "features": {
+    "title": "Возможности",
+    "subtitle": "Всё необходимое для автоматизации вашего бизнеса в Telegram",
+    "items": [
+      {
+        "icon": "MessageCircle",
+        "title": "FAQ & Support",
+        "description": "Бот, который знает ответы на все вопросы 24/7",
+        "size": "large"
+      },
+      {
+        "icon": "ShoppingCart",
+        "title": "Sales & Consulting",
+        "description": "Прием заявок и автоматическая продажа услуг",
+        "size": "large"
+      },
+      {
+        "icon": "Server",
+        "title": "Hosting Included",
+        "description": "Забудьте о серверах — мы держим бота онлайн всегда",
+        "size": "small"
+      },
+      {
+        "icon": "Code",
+        "title": "Code Export",
+        "description": "Выгрузка кода в один клик для продвинутых пользователей",
+        "size": "small"
+      }
+    ]
+  },
+  "cta": {
+    "title": "Готовы увидеть магию в действии?",
+    "subtitle": "Присоединяйтесь к тысячам предпринимателей, которые уже автоматизировали свой бизнес с TFlow",
+    "emailPlaceholder": "Введите ваш email",
+    "button": "Начать бесплатно",
+    "note": "Кредитная карта не требуется"
+  },
+  "footer": {
+    "status": "System Status: All systems operational",
+    "columns": {
+      "product": {
+        "title": "Продукт",
+        "links": [
+          { "label": "Возможности", "href": "#features" },
+          { "label": "Шаблоны", "href": "#templates" },
+          { "label": "Цены", "href": "#pricing" },
+          { "label": "Документация", "href": "#docs" }
+        ]
+      },
+      "resources": {
+        "title": "Ресурсы",
+        "links": [
+          { "label": "Блог", "href": "#blog" },
+          { "label": "API", "href": "#api" },
+          { "label": "Сообщество", "href": "#community" },
+          { "label": "Помощь", "href": "#help" }
+        ]
+      },
+      "company": {
+        "title": "Компания",
+        "links": [
+          { "label": "О нас", "href": "#about" },
+          { "label": "Карьера", "href": "#careers" },
+          { "label": "Конфиденциальность", "href": "#privacy" },
+          { "label": "Условия", "href": "#terms" }
+        ]
+      }
+    },
+    "copyright": "© 2024 TFlow. Создано для тех, кто ценит скорость."
+  }
+}

@@ -1,0 +1,337 @@
+{
+  "locale": "en",
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to your account",
+      "email": "Email address",
+      "password": "Password",
+      "submit": "Sign In",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign Up",
+      "forgotPassword": "Forgot password?",
+      "errors": {
+        "invalidCredentials": "Invalid email or password",
+        "emailTaken": "Email is already registered",
+        "weakPassword": "Password is too weak",
+        "passwordsMismatch": "Passwords do not match"
+      }
+    },
+    "signup": {
+      "title": "Create Account",
+      "subtitle": "Start your journey today",
+      "fullName": "Full Name",
+      "email": "Email address",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?",
+      "signIn": "Sign In"
+    }
+  },
+  "dashboard": {
+    "nav": {
+      "home": "Home",
+      "bots": "Bots",
+      "profile": "Profile",
+      "settings": "Settings",
+      "logout": "Logout"
+    },
+    "welcome": "Welcome, {name}!",
+    "stats": {
+      "bots": "Total Bots",
+      "active": "Active",
+      "users": "Users",
+      "messages": "Messages"
+    },
+    "home": {
+      "title": "Home",
+      "overview": "Overview of your account",
+      "quickActions": "Quick Actions",
+      "quickActionsDesc": "Start by creating your first bot",
+      "createBot": "Create new bot",
+      "viewDocs": "View documentation"
+    },
+    "bots": {
+      "title": "Bots",
+      "manage": "Manage your Telegram bots",
+      "noBots": "No bots yet",
+      "noBotsDesc": "Create your first Telegram bot to start automating workflows.",
+      "createFirst": "Create first bot",
+      "viewTemplates": "View templates"
+    },
+    "profile": {
+      "title": "Profile",
+      "fullName": "Full Name",
+      "email": "Email",
+      "avatar": "Avatar",
+      "save": "Save",
+      "cancel": "Cancel",
+      "manage": "Manage your account settings",
+      "yourName": "Your Name",
+      "verifiedAccount": "Verified account",
+      "profileInfo": "Profile Information",
+      "username": "Username",
+      "emailNotChangeable": "Email address cannot be changed",
+      "bio": "About me",
+      "bioPlaceholder": "Tell us a little about yourself...",
+      "lastUpdate": "Last updated: Never"
+    },
+    "settings": {
+      "title": "Settings",
+      "manage": "Manage app settings",
+      "quickSettings": "Quick Settings",
+      "quickSettingsDesc": "Access frequently used options",
+      "changeProfile": "Change Profile",
+      "changePassword": "Change Password",
+      "changePasswordDesc": "Update your password",
+      "privacy": "Privacy",
+      "privacyDesc": "Manage your data",
+      "notifications": "Notifications",
+      "notificationsDesc": "Manage notification settings",
+      "emailNotif": "Email notifications",
+      "emailNotifDesc": "Get updates about your bots via email",
+      "pushNotif": "Push notifications",
+      "pushNotifDesc": "Receive notifications in browser",
+      "weeklyDigest": "Weekly digest",
+      "weeklyDigestDesc": "Overview of your bot activity",
+      "security": "Security",
+      "securityDesc": "Protect your account",
+      "twoFactor": "Two-factor authentication",
+      "twoFactorDesc": "Add an extra layer of security",
+      "loginAlerts": "Login notifications",
+      "loginAlertsDesc": "Get notified of new sign-ins",
+      "appearance": "Appearance",
+      "appearanceDesc": "Customize look",
+      "darkTheme": "Dark theme",
+      "darkThemeDesc": "Use dark theme throughout the app",
+      "compactMode": "Compact mode",
+      "compactModeDesc": "Show more content on screen",
+      "languageRegion": "Language and region",
+      "languageRegionDesc": "Set your preferences",
+      "language": "Language",
+      "timezone": "Timezone",
+      "dangerZone": "Danger Zone",
+      "dangerZoneDesc": "Permanently delete account and all data",
+      "deleteAccount": "Delete Account"
+    }
+  },
+  "header": {
+    "logo": "TFlow",
+    "welcomeBack": "Welcome back",
+    "nav": {
+      "features": "Features",
+      "templates": "Templates",
+      "pricing": "Pricing",
+      "docs": "Documentation"
+    },
+    "buttons": {
+      "login": "Log In",
+      "createBot": "Create Bot"
+    },
+    "userMenu": {
+      "dashboard": "Dashboard",
+      "profile": "Profile",
+      "settings": "Settings",
+      "logout": "Logout"
+    }
+  },
+  "hero": {
+    "title": "Build bots at the",
+    "titleHighlight": "speed of thought.",
+    "subtitle": "Describe your bot in plain language. Watch as AI constructs the logic, configures features, and deploys — all in real-time.",
+    "placeholder": "Describe your bot...",
+    "button": "Generate & Launch",
+    "quickStart": [
+      {
+        "label": "FAQ Bot",
+        "prompt": "Create an FAQ bot for tech support"
+      },
+      {
+        "label": "Book Services",
+        "prompt": "Create a bot for booking beauty salon services"
+      },
+      {
+        "label": "AI Consultant",
+        "prompt": "Create an AI consultant for an online store"
+      }
+    ]
+  },
+  "engine": {
+    "badge": "The Engine",
+    "title": "From text to deployed bot",
+    "subtitle": "Watch as your description transforms into a fully functional Telegram bot in seconds.",
+    "scrollHint": "Scroll to see process",
+    "buildingStructure": "Building structure...",
+    "botName": "My Bot",
+    "deployedSuccessfully": "Deployed successfully",
+    "stages": {
+      "analyze": "Analyze",
+      "analyzeDesc": "Understanding requirements",
+      "build": "Build",
+      "buildDesc": "Constructing logic",
+      "configure": "Configure",
+      "configureDesc": "Adding features",
+      "deploy": "Deploy",
+      "deployDesc": "Going live"
+    },
+    "words": {
+      "sales": "sales",
+      "catalog": "catalog",
+      "orders": "orders",
+      "AI": "AI",
+      "automation": "automation",
+      "support": "support"
+    }
+  },
+  "monitoring": {
+    "title": "24/7 Monitoring",
+    "subtitleFirst": "We watch your bots",
+    "subtitleHighlight": "so you don't have to",
+    "subtitleSecond": "We monitor uptime 24/7. If Telegram changes API — your bot updates automatically.",
+    "statusTitle": "All Systems Go",
+    "statusSubtitle": "5 bots operational",
+    "features": {
+      "updates": "Automatic API updates",
+      "uptime": "Real-time uptime monitoring",
+      "alerts": "Instant error notifications"
+    }
+  },
+  "visualControl": {
+    "title": "Visual editor for those who value",
+    "titleHighlight1": "control",
+    "titleAnd": ", and AI for those who value",
+    "titleHighlight2": "time",
+    "subtitle": "Design your bot interface with drag-and-drop simplicity. Let AI suggest smart enhancements based on best practices.",
+    "badge": "Visual Architect 2.0",
+    "features": [
+      {
+        "icon": "Settings",
+        "title": "Commands",
+        "description": "Configure bot commands and their behavior"
+      },
+      {
+        "icon": "MessageSquare",
+        "title": "Messages",
+        "description": "Edit text responses and auto-messages"
+      },
+      {
+        "icon": "MousePointer",
+        "title": "Buttons",
+        "description": "Create interactive buttons and menus"
+      }
+    ],
+    "editor_title": "Bot Editor",
+    "editor_tools": "TOOLS",
+    "editor_elements": "ELEMENTS",
+    "editor_properties": "PROPERTIES",
+    "editor_elementLabels_text": "Text",
+    "editor_elementLabels_button": "Button",
+    "editor_elementLabels_image": "Image",
+    "editor_canvasElements_welcome": "Welcome Message",
+    "editor_canvasElements_catalog": "View Catalog",
+    "editor_canvasElements_support": "Contact Support",
+    "editor_properties_text": "Text",
+    "editor_properties_style": "Style",
+    "editor_properties_selectElement": "Select element",
+    "editor_aiSuggestions": "AI Suggestions",
+    "editor_aiSuggestion": "AI Suggestion",
+    "editor_suggestions_payment": "Add payment integration here?",
+    "editor_suggestions_carousel": "Include product carousel?",
+    "editor_suggestions_auth": "Add user authentication?",
+    "tabs_design": "Design",
+    "tabs_layers": "Layers",
+    "tabs_content": "Content",
+    "tabs_settings": "Settings",
+    "elementLabels_text": "Text",
+    "elementLabels_button": "Button",
+    "elementLabels_image": "Image",
+    "canvasElements_welcome": "Welcome Message",
+    "canvasElements_catalog": "View Catalog",
+    "canvasElements_support": "Contact Support",
+    "properties_text": "Text",
+    "properties_style": "Style",
+    "properties_selectElement": "Select element",
+    "aiSuggestions": "AI Suggestions",
+    "aiSuggestion": "AI Suggestion",
+    "suggestions_payment": "Add payment integration here?",
+    "suggestions_carousel": "Include product carousel?",
+    "suggestions_auth": "Add user authentication?",
+    "editor": {
+      "title": "Bot Editor",
+      "tools": "TOOLS",
+      "elements": "ELEMENTS",
+      "properties": "PROPERTIES"
+    }
+  },
+  "features": {
+    "title": "Features",
+    "subtitle": "Everything you need to automate your business in Telegram",
+    "items": [
+      {
+        "icon": "MessageCircle",
+        "title": "FAQ & Support",
+        "description": "A bot that knows all the answers 24/7",
+        "size": "large"
+      },
+      {
+        "icon": "ShoppingCart",
+        "title": "Sales & Consulting",
+        "description": "Lead collection and automated service sales",
+        "size": "large"
+      },
+      {
+        "icon": "Server",
+        "title": "Hosting Included",
+        "description": "Forget about servers — we keep your bot online always",
+        "size": "small"
+      },
+      {
+        "icon": "Code",
+        "title": "Code Export",
+        "description": "One-click code export for advanced users",
+        "size": "small"
+      }
+    ]
+  },
+  "cta": {
+    "title": "Ready to see the magic in action?",
+    "subtitle": "Join thousands of entrepreneurs who have already automated their business with TFlow",
+    "emailPlaceholder": "Enter your email",
+    "button": "Start Free",
+    "note": "No credit card required"
+  },
+  "footer": {
+    "status": "System Status: All systems operational",
+    "columns": {
+      "product": {
+        "title": "Product",
+        "links": [
+          { "label": "Features", "href": "#features" },
+          { "label": "Templates", "href": "#templates" },
+          { "label": "Pricing", "href": "#pricing" },
+          { "label": "Documentation", "href": "#docs" }
+        ]
+      },
+      "resources": {
+        "title": "Resources",
+        "links": [
+          { "label": "Blog", "href": "#blog" },
+          { "label": "API", "href": "#api" },
+          { "label": "Community", "href": "#community" },
+          { "label": "Help", "href": "#help" }
+        ]
+      },
+      "company": {
+        "title": "Company",
+        "links": [
+          { "label": "About", "href": "#about" },
+          { "label": "Careers", "href": "#careers" },
+          { "label": "Privacy", "href": "#privacy" },
+          { "label": "Terms", "href": "#terms" }
+        ]
+      }
+    },
+    "copyright": "© 2024 TFlow. Built for those who value speed."
+  }
+}
