@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, Trash2, Edit2, Check, X, Database, Type } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useTranslations } from 'next-intl'
 import { useBotState } from '../providers/bot-state-provider'
 import type { BotVariable, VariableType } from '@/lib/bot-editor/types/bot.types'
 
@@ -14,27 +15,28 @@ interface VariableTypeOption {
   icon: string
 }
 
-const variableTypes: VariableTypeOption[] = [
-  { value: 'string', label: 'String', color: 'text-blue-400', icon: 'ABC' },
-  { value: 'number', label: 'Number', color: 'text-emerald-400', icon: '123' },
-  { value: 'boolean', label: 'Boolean', color: 'text-amber-400', icon: 'TF' },
-  { value: 'object', label: 'Object', color: 'text-purple-400', icon: '{} ' },
-  { value: 'array', label: 'Array', color: 'text-pink-400', icon: '[] ' },
-  { value: 'user', label: 'User', color: 'text-cyan-400', icon: '@ ' },
-  { value: 'message', label: 'Message', color: 'text-orange-400', icon: '# ' },
-]
-
-interface EditingVariable {
-  id: string
-  name: string
-  type: VariableType
-  default_value: any
-  description: string
-}
-
 export function VariablesTable() {
+  const t = useTranslations('editor.system')
   const { config, addVariable, removeVariable, setIsDirty, setConfig } = useBotState()
   const variables = config.variables || []
+
+  const variableTypes = useMemo<VariableTypeOption[]>(() => [
+    { value: 'string', label: t('typeString'), color: 'text-blue-400', icon: 'ABC' },
+    { value: 'number', label: t('typeNumber'), color: 'text-emerald-400', icon: '123' },
+    { value: 'boolean', label: t('typeBoolean'), color: 'text-amber-400', icon: 'TF' },
+    { value: 'object', label: t('typeObject'), color: 'text-purple-400', icon: '{} ' },
+    { value: 'array', label: t('typeArray'), color: 'text-pink-400', icon: '[] ' },
+    { value: 'user', label: t('typeUser'), color: 'text-cyan-400', icon: '@ ' },
+    { value: 'message', label: t('typeMessage'), color: 'text-orange-400', icon: '# ' },
+  ], [t])
+
+  interface EditingVariable {
+    id: string
+    name: string
+    type: VariableType
+    default_value: any
+    description: string
+  }
 
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -100,7 +102,7 @@ export function VariablesTable() {
   }
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this variable?')) {
+    if (confirm(t('deleteConfirm'))) {
       removeVariable(id)
     }
   }
@@ -186,7 +188,7 @@ export function VariablesTable() {
           <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
             <Database className="w-4 h-4 text-[#24A1DE]" />
           </div>
-          <h3 className="text-lg font-semibold text-white">Variables</h3>
+          <h3 className="text-lg font-semibold text-white">{t('variables')}</h3>
           <span className="text-zinc-500 text-sm">({variables.length})</span>
         </div>
 
@@ -197,7 +199,7 @@ export function VariablesTable() {
           className="gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80"
         >
           <Plus className="w-4 h-4" />
-          Add Variable
+          {t('addVariable')}
         </Button>
       </div>
 
@@ -207,7 +209,7 @@ export function VariablesTable() {
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-3">
               <Input
-                placeholder="Variable name"
+                placeholder={t('variableName')}
                 value={newVariable.name}
                 onChange={(e) => setNewVariable({ ...newVariable, name: e.target.value })}
                 className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 text-sm h-9"
@@ -218,7 +220,7 @@ export function VariablesTable() {
               <select
                 value={newVariable.type}
                 onChange={(e) => setNewVariable({ ...newVariable, type: e.target.value as VariableType })}
-                className="w-full px-2 py-1.5 rounded bg-zinc-900/50 border border-white/10 text-white text-sm focus:border-[#24A1DE] focus:outline-none appearance-none cursor-pointer"
+                className="w-full px-2 py-1.5 rounded bg-zinc-900/50 border-white/10 text-white text-sm focus:border-[#24A1DE] focus:outline-none appearance-none cursor-pointer"
               >
                 {variableTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -230,7 +232,7 @@ export function VariablesTable() {
 
             <div className="col-span-3">
               <Input
-                placeholder="Default value"
+                placeholder={t('defaultValue')}
                 value={newVariable.default_value}
                 onChange={(e) => setNewVariable({ ...newVariable, default_value: e.target.value })}
                 className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 text-sm h-9"
@@ -239,7 +241,7 @@ export function VariablesTable() {
 
             <div className="col-span-3">
               <Input
-                placeholder="Description (optional)"
+                placeholder={t('descriptionPlaceholder')}
                 value={newVariable.description}
                 onChange={(e) => setNewVariable({ ...newVariable, description: e.target.value })}
                 className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 text-sm h-9"
@@ -275,27 +277,27 @@ export function VariablesTable() {
             <div className="inline-flex p-4 rounded-full bg-zinc-900/50 mb-4">
               <Database className="w-8 h-8 text-zinc-600" />
             </div>
-            <p className="text-zinc-400 mb-2">No variables yet</p>
-            <p className="text-zinc-600 text-sm">Add your first variable to get started</p>
+            <p className="text-zinc-400 mb-2">{t('noVariables')}</p>
+            <p className="text-zinc-600 text-sm">{t('noVariablesDesc')}</p>
           </div>
         ) : (
           <table className="w-full">
             <thead className="bg-zinc-900/50 border-b border-white/10">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  Name
+                  {t('name')}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  Type
+                  {t('type')}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  Default Value
+                  {t('defaultValue')}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  Description
+                  {t('description')}
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                  Actions
+                  {t('actions')}
                 </th>
               </tr>
             </thead>

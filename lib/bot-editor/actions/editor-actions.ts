@@ -60,6 +60,7 @@ const ALLOWED_NODE_TYPES = new Set<WorkflowNode['type']>([
   'input',
   'condition',
   'action',
+  'http',
   'webhook',
   'trigger',
   'wait',
@@ -104,6 +105,10 @@ function normalizeNodes(nodes: CanvasNode[]): WorkflowNode[] {
   }))
 }
 
+function hasTriggerNode(nodes: WorkflowNode[]): boolean {
+  return nodes.some((node) => node.type === 'trigger')
+}
+
 function normalizeEdges(edges: CanvasEdge[]): WorkflowEdge[] {
   return edges.map((edge) => ({
     id: String(edge.id),
@@ -138,26 +143,29 @@ function normalizeVariableScope(
 }
 
 function normalizeVariables(variables: CanvasVariable[]): BotVariable[] {
-  return variables
-    .map((variable, index) => {
-      const name = String(variable.name || '').trim()
-      if (!name) {
-        return null
-      }
+  const result: BotVariable[] = []
 
-      return {
-        id: String(variable.id || `var_${index}_${Date.now()}`),
-        name,
-        type: normalizeVariableType(variable.type),
-        default_value: variable.default_value ?? '',
-        description:
-          typeof variable.description === 'string' && variable.description.trim().length > 0
-            ? variable.description.trim()
-            : undefined,
-        scope: normalizeVariableScope(variable.scope),
-      }
+  for (let index = 0; index < variables.length; index++) {
+    const variable = variables[index]
+    const name = String(variable.name || '').trim()
+    if (!name) {
+      continue
+    }
+
+    result.push({
+      id: String(variable.id || `var_${index}_${Date.now()}`),
+      name,
+      type: normalizeVariableType(variable.type),
+      default_value: variable.default_value ?? '',
+      description:
+        typeof variable.description === 'string' && variable.description.trim().length > 0
+          ? variable.description.trim()
+          : undefined,
+      scope: normalizeVariableScope(variable.scope),
     })
-    .filter((variable): variable is BotVariable => Boolean(variable))
+  }
+
+  return result
 }
 
 async function resolveBaseUrl(): Promise<string> {
@@ -271,6 +279,8 @@ export async function saveCanvasAction(
 
     if (bot.metadata?.testActive && bot.metadata?.testMode === 'polling') {
       updateTelegramPollingConfig(botId, normalizedConfig)
+      // Prevent stale wait/input state from old graph after live config updates.
+      clearRuntimeSessionsForBot(botId)
     }
 
     return { success: true }
@@ -360,12 +370,21 @@ export async function startBotTestAction(
     }
 
     clearRuntimeSessionsForBot(botId)
+    const testRunId = randomUUID()
 
     const runtimeConfig: BotConfig = {
       nodes: input?.nodes ? normalizeNodes(input.nodes) : bot.config.nodes,
       edges: input?.edges ? normalizeEdges(input.edges) : bot.config.edges,
       variables: input?.variables ? normalizeVariables(input.variables) : bot.config.variables || [],
       version: input?.version || bot.config.version || '1.0.0',
+    }
+
+    if (!hasTriggerNode(runtimeConfig.nodes)) {
+      return {
+        success: false,
+        error:
+          'Добавьте хотя бы один Trigger на Canvas (например Command Trigger /start). Без Trigger бот не запускает сценарий.',
+      }
     }
 
     const me = await callTelegramApi<{ id: number; username?: string }>(token, 'getMe')
@@ -399,6 +418,7 @@ export async function startBotTestAction(
           webhookSecret,
           testActive: true,
           testMode: 'webhook',
+          testRunId,
           testStartedAt: new Date().toISOString(),
         },
       })
@@ -423,6 +443,7 @@ export async function startBotTestAction(
       botId,
       botToken: token,
       config: runtimeConfig,
+      testRunId,
     })
 
     await botService.updateBot(botId, {
@@ -436,6 +457,7 @@ export async function startBotTestAction(
         webhookSecret: null,
         testActive: true,
         testMode: 'polling',
+        testRunId,
         testStartedAt: new Date().toISOString(),
       },
     })
@@ -491,6 +513,7 @@ export async function stopBotTestAction(botId: string) {
         ...bot.metadata,
         testActive: false,
         testMode: 'stopped',
+        testRunId: null,
         testStoppedAt: new Date().toISOString(),
         webhookSecret: null,
       },

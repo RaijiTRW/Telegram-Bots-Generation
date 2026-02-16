@@ -15,6 +15,7 @@ import type {
   InputNodeData,
   ConditionNodeData,
   ActionNodeData,
+  HttpNodeData,
   WebhookNodeData,
   TriggerNodeData,
   WaitNodeData,
@@ -102,7 +103,20 @@ export class BotCodeGenerator {
       imports.push("const { MemorySessionStorage } = require('@telegraf/session/memory');")
     }
 
-    if (this.config.nodes.some(n => n.type === 'webhook' || n.type === 'action')) {
+    const needsAxios = this.config.nodes.some((n) => {
+      if (n.type === 'webhook' || n.type === 'http') {
+        return true
+      }
+
+      if (n.type === 'action') {
+        const action = (n.data as ActionNodeData | undefined)?.action as { type?: string } | undefined
+        return action?.type === 'httpRequest'
+      }
+
+      return false
+    })
+
+    if (needsAxios) {
       imports.push("const axios = require('axios');")
     }
 
@@ -164,15 +178,66 @@ function getNextNode(currentNodeId) {
       functions.push(`
 // Build inline keyboard from data
 function buildKeyboard(keyboardData) {
-  if (!keyboardData || !keyboardData.rows) return undefined;
+  if (!keyboardData) return undefined;
+
+  const normalizeRows = (source) => {
+    if (Array.isArray(source)) {
+      if (source.length > 0 && Array.isArray(source[0])) return source;
+      return [source];
+    }
+    if (source && typeof source === 'object') {
+      if (Array.isArray(source.rows)) return source.rows.map((row) => row?.buttons || row || []);
+      if (Array.isArray(source.inline_keyboard)) return source.inline_keyboard;
+      if (Array.isArray(source.buttons)) return [source.buttons];
+    }
+    return [];
+  };
+
+  const toSlug = (value) => {
+    const base = String(value || '').trim().toLowerCase().replace(/\\s+/g, '_');
+    if (!base) return '';
+    return encodeURIComponent(base).replace(/%/g, '').replace(/[^a-z0-9_:-]/g, '').slice(0, 52);
+  };
+
+  const NOOP_PREFIX = '__noop__:';
+  const isUrl = (value) => /^(https?:\\/\\/|tg:\\/\\/|mailto:|tel:)/i.test(String(value || '').trim());
+  const rows = normalizeRows(keyboardData);
+  if (rows.length === 0) return undefined;
+
+  const inline_keyboard = rows
+    .map((row, rowIndex) => {
+      const rowButtons = Array.isArray(row) ? row : [];
+      return rowButtons
+        .map((rawButton, buttonIndex) => {
+          const btn =
+            rawButton && typeof rawButton === 'object'
+              ? rawButton
+              : { text: String(rawButton || ''), callbackData: String(rawButton || '') };
+          const text = String(btn.text || btn.label || btn.title || '').trim();
+          if (!text) return null;
+
+          const callbackRaw = String(
+            btn.callbackData || btn.callback_data || btn.data || btn.action || btn.value || ''
+          ).trim();
+          const urlRaw = String(btn.url || '').trim();
+          const fallbackNoop = NOOP_PREFIX + (toSlug(btn.id) || ('r' + (rowIndex + 1) + 'b' + (buttonIndex + 1)));
+
+          if (urlRaw && isUrl(urlRaw)) {
+            return { text, url: urlRaw };
+          }
+
+          const callbackData = String(callbackRaw || fallbackNoop).slice(0, 64);
+          if (!callbackData) return null;
+          return { text, callback_data: callbackData };
+        })
+        .filter(Boolean);
+    })
+    .filter((row) => row.length > 0);
+
+  if (inline_keyboard.length === 0) return undefined;
+
   return {
-    inline_keyboard: keyboardData.rows.map(row =>
-      row.buttons.map(btn => ({
-        text: btn.text,
-        callback_data: btn.callbackData,
-        url: btn.url
-      }))
-    )
+    inline_keyboard,
   };
 }`)
     }
@@ -286,8 +351,11 @@ function buildKeyboard(keyboardData) {
       case 'action':
         lines.push(...this.generateActionHandler(node.data as ActionNodeData))
         break
+      case 'http':
+        lines.push(...this.generateHttpHandler(node.data as HttpNodeData))
+        break
       case 'webhook':
-        lines.push(...this.generateWebhookHandler(node.data as WebhookNodeData))
+        lines.push(...this.generateHttpHandler(node.data as WebhookNodeData))
         break
       case 'wait':
         lines.push(...this.generateWaitHandler(node.data as WaitNodeData))
@@ -303,17 +371,29 @@ function buildKeyboard(keyboardData) {
   private generateMessageHandler(data: MessageNodeData): string[] {
     const lines: string[] = []
 
-    const text = data.text ? interpolateCall('text', data.text) : "''"
-    const keyboard = data.keyboard ? ', { reply_markup: buildKeyboard(' + JSON.stringify(data.keyboard) + ') })' : ''
+    const dataRecord = (data || {}) as Record<string, unknown>
+    const keyboardSource =
+      dataRecord.keyboard ?? dataRecord.inlineKeyboard ?? dataRecord.buttons
+    const keyboardLiteral = keyboardSource ? JSON.stringify(keyboardSource) : ''
 
     lines.push(`  // Send message`)
     lines.push(`  const text = ${JSON.stringify(data.text || '')};`)
     lines.push(`  const message = interpolate(text, ctx);`)
 
     if (data.parseMode && data.parseMode !== 'None') {
-      lines.push(`  await ctx.reply(message, { parse_mode: '${data.parseMode}'${keyboard}});`)
+      if (keyboardLiteral) {
+        lines.push(
+          `  await ctx.reply(message, { parse_mode: '${data.parseMode}', reply_markup: buildKeyboard(${keyboardLiteral}) });`
+        )
+      } else {
+        lines.push(`  await ctx.reply(message, { parse_mode: '${data.parseMode}' });`)
+      }
     } else {
-      lines.push(`  await ctx.reply(message${keyboard ? '{ reply_markup: buildKeyboard(' + JSON.stringify(data.keyboard) + ') }' : ''});`)
+      if (keyboardLiteral) {
+        lines.push(`  await ctx.reply(message, { reply_markup: buildKeyboard(${keyboardLiteral}) });`)
+      } else {
+        lines.push(`  await ctx.reply(message);`)
+      }
     }
 
     return lines
@@ -322,11 +402,28 @@ function buildKeyboard(keyboardData) {
   private generateInputHandler(node: Node): string[] {
     const data = node.data as InputNodeData
     const lines: string[] = []
+    const dataRecord = (data || {}) as Record<string, unknown>
+    const keyboardSource =
+      dataRecord.keyboard ?? dataRecord.inlineKeyboard ?? dataRecord.buttons
+    const keyboardLiteral = keyboardSource ? JSON.stringify(keyboardSource) : ''
+    const hasParseMode = Boolean(data.parseMode && data.parseMode !== 'None')
 
     lines.push(`  // Input: ${data.variableName}`)
     lines.push(`  ctx.session.waitingForInput = '${node.id}';`)
     lines.push(`  const question = ${JSON.stringify(data.question || '')};`)
-    lines.push(`  await ctx.reply(interpolate(question, ctx));`)
+    lines.push(`  const questionText = interpolate(question, ctx);`)
+
+    if (hasParseMode && keyboardLiteral) {
+      lines.push(
+        `  await ctx.reply(questionText, { parse_mode: '${data.parseMode}', reply_markup: buildKeyboard(${keyboardLiteral}) });`
+      )
+    } else if (hasParseMode) {
+      lines.push(`  await ctx.reply(questionText, { parse_mode: '${data.parseMode}' });`)
+    } else if (keyboardLiteral) {
+      lines.push(`  await ctx.reply(questionText, { reply_markup: buildKeyboard(${keyboardLiteral}) });`)
+    } else {
+      lines.push(`  await ctx.reply(questionText);`)
+    }
 
     // Wait for user response (separate handler)
     lines.push(`  // Response will be handled by the input listener`)
@@ -408,6 +505,7 @@ function buildKeyboard(keyboardData) {
         }
         break
       }
+      // Legacy compatibility: old Action nodes may still contain HTTP request config.
       case 'httpRequest': {
         lines.push(`  try {`)
         lines.push(`    const response = await axios({`)
@@ -422,10 +520,7 @@ function buildKeyboard(keyboardData) {
           lines.push(`    ctx.session.${data.action.saveToVariable} = response.data;`)
         }
         lines.push(`  } catch (error) {`)
-        lines.push(`    console.error('HTTP Request failed:', error);`)
-        if (data.onError === 'stop') {
-          lines.push(`    return;`)
-        }
+        lines.push(`    console.error('Legacy action HTTP request failed:', error);`)
         lines.push(`  }`)
         break
       }
@@ -434,10 +529,10 @@ function buildKeyboard(keyboardData) {
     return lines
   }
 
-  private generateWebhookHandler(data: WebhookNodeData): string[] {
+  private generateHttpHandler(data: HttpNodeData | WebhookNodeData): string[] {
     const lines: string[] = []
 
-    lines.push(`  // Webhook call to ${data.url}`)
+    lines.push(`  // HTTP call to ${data.url}`)
     lines.push(`  try {`)
     lines.push(`    const response = await axios({`)
     lines.push(`      method: '${data.method}',`)
@@ -453,7 +548,7 @@ function buildKeyboard(keyboardData) {
       lines.push(`    ctx.session.${data.saveToVariable} = response.data;`)
     }
     lines.push(`  } catch (error) {`)
-    lines.push(`    console.error('Webhook error:', error);`)
+    lines.push(`    console.error('HTTP node error:', error);`)
     lines.push(`  }`)
 
     return lines

@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Loader2 } from 'lucide-react'
+import { X, Loader2, Bot as BotIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useTranslations } from 'next-intl'
 import type { Bot } from '@/lib/bot-editor/types/bot.types'
 
 interface EditBotModalProps {
@@ -27,6 +28,7 @@ export function EditBotModal({
   isLoading = false,
   isDeleting = false
 }: EditBotModalProps) {
+  const t = useTranslations('editor.modals')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -76,12 +78,9 @@ export function EditBotModal({
         <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
-              <svg className="w-5 h-5 text-[#24A1DE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 4.961 2.495a1.724 1.724 0 001.066 2.573c.94 1.543-.826 3.31-2.495 4.961a1.724 1.724 0 00-2.573 1.066c-1.543.94-3.31-.826-4.961-2.495a1.724 1.724 0 00-1.066-2.573c-.94-1.543.826-3.31 2.495-4.961a1.724 1.724 0 00-2.573-1.066z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+              <BotIcon className="w-5 h-5 text-[#24A1DE]" />
             </div>
-            <h2 className="text-xl font-semibold text-white">Edit Bot</h2>
+            <h2 className="text-xl font-semibold text-white">{t('editBot')}</h2>
           </div>
           <button
             onClick={handleClose}
@@ -95,13 +94,13 @@ export function EditBotModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
             <Label htmlFor="edit-bot-name" className="text-white mb-2 block">
-              Bot Name <span className="text-red-400">*</span>
+              {t('botName')} <span className="text-red-400">*</span>
             </Label>
             <Input
               id="edit-bot-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="My Awesome Bot"
+              placeholder={t('botNamePlaceholder')}
               className="bg-zinc-800/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
               autoFocus
               maxLength={100}
@@ -111,13 +110,13 @@ export function EditBotModal({
 
           <div>
             <Label htmlFor="edit-bot-description" className="text-white mb-2 block">
-              Description
+              {t('description')}
             </Label>
             <Textarea
               id="edit-bot-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what your bot does..."
+              placeholder={t('descriptionPlaceholder')}
               rows={3}
               className="bg-zinc-800/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] resize-none"
               maxLength={500}
@@ -130,7 +129,7 @@ export function EditBotModal({
               {showDeleteConfirm ? (
                 <div className="space-y-3">
                   <p className="text-sm text-zinc-400">
-                    Are you sure you want to delete this bot? This action cannot be undone.
+                    {t('deleteConfirm')}
                   </p>
                   <div className="flex gap-3">
                     <Button
@@ -140,7 +139,7 @@ export function EditBotModal({
                       disabled={isDeleting}
                       className="flex-1"
                     >
-                      Cancel
+                      {t('cancel')}
                     </Button>
                     <Button
                       type="button"
@@ -151,10 +150,10 @@ export function EditBotModal({
                       {isDeleting ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Deleting...
+                          {t('creating')}
                         </>
                       ) : (
-                        'Delete Bot'
+                        t('delete')
                       )}
                     </Button>
                   </div>
@@ -169,7 +168,7 @@ export function EditBotModal({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  Delete Bot
+                  {t('delete')}
                 </Button>
               )}
             </div>
@@ -184,7 +183,7 @@ export function EditBotModal({
               disabled={isLoading || isDeleting}
               className="flex-1"
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               type="submit"
@@ -194,10 +193,10 @@ export function EditBotModal({
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
+                  {t('creating')}
                 </>
               ) : (
-                'Save Changes'
+                t('save')
               )}
             </Button>
           </div>

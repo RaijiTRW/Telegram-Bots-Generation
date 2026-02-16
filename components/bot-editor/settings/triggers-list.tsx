@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Zap, Bell, MessageCircle, MousePointer2, Settings as SettingsIcon, Check, ChevronRight, Play, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import * as React from 'react'
 import { useBotState } from '../providers/bot-state-provider'
@@ -17,52 +18,12 @@ export interface BotTrigger {
   config?: Record<string, any>
 }
 
-const defaultTriggers: BotTrigger[] = [
-  {
-    id: 'on_bot_start',
-    type: 'on_bot_start',
-    name: 'On Bot Start',
-    description: 'Triggered when a user starts the bot or sends /start command',
-    enabled: true,
-  },
-  {
-    id: 'on_message',
-    type: 'on_message',
-    name: 'On Message',
-    description: 'Triggered when the bot receives any text message',
-    enabled: true,
-  },
-  {
-    id: 'on_callback_query',
-    type: 'on_callback_query',
-    name: 'On Callback Query',
-    description: 'Triggered when a user clicks an inline button',
-    enabled: false,
-  },
-  {
-    id: 'on_command',
-    type: 'on_command',
-    name: 'On Command',
-    description: 'Triggered when a user sends a command (e.g., /help)',
-    enabled: false,
-    config: { commands: [] },
-  },
-  {
-    id: 'on_inline_query',
-    type: 'on_inline_query',
-    name: 'On Inline Query',
-    description: 'Triggered when user uses inline mode in any chat',
-    enabled: false,
-  },
-]
-
-interface TriggerItemProps {
+function TriggerItem({ trigger, onToggle, onConfigure, t }: {
   trigger: BotTrigger
   onToggle: (id: string) => void
   onConfigure: (trigger: BotTrigger) => void
-}
-
-function TriggerItem({ trigger, onToggle, onConfigure }: TriggerItemProps) {
+  t: (key: string) => string
+}) {
   const getIcon = () => {
     switch (trigger.type) {
       case 'on_bot_start':
@@ -85,14 +46,14 @@ function TriggerItem({ trigger, onToggle, onConfigure }: TriggerItemProps) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span className="text-xs text-emerald-400">Active</span>
+          <span className="text-xs text-emerald-400">{t('active')}</span>
         </span>
       )
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-        <span className="text-xs text-zinc-400">Inactive</span>
+        <span className="text-xs text-zinc-400">{t('inactive')}</span>
       </span>
     )
   }
@@ -164,7 +125,7 @@ function TriggerItem({ trigger, onToggle, onConfigure }: TriggerItemProps) {
             className="gap-1.5 h-8 text-zinc-400 hover:text-white hover:bg-white/5"
           >
             <SettingsIcon className="w-3.5 h-3.5" />
-            Configure
+            {t('configure')}
             <ChevronRight className="w-3.5 h-3.5" />
           </Button>
         </div>
@@ -178,9 +139,10 @@ interface TriggerConfigDialogProps {
   open: boolean
   onClose: () => void
   onSave: (trigger: BotTrigger) => void
+  t: (key: string) => string
 }
 
-function TriggerConfigDialog({ trigger, open, onClose, onSave }: TriggerConfigDialogProps) {
+function TriggerConfigDialog({ trigger, open, onClose, onSave, t }: TriggerConfigDialogProps) {
   const [config, setConfig] = useState<Record<string, any>>(trigger?.config || {})
 
   if (!open || !trigger) return null
@@ -195,7 +157,7 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave }: TriggerConfigDi
       case 'on_command':
         return (
           <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Commands</label>
+            <label className="text-sm text-zinc-400 mb-2 block">{t('commands')}</label>
             <Input
               placeholder="/help, /start, /about"
               value={config.commands?.join(', ') || ''}
@@ -205,13 +167,13 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave }: TriggerConfigDi
               })}
               className="bg-zinc-900/50 border-white/10 text-white"
             />
-            <p className="text-xs text-zinc-500 mt-2">Separate multiple commands with commas</p>
+            <p className="text-xs text-zinc-500 mt-2">{t('separateCommands')}</p>
           </div>
         )
       case 'on_message':
         return (
           <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Filter by text pattern (optional)</label>
+            <label className="text-sm text-zinc-400 mb-2 block">{t('filterPlaceholder')}</label>
             <Input
               placeholder="regex pattern"
               value={config.pattern || ''}
@@ -223,7 +185,7 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave }: TriggerConfigDi
       case 'on_inline_query':
         return (
           <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Query template</label>
+            <label className="text-sm text-zinc-400 mb-2 block">{t('queryTemplate')}</label>
             <Input
               placeholder="@{bot} {query}"
               value={config.template || ''}
@@ -234,7 +196,7 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave }: TriggerConfigDi
         )
       default:
         return (
-          <p className="text-sm text-zinc-500">No additional configuration needed for this trigger type.</p>
+          <p className="text-sm text-zinc-500">{t('tipText')}</p>
         )
     }
   }
@@ -247,7 +209,7 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave }: TriggerConfigDi
             <SettingsIcon className="w-4 h-4 text-[#24A1DE]" />
           </div>
           <div>
-            <h3 className="text-white font-semibold">Configure Trigger</h3>
+            <h3 className="text-white font-semibold">{t('configureTrigger')}</h3>
             <p className="text-sm text-zinc-400">{trigger.name}</p>
           </div>
         </div>
@@ -261,14 +223,14 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave }: TriggerConfigDi
             variant="outline"
             onClick={onClose}
           >
-            Cancel
+            {t('cancel')}
           </Button>
           <Button
             onClick={handleSave}
             className="gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80"
           >
             <Check className="w-4 h-4" />
-            Save
+            {t('save')}
           </Button>
         </div>
       </div>
@@ -282,6 +244,48 @@ interface TriggersListProps {
 }
 
 export function TriggersList({ triggers: externalTriggers, onTriggersChange }: TriggersListProps) {
+  const t = useTranslations('editor.system')
+  const { config } = useBotState()
+
+  const defaultTriggers = useMemo<BotTrigger[]>(() => [
+    {
+      id: 'on_bot_start',
+      type: 'on_bot_start',
+      name: t('onBotStart'),
+      description: t('onBotStartDesc'),
+      enabled: true,
+    },
+    {
+      id: 'on_message',
+      type: 'on_message',
+      name: t('onMessage'),
+      description: t('onMessageDesc'),
+      enabled: true,
+    },
+    {
+      id: 'on_callback_query',
+      type: 'on_callback_query',
+      name: t('onCallbackQuery'),
+      description: t('onCallbackQueryDesc'),
+      enabled: false,
+    },
+    {
+      id: 'on_command',
+      type: 'on_command',
+      name: t('onCommand'),
+      description: t('onCommandDesc'),
+      enabled: false,
+      config: { commands: [] },
+    },
+    {
+      id: 'on_inline_query',
+      type: 'on_inline_query',
+      name: t('onInlineQuery'),
+      description: t('onInlineQueryDesc'),
+      enabled: false,
+    },
+  ], [t])
+
   const [triggers, setTriggers] = useState<BotTrigger[]>(externalTriggers || defaultTriggers)
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
   const [configuringTrigger, setConfiguringTrigger] = useState<BotTrigger | null>(null)
@@ -316,8 +320,8 @@ export function TriggersList({ triggers: externalTriggers, onTriggersChange }: T
             <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
               <Zap className="w-4 h-4 text-[#24A1DE]" />
             </div>
-            <h3 className="text-lg font-semibold text-white">Event Triggers</h3>
-            <span className="text-zinc-500 text-sm">({enabledCount} active)</span>
+            <h3 className="text-lg font-semibold text-white">{t('eventTriggers')}</h3>
+            <span className="text-zinc-500 text-sm">({enabledCount} {t('active')})</span>
           </div>
         </div>
 
@@ -329,6 +333,7 @@ export function TriggersList({ triggers: externalTriggers, onTriggersChange }: T
               trigger={trigger}
               onToggle={handleToggle}
               onConfigure={handleConfigure}
+              t={t}
             />
           ))}
         </div>
@@ -336,8 +341,7 @@ export function TriggersList({ triggers: externalTriggers, onTriggersChange }: T
         {/* Info Box */}
         <div className="rounded-xl bg-gradient-to-br from-[#8B5CF6]/10 to-[#24A1DE]/5 border border-[#8B5CF6]/20 p-4">
           <p className="text-sm text-zinc-400">
-            <strong className="text-[#24A1DE]">Tip:</strong> Enable triggers to define when your bot should respond to events.
-            Use Configure to add filters and custom behavior for each trigger type.
+            <strong className="text-[#24A1DE]">{t('tip')}</strong> {t('tipText')}
           </p>
         </div>
       </div>
@@ -348,6 +352,7 @@ export function TriggersList({ triggers: externalTriggers, onTriggersChange }: T
         open={configDialogOpen}
         onClose={() => setConfigDialogOpen(false)}
         onSave={handleSaveConfig}
+        t={t}
       />
     </>
   )

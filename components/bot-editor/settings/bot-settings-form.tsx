@@ -1,26 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Save, Check, Eye, EyeOff, Palette, Key, Webhook } from 'lucide-react'
+import { Eye, EyeOff, Palette, Key, Webhook } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useBotState } from '../providers/bot-state-provider'
 import type { BotStatus } from '@/lib/bot-editor/types/bot.types'
-import { saveBotSettingsAction } from '@/lib/bot-editor/actions/editor-actions'
 
-interface BotSettingsFormProps {
-  onSave?: () => void
-}
-
-export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
-  const { bot, setBot, updateBotDraft } = useBotState()
+export function BotSettingsForm() {
+  const t = useTranslations('editor.settings')
+  const { bot, updateBotDraft } = useBotState()
 
   // Form state
   const [showToken, setShowToken] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
 
   const name = bot?.name || ''
   const description = bot?.description || ''
@@ -28,38 +22,11 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
   const telegramToken = String(bot?.metadata?.telegramToken || '')
   const webhookUrl = String(bot?.metadata?.webhookUrl || '')
 
-  const handleSave = async () => {
-    if (!bot) return
-    setIsSaving(true)
-    setSaveError(null)
-
-    const result = await saveBotSettingsAction(bot.id, {
-      name,
-      description,
-      status,
-      telegramToken,
-      webhookUrl,
-    })
-
-    if (!result.success || !result.bot) {
-      setIsSaving(false)
-      setSaveError(result.error || 'Не удалось сохранить настройки')
-      return
-    }
-
-    setBot(result.bot)
-    setSaveSuccess(true)
-    onSave?.()
-    setIsSaving(false)
-
-    setTimeout(() => setSaveSuccess(false), 2000)
-  }
-
-  const statusOptions: { value: BotStatus; label: string; color: string }[] = [
-    { value: 'draft', label: 'Draft', color: 'text-zinc-400' },
-    { value: 'active', label: 'Active', color: 'text-emerald-400' },
-    { value: 'archived', label: 'Archived', color: 'text-amber-400' },
-    { value: 'error', label: 'Error', color: 'text-red-400' },
+  const statusOptions: { value: BotStatus; labelKey: string; color: string }[] = [
+    { value: 'draft', labelKey: 'statusDraft', color: 'text-zinc-400' },
+    { value: 'active', labelKey: 'statusActive', color: 'text-emerald-400' },
+    { value: 'archived', labelKey: 'statusArchived', color: 'text-amber-400' },
+    { value: 'error', labelKey: 'statusError', color: 'text-red-400' },
   ]
 
   return (
@@ -70,35 +37,35 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
           <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
             <Palette className="w-4 h-4 text-[#24A1DE]" />
           </div>
-          Basic Information
+          {t('basicInfo')}
         </h2>
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="bot-name" className="text-white">Bot Name</Label>
+            <Label htmlFor="bot-name" className="text-white">{t('botName')}</Label>
             <Input
               id="bot-name"
               value={name}
               onChange={(e) => updateBotDraft({ name: e.target.value })}
-              placeholder="My Awesome Bot"
+              placeholder={t('botNamePlaceholder')}
               className="mt-1.5 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
             />
           </div>
 
           <div>
-            <Label htmlFor="bot-description" className="text-white">Description</Label>
+            <Label htmlFor="bot-description" className="text-white">{t('description')}</Label>
             <textarea
               id="bot-description"
               value={description}
               onChange={(e) => updateBotDraft({ description: e.target.value })}
-              placeholder="Describe what your bot does..."
+              placeholder={t('descriptionPlaceholder')}
               rows={3}
               className="mt-1.5 w-full px-3 py-2 rounded-lg bg-zinc-900/50 border border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] focus:outline-none focus:ring-2 focus:ring-[#24A1DE]/20 resize-none"
             />
           </div>
 
           <div>
-            <Label htmlFor="bot-status" className="text-white">Status</Label>
+            <Label htmlFor="bot-status" className="text-white">{t('status')}</Label>
             <div className="mt-1.5 relative">
               <select
                 id="bot-status"
@@ -108,7 +75,7 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
               >
                 {statusOptions.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey as any)}
                   </option>
                 ))}
               </select>
@@ -119,7 +86,7 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
               </div>
             </div>
             <p className={`text-xs mt-1.5 ${statusOptions.find(s => s.value === status)?.color}`}>
-              Current status: {statusOptions.find(s => s.value === status)?.label}
+              {t('currentStatus', { status: t(statusOptions.find(s => s.value === status)?.labelKey as any) })}
             </p>
           </div>
         </div>
@@ -131,12 +98,12 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
           <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
             <Key className="w-4 h-4 text-[#24A1DE]" />
           </div>
-          Telegram Integration
+          {t('telegramIntegration')}
         </h2>
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="telegram-token" className="text-white">Bot Token</Label>
+            <Label htmlFor="telegram-token" className="text-white">{t('botToken')}</Label>
             <div className="mt-1.5 relative">
               <Input
                 id="telegram-token"
@@ -150,7 +117,7 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
                     },
                   })
                 }
-                placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                placeholder={t('botTokenPlaceholder')}
                 className="pr-20 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
               />
               <button
@@ -162,7 +129,7 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
               </button>
             </div>
             <p className="text-xs text-zinc-500 mt-1.5">
-              Get your token from <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-[#24A1DE] hover:underline">@BotFather</a>
+              {t('getBotToken').replace('@BotFather', '<a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-[#24A1DE] hover:underline">@BotFather</a>')}
             </p>
           </div>
         </div>
@@ -174,12 +141,12 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
           <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
             <Webhook className="w-4 h-4 text-[#24A1DE]" />
           </div>
-          Webhook Configuration
+          {t('webhookConfig')}
         </h2>
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="webhook-url" className="text-white">Webhook URL</Label>
+            <Label htmlFor="webhook-url" className="text-white">{t('webhookUrl')}</Label>
             <Input
               id="webhook-url"
               value={webhookUrl}
@@ -191,56 +158,34 @@ export function BotSettingsForm({ onSave }: BotSettingsFormProps) {
                   },
                 })
               }
-              placeholder="https://your-server.com/webhook"
+              placeholder={t('webhookUrlPlaceholder')}
               className="mt-1.5 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
             />
             <p className="text-xs text-zinc-500 mt-1.5">
-              Configure an external endpoint to receive bot events
+              {t('webhookDesc')}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="flex-1 p-3 rounded-lg bg-zinc-900/50 border border-white/10">
               <code className="text-xs text-[#24A1DE] break-all">
-                {webhookUrl || 'https://your-server.com/webhook'}
+                {webhookUrl || t('webhookUrlPlaceholder')}
               </code>
             </div>
             <Button
               variant="outline"
               size="sm"
               className="gap-2 shrink-0"
-              onClick={() => navigator.clipboard.writeText(webhookUrl || 'https://your-server.com/webhook')}
+              onClick={() => navigator.clipboard.writeText(webhookUrl || t('webhookUrlPlaceholder'))}
             >
-              Copy
+              {t('copy')}
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Save Button */}
-      <div className="flex justify-end gap-3">
-        {saveError && (
-          <div className="mr-auto px-3 py-2 rounded-lg text-sm bg-red-500/10 border border-red-500/30 text-red-300">
-            {saveError}
-          </div>
-        )}
-        <Button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80 min-w-[140px]"
-        >
-          {saveSuccess ? (
-            <>
-              <Check className="w-4 h-4" />
-              Saved!
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </>
-          )}
-        </Button>
+      <div className="rounded-lg border border-white/10 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-400">
+        <span dangerouslySetInnerHTML={{ __html: t('changesSavedBy', { button: `<span class="text-white">${t('save')}</span>` }) }} />
       </div>
     </div>
   )

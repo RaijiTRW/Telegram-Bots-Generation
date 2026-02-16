@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useTranslations } from 'next-intl'
 
 interface CreateBotModalProps {
   isOpen: boolean
@@ -15,6 +16,7 @@ interface CreateBotModalProps {
 }
 
 export function CreateBotModal({ isOpen, onClose, onCreate, isLoading = false }: CreateBotModalProps) {
+  const t = useTranslations('editor.modals')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
 
@@ -51,7 +53,7 @@ export function CreateBotModal({ isOpen, onClose, onCreate, isLoading = false }:
             <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
               <Bot className="w-5 h-5 text-[#24A1DE]" />
             </div>
-            <h2 className="text-xl font-semibold text-white">Create New Bot</h2>
+            <h2 className="text-xl font-semibold text-white">{t('createBot')}</h2>
           </div>
           <button
             onClick={handleClose}
@@ -65,38 +67,38 @@ export function CreateBotModal({ isOpen, onClose, onCreate, isLoading = false }:
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
             <Label htmlFor="bot-name" className="text-white mb-2 block">
-              Bot Name <span className="text-red-400">*</span>
+              {t('botName')} <span className="text-red-400">*</span>
             </Label>
             <Input
               id="bot-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="My Awesome Bot"
+              placeholder={t('botNamePlaceholder')}
               className="bg-zinc-800/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
               autoFocus
               maxLength={100}
               required
             />
             <p className="text-xs text-zinc-500 mt-1.5">
-              Give your bot a descriptive name (max 100 characters)
+              {t('botNameDesc')}
             </p>
           </div>
 
           <div>
             <Label htmlFor="bot-description" className="text-white mb-2 block">
-              Description
+              {t('description')}
             </Label>
             <Textarea
               id="bot-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what your bot does..."
+              placeholder={t('descriptionPlaceholder')}
               rows={3}
               className="bg-zinc-800/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] resize-none"
               maxLength={500}
             />
             <p className="text-xs text-zinc-500 mt-1.5">
-              Optional description (max 500 characters)
+              {t('descriptionDesc')}
             </p>
           </div>
 
@@ -109,7 +111,7 @@ export function CreateBotModal({ isOpen, onClose, onCreate, isLoading = false }:
               disabled={isLoading}
               className="flex-1"
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               type="submit"
@@ -119,10 +121,10 @@ export function CreateBotModal({ isOpen, onClose, onCreate, isLoading = false }:
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
+                  {t('creating')}
                 </>
               ) : (
-                'Create Bot'
+                t('createBot')
               )}
             </Button>
           </div>

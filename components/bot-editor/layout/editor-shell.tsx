@@ -2,20 +2,46 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { ArrowLeft, Bot, Save, RefreshCw, Square } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { ArrowLeft, Bot, Save, Rocket } from 'lucide-react'
 import { EditorNav } from './editor-nav'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import { Button } from '@/components/ui/button'
 import {
   saveCanvasAction,
   saveBotSettingsAction,
-  startBotTestAction,
-  stopBotTestAction,
 } from '@/lib/bot-editor/actions/editor-actions'
 import {
   serializeWorkflowNodes,
   serializeWorkflowEdges,
 } from '@/lib/bot-editor/utils/workflow-serialization'
+
+type CanvasNode = {
+  id: string
+  type?: string | null
+  position?: { x: number; y: number }
+  data?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+type CanvasEdge = {
+  id: string
+  source: string
+  target: string
+  sourceHandle?: string | null
+  targetHandle?: string | null
+  [key: string]: unknown
+}
+
+type CanvasVariable = {
+  id?: string
+  name?: string
+  type?: string
+  default_value?: unknown
+  description?: string
+  scope?: string
+  [key: string]: unknown
+}
 
 interface EditorShellProps {
   botId: string
@@ -23,13 +49,15 @@ interface EditorShellProps {
 }
 
 export function EditorShell({ botId, children }: EditorShellProps) {
+  const t = useTranslations('editor.shell')
+  const tNav = useTranslations('editor.nav')
   const pathname = usePathname()
   const router = useRouter()
   const { setActiveSection, isDirty, bot, config, setBot, setIsDirty } = useBotState()
   const [isSaving, setIsSaving] = useState(false)
-  const [isTesting, setIsTesting] = useState(false)
+  const [isDeploying, setIsDeploying] = useState(false)
+  const [showExitModal, setShowExitModal] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const isTestActive = Boolean(bot?.metadata?.testActive)
 
   // Extract active section from pathname
   const getCurrentSection = (): 'ai-chat' | 'canvas' | 'settings' | 'system' => {
@@ -44,18 +72,23 @@ export function EditorShell({ botId, children }: EditorShellProps) {
 
   const currentSection = getCurrentSection()
 
-  const handleBack = () => {
-    if (isDirty) {
-      const confirmLeave = confirm('У вас есть несохранённые изменения. Вы уверены, что хотите выйти?')
-      if (!confirmLeave) return
-    }
+  const exitEditor = useCallback(() => {
     const locale = pathname.split('/')[1] || 'ru'
     router.push(`/${locale}/dashboard/bots`)
+  }, [pathname, router])
+
+  const handleBack = () => {
+    if (isDirty) {
+      setShowExitModal(true)
+      return
+    }
+
+    exitEditor()
   }
 
   const saveAllChanges = useCallback(async (): Promise<boolean> => {
     if (!bot?.id) {
-      setActionError('Бот не загружен')
+      setActionError(t('botNotLoaded'))
       return false
     }
 
@@ -69,14 +102,14 @@ export function EditorShell({ botId, children }: EditorShellProps) {
       const configVersion = config.version
 
       const canvasResult = await saveCanvasAction(bot.id, {
-        nodes: serialNodes,
-        edges: serialEdges,
-        variables: serialVariables,
+        nodes: serialNodes as CanvasNode[],
+        edges: serialEdges as CanvasEdge[],
+        variables: serialVariables as CanvasVariable[],
         version: configVersion,
       })
 
       if (!canvasResult.success) {
-        setActionError(canvasResult.error || 'Ошибка сохранения canvas')
+        setActionError(canvasResult.error || t('saveError'))
         return false
       }
 
@@ -89,7 +122,7 @@ export function EditorShell({ botId, children }: EditorShellProps) {
       })
 
       if (!settingsResult.success || !settingsResult.bot) {
-        setActionError(settingsResult.error || 'Ошибка сохранения настроек')
+        setActionError(settingsResult.error || t('settingsError'))
         return false
       }
 
@@ -111,66 +144,24 @@ export function EditorShell({ botId, children }: EditorShellProps) {
     } finally {
       setIsSaving(false)
     }
-  }, [bot, config, setBot, setIsDirty])
+  }, [bot, config, setBot, setIsDirty, t])
 
-  const handleTest = async () => {
+  const handleDeploy = async () => {
     if (!bot?.id) return
 
-    setIsTesting(true)
+    setIsDeploying(true)
     setActionError(null)
-
-    if (isTestActive) {
-      const stopResult = await stopBotTestAction(bot.id)
-      setIsTesting(false)
-
-      if (!stopResult.success) {
-        setActionError(stopResult.error || 'Не удалось остановить тест')
-        return
-      }
-
-      if (stopResult.bot) {
-        setBot(stopResult.bot)
-      }
-      setIsDirty(false)
-
-      return
-    }
 
     const saved = await saveAllChanges()
     if (!saved) {
-      setIsTesting(false)
+      setIsDeploying(false)
       return
     }
 
-    const serialNodes = serializeWorkflowNodes(config.nodes as unknown[])
-    const serialEdges = serializeWorkflowEdges(config.edges as unknown[])
-    const serialVariables = config.variables as unknown[]
-
-    const result = await startBotTestAction(bot.id, {
-      nodes: serialNodes,
-      edges: serialEdges,
-      variables: serialVariables,
-      version: config.version,
-    })
-
-    setIsTesting(false)
-
-    if (!result.success) {
-      setActionError(result.error || 'Не удалось запустить тест')
-      return
-    }
-
-    if (result.bot) {
-      setBot(result.bot)
-    }
+    // TODO: Replace with real deployment action
+    console.log('Deploying bot:', bot.id)
     setIsDirty(false)
-
-    if (result.deepLink) {
-      window.open(result.deepLink, '_blank', 'noopener,noreferrer')
-    }
-
-    const modeLabel = result.mode === 'polling' ? 'polling (локально)' : 'webhook'
-    alert(result.deepLink ? `Тест запущен (${modeLabel}): ${result.deepLink}` : `Тест запущен (${modeLabel})`)
+    setIsDeploying(false)
   }
 
   useEffect(() => {
@@ -202,7 +193,7 @@ export function EditorShell({ botId, children }: EditorShellProps) {
               <Bot className="w-4 h-4 text-[#24A1DE]" />
             </div>
             <div>
-              <h1 className="text-white font-semibold">Bot Editor</h1>
+              <h1 className="text-white font-semibold">{tNav('botEditor')}</h1>
               <p className="text-xs text-zinc-500">ID: {botId}</p>
             </div>
           </div>
@@ -218,32 +209,24 @@ export function EditorShell({ botId, children }: EditorShellProps) {
             size="sm"
             className="gap-2"
             onClick={() => void saveAllChanges()}
-            disabled={isSaving || isTesting}
+            disabled={isSaving || isDeploying}
           >
             <Save className="w-4 h-4" />
-            {isSaving ? 'Сохраняем...' : 'Сохранить'}
+            {isSaving ? t('saving') : t('save')}
           </Button>
           <Button
             size="sm"
-            className={`gap-2 ${
-              isTestActive
-                ? 'bg-red-600 hover:bg-red-600/85'
-                : 'bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80'
-            }`}
-            onClick={handleTest}
-            disabled={isSaving || isTesting}
+            className="gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80"
+            onClick={() => void handleDeploy()}
+            disabled={isSaving || isDeploying}
           >
-            {isTestActive ? (
-              <Square className="w-4 h-4" />
-            ) : (
-              <RefreshCw className={`w-4 h-4 ${isTesting ? 'animate-spin' : ''}`} />
-            )}
-            {isTesting ? 'Обработка...' : isTestActive ? 'Стоп' : 'Тест'}
+            <Rocket className="w-4 h-4" />
+            {isDeploying ? t('deploying') : t('deploy')}
           </Button>
           {isDirty && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-xs text-amber-400">Несохранённые изменения</span>
+              <span className="text-xs text-amber-400">{tNav('unsavedChanges')}</span>
             </div>
           )}
         </div>
@@ -261,6 +244,35 @@ export function EditorShell({ botId, children }: EditorShellProps) {
           {children}
         </div>
       </div>
+
+      {showExitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-zinc-900/95 p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">{t('exitConfirm')}</h3>
+            <p className="mt-2 text-sm text-zinc-400">
+              {t('exitDesc')}
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowExitModal(false)}
+              >
+                {t('stay')}
+              </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-600/85 text-white"
+                onClick={() => {
+                  setShowExitModal(false)
+                  exitEditor()
+                }}
+              >
+                {t('exit')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

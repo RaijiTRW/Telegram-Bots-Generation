@@ -27,6 +27,7 @@ const NodePreview = ({ nodes }: { nodes: Node[] }) => {
       case 'condition': return 'from-amber-500/20 to-amber-600/10 border-amber-500/30'
       case 'action': return 'from-purple-500/20 to-purple-600/10 border-purple-500/30'
       case 'input': return 'from-green-500/20 to-green-600/10 border-green-500/30'
+      case 'http': return 'from-rose-500/20 to-rose-600/10 border-rose-500/30'
       case 'webhook': return 'from-red-500/20 to-red-600/10 border-red-500/30'
       default: return 'from-zinc-500/20 to-zinc-600/10 border-zinc-500/30'
     }
@@ -146,7 +147,7 @@ export const ChatMessages = memo(({ messages, isLoading, className, containerRef
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-[#24A1DE]">•</span>
-                  <span>Add conditions, actions, and webhooks</span>
+                  <span>Add conditions, actions, and HTTP requests</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-[#24A1DE]">•</span>

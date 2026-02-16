@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Home, User, Settings, LogOut, Bot } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'dashboard.nav.home' },
@@ -18,35 +19,40 @@ export function DashboardNav() {
   const t = useTranslations()
   const pathname = usePathname()
   const router = useRouter()
-  
+
+  // Get locale from pathname
+  const locale = pathname?.split('/')[1] || 'ru'
+
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/auth/login')
+    router.push(`/${locale}/auth/login`)
   }
 
   return (
     <aside className="w-64 min-h-screen p-4 flex flex-col relative">
       {/* Glassmorphism background */}
       <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 to-zinc-900/60 backdrop-blur-xl border-r border-white/10" />
-      
+
       <div className="relative z-10 flex flex-col h-full">
         {/* Logo area with gradient accent */}
-        <div className="mb-8 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-white/10">
+        <Link href={`/${locale}/dashboard`} className="mb-8 px-4 py-3 rounded-xl bg-linear-to-r from-blue-500/10 to-purple-500/10 border border-white/10 hover:from-blue-500/20 hover:to-purple-500/20 transition-colors">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#24A1DE] to-[#8B5CF6] flex items-center justify-center shadow-lg shadow-purple-500/20">
               <span className="text-white font-bold text-lg">T</span>
             </div>
             <h1 className="text-xl font-bold text-white tracking-tight">TFlow</h1>
           </div>
-        </div>
-        
+        </Link>
+
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-2">
           {navItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-            
+            const fullPath = `/${locale}${item.href}`
+            // Exact match for home, or starts with for other pages (but not just the parent)
+            const isActive = pathname === fullPath || (item.href !== '/dashboard' && pathname?.startsWith(fullPath + '/'))
+
             return (
               <Button
                 key={item.href}
@@ -59,18 +65,18 @@ export function DashboardNav() {
                 )}
                 asChild
               >
-                <a href={item.href} className="flex items-center">
+                <Link href={fullPath} className="flex items-center relative">
                   {isActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6]" />
                   )}
                   <Icon className="w-5 h-5 mr-3" />
                   <span className="font-medium">{t(item.label)}</span>
-                </a>
+                </Link>
               </Button>
             )
           })}
         </nav>
-        
+
         {/* Logout button */}
         <div className="pt-4 border-t border-white/10 px-2">
           <Button

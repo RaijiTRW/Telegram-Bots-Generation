@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { Send, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useTranslations } from 'next-intl'
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void
@@ -23,10 +24,11 @@ export function ChatInput({
   onSendMessage,
   isLoading = false,
   disabled = false,
-  placeholder = "Describe what you want to build...",
+  placeholder,
   quickPrompts,
   className
 }: ChatInputProps) {
+  const t = useTranslations('editor.chat')
   const [input, setInput] = useState('')
   const [showQuickPrompts, setShowQuickPrompts] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -73,7 +75,7 @@ export function ChatInput({
         {/* Quick Prompts */}
         {quickPrompts && quickPrompts.length > 0 && showQuickPrompts && (
           <div className="mb-3 p-3 rounded-xl bg-zinc-900/50 border border-white/5">
-            <p className="text-xs text-zinc-500 mb-2">Quick actions:</p>
+            <p className="text-xs text-zinc-500 mb-2">{t('quickActions')}:</p>
             <div className="flex flex-wrap gap-2">
               {quickPrompts.map((qp) => (
                 <button
@@ -102,7 +104,7 @@ export function ChatInput({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder}
+              placeholder={placeholder || t('placeholder')}
               disabled={isLoading || disabled}
               rows={1}
               className={cn(
@@ -146,11 +148,11 @@ export function ChatInput({
               )}
             >
               <Sparkles className="w-3 h-3" />
-              {showQuickPrompts ? 'Hide' : 'Show'} quick prompts
+              {showQuickPrompts ? 'Hide' : 'Show'} {t('quickActions')}
             </button>
           )}
           <p className="text-xs text-zinc-600">
-            Press Enter to send, Shift+Enter for new line
+            {t('enterToSend')}
           </p>
         </div>
       </div>

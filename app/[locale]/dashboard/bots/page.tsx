@@ -133,7 +133,7 @@ export default function BotsPage() {
               className="gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80"
             >
               <Plus className="w-4 h-4" />
-              New Bot
+              {t('newBot')}
             </Button>
           )}
         </div>
@@ -158,16 +158,16 @@ export default function BotsPage() {
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 mb-6">
                 <LogIn className="w-10 h-10 text-[#24A1DE]" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Authentication Required</h3>
+              <h3 className="text-xl font-semibold text-white mb-2">{t('authenticationRequired')}</h3>
               <p className="text-zinc-400 mb-8 max-w-md mx-auto">
-                Please log in to manage your bots.
+                {t('pleaseLogIn')}
               </p>
               <Button
                 onClick={() => router.push(`/${locale}/auth/login`)}
                 className="inline-flex items-center gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/90 hover:to-[#8B5CF6]/90 text-white border-0 px-6"
               >
                 <LogIn className="w-4 h-4" />
-                Sign In
+                {t('signIn')}
               </Button>
             </CardContent>
           </Card>
@@ -242,7 +242,7 @@ export default function BotsPage() {
                               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/10 hover:text-white transition-colors"
                             >
                               <Pencil className="w-3.5 h-3.5" />
-                              Edit
+                              {t('edit')}
                             </button>
                             <button
                               onClick={(e) => {
@@ -254,7 +254,7 @@ export default function BotsPage() {
                               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                              Delete
+                              {t('delete')}
                             </button>
                           </div>
                         </>
@@ -267,16 +267,16 @@ export default function BotsPage() {
                     {bot.name}
                   </h3>
                   <p className="text-sm text-zinc-400 mb-4 line-clamp-2 min-h-[40px]">
-                    {bot.description || 'No description'}
+                    {bot.description || t('noDescription')}
                   </p>
 
                   {/* Footer */}
                   <div className="flex items-center justify-between">
                     <span className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(bot.status)}`}>
-                      {bot.status}
+                      {t(`status.${bot.status}` as any)}
                     </span>
                     <span className="text-xs text-zinc-500">
-                      {bot.updatedAt ? new Date(bot.updatedAt).toLocaleDateString() : 'New'}
+                      {bot.updatedAt ? new Date(bot.updatedAt).toLocaleDateString() : t('new')}
                     </span>
                   </div>
                 </CardContent>

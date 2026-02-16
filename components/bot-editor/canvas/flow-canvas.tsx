@@ -1,8 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactFlow, {
-  Background,
   Controls,
   MiniMap,
   ConnectionMode,
@@ -17,13 +16,16 @@ import ReactFlow, {
   ReactFlowProvider,
   Background as BackgroundComponent,
   OnSelectionChangeParams,
+  useReactFlow,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
 import { nodeTypes, nodeTemplates } from './node-types'
-import { Workflow, Plus, Save, Play, Trash2 } from 'lucide-react'
+import type { NodeTemplate } from './node-types'
+import { Workflow, Play, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NodeSettingsPanel } from './node-settings-panel'
+import { useTranslations } from 'next-intl'
 import type { NodeData } from '@/lib/bot-editor/types/component-schemas'
 import { DEFAULT_NODE_DATA } from '@/lib/bot-editor/types/component-schemas'
 
@@ -31,7 +33,6 @@ interface FlowCanvasProps {
   initialNodes?: Node[]
   initialEdges?: Edge[]
   onChange?: (nodes: Node[], edges: Edge[]) => void
-  onSave?: (nodes: Node[], edges: Edge[]) => void
   onTest?: (nodes: Node[], edges: Edge[]) => void
   testButtonLabel?: string
   isTestActive?: boolean
@@ -66,10 +67,58 @@ const applyNodeWrapperStyle = (node: Node): Node => {
   }
 }
 
-const getNodePosition = (type: string, index: number) => {
+const getFallbackNodePosition = (index: number) => {
   const baseY = 100
   const spacingY = 120
   return { x: 350, y: baseY + (index * spacingY) }
+}
+
+const mergeTemplateData = (type: string, templateData?: Record<string, unknown>) => {
+  const defaultData = DEFAULT_NODE_DATA[type] || {}
+  if (!templateData) {
+    return defaultData
+  }
+
+  return {
+    ...defaultData,
+    ...templateData,
+  }
+}
+
+const migrateLegacyHttpActionNode = (node: Node): Node => {
+  if (node.type !== 'action') {
+    return node
+  }
+
+  const nodeData = (node.data || {}) as Record<string, unknown>
+  const actionRaw = nodeData.action
+  if (!actionRaw || typeof actionRaw !== 'object') {
+    return node
+  }
+
+  const action = actionRaw as Record<string, unknown>
+  if (String(action.type) !== 'httpRequest') {
+    return node
+  }
+
+  const httpDefaults = mergeTemplateData('http')
+  return {
+    ...node,
+    type: 'http',
+    data: {
+      ...httpDefaults,
+      ...nodeData,
+      url: action.url || '',
+      method: action.method || 'GET',
+      headers: action.headers || [],
+      body: action.body ?? '',
+      bodyType: action.bodyType || 'json',
+      saveToVariable: action.saveToVariable || '',
+      timeout: action.timeout || 30000,
+      __label: nodeData.__label || 'HTTP',
+      __description: nodeData.__description || 'Migrated from legacy Action HTTP',
+    },
+  }
 }
 
 // Get available variable names from nodes
@@ -82,15 +131,21 @@ const extractVariableNames = (nodes: Node[]): string[] => {
   // Extract variables from Input nodes
   nodes.forEach((node) => {
     if (node.type === 'input') {
-      const data = node.data as any
+      const data = node.data as { variableName?: string }
       if (data.variableName) {
         variables.push(data.variableName)
       }
     }
     if (node.type === 'action') {
-      const data = node.data as any
+      const data = node.data as { action?: { variableName?: string } }
       if (data.action?.variableName) {
         variables.push(data.action.variableName)
+      }
+    }
+    if (node.type === 'http' || node.type === 'webhook') {
+      const data = node.data as { saveToVariable?: string }
+      if (data.saveToVariable) {
+        variables.push(data.saveToVariable)
       }
     }
   })
@@ -102,13 +157,15 @@ function FlowCanvasInner({
   initialNodes = [],
   initialEdges = [],
   onChange,
-  onSave,
   onTest,
   testButtonLabel = 'Тест',
   isTestActive = false,
 }: FlowCanvasProps) {
+  const t = useTranslations('editor.canvas')
+  const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
+  const { screenToFlowPosition } = useReactFlow()
   const preparedInitialNodes = useMemo(
-    () => initialNodes.map(applyNodeWrapperStyle),
+    () => initialNodes.map(migrateLegacyHttpActionNode).map(applyNodeWrapperStyle),
     [initialNodes]
   )
 
@@ -126,24 +183,59 @@ function FlowCanvasInner({
     [setEdges]
   )
 
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId))
+    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId))
+    if (selectedNode?.id === nodeId) {
+      setSelectedNode(null)
+      setSettingsPanelOpen(false)
+    }
+  }, [setNodes, setEdges, selectedNode])
+
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
   }, [])
 
+  const getVisibleCanvasCenterPosition = useCallback(() => {
+    if (!canvasWrapperRef.current) {
+      return null
+    }
+
+    const bounds = canvasWrapperRef.current.getBoundingClientRect()
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return null
+    }
+
+    return screenToFlowPosition({
+      x: bounds.left + bounds.width / 2,
+      y: bounds.top + bounds.height / 2,
+    })
+  }, [screenToFlowPosition])
+
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault()
 
-      const type = event.dataTransfer.getData('application/reactflow')
-      if (!type) return
-
-      const position = {
-        x: event.clientX - 400,
-        y: event.clientY - 100,
+      const templatePayload = event.dataTransfer.getData('application/reactflow-template')
+      let template: { type?: string; data?: Record<string, unknown> } | null = null
+      if (templatePayload) {
+        try {
+          template = JSON.parse(templatePayload) as { type?: string; data?: Record<string, unknown> }
+        } catch {
+          template = null
+        }
       }
 
-      const defaultData = DEFAULT_NODE_DATA[type] || {}
+      const type = template?.type || event.dataTransfer.getData('application/reactflow')
+      if (!type) return
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      })
+
+      const defaultData = mergeTemplateData(type, template?.data)
 
       setNodes((nds) => {
         const newNode: Node = {
@@ -159,26 +251,25 @@ function FlowCanvasInner({
         return [...nds, applyNodeWrapperStyle(newNode)]
       })
     },
-    [setNodes]
+    [setNodes, handleDeleteNode, screenToFlowPosition]
   )
 
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => nds.filter((n) => n.id !== nodeId))
-    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId))
-    if (selectedNode?.id === nodeId) {
-      setSelectedNode(null)
-      setSettingsPanelOpen(false)
-    }
-  }, [setNodes, setEdges, selectedNode])
-
-  const handleAddNode = useCallback((type: string) => {
-    const defaultData = DEFAULT_NODE_DATA[type] || {}
+  const handleAddNode = useCallback((template: NodeTemplate) => {
+    const defaultData = mergeTemplateData(template.type, template.data)
 
     setNodes((nds) => {
+      const visibleCenter = getVisibleCanvasCenterPosition()
+      const fallbackPosition = getFallbackNodePosition(nds.length)
+      const basePosition = visibleCenter || fallbackPosition
+      const stackOffset = (nds.length % 5) * 20
+
       const newNode: Node = {
         id: createUniqueNodeId(nds),
-        type,
-        position: getNodePosition(type, nds.length),
+        type: template.type,
+        position: {
+          x: basePosition.x + stackOffset,
+          y: basePosition.y + stackOffset,
+        },
         data: {
           ...defaultData,
           onDelete: (id: string) => handleDeleteNode(id),
@@ -187,16 +278,16 @@ function FlowCanvasInner({
 
       return [...nds, applyNodeWrapperStyle(newNode)]
     })
-  }, [setNodes, handleDeleteNode])
+  }, [setNodes, handleDeleteNode, getVisibleCanvasCenterPosition])
 
   const handleClearCanvas = useCallback(() => {
-    if (confirm('Вы уверены, что хотите очистить холст?')) {
+    if (confirm(t('clearConfirm'))) {
       setNodes([])
       setEdges([])
       setSelectedNode(null)
       setSettingsPanelOpen(false)
     }
-  }, [setNodes, setEdges])
+  }, [setNodes, setEdges, t])
 
   const handleNodeUpdate = useCallback((nodeId: string, newData: Partial<NodeData>) => {
     setNodes((nds) =>
@@ -220,11 +311,6 @@ function FlowCanvasInner({
 
   const availableVariables = useMemo(() => extractVariableNames(nodes), [nodes])
 
-  const edgeOptions = useMemo(() => ({
-    animated: true,
-    style: { stroke: '#24A1DE', strokeWidth: 2 }
-  }), [])
-
   const defaultEdgeOptions = useMemo(() => ({
     animated: true,
     style: { stroke: '#24A1DE', strokeWidth: 2 },
@@ -234,7 +320,7 @@ function FlowCanvasInner({
   return (
     <div className="w-full h-full flex">
       {/* Canvas Area */}
-      <div className="flex-1">
+      <div className="flex-1" ref={canvasWrapperRef}>
         <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -253,10 +339,10 @@ function FlowCanvasInner({
       >
         {/* Custom Grid Background */}
         <BackgroundComponent
-          variant={BackgroundVariant.Dots}
-          gap={20}
+          variant={BackgroundVariant.Lines}
+          gap={24}
           size={1}
-          color="rgba(255, 255, 255, 0.05)"
+          color="rgba(255, 255, 255, 0.06)"
         />
 
         {/* Controls */}
@@ -277,7 +363,9 @@ function FlowCanvasInner({
               condition: '#F59E0B',
               action: '#8B5CF6',
               input: '#10B981',
-              webhook: '#EF4444'
+              http: '#F43F5E',
+              webhook: '#EF4444',
+              trigger: '#6366F1',
             }
             return colors[node.type as keyof typeof colors] || '#71717A'
           }}
@@ -295,16 +383,7 @@ function FlowCanvasInner({
               onClick={handleClearCanvas}
             >
               <Trash2 className="w-4 h-4" />
-              Очистить
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-zinc-900/80 backdrop-blur-xl border-white/10"
-              onClick={() => onSave?.(nodes, edges)}
-            >
-              <Save className="w-4 h-4" />
-              Сохранить
+              {t('clearCanvas')}
             </Button>
             <Button
               size="sm"
@@ -324,17 +403,21 @@ function FlowCanvasInner({
         {/* Left Panel - Node Palette */}
         <Panel position="top-left" className="!transform-none !left-4 !top-4">
           <div className="w-44 rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-3">
-            <h3 className="text-xs font-semibold text-white mb-3">Node Palette</h3>
+            <h3 className="text-xs font-semibold text-white mb-3">{t('nodes')}</h3>
             <div className="space-y-1.5">
               {nodeTemplates.map((node) => (
                 <div
-                  key={node.type}
+                  key={node.id}
                   draggable
                   onDragStart={(e) => {
                     e.dataTransfer.setData('application/reactflow', node.type)
+                    e.dataTransfer.setData('application/reactflow-template', JSON.stringify({
+                      type: node.type,
+                      data: node.data || {},
+                    }))
                     e.dataTransfer.effectAllowed = 'move'
                   }}
-                  onClick={() => handleAddNode(node.type)}
+                  onClick={() => handleAddNode(node)}
                   className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
                 >
                   <div className="flex items-center gap-2">
@@ -354,11 +437,11 @@ function FlowCanvasInner({
             <div className="mt-3 pt-3 border-t border-white/10">
               <div className="text-[10px] text-zinc-500 space-y-1">
                 <div className="flex justify-between">
-                  <span>Nodes:</span>
+                  <span>{t('nodes')}:</span>
                   <span className="text-white">{nodes.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Connections:</span>
+                  <span>{t('connections')}:</span>
                   <span className="text-white">{edges.length}</span>
                 </div>
               </div>
@@ -373,9 +456,9 @@ function FlowCanvasInner({
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#24A1DE]/10 to-[#8B5CF6]/10 border border-white/10 flex items-center justify-center mx-auto mb-4">
                 <Workflow className="w-10 h-10 text-zinc-600" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Canvas Empty</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">{t('canvasEmpty')}</h3>
               <p className="text-zinc-400 text-sm mb-4 max-w-sm mx-auto">
-                Start building your bot workflow by dragging nodes from the palette or clicking on them.
+                {t('startBuilding')}
               </p>
             </div>
           </Panel>

@@ -1,6 +1,7 @@
 'use client'
 
 import { memo } from 'react'
+import type { ComponentType } from 'react'
 import { Handle, Position, NodeProps } from 'reactflow'
 import {
   MessageSquare,
@@ -8,6 +9,8 @@ import {
   Zap,
   Keyboard,
   Webhook,
+  Globe,
+  Play,
   Trash2,
   Settings
 } from 'lucide-react'
@@ -30,8 +33,12 @@ const getNodeStyles = (type: string) => {
       return `${baseNodeStyles} bg-purple-500/10 border-purple-500/30`
     case 'input':
       return `${baseNodeStyles} bg-green-500/10 border-green-500/30`
+    case 'http':
+      return `${baseNodeStyles} bg-rose-500/10 border-rose-500/30`
     case 'webhook':
       return `${baseNodeStyles} bg-red-500/10 border-red-500/30`
+    case 'trigger':
+      return `${baseNodeStyles} bg-indigo-500/10 border-indigo-500/30`
     default:
       return `${baseNodeStyles} bg-zinc-500/10 border-zinc-500/30`
   }
@@ -50,8 +57,12 @@ const getNodeIcon = (type: string) => {
       return <Zap className={iconClassName} style={{ color: nodeColor }} />
     case 'input':
       return <Keyboard className={iconClassName} style={{ color: nodeColor }} />
+    case 'http':
+      return <Globe className={iconClassName} style={{ color: nodeColor }} />
     case 'webhook':
       return <Webhook className={iconClassName} style={{ color: nodeColor }} />
+    case 'trigger':
+      return <Play className={iconClassName} style={{ color: nodeColor }} />
     default:
       return <Settings className={iconClassName} style={{ color: nodeColor }} />
   }
@@ -63,17 +74,68 @@ const getNodeColor = (type: string) => {
     case 'condition': return '#F59E0B'
     case 'action': return '#8B5CF6'
     case 'input': return '#10B981'
+    case 'http': return '#F43F5E'
     case 'webhook': return '#EF4444'
+    case 'trigger': return '#6366F1'
     default: return '#71717A'
   }
 }
 
+const getTriggerNodeLabel = (data: Record<string, unknown>): string => {
+  const triggerType = String(data.trigger || 'command')
+
+  switch (triggerType) {
+    case 'callbackQuery':
+      return 'Callback Trigger'
+    case 'text':
+      return 'Text Trigger'
+    case 'photo':
+      return 'Photo Trigger'
+    case 'any':
+      return 'Any Trigger'
+    case 'command':
+    default:
+      return 'Command Trigger'
+  }
+}
+
+const getTriggerNodeDescription = (data: Record<string, unknown>): string => {
+  const triggerType = String(data.trigger || 'command')
+  const pattern = String(data.pattern || '').trim()
+
+  switch (triggerType) {
+    case 'callbackQuery':
+      return pattern ? `Callback: ${pattern}` : 'Starts on any callback'
+    case 'text':
+      return pattern ? `Matches text: ${pattern}` : 'Matches incoming text'
+    case 'photo':
+      return 'Starts on photo'
+    case 'any':
+      return 'Starts on any update'
+    case 'command':
+    default:
+      return `Starts on ${pattern || '/start'}`
+  }
+}
+
 // Base Custom Node Component
-const CustomNode = ({ data, type, selected }: NodeProps) => {
+const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const nodeColor = getNodeColor(type || data.type)
+  const normalizedType = type || data.type
+  const triggerData =
+    normalizedType === 'trigger' ? (data as Record<string, unknown>) : null
+
+  const nodeLabel =
+    normalizedType === 'trigger' && triggerData
+      ? getTriggerNodeLabel(triggerData)
+      : data.__label || data.label || normalizedType
+  const nodeDescription =
+    normalizedType === 'trigger' && triggerData
+      ? getTriggerNodeDescription(triggerData)
+      : data.__description || data.description
 
   return (
-    <div className={`${getNodeStyles(type || data.type)} ${selected ? 'ring-2 ring-white/50' : ''}`}>
+    <div className={`${getNodeStyles(normalizedType)} ${selected ? 'ring-2 ring-white/50' : ''}`}>
       {/* Input Handle */}
       {type !== 'trigger' && (
         <Handle
@@ -90,17 +152,17 @@ const CustomNode = ({ data, type, selected }: NodeProps) => {
           className="p-1 rounded"
           style={{ backgroundColor: `${nodeColor}33` }}
         >
-          {getNodeIcon(type || data.type)}
+          {getNodeIcon(normalizedType)}
         </div>
         <div className="text-xs font-medium text-white capitalize truncate">
-          {data.__label || data.label || type}
+          {nodeLabel}
         </div>
       </div>
 
       {/* Node Content */}
-      {(data.__description || data.description) && (
+      {nodeDescription && (
         <div className="text-[10px] text-zinc-400 mt-1 line-clamp-1">
-          {data.__description || data.description}
+          {nodeDescription}
         </div>
       )}
 
@@ -109,7 +171,7 @@ const CustomNode = ({ data, type, selected }: NodeProps) => {
         <div className="absolute -right-6 top-1/2 -translate-y-1/2 flex flex-col gap-1">
           <button
             className="p-1 rounded bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 transition-colors"
-            onClick={() => data.onDelete?.(data.id)}
+            onClick={() => data.onDelete?.(id)}
           >
             <Trash2 className="w-2.5 h-2.5 text-red-400" />
           </button>
@@ -140,11 +202,29 @@ const CustomNode = ({ data, type, selected }: NodeProps) => {
 }
 
 // Memoized node components for each type
-export const MessageNode = memo((props: NodeProps) => <CustomNode {...props} type="message" />)
-export const ConditionNode = memo((props: NodeProps) => <CustomNode {...props} type="condition" />)
-export const ActionNode = memo((props: NodeProps) => <CustomNode {...props} type="action" />)
-export const InputNode = memo((props: NodeProps) => <CustomNode {...props} type="input" />)
-export const WebhookNode = memo((props: NodeProps) => <CustomNode {...props} type="webhook" />)
+const MessageNodeComponent = (props: NodeProps) => <CustomNode {...props} type="message" />
+const ConditionNodeComponent = (props: NodeProps) => <CustomNode {...props} type="condition" />
+const ActionNodeComponent = (props: NodeProps) => <CustomNode {...props} type="action" />
+const InputNodeComponent = (props: NodeProps) => <CustomNode {...props} type="input" />
+const HttpNodeComponent = (props: NodeProps) => <CustomNode {...props} type="http" />
+const WebhookNodeComponent = (props: NodeProps) => <CustomNode {...props} type="webhook" />
+const TriggerNodeComponent = (props: NodeProps) => <CustomNode {...props} type="trigger" />
+
+MessageNodeComponent.displayName = 'MessageNodeComponent'
+ConditionNodeComponent.displayName = 'ConditionNodeComponent'
+ActionNodeComponent.displayName = 'ActionNodeComponent'
+InputNodeComponent.displayName = 'InputNodeComponent'
+HttpNodeComponent.displayName = 'HttpNodeComponent'
+WebhookNodeComponent.displayName = 'WebhookNodeComponent'
+TriggerNodeComponent.displayName = 'TriggerNodeComponent'
+
+export const MessageNode = memo(MessageNodeComponent)
+export const ConditionNode = memo(ConditionNodeComponent)
+export const ActionNode = memo(ActionNodeComponent)
+export const InputNode = memo(InputNodeComponent)
+export const HttpNode = memo(HttpNodeComponent)
+export const WebhookNode = memo(WebhookNodeComponent)
+export const TriggerNode = memo(TriggerNodeComponent)
 
 // Node type mapping for ReactFlow
 export const nodeTypes = {
@@ -152,12 +232,59 @@ export const nodeTypes = {
   condition: ConditionNode,
   action: ActionNode,
   input: InputNode,
+  http: HttpNode,
   webhook: WebhookNode,
+  trigger: TriggerNode,
+}
+
+export interface NodeTemplate {
+  id: string
+  type: string
+  label: string
+  description: string
+  color: string
+  gradient: string
+  border: string
+  icon: ComponentType<{ className?: string }>
+  data?: Record<string, unknown>
 }
 
 // Node templates for palette
-export const nodeTemplates = [
+export const nodeTemplates: NodeTemplate[] = [
   {
+    id: 'trigger-command',
+    type: 'trigger',
+    label: 'Command Trigger',
+    description: 'Start workflow when user sends command',
+    color: '#6366F1',
+    gradient: 'from-indigo-500/20 to-indigo-600/10',
+    border: 'border-indigo-500/30',
+    icon: Play,
+    data: {
+      trigger: 'command',
+      pattern: '/start',
+      __label: 'Command Trigger',
+      __description: 'Starts on command',
+    },
+  },
+  {
+    id: 'trigger-callback',
+    type: 'trigger',
+    label: 'Callback Trigger',
+    description: 'Start workflow from inline button click',
+    color: '#6366F1',
+    gradient: 'from-indigo-500/20 to-indigo-600/10',
+    border: 'border-indigo-500/30',
+    icon: Play,
+    data: {
+      trigger: 'callbackQuery',
+      pattern: '',
+      __label: 'Callback Trigger',
+      __description: 'Starts on callback query',
+    },
+  },
+  {
+    id: 'message',
     type: 'message',
     label: 'Message',
     description: 'Send text, images, or media to user',
@@ -167,6 +294,7 @@ export const nodeTemplates = [
     icon: MessageSquare
   },
   {
+    id: 'condition',
     type: 'condition',
     label: 'Condition',
     description: 'Branch workflow based on conditions',
@@ -176,6 +304,7 @@ export const nodeTemplates = [
     icon: GitBranch
   },
   {
+    id: 'action',
     type: 'action',
     label: 'Action',
     description: 'Perform custom actions',
@@ -185,6 +314,7 @@ export const nodeTemplates = [
     icon: Zap
   },
   {
+    id: 'input',
     type: 'input',
     label: 'Input',
     description: 'Request user input or data',
@@ -194,12 +324,15 @@ export const nodeTemplates = [
     icon: Keyboard
   },
   {
-    type: 'webhook',
-    label: 'Webhook',
-    description: 'Call external APIs or services',
-    color: '#EF4444',
-    gradient: 'from-red-500/20 to-red-600/10',
-    border: 'border-red-500/30',
-    icon: Webhook
-  }
+    id: 'http',
+    type: 'http',
+    label: 'HTTP',
+    description: 'Make HTTP requests to external APIs',
+    color: '#F43F5E',
+    gradient: 'from-rose-500/20 to-rose-600/10',
+    border: 'border-rose-500/30',
+    icon: Globe,
+  },
+  // Legacy 'webhook' node type is still supported in runtime/config,
+  // but hidden from palette in favor of the dedicated HTTP node.
 ]

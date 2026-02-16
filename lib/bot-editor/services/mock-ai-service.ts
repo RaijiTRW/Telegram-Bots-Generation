@@ -233,22 +233,22 @@ function analyzePrompt(prompt: string): AIResponse {
     }
   }
 
-  // Webhook / API patterns
+  // HTTP / API patterns
   if (lowerPrompt.match(/webhook|api|external|fetch|http|request|integration/)) {
     return {
-      message: "I've created a webhook node that calls an external API and uses the response in your bot flow.",
+      message: "I've created an HTTP node that calls an external API and uses the response in your bot flow.",
       nodes: [
         {
-          id: generateId('webhook'),
-          type: 'webhook',
+          id: generateId('http'),
+          type: 'http',
           position: getNextPosition(),
           data: {
             _label: 'Fetch Weather',
             _description: 'Call weather API',
             url: 'https://api.example.com/weather',
             method: 'GET',
-            headers: { 'Authorization': 'Bearer YOUR_API_KEY' },
-            responseVariable: 'weather_data'
+            headers: [{ key: 'Authorization', value: 'Bearer YOUR_API_KEY' }],
+            saveToVariable: 'weather_data'
           }
         },
         {
@@ -371,7 +371,7 @@ function analyzePrompt(prompt: string): AIResponse {
     ],
     suggestions: [
       'Try being more specific about what you want',
-      'Mention specific features like menus, conditions, or webhooks',
+      'Mention specific features like menus, conditions, or HTTP requests',
       'Describe the flow step by step'
     ]
   }
@@ -398,5 +398,5 @@ export const QUICK_PROMPTS: QuickPrompt[] = [
   { id: '3', label: 'Keyword responder', prompt: 'Set up a keyword responder', icon: '🔑' },
   { id: '4', label: 'Survey form', prompt: 'Create a survey form with 3 questions', icon: '📝' },
   { id: '5', label: 'Conditional flow', prompt: 'Add a condition to check if user is registered', icon: '🔀' },
-  { id: '6', label: 'Webhook integration', prompt: 'Add a webhook to fetch external data', icon: '🔗' },
+  { id: '6', label: 'HTTP integration', prompt: 'Add an HTTP node to fetch external data', icon: '🔗' },
 ]

@@ -362,7 +362,6 @@ export function Features() {
                     </div>
                   )}
                 </div>
-                </div>
               </motion.div>
             );
           })}

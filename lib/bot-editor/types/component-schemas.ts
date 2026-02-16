@@ -9,7 +9,7 @@
 
 export type ParseMode = 'None' | 'Markdown' | 'MarkdownV2' | 'HTML'
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS'
 
 export type ComparisonOperator =
   | 'equals'
@@ -21,11 +21,10 @@ export type ComparisonOperator =
 
 export type ActionType =
   | 'setVariable'
-  | 'httpRequest'
   | 'delay'
   | 'deleteMessage'
 
-export type TriggerType = 'command' | 'text' | 'callbackQuery' | 'photo'
+export type TriggerType = 'command' | 'text' | 'callbackQuery' | 'photo' | 'any'
 
 // ============================================================================
 // NODE DATA TYPES (simplified with 'any')
@@ -54,6 +53,8 @@ export interface InputNodeData extends BaseNodeData {
   validation?: any[]
   errorMessage?: string
   keyboard?: any
+  forceReply?: boolean
+  inputPlaceholder?: string
   skipButton?: boolean
   skipValue?: any
 }
@@ -72,6 +73,18 @@ export interface ActionNodeData extends BaseNodeData {
   action: any
   onError?: string
   retryCount?: number
+}
+
+export interface HttpNodeData extends BaseNodeData {
+  type: 'http'
+  url: string
+  method: HttpMethod
+  headers?: Array<{ key: string; value: string }>
+  queryParams?: Array<{ key: string; value: string }>
+  body?: any
+  bodyType?: 'json' | 'form' | 'raw' | 'none'
+  saveToVariable?: string
+  timeout?: number
 }
 
 export interface WebhookNodeData extends BaseNodeData {
@@ -114,6 +127,7 @@ export type NodeData =
   | InputNodeData
   | ConditionNodeData
   | ActionNodeData
+  | HttpNodeData
   | WebhookNodeData
   | TriggerNodeData
   | WaitNodeData
@@ -168,9 +182,18 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
   action: {
     type: 'action',
     label: 'Действие',
-    description: 'Выполнить действие (установить переменную, HTTP запрос и т.д.)',
+    description: 'Выполнить действие (переменные, задержки, удаление сообщений)',
     color: '#8B5CF6',
     icon: 'Zap',
+    category: 'data',
+    editable: true,
+  },
+  http: {
+    type: 'http',
+    label: 'HTTP',
+    description: 'HTTP запрос во внешний API (GET, POST и т.д.)',
+    color: '#F43F5E',
+    icon: 'Globe',
     category: 'data',
     editable: true,
   },
@@ -227,6 +250,8 @@ export const DEFAULT_NODE_DATA: Record<string, any> = {
     question: '',
     variableName: '',
     parseMode: 'None',
+    forceReply: true,
+    inputPlaceholder: '',
     skipButton: false,
   },
   condition: {
@@ -239,6 +264,16 @@ export const DEFAULT_NODE_DATA: Record<string, any> = {
   action: {
     action: { type: 'setVariable', variableName: '', value: '' },
     onError: 'continue',
+  },
+  http: {
+    url: '',
+    method: 'GET',
+    headers: [],
+    queryParams: [],
+    body: '',
+    bodyType: 'json',
+    saveToVariable: '',
+    timeout: 30000,
   },
   webhook: {
     url: '',

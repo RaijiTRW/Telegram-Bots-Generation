@@ -9,7 +9,16 @@ export type BotStatus = 'draft' | 'active' | 'archived' | 'error'
 
 export type EditorSection = 'ai-chat' | 'canvas' | 'settings' | 'system'
 
-export type NodeType = 'message' | 'input' | 'condition' | 'action' | 'webhook' | 'trigger' | 'wait' | 'comment'
+export type NodeType =
+  | 'message'
+  | 'input'
+  | 'condition'
+  | 'action'
+  | 'http'
+  | 'webhook'
+  | 'trigger'
+  | 'wait'
+  | 'comment'
 
 export interface Bot {
   id: string

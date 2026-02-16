@@ -8,6 +8,7 @@ import {
   GitBranch,
   Zap,
   Webhook,
+  Globe,
   Play,
   Clock,
   MessageCircle,
@@ -18,6 +19,7 @@ import {
   Save,
   type LucideIcon,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,6 +39,7 @@ import type {
   InputNodeData,
   ConditionNodeData,
   ActionNodeData,
+  HttpNodeData,
   WebhookNodeData,
   TriggerNodeData,
   WaitNodeData,
@@ -44,10 +47,8 @@ import type {
   ParseMode,
   ComparisonOperator,
   HttpMethod,
-  ActionType,
-  NodeConfig,
 } from '@/lib/bot-editor/types/component-schemas'
-import { NODE_CONFIGS, DEFAULT_NODE_DATA } from '@/lib/bot-editor/types/component-schemas'
+import { NODE_CONFIGS } from '@/lib/bot-editor/types/component-schemas'
 import type { NodeType } from '@/lib/bot-editor/types/bot.types'
 
 interface NodeSettingsPanelProps {
@@ -63,6 +64,7 @@ const ICONS: Record<string, LucideIcon> = {
   input: Keyboard,
   condition: GitBranch,
   action: Zap,
+  http: Globe,
   webhook: Webhook,
   trigger: Play,
   wait: Clock,
@@ -70,6 +72,7 @@ const ICONS: Record<string, LucideIcon> = {
 }
 
 export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: NodeSettingsPanelProps) {
+  const t = useTranslations('editor.nodeSettings')
   const [data, setData] = useState<Partial<NodeData>>({})
   const [hasChanges, setHasChanges] = useState(false)
 
@@ -85,7 +88,7 @@ export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: N
       <div className="w-80 bg-zinc-900/95 backdrop-blur-xl border-l border-white/10 p-6">
         <div className="text-center text-zinc-500">
           <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>Выберите компонент для редактирования</p>
+          <p>{t('selectNode')}</p>
         </div>
       </div>
     )
@@ -118,7 +121,7 @@ export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: N
             </div>
             <div>
               <h3 className="text-white font-semibold">{config.label}</h3>
-              <p className="text-xs text-zinc-500">ID: {node.id}</p>
+              <p className="text-xs text-zinc-500">{t('nodeId')} {node.id}</p>
             </div>
           </div>
           <button
@@ -136,6 +139,7 @@ export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: N
           <MessageSettings
             data={data as MessageNodeData}
             onUpdate={handleUpdate}
+            t={t}
           />
         )}
         {nodeType === 'input' && (
@@ -143,6 +147,7 @@ export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: N
             data={data as InputNodeData}
             onUpdate={handleUpdate}
             variables={variables}
+            t={t}
           />
         )}
         {nodeType === 'condition' && (
@@ -150,6 +155,7 @@ export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: N
             data={data as ConditionNodeData}
             onUpdate={handleUpdate}
             variables={variables}
+            t={t}
           />
         )}
         {nodeType === 'action' && (
@@ -157,31 +163,42 @@ export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: N
             data={data as ActionNodeData}
             onUpdate={handleUpdate}
             variables={variables}
+            t={t}
+          />
+        )}
+        {nodeType === 'http' && (
+          <HttpSettings
+            data={data as HttpNodeData}
+            onUpdate={handleUpdate}
+            t={t}
           />
         )}
         {nodeType === 'webhook' && (
-          <WebhookSettings
+          <HttpSettings
             data={data as WebhookNodeData}
             onUpdate={handleUpdate}
-            variables={variables}
+            t={t}
           />
         )}
         {nodeType === 'trigger' && (
           <TriggerSettings
             data={data as TriggerNodeData}
             onUpdate={handleUpdate}
+            t={t}
           />
         )}
         {nodeType === 'wait' && (
           <WaitSettings
             data={data as WaitNodeData}
             onUpdate={handleUpdate}
+            t={t}
           />
         )}
         {nodeType === 'comment' && (
           <CommentSettings
             data={data as CommentNodeData}
             onUpdate={handleUpdate}
+            t={t}
           />
         )}
       </div>
@@ -194,7 +211,7 @@ export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: N
             className="w-full gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6]"
           >
             <Save className="w-4 h-4" />
-            Сохранить
+            {t('save')}
           </Button>
         </div>
       )}
@@ -209,29 +226,33 @@ export function NodeSettingsPanel({ node, onUpdate, onClose, variables = [] }: N
 function MessageSettings({
   data,
   onUpdate,
+  t,
 }: {
   data: MessageNodeData
   onUpdate: (data: Partial<MessageNodeData>) => void
+  t: (key: string) => string
 }) {
+  const tm = (key: string) => t(`message.${key}`)
+
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="msg-text">Текст сообщения</Label>
+        <Label htmlFor="msg-text">{tm('textLabel')}</Label>
         <Textarea
           id="msg-text"
           value={data.text || ''}
           onChange={(e) => onUpdate({ text: e.target.value })}
-          placeholder="Введите текст сообщения..."
+          placeholder={tm('textPlaceholder')}
           rows={4}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
         <p className="text-xs text-zinc-500 mt-1">
-          Используйте {'{{переменная}}'} для вставки значений
+          {tm('variableHint')}
         </p>
       </div>
 
       <div>
-        <Label htmlFor="msg-parsemode">Форматирование</Label>
+        <Label htmlFor="msg-parsemode">{tm('formatting')}</Label>
         <Select
           value={data.parseMode || 'None'}
           onValueChange={(value) => onUpdate({ parseMode: value as ParseMode })}
@@ -240,17 +261,17 @@ function MessageSettings({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="None">Без форматирования</SelectItem>
-            <SelectItem value="Markdown">Markdown</SelectItem>
-            <SelectItem value="MarkdownV2">MarkdownV2</SelectItem>
-            <SelectItem value="HTML">HTML</SelectItem>
+            <SelectItem value="None">{tm('none')}</SelectItem>
+            <SelectItem value="Markdown">{tm('markdown')}</SelectItem>
+            <SelectItem value="MarkdownV2">{tm('markdownV2')}</SelectItem>
+            <SelectItem value="HTML">{tm('html')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label htmlFor="msg-preview">Отключить превью ссылок</Label>
+          <Label htmlFor="msg-preview">{tm('disablePreview')}</Label>
           <Switch
             id="msg-preview"
             checked={data.disableWebPagePreview || false}
@@ -258,7 +279,7 @@ function MessageSettings({
           />
         </div>
         <div className="flex items-center justify-between">
-          <Label htmlFor="msg-silent">Тихий режим (без звука)</Label>
+          <Label htmlFor="msg-silent">{tm('silentMode')}</Label>
           <Switch
             id="msg-silent"
             checked={data.disableNotification || false}
@@ -268,17 +289,18 @@ function MessageSettings({
       </div>
 
       <div>
-        <Label>Вложения</Label>
+        <Label>{tm('attachments')}</Label>
         <div className="mt-2 p-3 rounded-lg bg-zinc-800/30 border border-white/10 text-center text-zinc-500 text-sm">
-          Редактор вложений скоро будет доступен
+          {tm('attachmentsComingSoon')}
         </div>
       </div>
 
       <div>
-        <Label>Клавиатура (кнопки)</Label>
+        <Label>{tm('keyboard')}</Label>
         <InlineKeyboardEditor
           keyboard={data.keyboard}
           onChange={(keyboard) => onUpdate({ keyboard })}
+          t={t}
         />
       </div>
     </div>
@@ -293,41 +315,45 @@ function InputSettings({
   data,
   onUpdate,
   variables,
+  t,
 }: {
   data: InputNodeData
   onUpdate: (data: Partial<InputNodeData>) => void
   variables: string[]
+  t: (key: string) => string
 }) {
+  const ti = (key: string) => t(`input.${key}`)
+
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="input-question">Вопрос пользователю</Label>
+        <Label htmlFor="input-question">{ti('questionLabel')}</Label>
         <Textarea
           id="input-question"
           value={data.question || ''}
           onChange={(e) => onUpdate({ question: e.target.value })}
-          placeholder="Задайте вопрос..."
+          placeholder={ti('questionPlaceholder')}
           rows={3}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
       </div>
 
       <div>
-        <Label htmlFor="input-varname">Имя переменной</Label>
+        <Label htmlFor="input-varname">{ti('variableNameLabel')}</Label>
         <Input
           id="input-varname"
           value={data.variableName || ''}
           onChange={(e) => onUpdate({ variableName: e.target.value })}
-          placeholder="user_name"
+          placeholder={ti('variableNamePlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
         <p className="text-xs text-zinc-500 mt-1">
-          Ответ будет сохранён в эту переменную
+          {ti('variableHint')}
         </p>
       </div>
 
       <div>
-        <Label htmlFor="input-parsemode">Форматирование</Label>
+        <Label htmlFor="input-parsemode">{ti('formatting')}</Label>
         <Select
           value={data.parseMode || 'None'}
           onValueChange={(value) => onUpdate({ parseMode: value as ParseMode })}
@@ -336,17 +362,33 @@ function InputSettings({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="None">Без форматирования</SelectItem>
-            <SelectItem value="Markdown">Markdown</SelectItem>
-            <SelectItem value="MarkdownV2">MarkdownV2</SelectItem>
-            <SelectItem value="HTML">HTML</SelectItem>
+            <SelectItem value="None">{t('message.none')}</SelectItem>
+            <SelectItem value="Markdown">{t('message.markdown')}</SelectItem>
+            <SelectItem value="MarkdownV2">{t('message.markdownV2')}</SelectItem>
+            <SelectItem value="HTML">{t('message.html')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label htmlFor="input-skip">Кнопка "Пропустить"</Label>
+          <Label htmlFor="input-force-reply">{ti('forceReplyLabel')}</Label>
+          <Switch
+            id="input-force-reply"
+            checked={data.forceReply !== false}
+            onCheckedChange={(checked) => onUpdate({ forceReply: checked })}
+          />
+        </div>
+        {data.forceReply !== false && (
+          <Input
+            value={data.inputPlaceholder || ''}
+            onChange={(e) => onUpdate({ inputPlaceholder: e.target.value })}
+            placeholder={ti('inputPlaceholder')}
+            className="bg-zinc-800/50 border-white/10"
+          />
+        )}
+        <div className="flex items-center justify-between">
+          <Label htmlFor="input-skip">{ti('skipButtonLabel')}</Label>
           <Switch
             id="input-skip"
             checked={data.skipButton || false}
@@ -357,17 +399,18 @@ function InputSettings({
           <Input
             value={data.skipValue || ''}
             onChange={(e) => onUpdate({ skipValue: e.target.value })}
-            placeholder="Значение при пропуске"
+            placeholder={ti('skipValuePlaceholder')}
             className="bg-zinc-800/50 border-white/10"
           />
         )}
       </div>
 
       <div>
-        <Label>Клавиатура</Label>
+        <Label>{ti('keyboard')}</Label>
         <InlineKeyboardEditor
           keyboard={data.keyboard}
           onChange={(keyboard) => onUpdate({ keyboard })}
+          t={t}
         />
       </div>
     </div>
@@ -382,21 +425,41 @@ function ConditionSettings({
   data,
   onUpdate,
   variables,
+  t,
 }: {
   data: ConditionNodeData
   onUpdate: (data: Partial<ConditionNodeData>) => void
   variables: string[]
+  t: (key: string) => string
 }) {
+  const tc = (key: string) => t(`condition.${key}`)
+
+  const getConditionLabel = (op: string) => {
+    switch (op) {
+      case 'equals': return tc('equals')
+      case 'notEquals': return tc('notEquals')
+      case 'contains': return tc('contains')
+      case 'notContains': return tc('notContains')
+      case 'gt': return tc('gt')
+      case 'lt': return tc('lt')
+      case 'gte': return tc('gte')
+      case 'lte': return tc('lte')
+      case 'isEmpty': return tc('isEmpty')
+      case 'isNotEmpty': return tc('isNotEmpty')
+      default: return op
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="cond-var">Переменная</Label>
+        <Label htmlFor="cond-var">{tc('variableLabel')}</Label>
         <Select
           value={data.variable || ''}
           onValueChange={(value) => onUpdate({ variable: value })}
         >
           <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
-            <SelectValue placeholder="Выберите переменную" />
+            <SelectValue placeholder={tc('selectVariable')} />
           </SelectTrigger>
           <SelectContent>
             {variables.map((v) => (
@@ -413,7 +476,7 @@ function ConditionSettings({
       </div>
 
       <div>
-        <Label htmlFor="cond-op">Условие</Label>
+        <Label htmlFor="cond-op">{tc('conditionLabel')}</Label>
         <Select
           value={data.operator || 'equals'}
           onValueChange={(value) => onUpdate({ operator: value as ComparisonOperator })}
@@ -422,41 +485,38 @@ function ConditionSettings({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="equals">равно</SelectItem>
-            <SelectItem value="notEquals">не равно</SelectItem>
-            <SelectItem value="contains">содержит</SelectItem>
-            <SelectItem value="notContains">не содержит</SelectItem>
-            <SelectItem value="gt">больше чем</SelectItem>
-            <SelectItem value="lt">меньше чем</SelectItem>
-            <SelectItem value="gte">больше или равно</SelectItem>
-            <SelectItem value="lte">меньше или равно</SelectItem>
-            <SelectItem value="isEmpty">пусто</SelectItem>
-            <SelectItem value="isNotEmpty">не пусто</SelectItem>
+            <SelectItem value="equals">{tc('equals')}</SelectItem>
+            <SelectItem value="notEquals">{tc('notEquals')}</SelectItem>
+            <SelectItem value="contains">{tc('contains')}</SelectItem>
+            <SelectItem value="notContains">{tc('notContains')}</SelectItem>
+            <SelectItem value="gt">{tc('gt')}</SelectItem>
+            <SelectItem value="lt">{tc('lt')}</SelectItem>
+            <SelectItem value="gte">{tc('gte')}</SelectItem>
+            <SelectItem value="lte">{tc('lte')}</SelectItem>
+            <SelectItem value="isEmpty">{tc('isEmpty')}</SelectItem>
+            <SelectItem value="isNotEmpty">{tc('isNotEmpty')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div>
-        <Label htmlFor="cond-value">Значение</Label>
+        <Label htmlFor="cond-value">{tc('valueLabel')}</Label>
         <Input
           id="cond-value"
           value={data.value || ''}
           onChange={(e) => onUpdate({ value: e.target.value })}
-          placeholder="Значение для сравнения"
+          placeholder={tc('valuePlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
       </div>
 
       <div className="p-3 rounded-lg bg-zinc-800/30 border border-white/10">
         <p className="text-sm text-zinc-400">
-          Если <span className="text-white font-medium">{'{{'}{data.variable || 'переменная'}{ '}}'}</span>{' '}
-          {data.operator === 'equals' && 'равно'}
-          {data.operator === 'notEquals' && 'не равно'}
-          {data.operator === 'contains' && 'содержит'}
-          {data.operator === 'gt' && 'больше чем'}
-          {data.operator === 'lt' && 'меньше чем'}
-          {' '}
-          <span className="text-white font-medium">"{data.value || '...'}"</span>
+          {tc('preview', {
+            variable: data.variable || 'variable',
+            condition: getConditionLabel(data.operator || 'equals'),
+            value: data.value || '...'
+          })}
         </p>
       </div>
     </div>
@@ -471,23 +531,26 @@ function ActionSettings({
   data,
   onUpdate,
   variables,
+  t,
 }: {
   data: ActionNodeData
   onUpdate: (data: Partial<ActionNodeData>) => void
   variables: string[]
+  t: (key: string) => string
 }) {
+  const ta = (key: string) => t(`action.${key}`)
   const actionType = data.action?.type || 'setVariable'
 
   return (
     <Tabs defaultValue="action" className="w-full">
       <TabsList className="grid w-full grid-cols-2 bg-zinc-800/50">
-        <TabsTrigger value="action">Действие</TabsTrigger>
-        <TabsTrigger value="error">Ошибка</TabsTrigger>
+        <TabsTrigger value="action">{ta('actionTab')}</TabsTrigger>
+        <TabsTrigger value="error">{ta('errorTab')}</TabsTrigger>
       </TabsList>
 
       <TabsContent value="action" className="space-y-4 mt-4">
         <div>
-          <Label htmlFor="action-type">Тип действия</Label>
+          <Label htmlFor="action-type">{ta('typeLabel')}</Label>
           <Select
             value={actionType}
             onValueChange={(value) =>
@@ -500,11 +563,10 @@ function ActionSettings({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="setVariable">Установить переменную</SelectItem>
-              <SelectItem value="httpRequest">HTTP запрос</SelectItem>
-              <SelectItem value="delay">Задержка</SelectItem>
-              <SelectItem value="deleteMessage">Удалить сообщение</SelectItem>
-              <SelectItem value="random">Случайный выбор</SelectItem>
+              <SelectItem value="setVariable">{ta('setVariable')}</SelectItem>
+              <SelectItem value="delay">{ta('delay')}</SelectItem>
+              <SelectItem value="deleteMessage">{ta('deleteMessage')}</SelectItem>
+              <SelectItem value="random">{ta('random')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -512,7 +574,7 @@ function ActionSettings({
         {actionType === 'setVariable' && (
           <>
             <div>
-              <Label htmlFor="setvar-name">Имя переменной</Label>
+              <Label htmlFor="setvar-name">{ta('variableNameLabel')}</Label>
               <Input
                 id="setvar-name"
                 value={(data.action as any)?.variableName || ''}
@@ -521,12 +583,12 @@ function ActionSettings({
                     action: { ...(data.action as any), variableName: e.target.value } as any,
                   })
                 }
-                placeholder="my_variable"
+                placeholder={ta('variableNamePlaceholder')}
                 className="mt-1.5 bg-zinc-800/50 border-white/10"
               />
             </div>
             <div>
-              <Label htmlFor="setvar-value">Значение</Label>
+              <Label htmlFor="setvar-value">{ta('valueLabel')}</Label>
               <Textarea
                 id="setvar-value"
                 value={(data.action as any)?.value || ''}
@@ -535,7 +597,7 @@ function ActionSettings({
                     action: { ...(data.action as any), value: e.target.value } as any,
                   })
                 }
-                placeholder="Значение или {{переменная}}"
+                placeholder={ta('valuePlaceholder')}
                 rows={2}
                 className="mt-1.5 bg-zinc-800/50 border-white/10"
               />
@@ -545,7 +607,7 @@ function ActionSettings({
 
         {actionType === 'delay' && (
           <div>
-            <Label htmlFor="delay-duration">Задержка (мс)</Label>
+            <Label htmlFor="delay-duration">{ta('delayLabel')}</Label>
             <Input
               id="delay-duration"
               type="number"
@@ -554,7 +616,7 @@ function ActionSettings({
                 onUpdate({
                   action: { ...(data.action as any), duration: Number(e.target.value) } as any,
                 })
-                }
+              }
               className="mt-1.5 bg-zinc-800/50 border-white/10"
             />
           </div>
@@ -562,7 +624,7 @@ function ActionSettings({
 
         {actionType === 'deleteMessage' && (
           <div>
-            <Label htmlFor="delete-delay">Удалить через (мс)</Label>
+            <Label htmlFor="delete-delay">{ta('deleteDelayLabel')}</Label>
             <Input
               id="delete-delay"
               type="number"
@@ -572,7 +634,7 @@ function ActionSettings({
                   action: { ...(data.action as any), delay: Number(e.target.value) } as any,
                 })
               }
-              placeholder="0 - сразу"
+              placeholder={ta('deleteDelayPlaceholder')}
               className="mt-1.5 bg-zinc-800/50 border-white/10"
             />
           </div>
@@ -581,7 +643,7 @@ function ActionSettings({
 
       <TabsContent value="error" className="space-y-4 mt-4">
         <div>
-          <Label htmlFor="action-onerror">При ошибке</Label>
+          <Label htmlFor="action-onerror">{ta('onErrorLabel')}</Label>
           <Select
             value={data.onError || 'continue'}
             onValueChange={(value) =>
@@ -592,16 +654,16 @@ function ActionSettings({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="continue">Продолжить</SelectItem>
-              <SelectItem value="stop">Остановить</SelectItem>
-              <SelectItem value="retry">Повторить</SelectItem>
+              <SelectItem value="continue">{ta('continue')}</SelectItem>
+              <SelectItem value="stop">{ta('stop')}</SelectItem>
+              <SelectItem value="retry">{ta('retry')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {data.onError === 'retry' && (
           <div>
-            <Label htmlFor="retry-count">Количество попыток</Label>
+            <Label htmlFor="retry-count">{ta('retryCountLabel')}</Label>
             <Input
               id="retry-count"
               type="number"
@@ -617,35 +679,152 @@ function ActionSettings({
 }
 
 // ============================================================================
-// WEBHOOK NODE SETTINGS
+// HTTP NODE SETTINGS
 // ============================================================================
 
-function WebhookSettings({
+type HttpPair = { key: string; value: string }
+
+type HttpLikeData = {
+  url?: string
+  method?: HttpMethod
+  headers?: unknown
+  queryParams?: unknown
+  body?: unknown
+  bodyType?: 'json' | 'form' | 'raw' | 'none'
+  saveToVariable?: string
+  timeout?: number
+}
+
+function normalizePairs(input: unknown): HttpPair[] {
+  if (Array.isArray(input)) {
+    return input.map((item) => {
+      const pair = (item || {}) as { key?: unknown; value?: unknown }
+      return {
+        key: String(pair.key ?? ''),
+        value: String(pair.value ?? ''),
+      }
+    })
+  }
+
+  if (input && typeof input === 'object') {
+    return Object.entries(input as Record<string, unknown>).map(([key, value]) => ({
+      key,
+      value: String(value ?? ''),
+    }))
+  }
+
+  return []
+}
+
+function KeyValueListEditor({
+  idPrefix,
+  label,
+  addLabel,
+  emptyLabel,
+  rows,
+  onChange,
+}: {
+  idPrefix: string
+  label: string
+  addLabel: string
+  emptyLabel: string
+  rows: HttpPair[]
+  onChange: (rows: HttpPair[]) => void
+}) {
+  const addRow = () => onChange([...rows, { key: '', value: '' }])
+  const removeRow = (index: number) => onChange(rows.filter((_, idx) => idx !== index))
+  const updateRow = (index: number, field: keyof HttpPair, value: string) => {
+    const next = [...rows]
+    next[index] = { ...next[index], [field]: value }
+    onChange(next)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 border-white/10"
+          onClick={addRow}
+        >
+          <Plus className="w-3 h-3 mr-1" />
+          {addLabel}
+        </Button>
+      </div>
+
+      {rows.length === 0 && (
+        <div className="text-xs text-zinc-500 border border-white/10 rounded-lg px-3 py-2">
+          {emptyLabel}
+        </div>
+      )}
+
+      {rows.map((row, index) => (
+        <div key={`${idPrefix}-${index}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+          <Input
+            id={`${idPrefix}-key-${index}`}
+            value={row.key}
+            onChange={(e) => updateRow(index, 'key', e.target.value)}
+            placeholder="key"
+            className="bg-zinc-800/50 border-white/10"
+          />
+          <Input
+            id={`${idPrefix}-value-${index}`}
+            value={row.value}
+            onChange={(e) => updateRow(index, 'value', e.target.value)}
+            placeholder="value"
+            className="bg-zinc-800/50 border-white/10"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="border-red-500/30 text-red-300 hover:text-red-200 hover:bg-red-500/10"
+            onClick={() => removeRow(index)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function HttpSettings({
   data,
   onUpdate,
-  variables,
+  t,
 }: {
-  data: WebhookNodeData
-  onUpdate: (data: Partial<WebhookNodeData>) => void
-  variables: string[]
+  data: HttpLikeData
+  onUpdate: (data: Partial<HttpLikeData>) => void
+  t: (key: string) => string
 }) {
+  const th = (key: string) => t(`webhook.${key}`)
+  const thttp = (key: string) => t(`http.${key}`)
+  const method = data.method || 'GET'
+  const methodSupportsBody = ['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(method)
+  const headers = normalizePairs(data.headers)
+  const queryParams = normalizePairs(data.queryParams)
+
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="webhook-url">URL</Label>
+        <Label htmlFor="http-url">{th('urlLabel')}</Label>
         <Input
-          id="webhook-url"
+          id="http-url"
           value={data.url || ''}
           onChange={(e) => onUpdate({ url: e.target.value })}
-          placeholder="https://api.example.com/endpoint"
+          placeholder={th('urlPlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
       </div>
 
       <div>
-        <Label htmlFor="webhook-method">Метод</Label>
+        <Label htmlFor="http-method">{th('methodLabel')}</Label>
         <Select
-          value={data.method || 'GET'}
+          value={method}
           onValueChange={(value) => onUpdate({ method: value as HttpMethod })}
         >
           <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
@@ -655,19 +834,41 @@ function WebhookSettings({
             <SelectItem value="GET">GET</SelectItem>
             <SelectItem value="POST">POST</SelectItem>
             <SelectItem value="PUT">PUT</SelectItem>
-            <SelectItem value="DELETE">DELETE</SelectItem>
             <SelectItem value="PATCH">PATCH</SelectItem>
+            <SelectItem value="DELETE">DELETE</SelectItem>
+            <SelectItem value="HEAD">HEAD</SelectItem>
+            <SelectItem value="OPTIONS">OPTIONS</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {(data.method === 'POST' || data.method === 'PUT' || data.method === 'PATCH') && (
+      <KeyValueListEditor
+        idPrefix="http-query"
+        label={thttp('queryParamsLabel')}
+        addLabel={thttp('addPair')}
+        emptyLabel={thttp('emptyList')}
+        rows={queryParams}
+        onChange={(rows) => onUpdate({ queryParams: rows })}
+      />
+
+      <KeyValueListEditor
+        idPrefix="http-headers"
+        label={thttp('headersLabel')}
+        addLabel={thttp('addPair')}
+        emptyLabel={thttp('emptyList')}
+        rows={headers}
+        onChange={(rows) => onUpdate({ headers: rows })}
+      />
+
+      {methodSupportsBody && (
         <>
           <div>
-            <Label htmlFor="webhook-bodytype">Тип тела запроса</Label>
+            <Label htmlFor="http-body-type">{th('bodyTypeLabel')}</Label>
             <Select
               value={data.bodyType || 'json'}
-              onValueChange={(value) => onUpdate({ bodyType: value as 'json' | 'form' | 'raw' })}
+              onValueChange={(value) =>
+                onUpdate({ bodyType: value as HttpLikeData['bodyType'] })
+              }
             >
               <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
                 <SelectValue />
@@ -676,38 +877,46 @@ function WebhookSettings({
                 <SelectItem value="json">JSON</SelectItem>
                 <SelectItem value="form">Form Data</SelectItem>
                 <SelectItem value="raw">Raw</SelectItem>
+                <SelectItem value="none">{thttp('bodyNone')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div>
-            <Label htmlFor="webhook-body">Тело запроса</Label>
-            <Textarea
-              id="webhook-body"
-              value={typeof data.body === 'string' ? data.body : JSON.stringify(data.body || {}, null, 2)}
-              onChange={(e) => {
-                try {
-                  const parsed = JSON.parse(e.target.value)
-                  onUpdate({ body: parsed })
-                } catch {
-                  onUpdate({ body: e.target.value })
-                }
-              }}
-              placeholder='{"key": "value"}'
-              rows={4}
-              className="mt-1.5 bg-zinc-800/50 border-white/10 font-mono text-sm"
-            />
-          </div>
+          {(data.bodyType || 'json') !== 'none' && (
+            <div>
+              <Label htmlFor="http-body">{th('bodyLabel')}</Label>
+              <Textarea
+                id="http-body"
+                value={typeof data.body === 'string' ? data.body : JSON.stringify(data.body || {}, null, 2)}
+                onChange={(e) => onUpdate({ body: e.target.value })}
+                placeholder={th('bodyPlaceholder')}
+                rows={5}
+                className="mt-1.5 bg-zinc-800/50 border-white/10 font-mono text-sm"
+              />
+            </div>
+          )}
         </>
       )}
 
       <div>
-        <Label htmlFor="webhook-savevar">Сохранить ответ в</Label>
+        <Label htmlFor="http-timeout">{thttp('timeoutLabel')}</Label>
         <Input
-          id="webhook-savevar"
+          id="http-timeout"
+          type="number"
+          min={100}
+          value={data.timeout || 30000}
+          onChange={(e) => onUpdate({ timeout: Number(e.target.value) || 30000 })}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="http-savevar">{th('saveResponseLabel')}</Label>
+        <Input
+          id="http-savevar"
           value={data.saveToVariable || ''}
           onChange={(e) => onUpdate({ saveToVariable: e.target.value })}
-          placeholder="api_response"
+          placeholder={th('saveResponsePlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
       </div>
@@ -722,53 +931,71 @@ function WebhookSettings({
 function TriggerSettings({
   data,
   onUpdate,
+  t,
 }: {
   data: TriggerNodeData
   onUpdate: (data: Partial<TriggerNodeData>) => void
+  t: (key: string) => string
 }) {
+  const tr = (key: string) => t(`trigger.${key}`)
+  const isCommandTrigger = data.trigger === 'command'
+  const isTextTrigger = data.trigger === 'text'
+  const isCallbackTrigger = data.trigger === 'callbackQuery'
+
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="trigger-type">Тип триггера</Label>
+        <Label htmlFor="trigger-type">{tr('typeLabel')}</Label>
         <Select
           value={data.trigger || 'command'}
-          onValueChange={(value) => onUpdate({ trigger: value as any })}
+          onValueChange={(value) => onUpdate({ trigger: value as TriggerNodeData['trigger'] })}
         >
           <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="command">Команда</SelectItem>
-            <SelectItem value="text">Текст</SelectItem>
-            <SelectItem value="callbackQuery">Callback Query</SelectItem>
-            <SelectItem value="photo">Фото</SelectItem>
-            <SelectItem value="any">Любое сообщение</SelectItem>
+            <SelectItem value="command">{tr('command')}</SelectItem>
+            <SelectItem value="text">{tr('text')}</SelectItem>
+            <SelectItem value="callbackQuery">{tr('callbackQuery')}</SelectItem>
+            <SelectItem value="photo">{tr('photo')}</SelectItem>
+            <SelectItem value="any">{tr('any')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {(data.trigger === 'command' || data.trigger === 'text') && (
+      {(isCommandTrigger || isTextTrigger || isCallbackTrigger) && (
         <div>
           <Label htmlFor="trigger-pattern">
-            {data.trigger === 'command' ? 'Команда' : 'Шаблон текста'}
+            {isCommandTrigger ? tr('command') : isCallbackTrigger ? 'Callback Data' : tr('patternLabel')}
           </Label>
           <Input
             id="trigger-pattern"
             value={data.pattern || ''}
             onChange={(e) => onUpdate({ pattern: e.target.value })}
-            placeholder={data.trigger === 'command' ? '/start' : 'Привет'}
+            placeholder={
+              isCommandTrigger
+                ? tr('commandPlaceholder')
+                : isCallbackTrigger
+                  ? 'Например: menu:settings'
+                  : tr('textPlaceholder')
+            }
             className="mt-1.5 bg-zinc-800/50 border-white/10"
           />
+          {isCallbackTrigger && (
+            <p className="text-xs text-zinc-500 mt-1">
+              Оставьте пустым, чтобы ловить любое нажатие inline-кнопки.
+            </p>
+          )}
         </div>
       )}
 
       <div>
-        <Label htmlFor="trigger-desc">Описание</Label>
+        <Label htmlFor="trigger-desc">{tr('descriptionLabel')}</Label>
         <Input
           id="trigger-desc"
           value={data.description || ''}
           onChange={(e) => onUpdate({ description: e.target.value })}
-          placeholder="Описание точки входа"
+          placeholder={tr('descriptionPlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
       </div>
@@ -783,14 +1010,18 @@ function TriggerSettings({
 function WaitSettings({
   data,
   onUpdate,
+  t,
 }: {
   data: WaitNodeData
   onUpdate: (data: Partial<WaitNodeData>) => void
+  t: (key: string) => string
 }) {
+  const tw = (key: string) => t(`wait.${key}`)
+
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="wait-for">Ожидать</Label>
+        <Label htmlFor="wait-for">{tw('waitForLabel')}</Label>
         <Select
           value={data.waitFor || 'message'}
           onValueChange={(value) => onUpdate({ waitFor: value as any })}
@@ -799,17 +1030,17 @@ function WaitSettings({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="message">Сообщение</SelectItem>
-            <SelectItem value="callbackQuery">Нажатие кнопки</SelectItem>
-            <SelectItem value="photo">Фото</SelectItem>
-            <SelectItem value="contact">Контакт</SelectItem>
-            <SelectItem value="location">Локация</SelectItem>
+            <SelectItem value="message">{tw('message')}</SelectItem>
+            <SelectItem value="callbackQuery">{tw('buttonClick')}</SelectItem>
+            <SelectItem value="photo">{tw('photo')}</SelectItem>
+            <SelectItem value="contact">{tw('contact')}</SelectItem>
+            <SelectItem value="location">{tw('location')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div>
-        <Label htmlFor="wait-timeout">Таймаут (мс)</Label>
+        <Label htmlFor="wait-timeout">{tw('timeoutLabel')}</Label>
         <Input
           id="wait-timeout"
           type="number"
@@ -817,16 +1048,16 @@ function WaitSettings({
           onChange={(e) => onUpdate({ timeout: Number(e.target.value) })}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
-        <p className="text-xs text-zinc-500 mt-1">300000 мс = 5 минут</p>
+        <p className="text-xs text-zinc-500 mt-1">{tw('timeoutHint')}</p>
       </div>
 
       <div>
-        <Label htmlFor="wait-savevar">Сохранить в переменную</Label>
+        <Label htmlFor="wait-savevar">{tw('saveToVariableLabel')}</Label>
         <Input
           id="wait-savevar"
           value={data.saveToVariable || ''}
           onChange={(e) => onUpdate({ saveToVariable: e.target.value })}
-          placeholder="user_input"
+          placeholder={tw('saveToVariablePlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
       </div>
@@ -841,26 +1072,30 @@ function WaitSettings({
 function CommentSettings({
   data,
   onUpdate,
+  t,
 }: {
   data: CommentNodeData
   onUpdate: (data: Partial<CommentNodeData>) => void
+  t: (key: string) => string
 }) {
+  const tco = (key: string) => t(`comment.${key}`)
+
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="comment-text">Текст комментария</Label>
+        <Label htmlFor="comment-text">{tco('textLabel')}</Label>
         <Textarea
           id="comment-text"
           value={data.text || ''}
           onChange={(e) => onUpdate({ text: e.target.value })}
-          placeholder="Оставьте заметку..."
+          placeholder={tco('textPlaceholder')}
           rows={4}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
       </div>
 
       <div>
-        <Label htmlFor="comment-color">Цвет</Label>
+        <Label htmlFor="comment-color">{tco('colorLabel')}</Label>
         <Select
           value={data.color || 'default'}
           onValueChange={(value) => onUpdate({ color: value as any })}
@@ -869,10 +1104,10 @@ function CommentSettings({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="default">Обычный</SelectItem>
-            <SelectItem value="info">Информация</SelectItem>
-            <SelectItem value="warning">Предупреждение</SelectItem>
-            <SelectItem value="error">Ошибка</SelectItem>
+            <SelectItem value="default">{tco('default')}</SelectItem>
+            <SelectItem value="info">{tco('info')}</SelectItem>
+            <SelectItem value="warning">{tco('warning')}</SelectItem>
+            <SelectItem value="error">{tco('error')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -886,13 +1121,38 @@ function CommentSettings({
 
 interface InlineKeyboardEditorProps {
   keyboard?: {
-    rows: Array<{ buttons: Array<{ id: string; text: string; callbackData?: string }> }>
+    rows: Array<{
+      buttons: Array<{
+        id: string
+        text: string
+        callbackData?: string
+        callback_data?: string
+        url?: string
+      }>
+    }>
   }
   onChange: (keyboard: any) => void
+  t: (key: string) => string
 }
 
-function InlineKeyboardEditor({ keyboard, onChange }: InlineKeyboardEditorProps) {
-  const rows = keyboard?.rows || []
+function InlineKeyboardEditor({ keyboard, onChange, t }: InlineKeyboardEditorProps) {
+  const tk = (key: string) => t(`keyboard.${key}`)
+  const tm = (key: string) => t(`message.${key}`)
+
+  const rows =
+    keyboard?.rows?.map((row) => ({
+      buttons: (row.buttons || []).map((button) => ({
+        ...button,
+        callbackData: button.callbackData || button.callback_data || '',
+      })),
+    })) || []
+  const buildDefaultCallbackData = (value: string) =>
+    `btn:${value
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_:-]/g, '')
+      .slice(0, 52) || 'button'}`
 
   const addRow = () => {
     onChange({
@@ -908,10 +1168,11 @@ function InlineKeyboardEditor({ keyboard, onChange }: InlineKeyboardEditorProps)
 
   const addButton = (rowIndex: number) => {
     const newRows = [...rows]
+    const id = `btn-${rowIndex}-${newRows[rowIndex].buttons.length + 1}`
     newRows[rowIndex].buttons.push({
-      id: `btn-${Date.now()}`,
-      text: 'Кнопка',
-      callbackData: `action_${Date.now()}`,
+      id,
+      text: tk('button'),
+      callbackData: buildDefaultCallbackData(id),
     })
     onChange({ rows: newRows })
   }
@@ -919,11 +1180,13 @@ function InlineKeyboardEditor({ keyboard, onChange }: InlineKeyboardEditorProps)
   const updateButton = (
     rowIndex: number,
     buttonIndex: number,
-    field: 'text' | 'callbackData',
+    field: 'text' | 'callbackData' | 'url',
     value: string
   ) => {
     const newRows = [...rows]
-    newRows[rowIndex].buttons[buttonIndex][field] = value
+    const current = newRows[rowIndex].buttons[buttonIndex]
+    current[field] = value
+
     onChange({ rows: newRows })
   }
 
@@ -938,7 +1201,7 @@ function InlineKeyboardEditor({ keyboard, onChange }: InlineKeyboardEditorProps)
       {rows.map((row, rowIndex) => (
         <div key={rowIndex} className="border border-white/10 rounded-lg p-2 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-500">Ряд {rowIndex + 1}</span>
+            <span className="text-xs text-zinc-500">{tk('row')} {rowIndex + 1}</span>
             <button
               onClick={() => removeRow(rowIndex)}
               className="p-1 rounded hover:bg-red-500/20 text-red-400"
@@ -950,19 +1213,28 @@ function InlineKeyboardEditor({ keyboard, onChange }: InlineKeyboardEditorProps)
             {row.buttons.map((button, buttonIndex) => (
               <div
                 key={button.id}
-                className="flex items-center gap-1 bg-zinc-800/50 rounded px-2 py-1"
+                className="w-full space-y-2 bg-zinc-800/50 rounded px-2 py-2"
               >
-                <input
-                  value={button.text}
-                  onChange={(e) => updateButton(rowIndex, buttonIndex, 'text', e.target.value)}
-                  className="bg-transparent text-sm text-white w-20 outline-none"
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={button.text}
+                    onChange={(e) => updateButton(rowIndex, buttonIndex, 'text', e.target.value)}
+                    placeholder={tk('button')}
+                    className="h-8 bg-zinc-900/40 border-white/10 text-sm"
+                  />
+                  <button
+                    onClick={() => removeButton(rowIndex, buttonIndex)}
+                    className="p-1 rounded hover:bg-red-500/20 text-red-400"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+                <Input
+                  value={button.callbackData || ''}
+                  onChange={(e) => updateButton(rowIndex, buttonIndex, 'callbackData', e.target.value)}
+                  placeholder={tk('callbackPlaceholder')}
+                  className="h-8 bg-zinc-900/40 border-white/10 text-xs font-mono"
                 />
-                <button
-                  onClick={() => removeButton(rowIndex, buttonIndex)}
-                  className="p-0.5 rounded hover:bg-red-500/20 text-red-400"
-                >
-                  <X className="w-3 h-3" />
-                </button>
               </div>
             ))}
             <button
@@ -981,7 +1253,7 @@ function InlineKeyboardEditor({ keyboard, onChange }: InlineKeyboardEditorProps)
         className="w-full gap-2 border-white/10"
       >
         <Plus className="w-4 h-4" />
-        Добавить ряд
+        {tm('addRow')}
       </Button>
     </div>
   )
