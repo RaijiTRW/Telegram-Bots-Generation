@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus, Trash2, Edit2, Check, X, Database, Type } from 'lucide-react'
+import { Plus, Trash2, Edit2, Check, X, Database, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTranslations } from 'next-intl'
@@ -14,6 +14,14 @@ interface VariableTypeOption {
   color: string
   icon: string
 }
+
+const TELEGRAM_BASE_VARIABLES = [
+  'user.id',
+  'user.username',
+  'user.firstName',
+  'user.lastName',
+  'user.languageCode',
+] as const
 
 export function VariablesTable() {
   const t = useTranslations('editor.system')
@@ -415,6 +423,43 @@ export function VariablesTable() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-zinc-950/30 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/10">
+              <Database className="w-4 h-4 text-zinc-300" />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-white">
+                {t('telegramBaseVariables')}
+              </h4>
+              <p className="text-xs text-zinc-500">
+                {t('telegramBaseVariablesDesc')}
+              </p>
+            </div>
+          </div>
+
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-white/10 bg-white/5 text-xs text-zinc-300">
+            <Lock className="w-3.5 h-3.5" />
+            <span>{t('readOnly')}</span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+          {TELEGRAM_BASE_VARIABLES.map((variableName) => (
+            <div
+              key={variableName}
+              className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-zinc-900/40 px-3 py-2"
+            >
+              <code className="text-sm text-[#24A1DE] font-mono">{variableName}</code>
+              <code className="text-xs text-zinc-500 font-mono">
+                {`{{${variableName}}}`}
+              </code>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

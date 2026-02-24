@@ -20,7 +20,12 @@ export function BotSettingsForm() {
   const description = bot?.description || ''
   const status: BotStatus = bot?.status || 'draft'
   const telegramToken = String(bot?.metadata?.telegramToken || '')
+  const hasStoredTelegramToken = Boolean((bot?.metadata as Record<string, unknown> | undefined)?.hasTelegramToken)
   const webhookUrl = String(bot?.metadata?.webhookUrl || '')
+  const getBotTokenText = t('getBotToken')
+  const [getBotTokenBefore, ...getBotTokenRestParts] = getBotTokenText.split('@BotFather')
+  const hasBotFatherPlaceholder = getBotTokenRestParts.length > 0
+  const getBotTokenAfter = getBotTokenRestParts.join('@BotFather')
 
   const statusOptions: { value: BotStatus; labelKey: string; color: string }[] = [
     { value: 'draft', labelKey: 'statusDraft', color: 'text-zinc-400' },
@@ -75,7 +80,7 @@ export function BotSettingsForm() {
               >
                 {statusOptions.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {t(option.labelKey as any)}
+                    {t(option.labelKey)}
                   </option>
                 ))}
               </select>
@@ -86,7 +91,7 @@ export function BotSettingsForm() {
               </div>
             </div>
             <p className={`text-xs mt-1.5 ${statusOptions.find(s => s.value === status)?.color}`}>
-              {t('currentStatus', { status: t(statusOptions.find(s => s.value === status)?.labelKey as any) })}
+              {t('currentStatus', { status: t(statusOptions.find(s => s.value === status)?.labelKey || 'statusDraft') })}
             </p>
           </div>
         </div>
@@ -117,7 +122,11 @@ export function BotSettingsForm() {
                     },
                   })
                 }
-                placeholder={t('botTokenPlaceholder')}
+                placeholder={
+                  hasStoredTelegramToken && !telegramToken
+                    ? t('botTokenReplacePlaceholder')
+                    : t('botTokenPlaceholder')
+                }
                 className="pr-20 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
               />
               <button
@@ -128,8 +137,28 @@ export function BotSettingsForm() {
                 {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {hasStoredTelegramToken && !telegramToken && (
+              <p className="text-xs text-emerald-300/90 mt-1.5">
+                {t('botTokenStoredSecurely')}
+              </p>
+            )}
             <p className="text-xs text-zinc-500 mt-1.5">
-              {t('getBotToken').replace('@BotFather', '<a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-[#24A1DE] hover:underline">@BotFather</a>')}
+              {hasBotFatherPlaceholder ? (
+                <>
+                  {getBotTokenBefore}
+                  <a
+                    href="https://t.me/BotFather"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#24A1DE] hover:underline"
+                  >
+                    @BotFather
+                  </a>
+                  {getBotTokenAfter}
+                </>
+              ) : (
+                getBotTokenText
+              )}
             </p>
           </div>
         </div>

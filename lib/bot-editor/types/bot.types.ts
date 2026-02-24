@@ -13,6 +13,8 @@ export type NodeType =
   | 'message'
   | 'input'
   | 'condition'
+  | 'router'
+  | 'scheduler'
   | 'action'
   | 'http'
   | 'webhook'

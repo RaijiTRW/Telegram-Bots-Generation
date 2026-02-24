@@ -12,7 +12,7 @@
     background-color: transparent !important;
     border: 2px solid rgba(255, 255, 255, 0.2) !important;
     z-index: 1 !important;
-    position: relative !important;
+    position: absolute !important;
   }
 
   .react-flow__handle-top,
@@ -72,6 +72,117 @@
 .react-flow .react-flow__nodesselection-rect {
   background: transparent !important;
   border: none !important;
+}
+
+/* Edge selection / hover UX */
+.react-flow__edge .react-flow__edge-path {
+  transition:
+    stroke 0.16s ease,
+    stroke-width 0.16s ease,
+    filter 0.16s ease,
+    opacity 0.16s ease !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.react-flow__edge .react-flow__edge-interaction {
+  cursor: pointer;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: rgba(103, 232, 249, 0.85) !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 6px rgba(36, 161, 222, 0.32));
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path,
+.react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: #67e8f9 !important;
+  stroke-width: 3.5px !important;
+  filter:
+    drop-shadow(0 0 6px rgba(36, 161, 222, 0.5))
+    drop-shadow(0 0 14px rgba(139, 92, 246, 0.28));
+}
+
+/* Canvas controls style override (zoom / fit / lock) */
+.tflow-canvas-controls.react-flow__controls {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.tflow-canvas-controls .react-flow__controls-button {
+  width: 34px !important;
+  height: 34px !important;
+  background: rgba(17, 24, 39, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #dbeafe !important;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
+}
+
+.tflow-canvas-controls .react-flow__controls-button:hover {
+  background: linear-gradient(135deg, rgba(36, 161, 222, 0.24), rgba(139, 92, 246, 0.22)) !important;
+  border-color: rgba(36, 161, 222, 0.45) !important;
+  color: #ffffff !important;
+}
+
+.tflow-canvas-controls .react-flow__controls-button:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+
+.tflow-canvas-controls .react-flow__controls-button svg {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+/* Fallback: style all React Flow controls (in case custom class is not forwarded) */
+.react-flow__controls {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: rgba(17, 24, 39, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.react-flow__controls .react-flow__controls-button,
+button.react-flow__controls-button {
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  background: rgba(17, 24, 39, 0.9) !important;
+  background-color: rgba(17, 24, 39, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #dbeafe !important;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
+}
+
+.react-flow__controls .react-flow__controls-button:hover,
+button.react-flow__controls-button:hover {
+  background: linear-gradient(135deg, rgba(36, 161, 222, 0.24), rgba(139, 92, 246, 0.22)) !important;
+  background-color: rgba(36, 161, 222, 0.24) !important;
+  border-color: rgba(36, 161, 222, 0.45) !important;
+  color: #ffffff !important;
+}
+
+.react-flow__controls .react-flow__controls-button:disabled,
+button.react-flow__controls-button:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+
+.react-flow__controls .react-flow__controls-button svg,
+button.react-flow__controls-button svg {
+  width: 14px !important;
+  height: 14px !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
 }
 
 /* Fix white icon backgrounds */

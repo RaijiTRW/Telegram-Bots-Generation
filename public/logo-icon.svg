@@ -1,0 +1,39 @@
+<svg viewBox="0 0 60 60" width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="compact-body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#24A1DE" stop-color="#24A1DE" stop-opacity="0.9" />
+      <stop offset="100%" stopColor="#8B5CF6" stop-color="#8B5CF6" stop-opacity="0.9" />
+    </linearGradient>
+    <linearGradient id="compact-wing" x1="0%" y1="0%" x2="100%" y2="50%">
+      <stop offset="0%" stopColor="#FFFFFF" stop-color="#FFFFFF" stop-opacity="0.8" />
+      <stop offset="100%" stopColor="#24A1DE" stop-color="#24A1DE" stop-opacity="0.2" />
+    </linearGradient>
+    <filter id="compact-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="compact-wave" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stopColor="#8B5CF6" stop-color="#8B5CF6" />
+      <stop offset="100%" stopColor="#00F0FF" stop-color="#00F0FF" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0, 5)">
+    <!-- Nodes -->
+    <circle cx="15" cy="15" r="1.5" fill="#00F0FF" filter="url(#compact-glow)" opacity="0.8" />
+    <circle cx="45" cy="35" r="2" fill="#8B5CF6" filter="url(#compact-glow)" opacity="0.8" />
+
+    <!-- Wave -->
+    <path d="M5 30 Q 25 20, 45 40 T 55 35" stroke="url(#compact-wave)" stroke-width="1.5" fill="none" stroke-linecap="round" filter="url(#compact-glow)" />
+
+    <!-- Plane -->
+    <g>
+      <path d="M15 25 L45 10 L33 38 L27 28 Z" fill="url(#compact-body)" stroke="#00F0FF" stroke-width="1" stroke-linejoin="round" filter="url(#compact-glow)" />
+      <path d="M15 25 L45 10 L27 28 Z" fill="url(#compact-wing)" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round" />
+      <path d="M15 25 L45 10" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" />
+    </g>
+  </g>
+</svg>

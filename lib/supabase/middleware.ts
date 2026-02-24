@@ -3,13 +3,30 @@ import { createServerClient } from '@supabase/ssr'
 import { Database } from './types'
 
 export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({
+    request: { headers: request.headers },
+  })
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name) {
-          return request.cookies.get(name)?.value
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          for (const { name, value } of cookiesToSet) {
+            request.cookies.set(name, value)
+          }
+
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          })
+
+          for (const { name, value, options } of cookiesToSet) {
+            response.cookies.set(name, value, options)
+          }
         },
       },
     }
@@ -20,15 +37,8 @@ export async function updateSession(request: NextRequest) {
 
   // If no valid user, don't set any auth headers
   if (!user) {
-    return NextResponse.next({
-      request: { headers: request.headers },
-    })
+    return response
   }
-
-  // Create response with user info for server components
-  const response = NextResponse.next({
-    request: { headers: request.headers },
-  })
 
   // Set user data in response header for server components to use
   response.headers.set('x-user-id', user.id)

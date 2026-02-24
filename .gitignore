@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+.tflow-media/
 
 # debug
 npm-debug.log*

@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
@@ -10,16 +10,76 @@ import { LanguageSwitcher } from '@/components/dashboard/language-switcher'
 export function DashboardHeader() {
   const t = useTranslations()
   const [userName, setUserName] = useState<string>('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    const getUser = async () => {
-      const supabase = createClient()
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
-        setUserName(data.user.user_metadata.full_name || data.user.email?.split('@')[0] || '')
+    const supabase = createClient()
+
+    const setUserPreview = async (user?: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']) => {
+      const resolvedUser = user ?? (await supabase.auth.getUser()).data.user
+
+      if (!resolvedUser) {
+        setUserName('')
+        setAvatarUrl(null)
+        return
+      }
+
+      const metadata =
+        resolvedUser.user_metadata && typeof resolvedUser.user_metadata === 'object'
+          ? (resolvedUser.user_metadata as Record<string, unknown>)
+          : {}
+
+      const fallbackName =
+        (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
+        resolvedUser.email?.split('@')[0] ||
+        ''
+
+      const fallbackAvatar =
+        typeof metadata.avatar_url === 'string' && metadata.avatar_url.trim()
+          ? metadata.avatar_url
+          : null
+
+      setUserName(fallbackName)
+      setAvatarUrl(fallbackAvatar)
+
+      const { data: profileRow } = await ((supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', resolvedUser.id)
+        .maybeSingle()) as unknown as Promise<{
+        data: { full_name: string | null; avatar_url: string | null } | null
+      }>)
+
+      if (profileRow?.full_name?.trim()) {
+        setUserName(profileRow.full_name)
+      }
+      if (typeof profileRow?.avatar_url === 'string') {
+        setAvatarUrl(profileRow.avatar_url)
       }
     }
-    getUser()
+
+    void setUserPreview()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      void setUserPreview(session?.user ?? undefined)
+    })
+
+    const handleProfileUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ fullName?: string; avatarUrl?: string | null }>).detail
+      if (detail?.fullName !== undefined) {
+        setUserName(detail.fullName || '')
+      }
+      if (detail && 'avatarUrl' in detail) {
+        setAvatarUrl(detail.avatarUrl ?? null)
+      }
+    }
+
+    window.addEventListener('cbtooll:profile-updated', handleProfileUpdated as EventListener)
+
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('cbtooll:profile-updated', handleProfileUpdated as EventListener)
+    }
   }, [])
 
   const initials = userName
@@ -30,7 +90,7 @@ export function DashboardHeader() {
     .slice(0, 2)
 
   return (
-    <header className="h-16 px-6 flex items-center justify-between sticky top-0 z-50">
+    <header className="h-16 shrink-0 px-6 flex items-center justify-between sticky top-0 z-50">
       {/* Glassmorphism background */}
       <div className="absolute inset-0 bg-zinc-950/70 backdrop-blur-xl border-b border-white/10" />
       
@@ -48,6 +108,7 @@ export function DashboardHeader() {
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#24A1DE] to-[#8B5CF6] blur-sm opacity-70" />
             <Avatar className="relative bg-zinc-900 border-2 border-zinc-800 shadow-xl">
+              <AvatarImage src={avatarUrl || undefined} alt={userName || 'User avatar'} className="object-cover" />
               <AvatarFallback className="bg-gradient-to-br from-zinc-800 to-zinc-900 text-white font-semibold text-sm">
                 {initials || <User className="w-5 h-5" />}
               </AvatarFallback>

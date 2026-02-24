@@ -5,16 +5,17 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from '@/components/motion-wrapper'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { User, ChevronDown, LayoutDashboard, User as UserIcon, Settings, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface UserMenuDropdownProps {
   userName: string
   userEmail?: string
+  avatarUrl?: string | null
 }
 
-export function UserMenuDropdown({ userName, userEmail }: UserMenuDropdownProps) {
+export function UserMenuDropdown({ userName, userEmail, avatarUrl }: UserMenuDropdownProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const locale = useLocale()
   const router = useRouter()
@@ -49,13 +50,14 @@ export function UserMenuDropdown({ userName, userEmail }: UserMenuDropdownProps)
       <Link
         href={`/${locale}/dashboard`}
         className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
-        onClick={(e) => {
+        onClick={() => {
           // Allow navigation when clicking directly on avatar link
         }}
       >
         <div className="relative">
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#24A1DE] to-[#8B5CF6] blur-sm opacity-70" />
           <Avatar className="relative bg-zinc-900 border-2 border-zinc-800 shadow-xl w-9 h-9">
+            <AvatarImage src={avatarUrl || undefined} alt={userName || 'User avatar'} className="object-cover" />
             <AvatarFallback className="bg-gradient-to-br from-zinc-800 to-zinc-900 text-white font-semibold text-xs">
               {initials || <User className="w-4 h-4" />}
             </AvatarFallback>

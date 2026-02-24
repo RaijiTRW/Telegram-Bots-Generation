@@ -68,9 +68,8 @@ function LogicNode({
 
       {/* Node content */}
       <div
-        className={`glass-panel rounded-lg px-3 py-2 border-l-2 ${
-          isActive ? 'border-l-[#1E88E5]' : 'border-l-white/10'
-        }`}
+        className={`glass-panel rounded-lg px-3 py-2 border-l-2 ${isActive ? 'border-l-[#1E88E5]' : 'border-l-white/10'
+          }`}
       >
         <div className="flex items-center gap-2">
           <Code className="w-3 h-3 text-[#1E88E5]" />
@@ -182,94 +181,94 @@ export function Hero() {
                 <BorderBeam duration={12} size={300} roundedClassName="rounded-xl" />
 
                 <div className="relative glass-panel rounded-xl h-full">
-                {/* Console header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-                  <div className="flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-[#1E88E5]" />
-                    <span className="text-xs font-mono text-white/60">tflow-cli</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/40" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/40" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/40" />
-                  </div>
-                </div>
-
-                {/* Console body */}
-                <div className="p-4 min-h-[200px] font-mono text-sm">
-                  {/* Prompt line */}
-                  <div className="flex items-start gap-2 mb-2">
-                    <span className="text-[#1E88E5]">$</span>
-                    <div className="flex-1">
-                      {isTyping ? (
-                        <span className="text-white/90">
-                          {typedPrompt}
-                          <motion.span
-                            animate={{ opacity: [1, 0, 1] }}
-                            transition={{ duration: 0.8, repeat: Infinity }}
-                            className="inline-block w-2 h-4 bg-[#1E88E5] ml-1 align-middle"
-                          />
-                        </span>
-                      ) : (
-                        <span className="text-white/40">
-                          {prompt || (locale === 'ru' ? 'Опишите вашего бота...' : 'Describe your bot...')}
-                          <motion.span
-                            animate={{ opacity: [1, 0, 1] }}
-                            transition={{ duration: 0.8, repeat: Infinity }}
-                            className="inline-block w-2 h-4 bg-[#1E88E5]/50 ml-1 align-middle"
-                          />
-                        </span>
-                      )}
+                  {/* Console header */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="w-4 h-4 text-[#1E88E5]" />
+                      <span className="text-xs font-mono text-white/60">cbtooll-cli</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/40" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/40" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/40" />
                     </div>
                   </div>
 
-                  {/* Console output */}
-                  <AnimatePresence>
-                    {isTyping && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="space-y-1 mt-4 text-xs"
-                      >
-                        <div className="text-[#00E676]">
-                          {locale === 'ru' ? '→ Анализ требований...' : '→ Analyzing requirements...'}
-                        </div>
-                        <div className="text-white/60">
-                          {locale === 'ru' ? '→ Построение дерева логики...' : '→ Building logic tree...'}
-                        </div>
-                        <div className="text-white/60">
-                          {locale === 'ru' ? '→ Настройка обработчиков...' : '→ Configuring handlers...'}
-                        </div>
-                        <div className="text-[#7C4DFF]">
-                          {locale === 'ru' ? '✓ Бот готов к развертыванию' : '✓ Bot ready for deployment'}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                  {/* Console body */}
+                  <div className="p-4 min-h-[200px] font-mono text-sm">
+                    {/* Prompt line */}
+                    <div className="flex items-start gap-2 mb-2">
+                      <span className="text-[#1E88E5]">$</span>
+                      <div className="flex-1">
+                        {isTyping ? (
+                          <span className="text-white/90">
+                            {typedPrompt}
+                            <motion.span
+                              animate={{ opacity: [1, 0, 1] }}
+                              transition={{ duration: 0.8, repeat: Infinity }}
+                              className="inline-block w-2 h-4 bg-[#1E88E5] ml-1 align-middle"
+                            />
+                          </span>
+                        ) : (
+                          <span className="text-white/40">
+                            {prompt || (locale === 'ru' ? 'Опишите вашего бота...' : 'Describe your bot...')}
+                            <motion.span
+                              animate={{ opacity: [1, 0, 1] }}
+                              transition={{ duration: 0.8, repeat: Infinity }}
+                              className="inline-block w-2 h-4 bg-[#1E88E5]/50 ml-1 align-middle"
+                            />
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                {/* Console footer */}
-                <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-                  <Link
-                    href={`/${locale}/dashboard`}
-                    onClick={() => setIsTyping(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF] rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-                  >
-                    <Zap className="w-4 h-4" />
-                    <span>{locale === 'ru' ? 'Сгенерировать и запустить' : 'Generate & Launch'}</span>
-                  </Link>
+                    {/* Console output */}
+                    <AnimatePresence>
+                      {isTyping && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="space-y-1 mt-4 text-xs"
+                        >
+                          <div className="text-[#00E676]">
+                            {locale === 'ru' ? '→ Анализ требований...' : '→ Analyzing requirements...'}
+                          </div>
+                          <div className="text-white/60">
+                            {locale === 'ru' ? '→ Построение дерева логики...' : '→ Building logic tree...'}
+                          </div>
+                          <div className="text-white/60">
+                            {locale === 'ru' ? '→ Настройка обработчиков...' : '→ Configuring handlers...'}
+                          </div>
+                          <div className="text-[#7C4DFF]">
+                            {locale === 'ru' ? '✓ Бот готов к развертыванию' : '✓ Bot ready for deployment'}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
-                  <button
-                    onClick={() => {
-                      setIsTyping(true);
-                      setTimeout(() => setIsTyping(false), 4000);
-                    }}
-                    className="text-xs text-white/40 hover:text-white/60 transition-colors font-mono"
-                  >
-                    {locale === 'ru' ? 'Запустить пример →' : 'Run example →'}
-                  </button>
-                </div>
+                  {/* Console footer */}
+                  <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
+                    <Link
+                      href={`/${locale}/dashboard`}
+                      onClick={() => setIsTyping(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF] rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+                    >
+                      <Zap className="w-4 h-4" />
+                      <span>{locale === 'ru' ? 'Сгенерировать и запустить' : 'Generate & Launch'}</span>
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        setIsTyping(true);
+                        setTimeout(() => setIsTyping(false), 4000);
+                      }}
+                      className="text-xs text-white/40 hover:text-white/60 transition-colors font-mono"
+                    >
+                      {locale === 'ru' ? 'Запустить пример →' : 'Run example →'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>

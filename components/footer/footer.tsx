@@ -242,7 +242,7 @@ export function Footer() {
           transition={{ duration: 0.5, delay: 0.4 }}
         >
           <div className="text-sm text-white/60">
-            © {currentYear} TFlow. {isRu ? 'Создано для скорости, разработано для масштабирования.' : 'Built for speed, designed for scale.'}
+            © {currentYear} CBTooll. {isRu ? 'Создано для скорости, разработано для масштабирования.' : 'Built for speed, designed for scale.'}
           </div>
 
           {/* Social Links */}

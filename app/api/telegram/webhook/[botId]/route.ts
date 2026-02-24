@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
+import { createBotSecretsService } from '@/lib/bot-editor/services/bot-secrets-service'
 import {
   handleTelegramWorkflowUpdate,
   type TelegramUpdate,
 } from '@/lib/bot-editor/runtime/workflow-runtime'
+import { setBotTestLogRunContext } from '@/lib/bot-editor/runtime/test-log-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,13 +34,16 @@ export async function POST(
 
     const supabase = createAdminClient()
     const botService = createBotService(supabase)
+    const botSecretsService = createBotSecretsService(
+      supabase as unknown as Parameters<typeof createBotSecretsService>[0]
+    )
     const bot = await botService.getBot(botId)
 
     if (!bot) {
       return NextResponse.json({ ok: true })
     }
 
-    const token = String(bot.metadata?.telegramToken || '').trim()
+    const token = String(await botSecretsService.getTelegramToken(botId) || '').trim()
     if (!token) {
       return NextResponse.json({ ok: true })
     }
@@ -47,7 +52,9 @@ export async function POST(
       return NextResponse.json({ ok: true })
     }
 
-    const expectedSecret = String(bot.metadata?.webhookSecret || '').trim()
+    setBotTestLogRunContext(botId, String(bot.metadata?.testRunId || ''))
+
+    const expectedSecret = String(await botSecretsService.getWebhookSecret(botId) || '').trim()
     if (expectedSecret) {
       const providedSecret =
         request.headers.get('x-telegram-bot-api-secret-token') ||
@@ -63,6 +70,7 @@ export async function POST(
       botId,
       botToken: token,
       config: bot.config,
+      metadata: (bot.metadata || {}) as Record<string, unknown>,
       update,
     })
 

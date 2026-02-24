@@ -7,6 +7,7 @@ import { Home, User, Settings, LogOut, Bot } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { CompactLogo } from '@/components/logo'
 
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'dashboard.nav.home' },
@@ -30,23 +31,21 @@ export function DashboardNav() {
   }
 
   return (
-    <aside className="w-64 min-h-screen p-4 flex flex-col relative">
+    <aside className="w-64 h-screen overflow-hidden p-4 flex flex-col relative">
       {/* Glassmorphism background */}
       <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 to-zinc-900/60 backdrop-blur-xl border-r border-white/10" />
 
       <div className="relative z-10 flex flex-col h-full">
         {/* Logo area with gradient accent */}
-        <Link href={`/${locale}/dashboard`} className="mb-8 px-4 py-3 rounded-xl bg-linear-to-r from-blue-500/10 to-purple-500/10 border border-white/10 hover:from-blue-500/20 hover:to-purple-500/20 transition-colors">
+        <Link href={`/${locale}`} className="mb-8 px-4 py-3 rounded-xl bg-linear-to-r from-blue-500/10 to-purple-500/10 border border-white/10 hover:from-blue-500/20 hover:to-purple-500/20 transition-colors">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#24A1DE] to-[#8B5CF6] flex items-center justify-center shadow-lg shadow-purple-500/20">
-              <span className="text-white font-bold text-lg">T</span>
-            </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">TFlow</h1>
+            <CompactLogo className="w-10 h-8 shrink-0" />
+            <h1 className="text-xl font-bold text-white tracking-tight">CBTooll</h1>
           </div>
         </Link>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-2">
+        <nav className="flex-1 overflow-y-auto space-y-1 px-2">
           {navItems.map((item) => {
             const Icon = item.icon
             const fullPath = `/${locale}${item.href}`

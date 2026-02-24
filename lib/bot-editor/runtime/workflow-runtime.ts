@@ -1,8 +1,13 @@
+import { readFile } from 'node:fs/promises'
+import { basename, isAbsolute, resolve as resolvePathFs } from 'node:path'
+import { homedir } from 'node:os'
 import type { BotConfig, Edge as BotEdge, Node as BotNode } from '@/lib/bot-editor/types/bot.types'
-import { callTelegramApi } from '@/lib/bot-editor/runtime/telegram-api'
+import { callTelegramApi, callTelegramApiFormData } from '@/lib/bot-editor/runtime/telegram-api'
+import { appendBotTestLog } from '@/lib/bot-editor/runtime/test-log-store'
 
 interface TelegramUser {
   id: number
+  is_bot?: boolean
   username?: string
   first_name?: string
   last_name?: string
@@ -18,6 +23,7 @@ interface TelegramMessage {
   chat: TelegramChat
   from?: TelegramUser
   text?: string
+  caption?: string
 }
 
 interface TelegramCallbackQuery {
@@ -36,6 +42,7 @@ export interface TelegramUpdate {
 interface RuntimeSession {
   variables: Record<string, unknown>
   waitingForNodeId?: string
+  scheduledResumeAtMs?: number
   updatedAt: number
 }
 
@@ -44,6 +51,7 @@ interface RuntimeContext {
   botToken: string
   config: BotConfig
   update: TelegramUpdate
+  metadata?: Record<string, unknown> | null
 }
 
 interface InlineKeyboardButton {
@@ -61,9 +69,19 @@ interface ForceReplyMarkup {
   input_field_placeholder?: string
 }
 
+type SupportedMediaAttachmentType = 'photo' | 'video' | 'document' | 'audio'
+
+interface ResolvedMessageAttachment {
+  type: SupportedMediaAttachmentType
+  source: string
+}
+
 declare global {
   // Shared runtime sessions across Next.js module reloads (dev HMR).
   var __tflowRuntimeSessions: Map<string, RuntimeSession> | undefined
+  var __tflowRuntimeSchedulerTimers: Map<string, ReturnType<typeof setTimeout>> | undefined
+  var __tflowScheduleTriggerDedupe: Map<string, string> | undefined
+  var __tflowAutoReactionCooldowns: Map<string, number> | undefined
 }
 
 const runtimeSessions: Map<string, RuntimeSession> =
@@ -72,9 +90,211 @@ if (!globalThis.__tflowRuntimeSessions) {
   globalThis.__tflowRuntimeSessions = runtimeSessions
 }
 
+const runtimeSchedulerTimers: Map<string, ReturnType<typeof setTimeout>> =
+  globalThis.__tflowRuntimeSchedulerTimers || new Map<string, ReturnType<typeof setTimeout>>()
+if (!globalThis.__tflowRuntimeSchedulerTimers) {
+  globalThis.__tflowRuntimeSchedulerTimers = runtimeSchedulerTimers
+}
+
+const scheduleTriggerDedupe: Map<string, string> =
+  globalThis.__tflowScheduleTriggerDedupe || new Map<string, string>()
+if (!globalThis.__tflowScheduleTriggerDedupe) {
+  globalThis.__tflowScheduleTriggerDedupe = scheduleTriggerDedupe
+}
+
+const autoReactionCooldowns: Map<string, number> =
+  globalThis.__tflowAutoReactionCooldowns || new Map<string, number>()
+if (!globalThis.__tflowAutoReactionCooldowns) {
+  globalThis.__tflowAutoReactionCooldowns = autoReactionCooldowns
+}
+
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12
 const MAX_WORKFLOW_STEPS = 64
+const MAX_TIMEOUT_CHUNK_MS = 2_147_483_647
 type WorkflowRunState = 'waiting' | 'completed'
+const DEFAULT_AUTO_REACTION_COOLDOWN_SECONDS = 15
+const AUTO_REACTION_MAX_COOLDOWN_SECONDS = 3600
+
+type AutoReactionsRuntimeConfig = {
+  enabled: boolean
+  cooldownSeconds: number
+  onlyTextMessages: boolean
+  mode: 'rule-based'
+}
+
+function readAutoReactionsRuntimeConfig(
+  metadata: Record<string, unknown> | null | undefined
+): AutoReactionsRuntimeConfig | null {
+  if (!metadata || typeof metadata !== 'object') {
+    return null
+  }
+
+  const features =
+    metadata.features && typeof metadata.features === 'object'
+      ? (metadata.features as Record<string, unknown>)
+      : null
+  if (!features) return null
+
+  const auto =
+    features.autoReactions && typeof features.autoReactions === 'object'
+      ? (features.autoReactions as Record<string, unknown>)
+      : null
+  if (!auto) return null
+
+  const cooldownRaw = Number(auto.cooldownSeconds)
+  const cooldownSeconds = Number.isFinite(cooldownRaw)
+    ? Math.max(0, Math.min(AUTO_REACTION_MAX_COOLDOWN_SECONDS, Math.round(cooldownRaw)))
+    : DEFAULT_AUTO_REACTION_COOLDOWN_SECONDS
+
+  return {
+    enabled: Boolean(auto.enabled),
+    onlyTextMessages: auto.onlyTextMessages === undefined ? true : Boolean(auto.onlyTextMessages),
+    cooldownSeconds,
+    mode: 'rule-based',
+  }
+}
+
+function getIncomingMessageReactionText(message: TelegramMessage): string {
+  return normalizeText(message.text || message.caption || '')
+}
+
+function selectRuleBasedReactionEmoji(message: TelegramMessage): string {
+  const text = getIncomingMessageReactionText(message).toLowerCase()
+
+  if (!text) {
+    return '👍'
+  }
+
+  if (/^\/start(?:\s|$)/i.test(text)) {
+    return '👋'
+  }
+
+  if (/^\/[a-z0-9_]+/i.test(text)) {
+    return '⚡'
+  }
+
+  if (
+    /(спасибо|благодар|thanks|thank you|thx|мерси)/i.test(text)
+  ) {
+    return '❤️'
+  }
+
+  if (
+    /(ошибк|error|bug|не работает|сломал|сломалось|проблем|issue|fail|не могу)/i.test(text)
+  ) {
+    return '👀'
+  }
+
+  if (/\?/.test(text) || /\b(как|почему|зачем|when|what|why|how|can i|help)\b/i.test(text)) {
+    return '🤔'
+  }
+
+  if (
+    /(круто|супер|отлично|класс|топ|awesome|great|nice|perfect|cool|super|love)/i.test(text)
+  ) {
+    return '🔥'
+  }
+
+  return '👍'
+}
+
+function canApplyAutoReactionNow(
+  botId: string,
+  chatId: number,
+  userId: number,
+  cooldownSeconds: number
+): boolean {
+  const cooldownMs = Math.max(0, cooldownSeconds) * 1000
+  if (cooldownMs <= 0) {
+    return true
+  }
+
+  const key = `${botId}:${chatId}:${userId}`
+  const now = Date.now()
+  const lastAppliedAt = autoReactionCooldowns.get(key) || 0
+  if (now - lastAppliedAt < cooldownMs) {
+    return false
+  }
+
+  autoReactionCooldowns.set(key, now)
+  return true
+}
+
+async function tryApplySystemAutoReaction(
+  context: RuntimeContext,
+  message: TelegramMessage | undefined,
+  user: TelegramUser | null
+): Promise<void> {
+  if (!message || !message.chat?.id || !message.message_id || !user?.id) {
+    return
+  }
+
+  const config = readAutoReactionsRuntimeConfig(context.metadata)
+  if (!config?.enabled) {
+    return
+  }
+
+  if (user.is_bot) {
+    return
+  }
+
+  const botTelegramIdRaw = Number((context.metadata as Record<string, unknown> | undefined)?.telegramBotId)
+  if (Number.isFinite(botTelegramIdRaw) && botTelegramIdRaw === user.id) {
+    return
+  }
+
+  const reactionText = getIncomingMessageReactionText(message)
+  if (config.onlyTextMessages && !reactionText) {
+    return
+  }
+
+  if (!canApplyAutoReactionNow(context.botId, message.chat.id, user.id, config.cooldownSeconds)) {
+    return
+  }
+
+  const emoji = selectRuleBasedReactionEmoji(message)
+
+  try {
+    await callTelegramApi(context.botToken, 'setMessageReaction', {
+      chat_id: message.chat.id,
+      message_id: message.message_id,
+      reaction: [{ type: 'emoji', emoji }],
+    })
+  } catch (error) {
+    const fallbackEmoji = emoji === '👍' ? null : '👍'
+    if (fallbackEmoji) {
+      try {
+        await callTelegramApi(context.botToken, 'setMessageReaction', {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          reaction: [{ type: 'emoji', emoji: fallbackEmoji }],
+        })
+        return
+      } catch {
+        // Fall through to warning log below.
+      }
+    }
+
+    appendBotTestLog(
+      context.botId,
+      'telegram',
+      `setMessageReaction error: ${String(error)}`,
+      'warn'
+    )
+  }
+}
+
+function clearScheduledResumeTimer(sessionKey: string, session?: RuntimeSession) {
+  const timer = runtimeSchedulerTimers.get(sessionKey)
+  if (timer) {
+    clearTimeout(timer)
+    runtimeSchedulerTimers.delete(sessionKey)
+  }
+
+  if (session) {
+    session.scheduledResumeAtMs = undefined
+  }
+}
 
 function createSessionKey(botId: string, chatId: number, userId: number): string {
   return `${botId}:${chatId}:${userId}`
@@ -84,7 +304,14 @@ export function clearRuntimeSessionsForBot(botId: string) {
   const prefix = `${botId}:`
   for (const key of runtimeSessions.keys()) {
     if (key.startsWith(prefix)) {
+      clearScheduledResumeTimer(key, runtimeSessions.get(key))
       runtimeSessions.delete(key)
+    }
+  }
+
+  for (const key of scheduleTriggerDedupe.keys()) {
+    if (key.startsWith(`${botId}:`)) {
+      scheduleTriggerDedupe.delete(key)
     }
   }
 }
@@ -92,13 +319,22 @@ export function clearRuntimeSessionsForBot(botId: string) {
 function cleanupExpiredSessions() {
   const now = Date.now()
   for (const [key, session] of runtimeSessions.entries()) {
+    if (session.scheduledResumeAtMs && session.scheduledResumeAtMs > now) {
+      continue
+    }
     if (now - session.updatedAt > SESSION_TTL_MS) {
+      clearScheduledResumeTimer(key, session)
       runtimeSessions.delete(key)
     }
   }
 }
 
-function resetSessionState(session: RuntimeSession) {
+function resetSessionState(session: RuntimeSession, sessionKey?: string) {
+  if (sessionKey) {
+    clearScheduledResumeTimer(sessionKey, session)
+  } else {
+    session.scheduledResumeAtMs = undefined
+  }
   session.variables = {}
   session.waitingForNodeId = undefined
   session.updatedAt = Date.now()
@@ -147,6 +383,34 @@ function getConditionNextNodeId(
   return defaultEdge?.target || null
 }
 
+function getNextNodeIdBySourceHandle(
+  config: BotConfig,
+  nodeId: string,
+  sourceHandle: string
+): string | null {
+  if (!sourceHandle) return null
+  const outgoingEdges = getOutgoingEdges(config, nodeId)
+  const explicitEdge = outgoingEdges.find((edge) => edge.sourceHandle === sourceHandle)
+  return explicitEdge?.target || null
+}
+
+function getRouterNextNodeId(
+  config: BotConfig,
+  nodeId: string,
+  matchedCaseId?: string
+): string | null {
+  if (matchedCaseId) {
+    const matchedTarget = getNextNodeIdBySourceHandle(config, nodeId, `case:${matchedCaseId}`)
+    if (matchedTarget) {
+      return matchedTarget
+    }
+  }
+
+  const outgoingEdges = getOutgoingEdges(config, nodeId)
+  const defaultEdge = outgoingEdges.find((edge) => !edge.sourceHandle)
+  return defaultEdge?.target || null
+}
+
 function buildNodeMap(config: BotConfig): Map<string, BotNode> {
   return new Map(config.nodes.map((node) => [node.id, node]))
 }
@@ -154,6 +418,130 @@ function buildNodeMap(config: BotConfig): Map<string, BotNode> {
 function normalizeText(value: unknown): string {
   if (typeof value !== 'string') return ''
   return value.trim()
+}
+
+function normalizeBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'true' || normalized === '1' || normalized === 'yes'
+  }
+  if (typeof value === 'number') return value === 1
+  return false
+}
+
+function isHttpLikeMediaSource(value: string): boolean {
+  return /^(https?:\/\/|tg:\/\/)/i.test(value)
+}
+
+function isLikelyLocalFilePath(value: string): boolean {
+  if (!value) return false
+  if (value.startsWith('./') || value.startsWith('../') || value.startsWith('/') || value.startsWith('~/')) {
+    return true
+  }
+
+  // Windows absolute path support (for generated/runtime compatibility)
+  if (/^[a-zA-Z]:[\\/]/.test(value)) {
+    return true
+  }
+
+  if (value.includes('/') || value.includes('\\')) {
+    return true
+  }
+
+  return false
+}
+
+function resolveLocalFilePath(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return trimmed
+
+  if (trimmed.startsWith('~/')) {
+    return resolvePathFs(homedir(), trimmed.slice(2))
+  }
+
+  if (isAbsolute(trimmed) || /^[a-zA-Z]:[\\/]/.test(trimmed)) {
+    return trimmed
+  }
+
+  return resolvePathFs(process.cwd(), trimmed)
+}
+
+function extractFirstHttpUrl(text: string): string | undefined {
+  if (!text) return undefined
+
+  // HTML mode: extract URL from href safely instead of raw markup text.
+  const hrefMatch = text.match(/href=(['"])(https?:\/\/[^'"]+)\1/i)
+  if (hrefMatch?.[2]) {
+    return hrefMatch[2]
+  }
+
+  // Plain text / markdown: stop on common markup delimiters too.
+  const match = text.match(/https?:\/\/[^\s)"'<>\]]+/i)
+  return match?.[0]
+}
+
+function sanitizeUnsupportedHtmlAnchors(text: string): string {
+  if (!text || !/<a\s/i.test(text)) {
+    return text
+  }
+
+  return text.replace(
+    /<a\b([^>]*?)\bhref=(['"])(.*?)\2([^>]*)>([\s\S]*?)<\/a>/gi,
+    (fullMatch, beforeHref, quote, rawHref, afterHref, label) => {
+      const href = String(rawHref || '').trim()
+      const normalizedHref = href.toLowerCase()
+
+      const isSupported =
+        normalizedHref.startsWith('http://') ||
+        normalizedHref.startsWith('https://') ||
+        normalizedHref.startsWith('tg://')
+
+      if (isSupported) {
+        return `<a${String(beforeHref || '')}href=${String(quote || '"')}${href}${String(quote || '"')}${String(afterHref || '')}>${String(label || '')}</a>`
+      }
+
+      // Telegram parse mode may reject unsupported protocols like tel:/mailto:.
+      // Keep visible label instead of failing the whole message.
+      return String(label || '')
+    }
+  )
+}
+
+function escapeMarkdownV2Text(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1')
+}
+
+function escapeMarkdownV2PreservingFormatting(text: string): string {
+  if (!text) return text
+
+  const placeholders: string[] = []
+  const reserve = (value: string) => {
+    // Use a token without MarkdownV2 special characters so it survives escaping
+    // and can be restored after escaping the remaining plain text.
+    const token = `@@TFLOWMD2TOKEN${placeholders.length}@@`
+    placeholders.push(value)
+    return token
+  }
+
+  // Preserve common MarkdownV2 formatting blocks (basic non-nested fallback).
+  let prepared = text
+    .replace(/\|\|([\s\S]+?)\|\|/g, (match) => reserve(match))
+    .replace(/__([\s\S]+?)__/g, (match) => reserve(match))
+    .replace(/\*([\s\S]+?)\*/g, (match) => reserve(match))
+    .replace(/_([\s\S]+?)_/g, (match) => reserve(match))
+    .replace(/~([\s\S]+?)~/g, (match) => reserve(match))
+    .replace(/`([\s\S]+?)`/g, (match) => reserve(match))
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match) => reserve(match))
+
+  prepared = escapeMarkdownV2Text(prepared)
+
+  return prepared.replace(/@@TFLOWMD2TOKEN(\d+)@@/g, (_, rawIndex) => {
+    const index = Number(rawIndex)
+    return placeholders[index] ?? ''
+  })
 }
 
 function normalizeCallbackToken(value: unknown): string {
@@ -280,6 +668,197 @@ function interpolateTemplate(template: string, variables: Record<string, unknown
     const value = resolvePath(variables, String(rawPath).trim())
     return value === undefined || value === null ? match : String(value)
   })
+}
+
+function isValidIanaTimeZone(timeZone: string): boolean {
+  if (!timeZone) return false
+  try {
+    // Throws RangeError for invalid zone.
+    new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date())
+    return true
+  } catch {
+    return false
+  }
+}
+
+function parseDateTimeLocalString(value: string): {
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+  second: number
+} | null {
+  const match =
+    value.trim().match(
+      /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?$/
+    )
+  if (!match) return null
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const hour = Number(match[4])
+  const minute = Number(match[5])
+  const second = Number(match[6] || 0)
+
+  if (
+    !Number.isFinite(year) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59 ||
+    second < 0 ||
+    second > 59
+  ) {
+    return null
+  }
+
+  return { year, month, day, hour, minute, second }
+}
+
+function getZonedDateTimeParts(
+  timestampMs: number,
+  timeZone: string
+): {
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+  second: number
+} | null {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+    const parts = formatter.formatToParts(new Date(timestampMs))
+    const values: Record<string, string> = {}
+    for (const part of parts) {
+      if (part.type !== 'literal') values[part.type] = part.value
+    }
+
+    const year = Number(values.year)
+    const month = Number(values.month)
+    const day = Number(values.day)
+    const hour = Number(values.hour)
+    const minute = Number(values.minute)
+    const second = Number(values.second)
+    if ([year, month, day, hour, minute, second].some((value) => !Number.isFinite(value))) {
+      return null
+    }
+
+    return { year, month, day, hour, minute, second }
+  } catch {
+    return null
+  }
+}
+
+function getTimeZoneOffsetMs(timestampMs: number, timeZone: string): number | null {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+
+    const parts = formatter.formatToParts(new Date(timestampMs))
+    const values: Record<string, string> = {}
+    for (const part of parts) {
+      if (part.type !== 'literal') {
+        values[part.type] = part.value
+      }
+    }
+
+    const year = Number(values.year)
+    const month = Number(values.month)
+    const day = Number(values.day)
+    const hour = Number(values.hour)
+    const minute = Number(values.minute)
+    const second = Number(values.second)
+    if ([year, month, day, hour, minute, second].some((value) => !Number.isFinite(value))) {
+      return null
+    }
+
+    const asUtc = Date.UTC(year, month - 1, day, hour, minute, second)
+    return asUtc - timestampMs
+  } catch {
+    return null
+  }
+}
+
+function zonedDateTimeLocalToUtcMs(dateTimeLocal: string, timeZone: string): number | null {
+  const parsed = parseDateTimeLocalString(dateTimeLocal)
+  if (!parsed) return null
+  if (!isValidIanaTimeZone(timeZone)) return null
+
+  const utcGuess = Date.UTC(
+    parsed.year,
+    parsed.month - 1,
+    parsed.day,
+    parsed.hour,
+    parsed.minute,
+    parsed.second
+  )
+
+  let timestamp = utcGuess
+  for (let i = 0; i < 4; i += 1) {
+    const offsetMs = getTimeZoneOffsetMs(timestamp, timeZone)
+    if (offsetMs == null) {
+      return null
+    }
+    const nextTimestamp = utcGuess - offsetMs
+    if (nextTimestamp === timestamp) {
+      timestamp = nextTimestamp
+      break
+    }
+    timestamp = nextTimestamp
+  }
+
+  // Validate exact round-trip to avoid DST gap/invalid local time ambiguity.
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+    const parts = formatter.formatToParts(new Date(timestamp))
+    const values: Record<string, string> = {}
+    for (const part of parts) {
+      if (part.type !== 'literal') values[part.type] = part.value
+    }
+    const same =
+      Number(values.year) === parsed.year &&
+      Number(values.month) === parsed.month &&
+      Number(values.day) === parsed.day &&
+      Number(values.hour) === parsed.hour &&
+      Number(values.minute) === parsed.minute &&
+      Number(values.second) === parsed.second
+    return same ? timestamp : null
+  } catch {
+    return null
+  }
 }
 
 type HttpPair = { key: string; value: string }
@@ -495,13 +1074,154 @@ function buildInlineKeyboardMarkup(keyboard: unknown): InlineKeyboardMarkup | un
 }
 
 function normalizeParseMode(value: unknown): 'Markdown' | 'MarkdownV2' | 'HTML' | undefined {
-  if (value === 'Markdown' || value === 'MarkdownV2' || value === 'HTML') {
-    return value
+  let rawValue: unknown = value
+
+  if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+    const record = rawValue as Record<string, unknown>
+    if (typeof record.value === 'string') {
+      rawValue = record.value
+    } else if (typeof record.mode === 'string') {
+      rawValue = record.mode
+    } else if (typeof record.parseMode === 'string') {
+      rawValue = record.parseMode
+    }
+  }
+
+  if (typeof rawValue !== 'string') {
+    return undefined
+  }
+
+  const normalized = rawValue.trim().toLowerCase().replace(/[\s_-]+/g, '')
+  if (!normalized || normalized === 'none' || normalized === 'plain' || normalized === 'off') {
+    return undefined
+  }
+
+  if (normalized === 'markdown' || normalized === 'md') {
+    return 'Markdown'
+  }
+
+  if (normalized === 'markdownv2' || normalized === 'markdown2' || normalized === 'mdv2') {
+    return 'MarkdownV2'
+  }
+
+  if (normalized === 'html') {
+    return 'HTML'
+  }
+
+  return undefined
+}
+
+function resolveNodeParseMode(data: Record<string, unknown>): 'Markdown' | 'MarkdownV2' | 'HTML' | undefined {
+  const directCandidates: unknown[] = [
+    data.parseMode,
+    data.parse_mode,
+    data.formatting,
+    data.format,
+  ]
+
+  for (const candidate of directCandidates) {
+    const normalized = normalizeParseMode(candidate)
+    if (normalized) {
+      return normalized
+    }
+  }
+
+  const nestedCandidates = [
+    data.formatting,
+    data.messageFormatting,
+    data.options,
+    data.settings,
+  ]
+
+  for (const candidate of nestedCandidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      continue
+    }
+
+    const record = candidate as Record<string, unknown>
+    const normalized =
+      normalizeParseMode(record.parseMode) ||
+      normalizeParseMode(record.parse_mode) ||
+      normalizeParseMode(record.mode) ||
+      normalizeParseMode(record.value)
+
+    if (normalized) {
+      return normalized
+    }
+  }
+
+  return undefined
+}
+
+function normalizeMediaAttachmentType(value: unknown): SupportedMediaAttachmentType | undefined {
+  if (typeof value !== 'string') return undefined
+  const normalized = value.trim().toLowerCase()
+  if (
+    normalized === 'photo' ||
+    normalized === 'video' ||
+    normalized === 'document' ||
+    normalized === 'audio'
+  ) {
+    return normalized
   }
   return undefined
 }
 
+function resolveMessageAttachment(data: Record<string, unknown>): ResolvedMessageAttachment | undefined {
+  const attachments = Array.isArray(data.attachments) ? data.attachments : []
+
+  for (const rawAttachment of attachments) {
+    if (!rawAttachment || typeof rawAttachment !== 'object') {
+      continue
+    }
+
+    const record = rawAttachment as Record<string, unknown>
+    const type = normalizeMediaAttachmentType(
+      record.type ?? record.kind ?? record.mediaType ?? record.media_type
+    )
+    if (!type) {
+      continue
+    }
+
+    const sourceCandidate =
+      record.source ??
+      record.url ??
+      record.media ??
+      record.fileId ??
+      record.file_id ??
+      record.value
+    const source = normalizeText(sourceCandidate)
+    if (!source) {
+      continue
+    }
+
+    return { type, source }
+  }
+
+  const fallbackType = normalizeMediaAttachmentType(data.attachmentType ?? data.mediaType)
+  const fallbackSource = normalizeText(
+    data.attachmentSource ?? data.attachmentUrl ?? data.mediaSource ?? data.media
+  )
+
+  if (fallbackType && fallbackSource) {
+    return { type: fallbackType, source: fallbackSource }
+  }
+
+  return undefined
+}
+
 function evaluateConditionValue(operator: string, left: unknown, right: unknown): boolean {
+  if (operator === 'isEmpty') {
+    if (left === undefined || left === null) return true
+    if (typeof left === 'string') return left.trim().length === 0
+    if (Array.isArray(left)) return left.length === 0
+    return false
+  }
+
+  if (operator === 'isNotEmpty') {
+    return !evaluateConditionValue('isEmpty', left, right)
+  }
+
   switch (operator) {
     case 'equals':
       return String(left ?? '') === String(right ?? '')
@@ -515,9 +1235,39 @@ function evaluateConditionValue(operator: string, left: unknown, right: unknown)
       return Number(left) > Number(right)
     case 'lt':
       return Number(left) < Number(right)
+    case 'gte':
+      return Number(left) >= Number(right)
+    case 'lte':
+      return Number(left) <= Number(right)
     default:
       return String(left ?? '') === String(right ?? '')
   }
+}
+
+function normalizeRouterCases(
+  rawCases: unknown
+): Array<{ id: string; label?: string; value: unknown }> {
+  if (!Array.isArray(rawCases)) {
+    return []
+  }
+
+  const normalized: Array<{ id: string; label?: string; value: unknown }> = []
+
+  for (const item of rawCases) {
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const id = normalizeText(record.id)
+    if (!id) continue
+
+    const label = normalizeText(record.label)
+    normalized.push({
+      id,
+      label: label || undefined,
+      value: record.value,
+    })
+  }
+
+  return normalized
 }
 
 function findMatchingTrigger(config: BotConfig, update: TelegramUpdate): BotNode | null {
@@ -612,6 +1362,7 @@ function findMatchingTrigger(config: BotConfig, update: TelegramUpdate): BotNode
     }
 
     if (triggerType === 'callbackQuery') continue
+    if (triggerType === 'schedule') continue
 
     if (triggerType === 'photo') {
       // photo trigger is not implemented in this simplified runtime
@@ -627,8 +1378,156 @@ function findMatchingTrigger(config: BotConfig, update: TelegramUpdate): BotNode
   return null
 }
 
+function parseScheduleTime(value: string): { hour: number; minute: number } | null {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return null
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null
+  }
+  return { hour, minute }
+}
+
+function getScheduleTriggerBucketKey(
+  botId: string,
+  triggerNode: BotNode,
+  nowMs: number
+): string | null {
+  const data = (triggerNode.data || {}) as Record<string, unknown>
+  const triggerType = String(data.trigger || '')
+  if (triggerType !== 'schedule') return null
+
+  const timeZone = normalizeText(data.timeZone || 'UTC') || 'UTC'
+  if (!isValidIanaTimeZone(timeZone)) return null
+
+  const local = getZonedDateTimeParts(nowMs, timeZone)
+  if (!local) return null
+
+  const scheduleMode = normalizeText(data.scheduleMode || 'daily').toLowerCase()
+
+  if (scheduleMode === 'hourly') {
+    const everyHours = Math.min(24, Math.max(1, Number(data.everyHours || 1) || 1))
+    const atMinute = Math.min(59, Math.max(0, Number(data.atMinute || 0) || 0))
+    if (local.minute !== atMinute) return null
+    if (local.hour % everyHours !== 0) return null
+    return `${botId}:${triggerNode.id}:hourly:${timeZone}:${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}T${String(local.hour).padStart(2, '0')}:${String(local.minute).padStart(2, '0')}`
+  }
+
+  const parsedTime = parseScheduleTime(normalizeText(data.atTime || '10:00') || '10:00')
+  if (!parsedTime) return null
+  if (local.hour !== parsedTime.hour || local.minute !== parsedTime.minute) return null
+
+  return `${botId}:${triggerNode.id}:daily:${timeZone}:${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}T${String(local.hour).padStart(2, '0')}:${String(local.minute).padStart(2, '0')}`
+}
+
+export async function handleScheduledWorkflowTriggersTick(args: {
+  botId: string
+  botToken: string
+  config: BotConfig
+}): Promise<void> {
+  const { botId, botToken, config } = args
+  const nowMs = Date.now()
+
+  const scheduleTriggers = config.nodes.filter((node) => {
+    if (node.type !== 'trigger') return false
+    const data = (node.data || {}) as Record<string, unknown>
+    return String(data.trigger || '') === 'schedule'
+  })
+
+  if (scheduleTriggers.length === 0) {
+    return
+  }
+
+  for (const triggerNode of scheduleTriggers) {
+    const bucketKey = getScheduleTriggerBucketKey(botId, triggerNode, nowMs)
+    if (!bucketKey) continue
+
+    const dedupeKey = `${botId}:${triggerNode.id}`
+    if (scheduleTriggerDedupe.get(dedupeKey) === bucketKey) {
+      continue
+    }
+
+    const data = (triggerNode.data || {}) as Record<string, unknown>
+    const chatIdRaw = normalizeText(data.targetChatId)
+    const userIdRaw = normalizeText(data.targetUserId)
+    const chatId = Number(chatIdRaw)
+    const userId = Number(userIdRaw || 0)
+
+    if (!chatIdRaw || !Number.isFinite(chatId)) {
+      appendBotTestLog(
+        botId,
+        'workflow',
+        `Schedule Trigger skipped (${triggerNode.id}): targetChatId is missing/invalid`,
+        'warn'
+      )
+      scheduleTriggerDedupe.set(dedupeKey, bucketKey)
+      continue
+    }
+
+    scheduleTriggerDedupe.set(dedupeKey, bucketKey)
+
+    const sessionUserId = Number.isFinite(userId) && userId > 0 ? userId : 0
+    const sessionKey = createSessionKey(botId, chatId, sessionUserId)
+    const session = getOrCreateSession(sessionKey)
+    const nextNodeId = getDefaultNextNodeId(config, triggerNode.id)
+
+    if (!nextNodeId) {
+      appendBotTestLog(botId, 'workflow', `Schedule Trigger ${triggerNode.id}: no next node`, 'warn')
+      continue
+    }
+
+    resetSessionState(session, sessionKey)
+    session.variables.schedule = {
+      triggeredAt: new Date(nowMs).toISOString(),
+      bucket: bucketKey,
+      mode: String(data.scheduleMode || 'daily'),
+      timeZone: String(data.timeZone || 'UTC') || 'UTC',
+    }
+
+    appendBotTestLog(
+      botId,
+      'workflow',
+      `Schedule Trigger fired: ${triggerNode.id} -> chat ${chatId} (${new Date(nowMs).toISOString()})`,
+      'info'
+    )
+
+    const syntheticUpdate: TelegramUpdate = { update_id: 0 }
+    const syntheticUser: TelegramUser | null =
+      Number.isFinite(userId) && userId > 0
+        ? { id: userId }
+        : null
+
+    try {
+      const runState = await executeFromNode({
+        startNodeId: nextNodeId,
+        botId,
+        botToken,
+        chatId,
+        config,
+        session,
+        sessionKey,
+        update: syntheticUpdate,
+        user: syntheticUser,
+      })
+
+      if (runState === 'completed' && !session.waitingForNodeId) {
+        resetSessionState(session, sessionKey)
+      }
+    } catch (error) {
+      appendBotTestLog(
+        botId,
+        'workflow',
+        `Schedule Trigger runtime error (${triggerNode.id}): ${String(error)}`,
+        'error'
+      )
+    }
+  }
+}
+
 async function sendMessage(
   token: string,
+  botId: string,
   chatId: number,
   text: string,
   parseMode?: unknown,
@@ -636,6 +1535,8 @@ async function sendMessage(
   options?: {
     forceReply?: boolean
     inputPlaceholder?: string
+    disableWebPagePreview?: boolean
+    disableNotification?: boolean
   }
 ): Promise<void> {
   const payload: Record<string, unknown> = {
@@ -646,6 +1547,24 @@ async function sendMessage(
   const normalizedParseMode = normalizeParseMode(parseMode)
   if (normalizedParseMode) {
     payload.parse_mode = normalizedParseMode
+  }
+
+  if (typeof options?.disableWebPagePreview === 'boolean') {
+    const shouldDisablePreview = options.disableWebPagePreview
+    if (shouldDisablePreview) {
+      // Legacy and current API fields together for best compatibility.
+      payload.disable_web_page_preview = true
+      payload.link_preview_options = { is_disabled: true }
+    } else {
+      const detectedUrl = extractFirstHttpUrl(text)
+      payload.link_preview_options = detectedUrl
+        ? { is_disabled: false, url: detectedUrl }
+        : { is_disabled: false }
+    }
+  }
+
+  if (options?.disableNotification) {
+    payload.disable_notification = true
   }
 
   if (options?.forceReply) {
@@ -662,7 +1581,241 @@ async function sendMessage(
     }
   }
 
-  await callTelegramApi(token, 'sendMessage', payload)
+  try {
+    await callTelegramApi(token, 'sendMessage', payload)
+    appendBotTestLog(
+      botId,
+      'telegram',
+      `sendMessage ok (${normalizedParseMode || 'plain'}): ${String(text || '').replace(/\s+/g, ' ').slice(0, 140)}`
+    )
+  } catch (error) {
+    appendBotTestLog(botId, 'telegram', `sendMessage error: ${String(error)}`, 'error')
+    if (normalizedParseMode === 'MarkdownV2' && typeof payload.text === 'string') {
+      const escapedText = escapeMarkdownV2PreservingFormatting(payload.text)
+      if (escapedText !== payload.text) {
+        try {
+          const retryPayload: Record<string, unknown> = {
+            ...payload,
+            text: escapedText,
+          }
+
+          // MarkdownV2 fallback often escapes URL punctuation, which can break
+          // link_preview_options.url validation in Telegram. Disable preview on retry
+          // to maximize delivery reliability.
+          retryPayload.disable_web_page_preview = true
+          retryPayload.link_preview_options = { is_disabled: true }
+
+          await callTelegramApi(token, 'sendMessage', retryPayload)
+          appendBotTestLog(botId, 'telegram', 'sendMessage retry ok (MarkdownV2 escaped)', 'warn')
+          return
+        } catch {
+          // Last resort: send plain text without parse mode so the bot still responds.
+          try {
+            const plainPayload: Record<string, unknown> = {
+              ...payload,
+              text: payload.text,
+            }
+            delete plainPayload.parse_mode
+            plainPayload.disable_web_page_preview = true
+            plainPayload.link_preview_options = { is_disabled: true }
+
+            await callTelegramApi(token, 'sendMessage', plainPayload)
+            appendBotTestLog(botId, 'telegram', 'sendMessage fallback ok (plain text)', 'warn')
+            return
+          } catch {
+            // continue to HTML fallback / original error
+          }
+        }
+      }
+    }
+
+    if (normalizedParseMode === 'HTML' && typeof payload.text === 'string') {
+      const sanitizedText = sanitizeUnsupportedHtmlAnchors(payload.text)
+      if (sanitizedText !== payload.text) {
+        try {
+          const retryPayload: Record<string, unknown> = {
+            ...payload,
+            text: sanitizedText,
+          }
+
+          const retryPreview = retryPayload.link_preview_options as
+            | { is_disabled?: boolean; url?: string }
+            | undefined
+          if (retryPreview && retryPreview.is_disabled !== true) {
+            const detectedUrl = extractFirstHttpUrl(sanitizedText)
+            retryPayload.link_preview_options = detectedUrl
+              ? { is_disabled: false, url: detectedUrl }
+              : { is_disabled: false }
+          }
+
+          await callTelegramApi(token, 'sendMessage', {
+            ...retryPayload,
+          })
+          appendBotTestLog(botId, 'telegram', 'sendMessage retry ok (HTML sanitized)', 'warn')
+          return
+        } catch {
+          // fall through to original error below
+        }
+      }
+    }
+
+    throw error
+  }
+}
+
+async function sendMediaMessage(
+  token: string,
+  botId: string,
+  chatId: number,
+  attachment: ResolvedMessageAttachment,
+  caption: string,
+  parseMode?: unknown,
+  keyboard?: unknown,
+  options?: {
+    disableNotification?: boolean
+  }
+): Promise<void> {
+  const methodMap: Record<SupportedMediaAttachmentType, { apiMethod: string; payloadField: string }> = {
+    photo: { apiMethod: 'sendPhoto', payloadField: 'photo' },
+    video: { apiMethod: 'sendVideo', payloadField: 'video' },
+    document: { apiMethod: 'sendDocument', payloadField: 'document' },
+    audio: { apiMethod: 'sendAudio', payloadField: 'audio' },
+  }
+
+  const mapped = methodMap[attachment.type]
+  const payload: Record<string, unknown> = {
+    chat_id: chatId,
+    [mapped.payloadField]: attachment.source,
+  }
+  const localFilePath =
+    !isHttpLikeMediaSource(attachment.source) && isLikelyLocalFilePath(attachment.source)
+      ? resolveLocalFilePath(attachment.source)
+      : null
+  let localFileBuffer: Buffer | null = null
+  const localFileName = localFilePath ? basename(localFilePath) || `${attachment.type}.bin` : null
+
+  const normalizedCaption = String(caption || '').trim()
+  const normalizedParseMode = normalizeParseMode(parseMode)
+
+  if (normalizedCaption) {
+    payload.caption = normalizedCaption
+    if (normalizedParseMode) {
+      payload.parse_mode = normalizedParseMode
+    }
+  }
+
+  if (options?.disableNotification) {
+    payload.disable_notification = true
+  }
+
+  const replyMarkup = buildInlineKeyboardMarkup(keyboard)
+  if (replyMarkup) {
+    payload.reply_markup = replyMarkup
+  }
+
+  const ensureLocalFileBuffer = async () => {
+    if (!localFilePath) return null
+    if (localFileBuffer) return localFileBuffer
+    try {
+      localFileBuffer = await readFile(localFilePath)
+      return localFileBuffer
+    } catch (error) {
+      throw new Error(`Не удалось прочитать локальный файл: ${localFilePath} (${String(error)})`)
+    }
+  }
+
+  const sendPayload = async (currentPayload: Record<string, unknown>) => {
+    if (!localFilePath) {
+      await callTelegramApi(token, mapped.apiMethod, currentPayload)
+      return
+    }
+
+    const fileBuffer = await ensureLocalFileBuffer()
+    const formData = new FormData()
+
+    for (const [key, value] of Object.entries(currentPayload)) {
+      if (value === undefined || value === null) {
+        continue
+      }
+
+      if (key === mapped.payloadField) {
+        continue
+      }
+
+      if (key === 'reply_markup' && typeof value === 'object') {
+        formData.append(key, JSON.stringify(value))
+        continue
+      }
+
+      formData.append(key, String(value))
+    }
+
+    formData.append(
+      mapped.payloadField,
+      new Blob([fileBuffer ?? new Uint8Array()]),
+      localFileName || `${attachment.type}.bin`
+    )
+
+    await callTelegramApiFormData(token, mapped.apiMethod, formData)
+  }
+
+  try {
+    await sendPayload(payload)
+    appendBotTestLog(
+      botId,
+      'telegram',
+      `${mapped.apiMethod} ok (${normalizedParseMode || 'plain'}): ${attachment.source.slice(0, 96)}${normalizedCaption ? ` | ${normalizedCaption.replace(/\s+/g, ' ').slice(0, 80)}` : ''}`
+    )
+  } catch (error) {
+    appendBotTestLog(botId, 'telegram', `${mapped.apiMethod} error: ${String(error)}`, 'error')
+
+    if (normalizedParseMode === 'MarkdownV2' && typeof payload.caption === 'string') {
+      const escapedCaption = escapeMarkdownV2PreservingFormatting(payload.caption)
+      if (escapedCaption !== payload.caption) {
+        try {
+          const retryPayload: Record<string, unknown> = {
+            ...payload,
+            caption: escapedCaption,
+          }
+
+          await sendPayload(retryPayload)
+          appendBotTestLog(botId, 'telegram', `${mapped.apiMethod} retry ok (MarkdownV2 escaped)`, 'warn')
+          return
+        } catch {
+          try {
+            const plainPayload: Record<string, unknown> = {
+              ...payload,
+            }
+            delete plainPayload.parse_mode
+            await sendPayload(plainPayload)
+            appendBotTestLog(botId, 'telegram', `${mapped.apiMethod} fallback ok (plain caption)`, 'warn')
+            return
+          } catch {
+            // continue to HTML fallback / original error
+          }
+        }
+      }
+    }
+
+    if (normalizedParseMode === 'HTML' && typeof payload.caption === 'string') {
+      const sanitizedCaption = sanitizeUnsupportedHtmlAnchors(payload.caption)
+      if (sanitizedCaption !== payload.caption) {
+        try {
+          const retryPayload: Record<string, unknown> = {
+            ...payload,
+            caption: sanitizedCaption,
+          }
+          await sendPayload(retryPayload)
+          appendBotTestLog(botId, 'telegram', `${mapped.apiMethod} retry ok (HTML sanitized)`, 'warn')
+          return
+        } catch {
+          // fall through
+        }
+      }
+    }
+
+    throw error
+  }
 }
 
 async function executeActionNode(
@@ -670,19 +1823,20 @@ async function executeActionNode(
   session: RuntimeSession,
   contextVariables: Record<string, unknown>,
   update: TelegramUpdate,
-  botToken: string
-): Promise<void> {
+  botToken: string,
+  botId?: string
+): Promise<string | null> {
   const data = (node.data || {}) as Record<string, unknown>
   const actionRaw = data.action
 
-  if (!actionRaw || typeof actionRaw !== 'object') return
+  if (!actionRaw || typeof actionRaw !== 'object') return null
 
   const action = actionRaw as Record<string, unknown>
   const actionType = String(action.type || '')
 
   if (actionType === 'setVariable') {
     const variableName = normalizeText(action.variableName)
-    if (!variableName) return
+    if (!variableName) return null
 
     const rawValue = action.value
     const value =
@@ -691,19 +1845,19 @@ async function executeActionNode(
         : rawValue
 
     session.variables[variableName] = value
-    return
+    return null
   }
 
   if (actionType === 'delay') {
     const delayMs = Math.min(Math.max(Number(action.duration || 1000), 0), 10000)
     await new Promise((resolve) => setTimeout(resolve, delayMs))
-    return
+    return null
   }
 
   if (actionType === 'deleteMessage') {
     const messageId = update.message?.message_id || update.callback_query?.message?.message_id
     const chatId = update.message?.chat.id || update.callback_query?.message?.chat.id
-    if (!messageId || !chatId) return
+    if (!messageId || !chatId) return null
 
     try {
       await callTelegramApi(botToken, 'deleteMessage', {
@@ -713,13 +1867,40 @@ async function executeActionNode(
     } catch {
       // ignore non-critical delete errors
     }
-    return
+    return null
+  }
+
+  if (actionType === 'random') {
+    const rawPercent = Number(action.aPercent ?? action.percent ?? 50)
+    const aPercent = Number.isFinite(rawPercent)
+      ? Math.min(100, Math.max(0, rawPercent))
+      : 50
+    const roll = Math.random() * 100
+    const selectedHandle = roll < aPercent ? 'a' : 'b'
+
+    const saveToVariable = normalizeText(action.saveToVariable)
+    if (saveToVariable) {
+      session.variables[saveToVariable] = selectedHandle.toUpperCase()
+    }
+
+    if (botId) {
+      appendBotTestLog(
+        botId,
+        'workflow',
+        `Action random -> ${node.id} ${selectedHandle.toUpperCase()} (roll=${roll.toFixed(1)}, A=${aPercent}%)`,
+        'info'
+      )
+    }
+
+    return selectedHandle
   }
 
   // Legacy compatibility: old flows may still have HTTP inside Action node.
   if (actionType === 'httpRequest') {
     await executeHttpRequestData(action, session, contextVariables)
   }
+
+  return null
 }
 
 async function executeHttpRequestData(
@@ -780,16 +1961,164 @@ async function executeHttpNode(
   await executeHttpRequestData(data, session, contextVariables)
 }
 
+function resolveSchedulerDelayMs(data: Record<string, unknown>): number {
+  const rawValue = Number(data.delayValue ?? 0)
+  const safeValue = Number.isFinite(rawValue) ? Math.max(0, rawValue) : 0
+  const unit = normalizeText(data.delayUnit || 'minutes').toLowerCase()
+
+  switch (unit) {
+    case 'seconds':
+    case 'second':
+      return Math.round(safeValue * 1000)
+    case 'hours':
+    case 'hour':
+      return Math.round(safeValue * 60 * 60 * 1000)
+    case 'days':
+    case 'day':
+      return Math.round(safeValue * 24 * 60 * 60 * 1000)
+    case 'minutes':
+    case 'minute':
+    default:
+      return Math.round(safeValue * 60 * 1000)
+  }
+}
+
+function resolveSchedulerDueAtMs(
+  data: Record<string, unknown>,
+  contextVariables: Record<string, unknown>
+): { dueAtMs: number | null; reason?: string } {
+  const mode = normalizeText(data.mode || 'delay')
+
+  if (mode === 'datetime' || mode === 'dateTime') {
+    const dateTimeLocal = interpolateTemplate(String(data.dateTime || ''), contextVariables).trim()
+    const timeZone = interpolateTemplate(String(data.timeZone || 'UTC'), contextVariables).trim() || 'UTC'
+
+    if (!dateTimeLocal) {
+      return { dueAtMs: null, reason: 'scheduler: dateTime is empty' }
+    }
+    if (!isValidIanaTimeZone(timeZone)) {
+      return { dueAtMs: null, reason: `scheduler: invalid timezone "${timeZone}"` }
+    }
+
+    const dueAtMs = zonedDateTimeLocalToUtcMs(dateTimeLocal, timeZone)
+    if (dueAtMs == null) {
+      return {
+        dueAtMs: null,
+        reason: `scheduler: invalid date/time "${dateTimeLocal}" for zone "${timeZone}"`,
+      }
+    }
+    return { dueAtMs }
+  }
+
+  return { dueAtMs: Date.now() + resolveSchedulerDelayMs(data) }
+}
+
+function scheduleSchedulerResume(args: {
+  sessionKey: string
+  botId: string
+  botToken: string
+  config: BotConfig
+  session: RuntimeSession
+  schedulerNodeId: string
+  nextNodeId: string
+  dueAtMs: number
+  chatId: number
+  update: TelegramUpdate
+  user: TelegramUser | null
+}) {
+  const {
+    sessionKey,
+    botId,
+    botToken,
+    config,
+    session,
+    schedulerNodeId,
+    nextNodeId,
+    dueAtMs,
+    chatId,
+    update,
+    user,
+  } = args
+
+  clearScheduledResumeTimer(sessionKey, session)
+  session.scheduledResumeAtMs = dueAtMs
+
+  const scheduleChunk = () => {
+    const remainingMs = dueAtMs - Date.now()
+    if (remainingMs <= 0) {
+      void (async () => {
+        try {
+          runtimeSchedulerTimers.delete(sessionKey)
+
+          if (session.waitingForNodeId !== schedulerNodeId) {
+            appendBotTestLog(
+              botId,
+              'workflow',
+              `Scheduler resume skipped: waiting node changed (${schedulerNodeId})`,
+              'debug'
+            )
+            return
+          }
+
+          session.waitingForNodeId = undefined
+          session.scheduledResumeAtMs = undefined
+          session.updatedAt = Date.now()
+
+          appendBotTestLog(botId, 'workflow', `Scheduler resume -> ${schedulerNodeId}`, 'info')
+
+          const runState = await executeFromNode({
+            startNodeId: nextNodeId,
+            botId,
+            botToken,
+            chatId,
+            config,
+            session,
+            sessionKey,
+            update,
+            user,
+          })
+
+          if (runState === 'completed' && !session.waitingForNodeId) {
+            resetSessionState(session, sessionKey)
+          }
+        } catch (error) {
+          appendBotTestLog(
+            botId,
+            'workflow',
+            `Scheduler resume error (${schedulerNodeId}): ${String(error)}`,
+            'error'
+          )
+        }
+      })()
+      return
+    }
+
+    const timeoutMs = Math.min(remainingMs, MAX_TIMEOUT_CHUNK_MS)
+    const timer = setTimeout(() => {
+      if (timeoutMs < remainingMs) {
+        scheduleChunk()
+        return
+      }
+      scheduleChunk()
+    }, timeoutMs)
+    runtimeSchedulerTimers.set(sessionKey, timer)
+  }
+
+  scheduleChunk()
+}
+
 async function executeFromNode(args: {
   startNodeId: string
+  botId: string
   botToken: string
   chatId: number
   config: BotConfig
   session: RuntimeSession
+  sessionKey: string
   update: TelegramUpdate
   user: TelegramUser | null
 }): Promise<WorkflowRunState> {
-  const { botToken, chatId, config, session, update, user } = args
+  const { botId, botToken, chatId, config, session, sessionKey, update, user } = args
   const nodeMap = buildNodeMap(config)
 
   let currentNodeId: string | null = args.startNodeId
@@ -816,7 +2145,36 @@ async function executeFromNode(args: {
       const data = (node.data || {}) as Record<string, unknown>
       const rawText = normalizeText(data.text || data.__label || data._label || '')
       const text = interpolateTemplate(rawText, contextVariables)
-      await sendMessage(botToken, chatId, text, data.parseMode, resolveKeyboardData(data))
+      const attachment = resolveMessageAttachment(data)
+      appendBotTestLog(botId, 'workflow', `Node message -> ${node.id}`, 'debug')
+
+      if (attachment) {
+        const attachmentSource = interpolateTemplate(attachment.source, contextVariables).trim()
+        if (attachmentSource) {
+          await sendMediaMessage(
+            botToken,
+            botId,
+            chatId,
+            { ...attachment, source: attachmentSource },
+            text,
+            resolveNodeParseMode(data),
+            resolveKeyboardData(data),
+            {
+              disableNotification: normalizeBoolean(data.disableNotification),
+            }
+          )
+        } else {
+          await sendMessage(botToken, botId, chatId, text, resolveNodeParseMode(data), resolveKeyboardData(data), {
+            disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
+            disableNotification: normalizeBoolean(data.disableNotification),
+          })
+        }
+      } else {
+        await sendMessage(botToken, botId, chatId, text, resolveNodeParseMode(data), resolveKeyboardData(data), {
+          disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
+          disableNotification: normalizeBoolean(data.disableNotification),
+        })
+      }
       currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
     }
@@ -828,19 +2186,28 @@ async function executeFromNode(args: {
       const placeholder = normalizeText(data.inputPlaceholder || data.variableName || 'Введите ответ')
       const shouldUseForceReply = data.forceReply !== false
       const keyboard = resolveKeyboardData(data)
+      const parseMode = resolveNodeParseMode(data)
+      const messageOptions = {
+        disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
+        disableNotification: normalizeBoolean(data.disableNotification),
+      }
 
       if (shouldUseForceReply) {
         try {
-          await sendMessage(botToken, chatId, question, data.parseMode, keyboard, {
+          appendBotTestLog(botId, 'workflow', `Node input(forceReply) -> ${node.id}`, 'debug')
+          await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, {
             forceReply: true,
             inputPlaceholder: placeholder,
+            ...messageOptions,
           })
         } catch (error) {
           console.error('Failed to send input with force-reply, fallback to plain message:', error)
-          await sendMessage(botToken, chatId, question, data.parseMode, keyboard)
+          appendBotTestLog(botId, 'workflow', `Input forceReply fallback: ${String(error)}`, 'warn')
+          await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, messageOptions)
         }
       } else {
-        await sendMessage(botToken, chatId, question, data.parseMode, keyboard)
+        appendBotTestLog(botId, 'workflow', `Node input -> ${node.id}`, 'debug')
+        await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, messageOptions)
       }
 
       session.waitingForNodeId = node.id
@@ -860,19 +2227,126 @@ async function executeFromNode(args: {
       continue
     }
 
+    if (node.type === 'router') {
+      const data = (node.data || {}) as Record<string, unknown>
+      const variableName = normalizeText(data.variable)
+      const operator = normalizeText(data.operator || 'equals')
+      const routerCases = normalizeRouterCases(data.cases)
+
+      const leftValue = variableName ? resolvePath(contextVariables, variableName) : undefined
+
+      const matchedCase = routerCases.find((routerCase) =>
+        evaluateConditionValue(operator, leftValue, routerCase.value)
+      )
+
+      if (matchedCase) {
+        appendBotTestLog(
+          botId,
+          'workflow',
+          `Router -> ${node.id} matched case:${matchedCase.id} (${matchedCase.label || String(matchedCase.value ?? '') || '-'})`,
+          'info'
+        )
+      } else {
+        appendBotTestLog(
+          botId,
+          'workflow',
+          `Router -> ${node.id} default branch (${variableName || 'variable'} unmatched)`,
+          'debug'
+        )
+      }
+
+      currentNodeId = getRouterNextNodeId(config, node.id, matchedCase?.id)
+      continue
+    }
+
+    if (node.type === 'scheduler') {
+      const data = (node.data || {}) as Record<string, unknown>
+      const nextNodeId = getDefaultNextNodeId(config, node.id)
+      if (!nextNodeId) {
+        appendBotTestLog(botId, 'workflow', `Scheduler -> ${node.id}: no next node`, 'warn')
+        return 'completed'
+      }
+
+      const { dueAtMs, reason } = resolveSchedulerDueAtMs(data, contextVariables)
+      if (dueAtMs == null || !Number.isFinite(dueAtMs)) {
+        appendBotTestLog(
+          botId,
+          'workflow',
+          `Scheduler -> ${node.id} invalid schedule (${reason || 'unknown'})`,
+          'warn'
+        )
+        currentNodeId = nextNodeId
+        continue
+      }
+
+      const saveToVariable = normalizeText(data.saveToVariable)
+      if (saveToVariable) {
+        session.variables[saveToVariable] = new Date(dueAtMs).toISOString()
+      }
+
+      const delayMs = dueAtMs - Date.now()
+      if (delayMs <= 0) {
+        appendBotTestLog(
+          botId,
+          'workflow',
+          `Scheduler -> ${node.id} due time already passed, continue now`,
+          'debug'
+        )
+        currentNodeId = nextNodeId
+        continue
+      }
+
+      session.waitingForNodeId = node.id
+      session.updatedAt = Date.now()
+
+      scheduleSchedulerResume({
+        sessionKey,
+        botId,
+        botToken,
+        config,
+        session,
+        schedulerNodeId: node.id,
+        nextNodeId,
+        dueAtMs,
+        chatId,
+        update,
+        user,
+      })
+
+      appendBotTestLog(
+        botId,
+        'workflow',
+        `Scheduler -> ${node.id} scheduled in ${Math.max(1, Math.round(delayMs / 1000))}s (${new Date(dueAtMs).toISOString()})`,
+        'info'
+      )
+      return 'waiting'
+    }
+
     if (node.type === 'action') {
-      await executeActionNode(node, session, contextVariables, update, botToken)
-      currentNodeId = getDefaultNextNodeId(config, node.id)
+      appendBotTestLog(botId, 'workflow', `Node action -> ${node.id}`, 'debug')
+      const selectedActionHandle = await executeActionNode(
+        node,
+        session,
+        contextVariables,
+        update,
+        botToken,
+        botId
+      )
+      currentNodeId = selectedActionHandle
+        ? getNextNodeIdBySourceHandle(config, node.id, selectedActionHandle) || getDefaultNextNodeId(config, node.id)
+        : getDefaultNextNodeId(config, node.id)
       continue
     }
 
     if (node.type === 'http' || node.type === 'webhook') {
+      appendBotTestLog(botId, 'workflow', `Node ${node.type} -> ${node.id}`, 'debug')
       await executeHttpNode(node, session, contextVariables)
       currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
     }
 
     if (node.type === 'wait') {
+      appendBotTestLog(botId, 'workflow', `Node wait -> ${node.id}`, 'debug')
       session.waitingForNodeId = node.id
       session.updatedAt = Date.now()
       return 'waiting'
@@ -890,6 +2364,7 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
   const hasAnyTrigger = context.config.nodes.some((node) => node.type === 'trigger')
   if (!hasAnyTrigger) {
     // Strict mode: without trigger nodes workflow must not execute any actions.
+    appendBotTestLog(context.botId, 'workflow', 'Игнор update: trigger-ноды отсутствуют', 'warn')
     return
   }
 
@@ -900,36 +2375,70 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
   const user = message?.from || callback?.from || null
 
   if (!chatId || !user?.id) {
+    appendBotTestLog(context.botId, 'workflow', 'Игнор update: нет chatId или userId', 'warn')
     return
   }
+
+  await tryApplySystemAutoReaction(context, message, user)
 
   const sessionKey = createSessionKey(context.botId, chatId, user.id)
   const session = getOrCreateSession(sessionKey)
   const nodeMap = buildNodeMap(context.config)
   const messageText = normalizeText(message?.text)
   const callbackData = normalizeText(callback?.data)
+  const activeWaitingNode = session.waitingForNodeId ? nodeMap.get(session.waitingForNodeId) : undefined
+
+  if (activeWaitingNode?.type === 'scheduler') {
+    if (callback?.id) {
+      try {
+        await callTelegramApi(context.botToken, 'answerCallbackQuery', {
+          callback_query_id: callback.id,
+        })
+      } catch {
+        // ignore callback ack errors while scheduler is waiting
+      }
+    }
+    appendBotTestLog(
+      context.botId,
+      'workflow',
+      `Scheduler waiting: ${activeWaitingNode.id}${session.scheduledResumeAtMs ? ` until ${new Date(session.scheduledResumeAtMs).toISOString()}` : ''}`,
+      'debug'
+    )
+    return
+  }
 
   const runFromTriggerNode = async (triggerNode: BotNode) => {
     // Start every trigger execution from a clean state to avoid stale variable leaks
-    resetSessionState(session)
+    resetSessionState(session, sessionKey)
+
+    const triggerData = (triggerNode.data || {}) as Record<string, unknown>
+    appendBotTestLog(
+      context.botId,
+      'workflow',
+      `Trigger matched: ${String(triggerData.trigger || 'unknown')} | pattern=${String(triggerData.pattern || '').slice(0, 80) || '-'}`,
+      'info'
+    )
 
     const nextNodeId = getDefaultNextNodeId(context.config, triggerNode.id)
     if (!nextNodeId) {
+      appendBotTestLog(context.botId, 'workflow', 'У trigger-ноды нет следующего соединения', 'warn')
       return
     }
 
     const runState = await executeFromNode({
       startNodeId: nextNodeId,
+      botId: context.botId,
       botToken: context.botToken,
       chatId,
       config: context.config,
       session,
+      sessionKey,
       update: context.update,
       user,
     })
 
     if (runState === 'completed' && !session.waitingForNodeId) {
-      resetSessionState(session)
+      resetSessionState(session, sessionKey)
     }
   }
 
@@ -942,6 +2451,7 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
       callbackAcknowledged = true
     } catch {
       callbackAcknowledged = false
+      appendBotTestLog(context.botId, 'telegram', 'answerCallbackQuery error', 'warn')
     }
   }
 
@@ -967,6 +2477,8 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
 
     if (triggerNode) {
       await runFromTriggerNode(triggerNode)
+    } else {
+      appendBotTestLog(context.botId, 'workflow', `Callback ignored: ${callbackData || '(empty)'}`, 'debug')
     }
     return
   }
@@ -998,6 +2510,7 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
       const saveToVariable = normalizeText(waitData.saveToVariable)
       if (saveToVariable) {
         session.variables[saveToVariable] = callbackData || messageText
+        appendBotTestLog(context.botId, 'workflow', `Wait saved: ${saveToVariable}`, 'debug')
       }
     }
 
@@ -1006,6 +2519,7 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
       const variableName = normalizeText((waitingNode.data as Record<string, unknown>)?.variableName)
       if (variableName) {
         session.variables[variableName] = messageText
+        appendBotTestLog(context.botId, 'workflow', `Input captured: ${variableName}=${messageText.slice(0, 80)}`, 'info')
       }
     }
 
@@ -1015,19 +2529,21 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
     if (nextNodeId) {
       const runState = await executeFromNode({
         startNodeId: nextNodeId,
+        botId: context.botId,
         botToken: context.botToken,
         chatId,
         config: context.config,
         session,
+        sessionKey,
         update: context.update,
         user,
       })
 
       if (runState === 'completed' && !session.waitingForNodeId) {
-        resetSessionState(session)
+        resetSessionState(session, sessionKey)
       }
     } else {
-      resetSessionState(session)
+      resetSessionState(session, sessionKey)
     }
     return
   }
@@ -1036,4 +2552,6 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
     await runFromTriggerNode(triggerNode)
     return
   }
+
+  appendBotTestLog(context.botId, 'workflow', `No trigger matched for: ${messageText.slice(0, 80)}`, 'debug')
 }

@@ -2,8 +2,12 @@
 
 import { headers } from 'next/headers'
 import { randomUUID } from 'crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { extname, join } from 'node:path'
 import { getServerUser, createServerClientWrapper } from '@/lib/supabase/server'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
+import { createBotSecretsService } from '@/lib/bot-editor/services/bot-secrets-service'
+import { appendBotAuditEventSafe } from '@/lib/bot-editor/services/bot-audit-service'
 import type {
   BotConfig,
   BotVariable,
@@ -19,6 +23,15 @@ import {
   updateTelegramPollingConfig,
 } from '@/lib/bot-editor/runtime/polling-runtime'
 import { clearRuntimeSessionsForBot } from '@/lib/bot-editor/runtime/workflow-runtime'
+import {
+  appendBotTestLog,
+  clearBotTestLogs,
+  getPersistentBotTestLogs,
+  getBotTestLogs,
+  mergeBotTestLogs,
+  setBotTestLogRunContext,
+  type BotTestLogEntry,
+} from '@/lib/bot-editor/runtime/test-log-store'
 
 type CanvasNode = {
   id: string
@@ -47,18 +60,44 @@ type CanvasVariable = {
   [key: string]: unknown
 }
 
+const LOCAL_BOT_MEDIA_ROOT_DIR = '.tflow-media'
+const MAX_LOCAL_ATTACHMENT_BYTES = 50 * 1024 * 1024
+
 interface SaveSettingsInput {
   name: string
   description: string
   status: BotStatus
   telegramToken: string
   webhookUrl: string
+  metadataPatch?: Record<string, unknown>
 }
+
+function sanitizeAttachmentFileName(name: string): string {
+  const trimmed = String(name || '').trim() || 'attachment'
+  const extension = extname(trimmed).slice(0, 16)
+  const base = trimmed.slice(0, Math.max(0, trimmed.length - extension.length))
+  const safeBase = base
+    .normalize('NFKD')
+    .replace(/[^\w.-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64) || 'attachment'
+
+  const safeExt = extension
+    .replace(/[^\w.]+/g, '')
+    .slice(0, 16)
+
+  return `${safeBase}${safeExt}`
+}
+
+type SecretsClient = Parameters<typeof createBotSecretsService>[0]
+type AuditClient = Parameters<typeof appendBotAuditEventSafe>[0]
 
 const ALLOWED_NODE_TYPES = new Set<WorkflowNode['type']>([
   'message',
   'input',
   'condition',
+  'router',
+  'scheduler',
   'action',
   'http',
   'webhook',
@@ -85,8 +124,90 @@ const ALLOWED_VARIABLE_SCOPES = new Set<NonNullable<BotVariable['scope']>>([
   'temporary',
 ])
 
+const PUBLIC_BOT_LOG_SOURCE_ALLOWLIST = new Set<BotTestLogEntry['source']>([
+  'system',
+  'runtime',
+  'workflow',
+  'telegram',
+  'polling',
+])
+
+function isInternalBotTestLogMessage(message: string): boolean {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('supabase_service_role_key') ||
+    normalized.includes('next_public_supabase_url') ||
+    normalized.includes('ошибка проверки состояния poller')
+  )
+}
+
+function toPublicBotTestLogEntries(entries: BotTestLogEntry[]): BotTestLogEntry[] {
+  return entries.filter((entry) => {
+    if (!PUBLIC_BOT_LOG_SOURCE_ALLOWLIST.has(entry.source)) {
+      return false
+    }
+
+    if (isInternalBotTestLogMessage(entry.message)) {
+      return false
+    }
+
+    return true
+  })
+}
+
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '')
+}
+
+function removeSecretFieldsFromMetadata(metadata: Record<string, unknown> | undefined | null) {
+  const next = { ...(metadata || {}) }
+  delete next.telegramToken
+  delete next.webhookSecret
+  return next
+}
+
+function sanitizeAutoReactionsFeatureConfig(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const raw = value as Record<string, unknown>
+  const cooldownRaw = Number(raw.cooldownSeconds)
+  const cooldownSeconds = Number.isFinite(cooldownRaw)
+    ? Math.max(0, Math.min(3600, Math.round(cooldownRaw)))
+    : 15
+
+  return {
+    enabled: Boolean(raw.enabled),
+    onlyTextMessages: raw.onlyTextMessages === undefined ? true : Boolean(raw.onlyTextMessages),
+    cooldownSeconds,
+    mode: 'rule-based',
+  }
+}
+
+function sanitizeSettingsMetadataPatch(input: unknown): Record<string, unknown> {
+  if (!input || typeof input !== 'object') {
+    return {}
+  }
+
+  const patch = input as Record<string, unknown>
+  const features = patch.features
+  if (!features || typeof features !== 'object') {
+    return {}
+  }
+
+  const featureRecord = features as Record<string, unknown>
+  const autoReactions = sanitizeAutoReactionsFeatureConfig(featureRecord.autoReactions)
+
+  if (!autoReactions) {
+    return {}
+  }
+
+  return {
+    features: {
+      autoReactions,
+    },
+  }
 }
 
 function normalizeNodeType(value: string | null | undefined): WorkflowNode['type'] {
@@ -277,6 +398,19 @@ export async function saveCanvasAction(
 
     await botService.saveBotConfig(botId, normalizedConfig)
 
+    await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
+      botId,
+      actorUserId: user.id,
+      source: 'editor',
+      eventType: 'canvas.saved',
+      payload: {
+        nodesCount: normalizedConfig.nodes.length,
+        edgesCount: normalizedConfig.edges.length,
+        variablesCount: normalizedConfig.variables.length,
+        version: normalizedConfig.version || '1.0.0',
+      },
+    })
+
     if (bot.metadata?.testActive && bot.metadata?.testMode === 'polling') {
       updateTelegramPollingConfig(botId, normalizedConfig)
       // Prevent stale wait/input state from old graph after live config updates.
@@ -299,24 +433,58 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
   try {
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
+    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
     const bot = await botService.getBot(botId)
 
     if (!bot) {
       return { success: false, error: 'Bot not found' }
     }
 
-    const token = input.telegramToken.trim()
+    const requestedToken = input.telegramToken.trim()
     const webhookUrl = input.webhookUrl.trim()
+    const existingToken = await botSecretsService.getTelegramToken(botId)
+    const effectiveToken = requestedToken || existingToken || ''
+
+    if (effectiveToken) {
+      // Migrates legacy metadata token into encrypted storage on first save too.
+      await botSecretsService.setTelegramToken(botId, effectiveToken)
+    }
+
+    const safeMetadataBase = removeSecretFieldsFromMetadata(
+      (bot.metadata || {}) as Record<string, unknown>
+    )
+    const safeSettingsMetadataPatch = sanitizeSettingsMetadataPatch(input.metadataPatch)
+    const mergedFeatures =
+      safeMetadataBase.features && typeof safeMetadataBase.features === 'object'
+        ? {
+            ...(safeMetadataBase.features as Record<string, unknown>),
+            ...((safeSettingsMetadataPatch.features as Record<string, unknown> | undefined) || {}),
+          }
+        : ((safeSettingsMetadataPatch.features as Record<string, unknown> | undefined) || undefined)
 
     const updatedBot = await botService.updateBot(botId, {
       name: input.name.trim(),
       description: input.description.trim(),
       status: input.status,
       metadata: {
-        ...bot.metadata,
-        telegramToken: token,
+        ...safeMetadataBase,
+        ...(mergedFeatures ? { features: mergedFeatures } : {}),
         webhookUrl,
-        testActive: token === bot.metadata?.telegramToken ? bot.metadata?.testActive : false,
+        hasTelegramToken: Boolean(effectiveToken),
+        testActive: requestedToken && requestedToken !== existingToken ? false : bot.metadata?.testActive,
+      },
+    })
+
+    await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
+      botId,
+      actorUserId: user.id,
+      source: 'editor',
+      eventType: 'settings.saved',
+      payload: {
+        status: input.status,
+        hasTelegramToken: Boolean(effectiveToken),
+        tokenUpdated: Boolean(requestedToken),
+        webhookUrlSet: Boolean(webhookUrl),
       },
     })
 
@@ -346,14 +514,27 @@ export async function startBotTestAction(
   try {
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
+    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
     const bot = await botService.getBot(botId)
 
     if (!bot) {
       return { success: false, error: 'Bot not found' }
     }
 
-    const token = String(bot.metadata?.telegramToken || '').trim()
+    const testRunId = randomUUID()
+    setBotTestLogRunContext(botId, testRunId)
+    clearBotTestLogs(botId)
+    appendBotTestLog(botId, 'system', 'Запуск теста бота...')
+
+    const token = String(await botSecretsService.getTelegramToken(botId) || '').trim()
     if (!token) {
+      appendBotTestLog(
+        botId,
+        'system',
+        'Не указан Bot Token в настройках Telegram Integration.',
+        'error'
+      )
+      setBotTestLogRunContext(botId, null)
       return {
         success: false,
         error: 'Укажите Bot Token в Settings -> Telegram Integration, затем сохраните настройки.',
@@ -370,7 +551,6 @@ export async function startBotTestAction(
     }
 
     clearRuntimeSessionsForBot(botId)
-    const testRunId = randomUUID()
 
     const runtimeConfig: BotConfig = {
       nodes: input?.nodes ? normalizeNodes(input.nodes) : bot.config.nodes,
@@ -380,6 +560,8 @@ export async function startBotTestAction(
     }
 
     if (!hasTriggerNode(runtimeConfig.nodes)) {
+      appendBotTestLog(botId, 'system', 'Нет Trigger-ноды на Canvas. Запуск остановлен.', 'warn')
+      setBotTestLogRunContext(botId, null)
       return {
         success: false,
         error:
@@ -389,8 +571,12 @@ export async function startBotTestAction(
 
     const me = await callTelegramApi<{ id: number; username?: string }>(token, 'getMe')
     if (!me.username) {
+      appendBotTestLog(botId, 'telegram', 'У бота нет username в @BotFather.', 'error')
+      setBotTestLogRunContext(botId, null)
       return { success: false, error: 'У бота нет username. Настройте бота в @BotFather.' }
     }
+
+    appendBotTestLog(botId, 'telegram', `Bot @${me.username} успешно проверен`)
 
     const baseUrl = await resolveBaseUrlSafe()
 
@@ -399,6 +585,7 @@ export async function startBotTestAction(
 
       const webhookUrl = `${baseUrl}/api/telegram/webhook/${botId}`
       const webhookSecret = randomUUID()
+      await botSecretsService.setWebhookSecret(botId, webhookSecret)
 
       await callTelegramApi(token, 'setWebhook', {
         url: webhookUrl,
@@ -406,16 +593,17 @@ export async function startBotTestAction(
         allowed_updates: ['message', 'callback_query'],
         drop_pending_updates: true,
       })
+      appendBotTestLog(botId, 'runtime', `Тест запущен в режиме webhook: ${webhookUrl}`)
 
       await botService.updateBot(botId, {
         status: 'active',
         metadata: {
-          ...bot.metadata,
-          telegramToken: token,
+          ...removeSecretFieldsFromMetadata((bot.metadata || {}) as Record<string, unknown>),
           botUsername: me.username,
           telegramBotId: me.id,
           webhookUrl,
-          webhookSecret,
+          hasTelegramToken: true,
+          hasWebhookSecret: true,
           testActive: true,
           testMode: 'webhook',
           testRunId,
@@ -424,6 +612,19 @@ export async function startBotTestAction(
       })
 
       const updatedBot = await botService.getBot(botId)
+
+      await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
+        botId,
+        actorUserId: user.id,
+        source: 'editor',
+        eventType: 'test.started',
+        payload: {
+          mode: 'webhook',
+          runId: testRunId,
+          botUsername: me.username,
+          webhookUrl,
+        },
+      })
 
       return {
         success: true,
@@ -438,31 +639,49 @@ export async function startBotTestAction(
     await callTelegramApi(token, 'deleteWebhook', {
       drop_pending_updates: true,
     })
+    appendBotTestLog(botId, 'telegram', 'Webhook отключен. Переход в polling-режим.')
+    await botSecretsService.setWebhookSecret(botId, null)
+
+    const pollingRuntimeMetadata = {
+      ...removeSecretFieldsFromMetadata((bot.metadata || {}) as Record<string, unknown>),
+      botUsername: me.username,
+      telegramBotId: me.id,
+      webhookUrl: '',
+      hasTelegramToken: true,
+      hasWebhookSecret: false,
+      testActive: true,
+      testMode: 'polling',
+      testRunId,
+      testStartedAt: new Date().toISOString(),
+    }
+
+    await botService.updateBot(botId, {
+      status: 'active',
+      metadata: pollingRuntimeMetadata,
+    })
 
     startTelegramPolling({
       botId,
       botToken: token,
       config: runtimeConfig,
+      metadata: pollingRuntimeMetadata,
       testRunId,
     })
-
-    await botService.updateBot(botId, {
-      status: 'active',
-      metadata: {
-        ...bot.metadata,
-        telegramToken: token,
-        botUsername: me.username,
-        telegramBotId: me.id,
-        webhookUrl: '',
-        webhookSecret: null,
-        testActive: true,
-        testMode: 'polling',
-        testRunId,
-        testStartedAt: new Date().toISOString(),
-      },
-    })
+    appendBotTestLog(botId, 'runtime', 'Тест запущен в polling-режиме (локально)')
 
     const updatedBot = await botService.getBot(botId)
+
+    await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
+      botId,
+      actorUserId: user.id,
+      source: 'editor',
+      eventType: 'test.started',
+      payload: {
+        mode: 'polling',
+        runId: testRunId,
+        botUsername: me.username,
+      },
+    })
 
     return {
       success: true,
@@ -475,6 +694,22 @@ export async function startBotTestAction(
     }
   } catch (error) {
     console.error('Failed to start bot test:', error)
+    appendBotTestLog(botId, 'system', `Ошибка запуска теста: ${String(error)}`, 'error')
+    try {
+      const supabase = await createServerClientWrapper()
+      await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
+        botId,
+        actorUserId: user.id,
+        source: 'editor',
+        eventType: 'test.start_failed',
+        payload: {
+          error: String(error),
+        },
+      })
+    } catch {
+      // ignore audit write errors on failure path
+    }
+    setBotTestLogRunContext(botId, null)
     return { success: false, error: String(error) }
   }
 }
@@ -488,16 +723,20 @@ export async function stopBotTestAction(botId: string) {
   try {
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
+    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
     const bot = await botService.getBot(botId)
 
     if (!bot) {
       return { success: false, error: 'Bot not found' }
     }
 
+    setBotTestLogRunContext(botId, String(bot.metadata?.testRunId || ''))
+    appendBotTestLog(botId, 'system', 'Остановка теста бота...')
+
     stopTelegramPolling(botId)
     clearRuntimeSessionsForBot(botId)
 
-    const token = String(bot.metadata?.telegramToken || '').trim()
+    const token = String(await botSecretsService.getTelegramToken(botId) || '').trim()
     if (token) {
       try {
         await callTelegramApi(token, 'deleteWebhook', {
@@ -505,21 +744,35 @@ export async function stopBotTestAction(botId: string) {
         })
       } catch (error) {
         console.error('Failed to delete webhook during stop:', error)
+        appendBotTestLog(botId, 'telegram', `Ошибка удаления webhook: ${String(error)}`, 'warn')
       }
     }
 
+    await botSecretsService.setWebhookSecret(botId, null)
+
     await botService.updateBot(botId, {
       metadata: {
-        ...bot.metadata,
+        ...removeSecretFieldsFromMetadata((bot.metadata || {}) as Record<string, unknown>),
         testActive: false,
         testMode: 'stopped',
         testRunId: null,
         testStoppedAt: new Date().toISOString(),
-        webhookSecret: null,
+        hasWebhookSecret: false,
       },
     })
 
     const updatedBot = await botService.getBot(botId)
+    setBotTestLogRunContext(botId, null)
+
+    await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
+      botId,
+      actorUserId: user.id,
+      source: 'editor',
+      eventType: 'test.stopped',
+      payload: {
+        previousRunId: String(bot.metadata?.testRunId || '') || null,
+      },
+    })
 
     return {
       success: true,
@@ -527,6 +780,122 @@ export async function stopBotTestAction(botId: string) {
     }
   } catch (error) {
     console.error('Failed to stop bot test:', error)
+    appendBotTestLog(botId, 'system', `Ошибка остановки теста: ${String(error)}`, 'error')
+    return { success: false, error: String(error) }
+  }
+}
+
+export async function getBotTestLogsAction(
+  botId: string,
+  options?: { sinceTs?: number; limit?: number }
+) {
+  const normalizedBotId = String(botId || '').trim()
+  if (!normalizedBotId) {
+    return { success: false, error: 'Bot not found', entries: [] as ReturnType<typeof getBotTestLogs> }
+  }
+
+  // Logs are stored in local runtime memory for the currently running test session.
+  // Polling this endpoint every second should not hard-fail the UI if auth cookies
+  // are temporarily unavailable during dev/HMR/session refresh. We still try to
+  // validate access when possible, but fall back to returning in-memory logs.
+  let canValidateAccess = false
+  let currentRunId: string | null = null
+
+  try {
+    const user = await getServerUser()
+    if (user) {
+      canValidateAccess = true
+      const supabase = await createServerClientWrapper()
+      const botService = createBotService(supabase)
+      const bot = await botService.getBot(normalizedBotId)
+      if (!bot) {
+        const entries = toPublicBotTestLogEntries(getBotTestLogs(normalizedBotId, options))
+        return { success: true, entries }
+      }
+      currentRunId = String(bot.metadata?.testRunId || '').trim() || null
+    }
+  } catch {
+    // Ignore auth/db transient errors for log polling; return in-memory entries below.
+  }
+
+  const persistentEntries = toPublicBotTestLogEntries(
+    canValidateAccess
+      ? await getPersistentBotTestLogs(normalizedBotId, {
+          ...options,
+          runId: currentRunId,
+        })
+      : []
+  )
+  const memoryEntries = toPublicBotTestLogEntries(getBotTestLogs(normalizedBotId, options))
+  const mergedEntries = mergeBotTestLogs(persistentEntries, memoryEntries)
+  const limit = Math.max(1, Math.min(options?.limit ?? 200, 500))
+  const entries =
+    mergedEntries.length > limit
+      ? mergedEntries.slice(mergedEntries.length - limit)
+      : mergedEntries
+  if (!canValidateAccess && entries.length === 0) {
+    // Keep response successful to avoid noisy UI errors while polling before the
+    // first log line appears or during temporary auth refresh.
+    return { success: true, entries }
+  }
+
+  return { success: true, entries }
+}
+
+export async function uploadBotMessageAttachmentAction(botId: string, file: File) {
+  const normalizedBotId = String(botId || '').trim()
+  if (!normalizedBotId) {
+    return { success: false, error: 'Bot not found' as const }
+  }
+
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const supabase = await createServerClientWrapper()
+    const botService = createBotService(supabase)
+    const bot = await botService.getBot(normalizedBotId)
+    if (!bot) {
+      return { success: false, error: 'Bot not found' as const }
+    }
+
+    if (!(file instanceof File)) {
+      return { success: false, error: 'Invalid file' as const }
+    }
+
+    if (!file.size || file.size <= 0) {
+      return { success: false, error: 'Empty file' as const }
+    }
+
+    if (file.size > MAX_LOCAL_ATTACHMENT_BYTES) {
+      return {
+        success: false,
+        error: `File is too large (max ${Math.floor(MAX_LOCAL_ATTACHMENT_BYTES / (1024 * 1024))} MB)` as const,
+      }
+    }
+
+    const safeFileName = sanitizeAttachmentFileName(file.name)
+    const fileId = `${Date.now()}_${randomUUID().slice(0, 8)}`
+    const botDir = join(process.cwd(), LOCAL_BOT_MEDIA_ROOT_DIR, normalizedBotId)
+    await mkdir(botDir, { recursive: true })
+
+    const storedFileName = `${fileId}_${safeFileName}`
+    const absolutePath = join(botDir, storedFileName)
+    const relativePath = `${LOCAL_BOT_MEDIA_ROOT_DIR}/${normalizedBotId}/${storedFileName}`
+
+    const bytes = Buffer.from(await file.arrayBuffer())
+    await writeFile(absolutePath, bytes)
+
+    return {
+      success: true,
+      path: relativePath,
+      fileName: safeFileName,
+      size: bytes.length,
+      mimeType: file.type || '',
+    } as const
+  } catch (error) {
     return { success: false, error: String(error) }
   }
 }

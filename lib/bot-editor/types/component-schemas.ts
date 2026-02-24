@@ -23,8 +23,10 @@ export type ActionType =
   | 'setVariable'
   | 'delay'
   | 'deleteMessage'
+  | 'random'
 
-export type TriggerType = 'command' | 'text' | 'callbackQuery' | 'photo' | 'any'
+export type TriggerType = 'command' | 'text' | 'callbackQuery' | 'photo' | 'any' | 'schedule'
+export type MessageAttachmentType = 'photo' | 'video' | 'document' | 'audio'
 
 // ============================================================================
 // NODE DATA TYPES (simplified with 'any')
@@ -42,7 +44,10 @@ export interface MessageNodeData extends BaseNodeData {
   disableWebPagePreview?: boolean
   disableNotification?: boolean
   keyboard?: any
-  attachments?: any[]
+  attachments?: Array<{
+    type: MessageAttachmentType
+    source: string // URL or Telegram file_id
+  }>
 }
 
 export interface InputNodeData extends BaseNodeData {
@@ -66,6 +71,20 @@ export interface ConditionNodeData extends BaseNodeData {
   value: any
   trueLabel?: string
   falseLabel?: string
+}
+
+export interface RouterCase {
+  id: string
+  label?: string
+  value: any
+}
+
+export interface RouterNodeData extends BaseNodeData {
+  type: 'router'
+  variable: string
+  operator?: ComparisonOperator
+  cases?: RouterCase[]
+  defaultLabel?: string
 }
 
 export interface ActionNodeData extends BaseNodeData {
@@ -105,6 +124,13 @@ export interface TriggerNodeData extends BaseNodeData {
   trigger: TriggerType
   pattern?: string
   description?: string
+  scheduleMode?: 'hourly' | 'daily'
+  everyHours?: number
+  atMinute?: number
+  atTime?: string // HH:mm for daily mode
+  timeZone?: string // IANA timezone
+  targetChatId?: string
+  targetUserId?: string
 }
 
 export interface WaitNodeData extends BaseNodeData {
@@ -113,6 +139,16 @@ export interface WaitNodeData extends BaseNodeData {
   timeout?: number
   saveToVariable?: string
   onTimeout?: string
+}
+
+export interface SchedulerNodeData extends BaseNodeData {
+  type: 'scheduler'
+  mode?: 'delay' | 'dateTime'
+  delayValue?: number
+  delayUnit?: 'seconds' | 'minutes' | 'hours' | 'days'
+  dateTime?: string // local datetime string: YYYY-MM-DDTHH:mm (interpreted in selected timezone)
+  timeZone?: string // IANA timezone, e.g. Europe/Moscow
+  saveToVariable?: string // stores scheduled ISO timestamp
 }
 
 export interface CommentNodeData extends BaseNodeData {
@@ -126,11 +162,13 @@ export type NodeData =
   | MessageNodeData
   | InputNodeData
   | ConditionNodeData
+  | RouterNodeData
   | ActionNodeData
   | HttpNodeData
   | WebhookNodeData
   | TriggerNodeData
   | WaitNodeData
+  | SchedulerNodeData
   | CommentNodeData
 
 // ============================================================================
@@ -179,6 +217,16 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
     hasMultipleOutputs: true,
     outputLabels: ['Да', 'Нет'],
   },
+  router: {
+    type: 'router',
+    label: 'Router / Switch',
+    description: 'Разветвить по нескольким вариантам значения переменной',
+    color: '#EAB308',
+    icon: 'GitBranch',
+    category: 'logic',
+    editable: true,
+    hasMultipleOutputs: true,
+  },
   action: {
     type: 'action',
     label: 'Действие',
@@ -224,6 +272,15 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
     category: 'logic',
     editable: true,
   },
+  scheduler: {
+    type: 'scheduler',
+    label: 'Date/Time Scheduler',
+    description: 'Продолжить сценарий в указанное время (timezone-aware)',
+    color: '#22C55E',
+    icon: 'Clock',
+    category: 'logic',
+    editable: true,
+  },
   comment: {
     type: 'comment',
     label: 'Комментарий',
@@ -245,6 +302,7 @@ export const DEFAULT_NODE_DATA: Record<string, any> = {
     parseMode: 'None',
     disableWebPagePreview: false,
     disableNotification: false,
+    attachments: [],
   },
   input: {
     question: '',
@@ -260,6 +318,15 @@ export const DEFAULT_NODE_DATA: Record<string, any> = {
     value: '',
     trueLabel: 'Да',
     falseLabel: 'Нет',
+  },
+  router: {
+    variable: '',
+    operator: 'equals',
+    cases: [
+      { id: 'case_1', label: 'Вариант 1', value: '' },
+      { id: 'case_2', label: 'Вариант 2', value: '' },
+    ],
+    defaultLabel: 'Иначе',
   },
   action: {
     action: { type: 'setVariable', variableName: '', value: '' },
@@ -286,6 +353,14 @@ export const DEFAULT_NODE_DATA: Record<string, any> = {
   wait: {
     waitFor: 'message',
     timeout: 300000,
+  },
+  scheduler: {
+    mode: 'delay',
+    delayValue: 5,
+    delayUnit: 'minutes',
+    dateTime: '',
+    timeZone: 'UTC',
+    saveToVariable: '',
   },
   comment: {
     text: '',

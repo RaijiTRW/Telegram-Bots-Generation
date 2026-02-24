@@ -1,17 +1,7 @@
-export async function callTelegramApi<T = unknown>(
-  token: string,
-  method: string,
-  payload: Record<string, unknown> = {}
+async function parseTelegramApiResponse<T>(
+  response: Response,
+  method: string
 ): Promise<T> {
-  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-    cache: 'no-store',
-  })
-
   let data: { ok?: boolean; result?: T; description?: string } | null = null
 
   try {
@@ -31,4 +21,35 @@ export async function callTelegramApi<T = unknown>(
   }
 
   return data.result as T
+}
+
+export async function callTelegramApi<T = unknown>(
+  token: string,
+  method: string,
+  payload: Record<string, unknown> = {}
+): Promise<T> {
+  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  })
+
+  return parseTelegramApiResponse<T>(response, method)
+}
+
+export async function callTelegramApiFormData<T = unknown>(
+  token: string,
+  method: string,
+  formData: FormData
+): Promise<T> {
+  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: 'POST',
+    body: formData,
+    cache: 'no-store',
+  })
+
+  return parseTelegramApiResponse<T>(response, method)
 }

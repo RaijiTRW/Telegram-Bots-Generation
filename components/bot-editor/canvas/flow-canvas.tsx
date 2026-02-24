@@ -22,20 +22,41 @@ import 'reactflow/dist/style.css'
 
 import { nodeTypes, nodeTemplates } from './node-types'
 import type { NodeTemplate } from './node-types'
-import { Workflow, Play, Trash2 } from 'lucide-react'
+import {
+  Workflow,
+  Play,
+  Trash2,
+  MessageSquare,
+  GitBranch,
+  Database,
+  LayoutGrid,
+  type LucideIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NodeSettingsPanel } from './node-settings-panel'
 import { useTranslations } from 'next-intl'
 import type { NodeData } from '@/lib/bot-editor/types/component-schemas'
-import { DEFAULT_NODE_DATA } from '@/lib/bot-editor/types/component-schemas'
+import { DEFAULT_NODE_DATA, NODE_CONFIGS } from '@/lib/bot-editor/types/component-schemas'
+import {
+  serializeWorkflowEdges,
+  serializeWorkflowNodes,
+  type SerializableWorkflowEdge,
+  type SerializableWorkflowNode,
+} from '@/lib/bot-editor/utils/workflow-serialization'
 
 interface FlowCanvasProps {
   initialNodes?: Node[]
   initialEdges?: Edge[]
   onChange?: (nodes: Node[], edges: Edge[]) => void
   onTest?: (nodes: Node[], edges: Edge[]) => void
+  onSave?: (nodes: Node[], edges: Edge[]) => Promise<boolean> | boolean
   testButtonLabel?: string
   isTestActive?: boolean
+}
+
+type CanvasHistorySnapshot = {
+  nodes: SerializableWorkflowNode[]
+  edges: SerializableWorkflowEdge[]
 }
 
 const createUniqueNodeId = (existingNodes: Node[]): string => {
@@ -137,9 +158,12 @@ const extractVariableNames = (nodes: Node[]): string[] => {
       }
     }
     if (node.type === 'action') {
-      const data = node.data as { action?: { variableName?: string } }
+      const data = node.data as { action?: { variableName?: string; saveToVariable?: string } }
       if (data.action?.variableName) {
         variables.push(data.action.variableName)
+      }
+      if (data.action?.saveToVariable) {
+        variables.push(data.action.saveToVariable)
       }
     }
     if (node.type === 'http' || node.type === 'webhook') {
@@ -153,11 +177,59 @@ const extractVariableNames = (nodes: Node[]): string[] => {
   return [...new Set(variables)]
 }
 
+type PaletteCategoryId = 'trigger' | 'messaging' | 'logic' | 'data' | 'advanced' | 'other'
+
+type PaletteCategoryMeta = {
+  id: PaletteCategoryId
+  label: string
+  icon: LucideIcon
+}
+
+const PALETTE_CATEGORY_ORDER: PaletteCategoryId[] = [
+  'trigger',
+  'messaging',
+  'logic',
+  'data',
+  'advanced',
+  'other',
+]
+
+const PALETTE_CATEGORY_META: Record<PaletteCategoryId, PaletteCategoryMeta> = {
+  trigger: { id: 'trigger', label: 'Триггеры', icon: Play },
+  messaging: { id: 'messaging', label: 'Сообщения', icon: MessageSquare },
+  logic: { id: 'logic', label: 'Логика', icon: GitBranch },
+  data: { id: 'data', label: 'Данные', icon: Database },
+  advanced: { id: 'advanced', label: 'Доп.', icon: LayoutGrid },
+  other: { id: 'other', label: 'Другое', icon: Workflow },
+}
+
+function getTemplatePaletteCategory(template: NodeTemplate): PaletteCategoryId {
+  const rawCategory = NODE_CONFIGS[template.type]?.category
+  if (rawCategory === 'trigger') return 'trigger'
+  if (rawCategory === 'messaging') return 'messaging'
+  if (rawCategory === 'logic') return 'logic'
+  if (rawCategory === 'data') return 'data'
+  if (rawCategory === 'advanced') return 'advanced'
+  return 'other'
+}
+
+function createCanvasHistorySnapshot(nodes: Node[], edges: Edge[]): CanvasHistorySnapshot {
+  return {
+    nodes: serializeWorkflowNodes(nodes as unknown[]),
+    edges: serializeWorkflowEdges(edges as unknown[]),
+  }
+}
+
+function getCanvasHistorySnapshotKey(snapshot: CanvasHistorySnapshot): string {
+  return JSON.stringify(snapshot)
+}
+
 function FlowCanvasInner({
   initialNodes = [],
   initialEdges = [],
   onChange,
   onTest,
+  onSave,
   testButtonLabel = 'Тест',
   isTestActive = false,
 }: FlowCanvasProps) {
@@ -173,6 +245,12 @@ function FlowCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
+  const [pinnedPaletteCategory, setPinnedPaletteCategory] = useState<PaletteCategoryId | null>(null)
+  const [hoveredPaletteCategory, setHoveredPaletteCategory] = useState<PaletteCategoryId | null>(null)
+  const historyRef = useRef<CanvasHistorySnapshot[]>([])
+  const historyIndexRef = useRef(-1)
+  const skipNextHistoryCaptureRef = useRef(false)
+  const lastHistorySnapshotKeyRef = useRef('')
 
   useEffect(() => {
     onChange?.(nodes, edges)
@@ -191,6 +269,18 @@ function FlowCanvasInner({
       setSettingsPanelOpen(false)
     }
   }, [setNodes, setEdges, selectedNode])
+
+  const applyRuntimeNodeData = useCallback((node: Node): Node => {
+    const existingData = (node.data || {}) as Record<string, unknown>
+
+    return applyNodeWrapperStyle({
+      ...node,
+      data: {
+        ...existingData,
+        onDelete: (id: string) => handleDeleteNode(id),
+      },
+    })
+  }, [handleDeleteNode])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -309,13 +399,216 @@ function FlowCanvasInner({
     }
   }, [])
 
+  const restoreSnapshot = useCallback((snapshot: CanvasHistorySnapshot) => {
+    skipNextHistoryCaptureRef.current = true
+
+    const restoredNodes = snapshot.nodes.map((serializedNode) =>
+      applyRuntimeNodeData({
+        id: serializedNode.id,
+        type: (serializedNode.type || 'message') as Node['type'],
+        position: {
+          x: Number(serializedNode.position?.x || 0),
+          y: Number(serializedNode.position?.y || 0),
+        },
+        data: (serializedNode.data || {}) as Node['data'],
+      } as Node)
+    )
+
+    const restoredEdges = snapshot.edges.map((serializedEdge) => ({
+      id: serializedEdge.id,
+      source: serializedEdge.source,
+      target: serializedEdge.target,
+      sourceHandle: serializedEdge.sourceHandle ?? null,
+      targetHandle: serializedEdge.targetHandle ?? null,
+      label: serializedEdge.label,
+      data: serializedEdge.data as Edge['data'],
+      animated: Boolean(serializedEdge.animated),
+      type: serializedEdge.type,
+    })) as Edge[]
+
+    setNodes(restoredNodes)
+    setEdges(restoredEdges)
+
+    if (selectedNode) {
+      const restoredSelectedNode = restoredNodes.find((node) => node.id === selectedNode.id) || null
+      if (!restoredSelectedNode) {
+        setSelectedNode(null)
+        setSettingsPanelOpen(false)
+      } else {
+        setSelectedNode(restoredSelectedNode)
+      }
+    }
+  }, [applyRuntimeNodeData, selectedNode, setEdges, setNodes])
+
+  const undoCanvasChange = useCallback(() => {
+    const nextIndex = historyIndexRef.current - 1
+    if (nextIndex < 0) return
+
+    const snapshot = historyRef.current[nextIndex]
+    if (!snapshot) return
+
+    historyIndexRef.current = nextIndex
+    lastHistorySnapshotKeyRef.current = getCanvasHistorySnapshotKey(snapshot)
+    restoreSnapshot(snapshot)
+  }, [restoreSnapshot])
+
+  const redoCanvasChange = useCallback(() => {
+    const nextIndex = historyIndexRef.current + 1
+    if (nextIndex >= historyRef.current.length) return
+
+    const snapshot = historyRef.current[nextIndex]
+    if (!snapshot) return
+
+    historyIndexRef.current = nextIndex
+    lastHistorySnapshotKeyRef.current = getCanvasHistorySnapshotKey(snapshot)
+    restoreSnapshot(snapshot)
+  }, [restoreSnapshot])
+
+  useEffect(() => {
+    const snapshot = createCanvasHistorySnapshot(nodes, edges)
+    const snapshotKey = getCanvasHistorySnapshotKey(snapshot)
+
+    if (skipNextHistoryCaptureRef.current) {
+      skipNextHistoryCaptureRef.current = false
+      lastHistorySnapshotKeyRef.current = snapshotKey
+      return
+    }
+
+    if (snapshotKey === lastHistorySnapshotKeyRef.current) {
+      return
+    }
+
+    const nextHistory = historyRef.current.slice(0, historyIndexRef.current + 1)
+    nextHistory.push(snapshot)
+
+    const MAX_HISTORY_SIZE = 100
+    if (nextHistory.length > MAX_HISTORY_SIZE) {
+      nextHistory.splice(0, nextHistory.length - MAX_HISTORY_SIZE)
+    }
+
+    historyRef.current = nextHistory
+    historyIndexRef.current = nextHistory.length - 1
+    lastHistorySnapshotKeyRef.current = snapshotKey
+  }, [nodes, edges])
+
+  useEffect(() => {
+    const isEditableElement = (target: EventTarget | null) => {
+      const element = target as HTMLElement | null
+      if (!element) return false
+
+      if (element.isContentEditable) return true
+
+      const tagName = element.tagName?.toLowerCase()
+      return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableElement(event.target)) {
+        return
+      }
+
+      const isMetaOrCtrl = event.metaKey || event.ctrlKey
+      if (!isMetaOrCtrl) {
+        return
+      }
+
+      const key = event.key.toLowerCase()
+      if (key === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) {
+          redoCanvasChange()
+        } else {
+          undoCanvasChange()
+        }
+        return
+      }
+
+      // Windows/Linux conventional redo shortcut
+      if (!event.metaKey && key === 'y') {
+        event.preventDefault()
+        redoCanvasChange()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [redoCanvasChange, undoCanvasChange])
+
   const availableVariables = useMemo(() => extractVariableNames(nodes), [nodes])
+
+  const paletteCategories = useMemo(() => {
+    const grouped = new Map<PaletteCategoryId, NodeTemplate[]>()
+
+    for (const template of nodeTemplates) {
+      const categoryId = getTemplatePaletteCategory(template)
+      const current = grouped.get(categoryId) || []
+      current.push(template)
+      grouped.set(categoryId, current)
+    }
+
+    return PALETTE_CATEGORY_ORDER
+      .map((categoryId) => {
+        const templates = grouped.get(categoryId) || []
+        if (templates.length === 0) return null
+        return {
+          ...PALETTE_CATEGORY_META[categoryId],
+          templates,
+        }
+      })
+      .filter(
+        (
+          item
+        ): item is PaletteCategoryMeta & {
+          templates: NodeTemplate[]
+        } => Boolean(item)
+      )
+  }, [])
+
+  const validPinnedPaletteCategory =
+    pinnedPaletteCategory &&
+    paletteCategories.some((category) => category.id === pinnedPaletteCategory)
+      ? pinnedPaletteCategory
+      : null
+
+  const validHoveredPaletteCategory =
+    hoveredPaletteCategory &&
+    paletteCategories.some((category) => category.id === hoveredPaletteCategory)
+      ? hoveredPaletteCategory
+      : null
+
+  const activePaletteCategoryId =
+    validHoveredPaletteCategory || validPinnedPaletteCategory || null
+
+  const activePaletteCategory =
+    paletteCategories.find((category) => category.id === activePaletteCategoryId) || null
+  const isPaletteExpanded = Boolean(activePaletteCategory)
 
   const defaultEdgeOptions = useMemo(() => ({
     animated: true,
     style: { stroke: '#24A1DE', strokeWidth: 2 },
     type: 'smoothstep'
   }), [])
+
+  const handleSettingsSave = useCallback(async () => {
+    if (!onSave) return true
+    const result = await onSave(nodes, edges)
+    return result !== false
+  }, [onSave, nodes, edges])
+
+  const handleTemplateDragStart = useCallback(
+    (event: React.DragEvent<HTMLDivElement>, template: NodeTemplate) => {
+      event.dataTransfer.setData('application/reactflow', template.type)
+      event.dataTransfer.setData(
+        'application/reactflow-template',
+        JSON.stringify({
+          type: template.type,
+          data: template.data || {},
+        })
+      )
+      event.dataTransfer.effectAllowed = 'move'
+    },
+    []
+  )
 
   return (
     <div className="w-full h-full flex">
@@ -347,7 +640,7 @@ function FlowCanvasInner({
 
         {/* Controls */}
         <Controls
-          className="!bg-zinc-900/80 !backdrop-blur-xl !border !border-white/10"
+          className="tflow-canvas-controls !bg-zinc-900/80 !backdrop-blur-xl !border !border-white/10"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -361,6 +654,8 @@ function FlowCanvasInner({
             const colors = {
               message: '#24A1DE',
               condition: '#F59E0B',
+              router: '#EAB308',
+              scheduler: '#22C55E',
               action: '#8B5CF6',
               input: '#10B981',
               http: '#F43F5E',
@@ -402,45 +697,116 @@ function FlowCanvasInner({
 
         {/* Left Panel - Node Palette */}
         <Panel position="top-left" className="!transform-none !left-4 !top-4">
-          <div className="w-44 rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-3">
+          <div
+            className={`${
+              isPaletteExpanded ? 'w-[360px] sm:w-[380px]' : 'w-[170px]'
+            } max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-3 transition-[width] duration-200`}
+          >
             <h3 className="text-xs font-semibold text-white mb-3">{t('nodes')}</h3>
-            <div className="space-y-1.5">
-              {nodeTemplates.map((node) => (
-                <div
-                  key={node.id}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('application/reactflow', node.type)
-                    e.dataTransfer.setData('application/reactflow-template', JSON.stringify({
-                      type: node.type,
-                      data: node.data || {},
-                    }))
-                    e.dataTransfer.effectAllowed = 'move'
-                  }}
-                  onClick={() => handleAddNode(node)}
-                  className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="p-1 rounded"
-                      style={{ background: `${node.color}20` }}
+            <div
+              className={`grid ${isPaletteExpanded ? 'grid-cols-[112px_minmax(0,1fr)]' : 'grid-cols-1'} gap-3`}
+              onMouseLeave={() => setHoveredPaletteCategory(null)}
+            >
+              <div
+                className="space-y-1 rounded-lg border border-white/10 bg-zinc-800/20 p-1.5"
+              >
+                {paletteCategories.map((category) => {
+                  const isPinned = validPinnedPaletteCategory === category.id
+                  const isActive = activePaletteCategoryId === category.id
+                  const CategoryIcon = category.icon
+
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onMouseEnter={() => setHoveredPaletteCategory(category.id)}
+                      onFocus={() => setHoveredPaletteCategory(category.id)}
+                      onClick={() =>
+                        setPinnedPaletteCategory((prev) => (prev === category.id ? null : category.id))
+                      }
+                      className={`w-full text-left rounded-lg px-2 py-2 transition-colors border ${
+                        isActive
+                          ? 'bg-white/10 border-white/20 text-white'
+                          : 'bg-transparent border-transparent text-zinc-300 hover:bg-white/5 hover:text-white'
+                      }`}
                     >
-                      <node.icon className="w-3.5 h-3.5" style={{ color: node.color }} />
+                      <div className="flex items-center gap-2">
+                        <CategoryIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="text-xs font-medium truncate">{category.label}</span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-[10px]">
+                        <span className={`${isActive ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                          {category.templates.length}
+                        </span>
+                        {isPinned && <span className="text-[#24A1DE]">Pin</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {activePaletteCategory && (
+                <div className="min-w-0 rounded-lg border border-white/10 bg-zinc-800/20 p-2">
+                  <>
+                    <div className="flex items-center justify-between gap-2 px-1 pb-2 border-b border-white/10">
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-white truncate">
+                          {activePaletteCategory.label}
+                        </div>
+                        <div className="text-[10px] text-zinc-500">
+                          Hover preview, click to pin/unpin
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-zinc-400 shrink-0">
+                        {activePaletteCategory.templates.length} nodes
+                      </div>
                     </div>
-                    <div className="text-xs font-medium text-white">{node.label}</div>
-                  </div>
+
+                    <div className="mt-2 space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                      {activePaletteCategory.templates.map((node) => (
+                        <div
+                          key={node.id}
+                          draggable
+                          onDragStart={(event) => handleTemplateDragStart(event, node)}
+                          onClick={() => handleAddNode(node)}
+                          className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div
+                              className="p-1 rounded mt-0.5"
+                              style={{ background: `${node.color}20` }}
+                            >
+                              <node.icon className="w-3.5 h-3.5" style={{ color: node.color }} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium text-white truncate">{node.label}</div>
+                              <div className="text-[10px] text-zinc-300/90 line-clamp-2">
+                                {node.description}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 </div>
-              ))}
+              )}
             </div>
+
+            {!isPaletteExpanded && (
+              <div className="mt-2 rounded-lg border border-dashed border-white/10 bg-zinc-800/10 px-2 py-2 text-[10px] text-zinc-500">
+                Наведи категорию, чтобы показать ноды справа. Клик закрепляет.
+              </div>
+            )}
 
             {/* Quick Stats */}
             <div className="mt-3 pt-3 border-t border-white/10">
-              <div className="text-[10px] text-zinc-500 space-y-1">
-                <div className="flex justify-between">
+              <div className={`text-[10px] text-zinc-500 ${isPaletteExpanded ? 'space-y-1' : 'flex items-center justify-between gap-2'}`}>
+                <div className="flex justify-between gap-2">
                   <span>{t('nodes')}:</span>
                   <span className="text-white">{nodes.length}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span>{t('connections')}:</span>
                   <span className="text-white">{edges.length}</span>
                 </div>
@@ -471,6 +837,7 @@ function FlowCanvasInner({
         <NodeSettingsPanel
           node={selectedNode}
           onUpdate={handleNodeUpdate}
+          onSave={handleSettingsSave}
           onClose={() => {
             setSettingsPanelOpen(false)
             setSelectedNode(null)

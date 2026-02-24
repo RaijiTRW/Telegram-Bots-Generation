@@ -246,6 +246,20 @@ export class BotService {
   // ============================================================================
 
   private mapBotFromDb(data: any): Bot {
+    const rawMetadata = (data.metadata && typeof data.metadata === 'object')
+      ? { ...(data.metadata as Record<string, unknown>) }
+      : {}
+
+    const hasTelegramToken =
+      Boolean(String(rawMetadata.telegramToken || '').trim()) ||
+      Boolean(rawMetadata.hasTelegramToken)
+    const hasWebhookSecret =
+      Boolean(String(rawMetadata.webhookSecret || '').trim()) ||
+      Boolean(rawMetadata.hasWebhookSecret)
+
+    delete rawMetadata.telegramToken
+    delete rawMetadata.webhookSecret
+
     return {
       id: data.id,
       name: data.name,
@@ -256,7 +270,11 @@ export class BotService {
         edges: [],
         variables: [],
       },
-      metadata: data.metadata || {},
+      metadata: {
+        ...rawMetadata,
+        hasTelegramToken,
+        hasWebhookSecret,
+      },
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     }

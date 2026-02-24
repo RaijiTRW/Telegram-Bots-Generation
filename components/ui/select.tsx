@@ -44,16 +44,22 @@ const SelectContext = React.createContext<{
   onValueChange: (value: string) => void
   open: boolean
   setOpen: (open: boolean) => void
+  triggerRef: React.RefObject<HTMLDivElement | null>
+  contentRef: React.RefObject<HTMLDivElement | null>
 }>({
   value: '',
   onValueChange: () => {},
   open: false,
   setOpen: () => {},
+  triggerRef: { current: null },
+  contentRef: { current: null },
 })
 
-const Select = ({ value: controlledValue, onValueChange, defaultValue, children, placeholder }: SelectProps) => {
+const Select = ({ value: controlledValue, onValueChange, defaultValue, children }: SelectProps) => {
   const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue || '')
   const [open, setOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLDivElement | null>(null)
+  const contentRef = React.useRef<HTMLDivElement | null>(null)
   const currentValue = controlledValue !== undefined ? controlledValue : uncontrolledValue
 
   const handleValueChange = (newValue: string) => {
@@ -64,18 +70,52 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children,
     setOpen(false)
   }
 
+  React.useEffect(() => {
+    if (!open) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+
+      if (triggerRef.current?.contains(target)) return
+      if (contentRef.current?.contains(target)) return
+
+      setOpen(false)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown, true)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown, true)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
   return (
-    <SelectContext.Provider value={{ value: currentValue, onValueChange: handleValueChange, open, setOpen }}>
+    <SelectContext.Provider value={{
+      value: currentValue,
+      onValueChange: handleValueChange,
+      open,
+      setOpen,
+      triggerRef,
+      contentRef,
+    }}>
       {children}
     </SelectContext.Provider>
   )
 }
 
 const SelectTrigger = ({ children, className }: SelectTriggerProps) => {
-  const { open, setOpen } = React.useContext(SelectContext)
+  const { open, setOpen, triggerRef } = React.useContext(SelectContext)
 
   return (
-    <div className="relative">
+    <div ref={triggerRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -102,12 +142,12 @@ const SelectValue = ({ placeholder }: SelectValueProps) => {
 }
 
 const SelectContent = ({ children, className }: SelectContentProps) => {
-  const { open } = React.useContext(SelectContext)
+  const { open, contentRef } = React.useContext(SelectContext)
 
   if (!open) return null
 
   return (
-    <div className={cn(
+    <div ref={contentRef} className={cn(
       "absolute z-50 max-h-60 min-w-[8rem] overflow-auto rounded-md border border-white/10 bg-zinc-950 text-zinc-100 shadow-md",
       "mt-1",
       className

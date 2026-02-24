@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from '@/components/motion-wrapper';
 import { CompactLogo } from '@/components/logo';
 import { UserMenuDropdown } from '@/components/header/user-menu-dropdown';
 import { createClient } from '@/lib/supabase/client';
+import { setUserLocale } from '@/app/actions/locale';
+import type { Locale } from '@/app/i18n';
 
 export function Header() {
   const t = useTranslations('header');
@@ -16,47 +18,120 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ userName: string; userEmail: string } | null>(null);
+  const [user, setUser] = useState<{ userName: string; userEmail: string; avatarUrl: string | null } | null>(null);
 
   useEffect(() => {
-    const getUser = async () => {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        const userName = data.user.user_metadata.full_name || data.user.email?.split('@')[0] || '';
-        setUser({
-          userName,
-          userEmail: data.user.email || '',
-        });
-      } else {
+    const supabase = createClient();
+
+    const setUserPreview = async (authUser?: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']) => {
+      const resolvedUser = authUser ?? (await supabase.auth.getUser()).data.user;
+
+      if (!resolvedUser) {
         setUser(null);
+        return;
       }
+
+      const metadata =
+        resolvedUser.user_metadata && typeof resolvedUser.user_metadata === 'object'
+          ? (resolvedUser.user_metadata as Record<string, unknown>)
+          : {};
+
+      const fallbackName =
+        (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
+        resolvedUser.email?.split('@')[0] ||
+        '';
+      const fallbackAvatar =
+        typeof metadata.avatar_url === 'string' && metadata.avatar_url.trim()
+          ? metadata.avatar_url
+          : null;
+
+      setUser({
+        userName: fallbackName,
+        userEmail: resolvedUser.email || '',
+        avatarUrl: fallbackAvatar,
+      });
+
+      const { data: profileRow } = await ((supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', resolvedUser.id)
+        .maybeSingle()) as unknown as Promise<{
+        data: { full_name: string | null; avatar_url: string | null } | null
+      }>);
+
+      setUser((prev) => {
+        if (!prev) return prev;
+        if (!profileRow) return prev;
+
+        return {
+          ...prev,
+          userName: profileRow.full_name?.trim() || prev.userName,
+          avatarUrl: typeof profileRow.avatar_url === 'string' ? profileRow.avatar_url : prev.avatarUrl,
+        };
+      });
     };
-    getUser();
+
+    void setUserPreview();
 
     // Listen for auth changes
-    const { data: { subscription } } = createClient().auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        const userName = session.user.user_metadata.full_name || session.user.email?.split('@')[0] || '';
-        setUser({
-          userName,
-          userEmail: session.user.email || '',
-        });
-      } else {
-        setUser(null);
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      void setUserPreview(session?.user ?? undefined);
     });
 
-    return () => subscription.unsubscribe();
+    const handleProfileUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ fullName?: string; avatarUrl?: string | null; email?: string }>).detail;
+      if (!detail) return;
+
+      setUser((prev) => {
+        if (!prev) return prev;
+
+        return {
+          ...prev,
+          userName: detail.fullName ?? prev.userName,
+          userEmail: detail.email ?? prev.userEmail,
+          avatarUrl: detail.avatarUrl === undefined ? prev.avatarUrl : (detail.avatarUrl ?? null),
+        };
+      });
+    };
+
+    window.addEventListener('cbtooll:profile-updated', handleProfileUpdated as EventListener);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('cbtooll:profile-updated', handleProfileUpdated as EventListener);
+    };
   }, []);
 
-  const switchLocale = (newLocale: string) => {
+  const switchLocale = async (newLocale: string) => {
+    // Prevent double-click
+    if (newLocale === locale) {
+      return;
+    }
+
+    // Set cookie for next-intl middleware to detect the locale change
+    const maxAge = 60 * 60 * 24 * 365; // 1 year
+    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=${maxAge}; SameSite=Lax`;
+
+    // Also update the DB for logged-in users so the middleware
+    // (which prioritizes DB locale over cookie) stays in sync
+    if (user) {
+      try {
+        await setUserLocale(newLocale as Locale);
+      } catch {
+        // Continue with navigation even if DB update fails
+      }
+    }
+
     // Remove current locale from path and add new one
     let pathWithoutLocale = pathname;
     if (pathname.startsWith(`/${locale}`)) {
       pathWithoutLocale = pathname.slice(`/${locale}`.length) || '/';
     }
-    router.push(`/${newLocale}${pathWithoutLocale}`);
+
+    const newUrl = `/${newLocale}${pathWithoutLocale}`;
+
+    // Navigate to new locale
+    window.location.href = newUrl;
   };
 
   const navItems = [
@@ -74,7 +149,7 @@ export function Header() {
           <Link
             href={`/${locale}`}
             className="flex items-center gap-2 group"
-            aria-label="TFlow Home"
+            aria-label="CBTooll Home"
           >
             <div className="relative">
               <CompactLogo className="w-12 h-10" />
@@ -93,7 +168,7 @@ export function Header() {
             </div>
             {/* Текст TFlow показываем только на десктопе */}
             <span className="hidden lg:block text-xl font-bold gradient-text">
-              TFlow
+              CBTooll
             </span>
           </Link>
 
@@ -136,7 +211,7 @@ export function Header() {
             </motion.button>
 
             {user ? (
-              <UserMenuDropdown userName={user.userName} userEmail={user.userEmail} />
+              <UserMenuDropdown userName={user.userName} userEmail={user.userEmail} avatarUrl={user.avatarUrl} />
             ) : (
               <>
                 <Link

@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Bot, Save, Rocket } from 'lucide-react'
+import { ArrowLeft, Bot, Save, Rocket, PanelLeftClose } from 'lucide-react'
 import { EditorNav } from './editor-nav'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import { Button } from '@/components/ui/button'
+import { useBotActivityFavicon } from './use-bot-activity-favicon'
 import {
   saveCanvasAction,
   saveBotSettingsAction,
@@ -48,16 +49,42 @@ interface EditorShellProps {
   children: React.ReactNode
 }
 
+const NAV_PANEL_DEFAULT_WIDTH = 256
+const NAV_PANEL_MAX_WIDTH = 420
+const NAV_PANEL_MIN_WIDTH = 56
+const NAV_PANEL_COMPACT_THRESHOLD = 176
+const NAV_PANEL_HIDDEN_THRESHOLD = 72
+const NAV_PANEL_HIDDEN_STRIP_WIDTH = 14
+const NAV_PANEL_STORAGE_KEY = 'tflow.editor.sectionsPanelWidth'
+
+const clampNavPanelWidth = (width: number) =>
+  Math.min(NAV_PANEL_MAX_WIDTH, Math.max(NAV_PANEL_MIN_WIDTH, Math.round(width)))
+
 export function EditorShell({ botId, children }: EditorShellProps) {
   const t = useTranslations('editor.shell')
   const tNav = useTranslations('editor.nav')
   const pathname = usePathname()
   const router = useRouter()
-  const { setActiveSection, isDirty, bot, config, setBot, setIsDirty } = useBotState()
+  const {
+    setActiveSection,
+    isDirty,
+    bot,
+    config,
+    setBot,
+    setIsDirty,
+    autoOpenTelegramAfterTest,
+    setAutoOpenTelegramAfterTest,
+  } = useBotState()
   const [isSaving, setIsSaving] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [sectionsPanelWidth, setSectionsPanelWidth] = useState(NAV_PANEL_DEFAULT_WIDTH)
+  const [isResizingSectionsPanel, setIsResizingSectionsPanel] = useState(false)
+  const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
+  const isBotActive = Boolean(bot?.metadata?.testActive)
+
+  useBotActivityFavicon(isBotActive)
 
   // Extract active section from pathname
   const getCurrentSection = (): 'ai-chat' | 'canvas' | 'settings' | 'system' => {
@@ -119,6 +146,12 @@ export function EditorShell({ botId, children }: EditorShellProps) {
         status: bot.status,
         telegramToken: String(bot.metadata?.telegramToken || ''),
         webhookUrl: String(bot.metadata?.webhookUrl || ''),
+        metadataPatch: {
+          features:
+            bot.metadata?.features && typeof bot.metadata.features === 'object'
+              ? (bot.metadata.features as Record<string, unknown>)
+              : undefined,
+        },
       })
 
       if (!settingsResult.success || !settingsResult.bot) {
@@ -176,6 +209,83 @@ export function EditorShell({ botId, children }: EditorShellProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [saveAllChanges])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const storedWidth = window.localStorage.getItem(NAV_PANEL_STORAGE_KEY)
+      if (!storedWidth) return
+      const parsed = Number(storedWidth)
+      if (!Number.isFinite(parsed)) return
+      setSectionsPanelWidth(clampNavPanelWidth(parsed))
+    } catch {
+      // ignore storage errors
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(NAV_PANEL_STORAGE_KEY, String(sectionsPanelWidth))
+    } catch {
+      // ignore storage errors
+    }
+  }, [sectionsPanelWidth])
+
+  useEffect(() => {
+    if (!isResizingSectionsPanel) return
+
+    const previousCursor = document.body.style.cursor
+    const previousSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!resizeStartRef.current) return
+      const delta = event.clientX - resizeStartRef.current.x
+      setSectionsPanelWidth(clampNavPanelWidth(resizeStartRef.current.width + delta))
+    }
+
+    const stopResize = () => {
+      resizeStartRef.current = null
+      setIsResizingSectionsPanel(false)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', stopResize)
+    window.addEventListener('mouseleave', stopResize)
+
+    return () => {
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousSelect
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', stopResize)
+      window.removeEventListener('mouseleave', stopResize)
+    }
+  }, [isResizingSectionsPanel])
+
+  const startSectionsPanelResize = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    resizeStartRef.current = {
+      x: event.clientX,
+      width: sectionsPanelWidth,
+    }
+    setIsResizingSectionsPanel(true)
+  }
+
+  const resetSectionsPanelSize = () => {
+    setSectionsPanelWidth(NAV_PANEL_DEFAULT_WIDTH)
+  }
+
+  const sectionsPanelMode: 'full' | 'compact' | 'hidden' =
+    sectionsPanelWidth <= NAV_PANEL_HIDDEN_THRESHOLD
+      ? 'hidden'
+      : sectionsPanelWidth <= NAV_PANEL_COMPACT_THRESHOLD
+      ? 'compact'
+      : 'full'
+
+  const sectionsPanelRenderWidth =
+    sectionsPanelMode === 'hidden' ? NAV_PANEL_HIDDEN_STRIP_WIDTH : sectionsPanelWidth
+
   return (
     <div className="flex flex-col h-screen">
       {/* Top Header */}
@@ -203,6 +313,17 @@ export function EditorShell({ botId, children }: EditorShellProps) {
             <div className="px-3 py-1.5 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-300">
               {actionError}
             </div>
+          )}
+          {currentSection === 'canvas' && (
+            <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoOpenTelegramAfterTest}
+                onChange={(event) => setAutoOpenTelegramAfterTest(event.target.checked)}
+                className="h-3.5 w-3.5 rounded border-white/20 bg-zinc-900 accent-[#24A1DE]"
+              />
+              <span>{t('autoOpenTelegram')}</span>
+            </label>
           )}
           <Button
             variant="outline"
@@ -234,13 +355,46 @@ export function EditorShell({ botId, children }: EditorShellProps) {
 
       {/* Editor Content */}
       <div className="flex flex-1 overflow-hidden">
-        <EditorNav
-          botId={botId}
-          activeSection={currentSection}
-          onSectionChange={setActiveSection}
-          isDirty={isDirty}
-        />
-        <div className="flex-1 overflow-hidden">
+        <div
+          className="relative shrink-0 h-full"
+          style={{ width: `${sectionsPanelRenderWidth}px` }}
+        >
+          {sectionsPanelMode === 'hidden' ? (
+            <div className="h-full w-full border-r border-white/10 bg-zinc-950/30 backdrop-blur-xl flex items-center justify-center">
+              <div
+                className="flex flex-col items-center gap-2 text-zinc-500"
+                title="Double click divider to reset sections panel"
+              >
+                <PanelLeftClose className="w-3.5 h-3.5" />
+                <div className="w-1 h-1 rounded-full bg-white/20" />
+              </div>
+            </div>
+          ) : (
+            <EditorNav
+              botId={botId}
+              activeSection={currentSection}
+              onSectionChange={setActiveSection}
+              isDirty={isDirty}
+              mode={sectionsPanelMode}
+              className="w-full border-r border-white/10"
+            />
+          )}
+
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sections panel"
+            onMouseDown={startSectionsPanelResize}
+            onDoubleClick={resetSectionsPanelSize}
+            className="absolute top-0 -right-1 z-20 h-full w-2 cursor-col-resize group"
+            title="Drag to resize. Double click to reset"
+          >
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-white/10 group-hover:bg-[#24A1DE]/40 group-active:bg-[#24A1DE]/60 transition-colors" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-12 w-1.5 rounded-full bg-white/5 border border-white/10 group-hover:bg-white/10 group-active:bg-[#24A1DE]/20 transition-colors" />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden min-w-0">
           {children}
         </div>
       </div>

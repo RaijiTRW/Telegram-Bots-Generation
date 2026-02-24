@@ -120,6 +120,21 @@ export class BotCodeGenerator {
       imports.push("const axios = require('axios');")
     }
 
+    const needsLocalMediaSupport = this.config.nodes.some((n) => {
+      if (n.type !== 'message' || !n.data || typeof n.data !== 'object') {
+        return false
+      }
+      const dataRecord = n.data as Record<string, unknown>
+      const attachments = Array.isArray(dataRecord.attachments) ? dataRecord.attachments : []
+      return attachments.length > 0
+    })
+
+    if (needsLocalMediaSupport) {
+      imports.push("const fs = require('fs');")
+      imports.push("const path = require('path');")
+      imports.push("const os = require('os');")
+    }
+
     return imports.join('\n')
   }
 
@@ -239,6 +254,53 @@ function buildKeyboard(keyboardData) {
   return {
     inline_keyboard,
   };
+}`)
+    }
+
+    const hasMessageAttachments = this.config.nodes.some((n) => {
+      if (n.type !== 'message' || !n.data || typeof n.data !== 'object') {
+        return false
+      }
+      const dataRecord = n.data as Record<string, unknown>
+      return Array.isArray(dataRecord.attachments) && dataRecord.attachments.length > 0
+    })
+
+    if (hasMessageAttachments) {
+      functions.push(`
+// Resolve media input: URL/file_id or local file path
+function resolveMediaInput(source) {
+  const value = String(source || '').trim();
+  if (!value) return value;
+
+  if (/^(https?:\\/\\/|tg:\\/\\/)/i.test(value)) {
+    return value;
+  }
+
+  const looksLikePath =
+    value.startsWith('./') ||
+    value.startsWith('../') ||
+    value.startsWith('/') ||
+    value.startsWith('~/') ||
+    /^[a-zA-Z]:[\\\\/]/.test(value) ||
+    value.includes('/') ||
+    value.includes('\\\\');
+
+  if (!looksLikePath) {
+    return value; // likely Telegram file_id
+  }
+
+  let resolvedPath = value;
+  if (value.startsWith('~/')) {
+    resolvedPath = path.resolve(os.homedir(), value.slice(2));
+  } else if (!path.isAbsolute(value) && !/^[a-zA-Z]:[\\\\/]/.test(value)) {
+    resolvedPath = path.resolve(process.cwd(), value);
+  }
+
+  if (!fs.existsSync(resolvedPath)) {
+    return value;
+  }
+
+  return { source: fs.createReadStream(resolvedPath) };
 }`)
     }
 
@@ -368,6 +430,115 @@ function buildKeyboard(keyboardData) {
     return lines.join('\n')
   }
 
+  private normalizeParseModeValue(value: unknown): 'Markdown' | 'MarkdownV2' | 'HTML' | undefined {
+    let rawValue: unknown = value
+
+    if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+      const record = rawValue as Record<string, unknown>
+      rawValue =
+        record.value ??
+        record.mode ??
+        record.parseMode ??
+        record.parse_mode ??
+        rawValue
+    }
+
+    if (typeof rawValue !== 'string') {
+      return undefined
+    }
+
+    const normalized = rawValue.trim().toLowerCase().replace(/[\s_-]+/g, '')
+    if (!normalized || normalized === 'none' || normalized === 'plain' || normalized === 'off') {
+      return undefined
+    }
+    if (normalized === 'markdown' || normalized === 'md') {
+      return 'Markdown'
+    }
+    if (normalized === 'markdownv2' || normalized === 'markdown2' || normalized === 'mdv2') {
+      return 'MarkdownV2'
+    }
+    if (normalized === 'html') {
+      return 'HTML'
+    }
+
+    return undefined
+  }
+
+  private resolveParseMode(data: Record<string, unknown>): 'Markdown' | 'MarkdownV2' | 'HTML' | undefined {
+    const directCandidates: unknown[] = [
+      data.parseMode,
+      data.parse_mode,
+      data.formatting,
+      data.format,
+    ]
+
+    for (const candidate of directCandidates) {
+      const normalized = this.normalizeParseModeValue(candidate)
+      if (normalized) {
+        return normalized
+      }
+    }
+
+    const nestedCandidates = [data.settings, data.options, data.formatting]
+    for (const candidate of nestedCandidates) {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+        continue
+      }
+      const record = candidate as Record<string, unknown>
+      const normalized =
+        this.normalizeParseModeValue(record.parseMode) ||
+        this.normalizeParseModeValue(record.parse_mode) ||
+        this.normalizeParseModeValue(record.mode) ||
+        this.normalizeParseModeValue(record.value)
+
+      if (normalized) {
+        return normalized
+      }
+    }
+
+    return undefined
+  }
+
+  private resolveMessageAttachment(
+    data: Record<string, unknown>
+  ): { type: 'photo' | 'video' | 'document' | 'audio'; source: string } | undefined {
+    const normalizeType = (value: unknown): 'photo' | 'video' | 'document' | 'audio' | undefined => {
+      if (typeof value !== 'string') return undefined
+      const normalized = value.trim().toLowerCase()
+      if (
+        normalized === 'photo' ||
+        normalized === 'video' ||
+        normalized === 'document' ||
+        normalized === 'audio'
+      ) {
+        return normalized
+      }
+      return undefined
+    }
+
+    const attachments = Array.isArray(data.attachments) ? data.attachments : []
+    for (const rawAttachment of attachments) {
+      if (!rawAttachment || typeof rawAttachment !== 'object') continue
+      const record = rawAttachment as Record<string, unknown>
+      const type = normalizeType(record.type ?? record.kind ?? record.mediaType ?? record.media_type)
+      if (!type) continue
+
+      const sourceCandidate =
+        record.source ??
+        record.url ??
+        record.media ??
+        record.fileId ??
+        record.file_id ??
+        record.value
+      const source = typeof sourceCandidate === 'string' ? sourceCandidate.trim() : ''
+      if (!source) continue
+
+      return { type, source }
+    }
+
+    return undefined
+  }
+
   private generateMessageHandler(data: MessageNodeData): string[] {
     const lines: string[] = []
 
@@ -375,25 +546,63 @@ function buildKeyboard(keyboardData) {
     const keyboardSource =
       dataRecord.keyboard ?? dataRecord.inlineKeyboard ?? dataRecord.buttons
     const keyboardLiteral = keyboardSource ? JSON.stringify(keyboardSource) : ''
+    const parseMode = this.resolveParseMode(dataRecord)
+    const attachment = this.resolveMessageAttachment(dataRecord)
+    const shouldDisablePreview = Boolean(data.disableWebPagePreview)
+    const shouldDisableNotification = Boolean(data.disableNotification)
 
     lines.push(`  // Send message`)
     lines.push(`  const text = ${JSON.stringify(data.text || '')};`)
     lines.push(`  const message = interpolate(text, ctx);`)
+    lines.push(`  const replyOptions = {};`)
 
-    if (data.parseMode && data.parseMode !== 'None') {
-      if (keyboardLiteral) {
-        lines.push(
-          `  await ctx.reply(message, { parse_mode: '${data.parseMode}', reply_markup: buildKeyboard(${keyboardLiteral}) });`
-        )
+    if (parseMode) {
+      lines.push(`  replyOptions.parse_mode = '${parseMode}';`)
+    }
+    if (keyboardLiteral) {
+      lines.push(`  replyOptions.reply_markup = buildKeyboard(${keyboardLiteral});`)
+    }
+    if (!attachment) {
+      if (shouldDisablePreview) {
+        lines.push(`  replyOptions.disable_web_page_preview = true;`)
+        lines.push(`  replyOptions.link_preview_options = { is_disabled: true };`)
       } else {
-        lines.push(`  await ctx.reply(message, { parse_mode: '${data.parseMode}' });`)
+        lines.push(`  const previewMatch = message.match(/https?:\\/\\/[^\\s)]+/i);`)
+        lines.push(`  replyOptions.link_preview_options = previewMatch`)
+        lines.push(`    ? { is_disabled: false, url: previewMatch[0] }`)
+        lines.push(`    : { is_disabled: false };`)
       }
+    }
+    if (shouldDisableNotification) {
+      lines.push(`  replyOptions.disable_notification = true;`)
+    }
+
+    if (attachment) {
+      const methodMap: Record<'photo' | 'video' | 'document' | 'audio', string> = {
+        photo: 'replyWithPhoto',
+        video: 'replyWithVideo',
+        document: 'replyWithDocument',
+        audio: 'replyWithAudio',
+      }
+      const telegrafMethod = methodMap[attachment.type]
+
+      lines.push(`  const mediaSourceTemplate = ${JSON.stringify(attachment.source)};`)
+      lines.push(`  const mediaSource = interpolate(mediaSourceTemplate, ctx);`)
+      lines.push(`  const mediaInput = resolveMediaInput(mediaSource);`)
+      lines.push(`  if (message) {`)
+      lines.push(`    replyOptions.caption = message;`)
+      lines.push(`  }`)
+      lines.push(`  if (Object.keys(replyOptions).length > 0) {`)
+      lines.push(`    await ctx.${telegrafMethod}(mediaInput, replyOptions);`)
+      lines.push(`  } else {`)
+      lines.push(`    await ctx.${telegrafMethod}(mediaInput);`)
+      lines.push(`  }`)
     } else {
-      if (keyboardLiteral) {
-        lines.push(`  await ctx.reply(message, { reply_markup: buildKeyboard(${keyboardLiteral}) });`)
-      } else {
-        lines.push(`  await ctx.reply(message);`)
-      }
+      lines.push(`  if (Object.keys(replyOptions).length > 0) {`)
+      lines.push(`    await ctx.reply(message, replyOptions);`)
+      lines.push(`  } else {`)
+      lines.push(`    await ctx.reply(message);`)
+      lines.push(`  }`)
     }
 
     return lines
@@ -406,24 +615,40 @@ function buildKeyboard(keyboardData) {
     const keyboardSource =
       dataRecord.keyboard ?? dataRecord.inlineKeyboard ?? dataRecord.buttons
     const keyboardLiteral = keyboardSource ? JSON.stringify(keyboardSource) : ''
-    const hasParseMode = Boolean(data.parseMode && data.parseMode !== 'None')
+    const parseMode = this.resolveParseMode(dataRecord)
+    const shouldDisablePreview = Boolean(data.disableWebPagePreview)
+    const shouldDisableNotification = Boolean(data.disableNotification)
 
     lines.push(`  // Input: ${data.variableName}`)
     lines.push(`  ctx.session.waitingForInput = '${node.id}';`)
     lines.push(`  const question = ${JSON.stringify(data.question || '')};`)
     lines.push(`  const questionText = interpolate(question, ctx);`)
+    lines.push(`  const replyOptions = {};`)
 
-    if (hasParseMode && keyboardLiteral) {
-      lines.push(
-        `  await ctx.reply(questionText, { parse_mode: '${data.parseMode}', reply_markup: buildKeyboard(${keyboardLiteral}) });`
-      )
-    } else if (hasParseMode) {
-      lines.push(`  await ctx.reply(questionText, { parse_mode: '${data.parseMode}' });`)
-    } else if (keyboardLiteral) {
-      lines.push(`  await ctx.reply(questionText, { reply_markup: buildKeyboard(${keyboardLiteral}) });`)
-    } else {
-      lines.push(`  await ctx.reply(questionText);`)
+    if (parseMode) {
+      lines.push(`  replyOptions.parse_mode = '${parseMode}';`)
     }
+    if (keyboardLiteral) {
+      lines.push(`  replyOptions.reply_markup = buildKeyboard(${keyboardLiteral});`)
+    }
+    if (shouldDisablePreview) {
+      lines.push(`  replyOptions.disable_web_page_preview = true;`)
+      lines.push(`  replyOptions.link_preview_options = { is_disabled: true };`)
+    } else {
+      lines.push(`  const previewMatch = questionText.match(/https?:\\/\\/[^\\s)]+/i);`)
+      lines.push(`  replyOptions.link_preview_options = previewMatch`)
+      lines.push(`    ? { is_disabled: false, url: previewMatch[0] }`)
+      lines.push(`    : { is_disabled: false };`)
+    }
+    if (shouldDisableNotification) {
+      lines.push(`  replyOptions.disable_notification = true;`)
+    }
+
+    lines.push(`  if (Object.keys(replyOptions).length > 0) {`)
+    lines.push(`    await ctx.reply(questionText, replyOptions);`)
+    lines.push(`  } else {`)
+    lines.push(`    await ctx.reply(questionText);`)
+    lines.push(`  }`)
 
     // Wait for user response (separate handler)
     lines.push(`  // Response will be handled by the input listener`)

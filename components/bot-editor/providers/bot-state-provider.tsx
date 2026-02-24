@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react'
 import type { Bot, BotConfig, EditorSection, BotState } from '@/lib/bot-editor/types/bot.types'
 import {
   serializeWorkflowEdges,
@@ -17,6 +17,8 @@ interface BotStateContextValue extends BotState {
   updateEdge: (edgeId: string, data: Record<string, unknown>) => void
   addVariable: (variable: Omit<import('@/lib/bot-editor/types/bot.types').BotVariable, 'id'>) => void
   removeVariable: (variableId: string) => void
+  autoOpenTelegramAfterTest: boolean
+  setAutoOpenTelegramAfterTest: (value: boolean) => void
 }
 
 const BotStateContext = createContext<BotStateContextValue | null>(null)
@@ -35,6 +37,37 @@ const initialState: BotState = {
   isLoading: false,
   error: null,
   selectedNodeId: null,
+}
+
+const AUTO_OPEN_TELEGRAM_AFTER_TEST_STORAGE_KEY = 'tflow.editor.autoOpenTelegramAfterTest'
+
+function readAutoOpenTelegramAfterTestPreference(): boolean {
+  if (typeof window === 'undefined') {
+    return true
+  }
+
+  try {
+    const stored = window.localStorage.getItem(AUTO_OPEN_TELEGRAM_AFTER_TEST_STORAGE_KEY)
+    if (stored === null) return true
+    return stored === '1'
+  } catch {
+    return true
+  }
+}
+
+function writeAutoOpenTelegramAfterTestPreference(value: boolean) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(
+      AUTO_OPEN_TELEGRAM_AFTER_TEST_STORAGE_KEY,
+      value ? '1' : '0'
+    )
+  } catch {
+    // ignore localStorage access issues
+  }
 }
 
 function normalizeComparable(value: unknown): unknown {
@@ -75,24 +108,33 @@ function stableStringify(value: unknown): string {
   return JSON.stringify(normalizeComparable(value))
 }
 
+function getConfigComparableSnapshot(config: BotConfig): string {
+  return stableStringify({
+    nodes: serializeWorkflowNodes((config.nodes || []) as unknown[]),
+    edges: serializeWorkflowEdges((config.edges || []) as unknown[]),
+    variables: config.variables || [],
+    version: String(config.version || '1.0.0'),
+  })
+}
+
 function isSameConfig(left: BotConfig, right: BotConfig): boolean {
-  const leftNodes = serializeWorkflowNodes((left.nodes || []) as unknown[])
-  const rightNodes = serializeWorkflowNodes((right.nodes || []) as unknown[])
-  if (stableStringify(leftNodes) !== stableStringify(rightNodes)) {
-    return false
-  }
+  return getConfigComparableSnapshot(left) === getConfigComparableSnapshot(right)
+}
 
-  const leftEdges = serializeWorkflowEdges((left.edges || []) as unknown[])
-  const rightEdges = serializeWorkflowEdges((right.edges || []) as unknown[])
-  if (stableStringify(leftEdges) !== stableStringify(rightEdges)) {
-    return false
-  }
+function getComparableBotDraft(bot: Bot | null): unknown {
+  if (!bot) return null
 
-  if (stableStringify(left.variables || []) !== stableStringify(right.variables || [])) {
-    return false
+  return {
+    id: bot.id || null,
+    name: bot.name || '',
+    description: bot.description ?? null,
+    status: bot.status || 'draft',
+    metadata: bot.metadata || {},
   }
+}
 
-  return String(left.version || '1.0.0') === String(right.version || '1.0.0')
+function getBotDraftComparableSnapshot(bot: Bot | null): string {
+  return stableStringify(getComparableBotDraft(bot))
 }
 
 interface BotStateProviderProps {
@@ -101,13 +143,43 @@ interface BotStateProviderProps {
 }
 
 export function BotStateProvider({ children, initialBot = null }: BotStateProviderProps) {
+  const botBaselineSnapshotRef = useRef(getBotDraftComparableSnapshot(initialBot))
+  const configBaselineSnapshotRef = useRef(getConfigComparableSnapshot(initialBot?.config ?? initialConfig))
   const [state, setState] = useState<BotState>({
     ...initialState,
     bot: initialBot,
     config: initialBot?.config ?? initialConfig,
   })
+  const [autoOpenTelegramAfterTest, setAutoOpenTelegramAfterTestState] = useState(
+    readAutoOpenTelegramAfterTestPreference
+  )
+
+  useEffect(() => {
+    // Rehydrate from localStorage after mount to avoid SSR/default-value drift.
+    const nextValue = readAutoOpenTelegramAfterTestPreference()
+    const timer = window.setTimeout(() => {
+      setAutoOpenTelegramAfterTestState(nextValue)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  const setAutoOpenTelegramAfterTest = useCallback((value: boolean) => {
+    setAutoOpenTelegramAfterTestState(value)
+    writeAutoOpenTelegramAfterTestPreference(value)
+  }, [])
+
+  const getIsDirtyAgainstBaseline = useCallback((bot: Bot | null, config: BotConfig) => {
+    if (getBotDraftComparableSnapshot(bot) !== botBaselineSnapshotRef.current) {
+      return true
+    }
+
+    return getConfigComparableSnapshot(config) !== configBaselineSnapshotRef.current
+  }, [])
 
   const setBot = useCallback((bot: Bot | null) => {
+    botBaselineSnapshotRef.current = getBotDraftComparableSnapshot(bot)
+    configBaselineSnapshotRef.current = getConfigComparableSnapshot(bot?.config ?? initialConfig)
     setState((prev) => ({
       ...prev,
       bot,
@@ -120,20 +192,22 @@ export function BotStateProvider({ children, initialBot = null }: BotStateProvid
     setState((prev) => {
       if (!prev.bot) return prev
 
+      const nextBot = {
+        ...prev.bot,
+        ...patch,
+        metadata: {
+          ...(prev.bot.metadata || {}),
+          ...((patch.metadata as Record<string, unknown>) || {}),
+        },
+      }
+
       return {
         ...prev,
-        bot: {
-          ...prev.bot,
-          ...patch,
-          metadata: {
-            ...(prev.bot.metadata || {}),
-            ...((patch.metadata as Record<string, unknown>) || {}),
-          },
-        },
-        isDirty: true,
+        bot: nextBot,
+        isDirty: getIsDirtyAgainstBaseline(nextBot, prev.config),
       }
     })
-  }, [])
+  }, [getIsDirtyAgainstBaseline])
 
   const setConfig = useCallback((config: BotConfig) => {
     setState((prev) => {
@@ -144,10 +218,10 @@ export function BotStateProvider({ children, initialBot = null }: BotStateProvid
       return {
         ...prev,
         config,
-        isDirty: true,
+        isDirty: getIsDirtyAgainstBaseline(prev.bot, config),
       }
     })
-  }, [])
+  }, [getIsDirtyAgainstBaseline])
 
   const setActiveSection = useCallback((section: EditorSection) => {
     setState((prev) => ({
@@ -157,60 +231,83 @@ export function BotStateProvider({ children, initialBot = null }: BotStateProvid
   }, [])
 
   const setIsDirty = useCallback((dirty: boolean) => {
-    setState((prev) => ({
-      ...prev,
-      isDirty: dirty,
-    }))
+    setState((prev) => {
+      if (!dirty) {
+        botBaselineSnapshotRef.current = getBotDraftComparableSnapshot(prev.bot)
+        configBaselineSnapshotRef.current = getConfigComparableSnapshot(prev.config)
+      }
+
+      return {
+        ...prev,
+        isDirty: dirty,
+      }
+    })
   }, [])
 
   const updateNode = useCallback((nodeId: string, data: Record<string, unknown>) => {
-    setState((prev) => ({
-      ...prev,
-      config: {
+    setState((prev) => {
+      const nextConfig = {
         ...prev.config,
         nodes: prev.config.nodes.map((node) =>
           node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
         ),
-      },
-      isDirty: true,
-    }))
-  }, [])
+      }
+
+      return {
+        ...prev,
+        config: nextConfig,
+        isDirty: getIsDirtyAgainstBaseline(prev.bot, nextConfig),
+      }
+    })
+  }, [getIsDirtyAgainstBaseline])
 
   const updateEdge = useCallback((edgeId: string, data: Record<string, unknown>) => {
-    setState((prev) => ({
-      ...prev,
-      config: {
+    setState((prev) => {
+      const nextConfig = {
         ...prev.config,
         edges: prev.config.edges.map((edge) =>
           edge.id === edgeId ? { ...edge, data: { ...edge.data, ...data } } : edge
         ),
-      },
-      isDirty: true,
-    }))
-  }, [])
+      }
+
+      return {
+        ...prev,
+        config: nextConfig,
+        isDirty: getIsDirtyAgainstBaseline(prev.bot, nextConfig),
+      }
+    })
+  }, [getIsDirtyAgainstBaseline])
 
   const addVariable = useCallback((variable: Omit<import('@/lib/bot-editor/types/bot.types').BotVariable, 'id'>) => {
     const id = `var-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-    setState((prev) => ({
-      ...prev,
-      config: {
+    setState((prev) => {
+      const nextConfig = {
         ...prev.config,
         variables: [...prev.config.variables, { ...variable, id }],
-      },
-      isDirty: true,
-    }))
-  }, [])
+      }
+
+      return {
+        ...prev,
+        config: nextConfig,
+        isDirty: getIsDirtyAgainstBaseline(prev.bot, nextConfig),
+      }
+    })
+  }, [getIsDirtyAgainstBaseline])
 
   const removeVariable = useCallback((variableId: string) => {
-    setState((prev) => ({
-      ...prev,
-      config: {
+    setState((prev) => {
+      const nextConfig = {
         ...prev.config,
         variables: prev.config.variables.filter((v) => v.id !== variableId),
-      },
-      isDirty: true,
-    }))
-  }, [])
+      }
+
+      return {
+        ...prev,
+        config: nextConfig,
+        isDirty: getIsDirtyAgainstBaseline(prev.bot, nextConfig),
+      }
+    })
+  }, [getIsDirtyAgainstBaseline])
 
   const value: BotStateContextValue = {
     ...state,
@@ -223,6 +320,8 @@ export function BotStateProvider({ children, initialBot = null }: BotStateProvid
     updateEdge,
     addVariable,
     removeVariable,
+    autoOpenTelegramAfterTest,
+    setAutoOpenTelegramAfterTest,
   }
 
   return (
