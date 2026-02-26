@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { basename, isAbsolute, resolve as resolvePathFs } from 'node:path'
 import { homedir } from 'node:os'
+import { spawn } from 'node:child_process'
+import { createContext as createVmContext, Script as VmScript } from 'node:vm'
 import type { BotConfig, Edge as BotEdge, Node as BotNode } from '@/lib/bot-editor/types/bot.types'
 import { callTelegramApi, callTelegramApiFormData } from '@/lib/bot-editor/runtime/telegram-api'
 import { appendBotTestLog } from '@/lib/bot-editor/runtime/test-log-store'
@@ -43,6 +45,11 @@ interface RuntimeSession {
   variables: Record<string, unknown>
   waitingForNodeId?: string
   scheduledResumeAtMs?: number
+  replyKeyboardState?: {
+    mode: 'system' | 'variant' | 'hidden'
+    variantKey?: string
+    pendingRemove?: boolean
+  }
   updatedAt: number
 }
 
@@ -67,6 +74,25 @@ interface InlineKeyboardMarkup {
 interface ForceReplyMarkup {
   force_reply: true
   input_field_placeholder?: string
+}
+
+interface ReplyKeyboardMarkup {
+  keyboard: Array<Array<ReplyKeyboardButton>>
+  resize_keyboard?: boolean
+  one_time_keyboard?: boolean
+  is_persistent?: boolean
+}
+
+interface ReplyKeyboardRemoveMarkup {
+  remove_keyboard: true
+}
+
+type AnyReplyMarkup = InlineKeyboardMarkup | ForceReplyMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemoveMarkup
+
+interface ReplyKeyboardButton {
+  text: string
+  style?: 'default' | 'primary' | 'success' | 'danger'
+  icon_custom_emoji_id?: string
 }
 
 type SupportedMediaAttachmentType = 'photo' | 'video' | 'document' | 'audio'
@@ -114,12 +140,59 @@ const MAX_TIMEOUT_CHUNK_MS = 2_147_483_647
 type WorkflowRunState = 'waiting' | 'completed'
 const DEFAULT_AUTO_REACTION_COOLDOWN_SECONDS = 15
 const AUTO_REACTION_MAX_COOLDOWN_SECONDS = 3600
+const DEFAULT_SCRIPT_TIMEOUT_MS = 1000
+const MAX_SCRIPT_TIMEOUT_MS = 30_000
+const SCRIPT_NODES_ENABLED =
+  process.env.TFLOW_ENABLE_UNSAFE_SCRIPT_NODES === '1' || process.env.NODE_ENV !== 'production'
+const PYTHON_RESULT_MARKER = '__TFLOW_SCRIPT_RESULT__:'
+
+const PYTHON_NODE_WRAPPER_CODE = `
+import json, sys
+payload = json.load(sys.stdin)
+scope = {
+  "input": payload.get("input"),
+  "context": payload.get("context"),
+  "vars": payload.get("vars"),
+  "result": None,
+}
+try:
+  exec(payload.get("code", ""), {"__builtins__": __builtins__}, scope)
+  print("${PYTHON_RESULT_MARKER}" + json.dumps({"ok": True, "result": scope.get("result")}, ensure_ascii=False, default=str))
+except Exception as e:
+  print("${PYTHON_RESULT_MARKER}" + json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+`.trim()
 
 type AutoReactionsRuntimeConfig = {
   enabled: boolean
   cooldownSeconds: number
   onlyTextMessages: boolean
   mode: 'rule-based'
+}
+
+type ReplyKeyboardRuleRuntimeConfig = {
+  id: string
+  name: string
+  enabled: boolean
+  variable: string
+  operator: string
+  value: unknown
+  rows: ReplyKeyboardButtonRuntime[][]
+}
+
+type ReplyKeyboardRuntimeConfig = {
+  enabled: boolean
+  resizeKeyboard: boolean
+  oneTimeKeyboard: boolean
+  isPersistent: boolean
+  baseRows: ReplyKeyboardButtonRuntime[][]
+  rules: ReplyKeyboardRuleRuntimeConfig[]
+}
+
+type ReplyKeyboardButtonRuntime = {
+  text: string
+  emoji?: string
+  style?: 'default' | 'primary' | 'success' | 'danger'
+  iconCustomEmojiId?: string
 }
 
 function readAutoReactionsRuntimeConfig(
@@ -152,6 +225,217 @@ function readAutoReactionsRuntimeConfig(
     cooldownSeconds,
     mode: 'rule-based',
   }
+}
+
+function normalizeReplyKeyboardButtonStyleRuntime(
+  value: unknown
+): 'default' | 'primary' | 'success' | 'danger' {
+  const raw = normalizeText(value || 'default')
+  if (raw === 'primary' || raw === 'success' || raw === 'danger') {
+    return raw
+  }
+  return 'default'
+}
+
+function sanitizeReplyKeyboardRowsRuntime(value: unknown): ReplyKeyboardButtonRuntime[][] {
+  if (!Array.isArray(value)) return []
+
+  const rows: ReplyKeyboardButtonRuntime[][] = []
+  for (const rawRow of value) {
+    if (!Array.isArray(rawRow)) continue
+    const row = (rawRow
+      .map((button) => {
+        if (typeof button === 'string') {
+          const text = normalizeText(button)
+          return text ? ({ text, style: 'default' as const }) : null
+        }
+
+        if (!button || typeof button !== 'object') {
+          return null
+        }
+
+        const record = button as Record<string, unknown>
+        const text = normalizeText(record.text)
+        const emoji = normalizeText(record.emoji)
+        const iconCustomEmojiId = normalizeText(record.iconCustomEmojiId ?? record.icon_custom_emoji_id)
+        if (!text && !emoji) {
+          return null
+        }
+
+        return {
+          text,
+          ...(emoji ? { emoji } : {}),
+          style: normalizeReplyKeyboardButtonStyleRuntime(record.style),
+          ...(iconCustomEmojiId ? { iconCustomEmojiId } : {}),
+        }
+      })
+      .filter(Boolean) as ReplyKeyboardButtonRuntime[])
+      .slice(0, 10)
+    if (row.length > 0) {
+      rows.push(row)
+    }
+    if (rows.length >= 12) break
+  }
+  return rows
+}
+
+function readReplyKeyboardRuntimeConfig(
+  metadata: Record<string, unknown> | null | undefined
+): ReplyKeyboardRuntimeConfig | null {
+  if (!metadata || typeof metadata !== 'object') {
+    return null
+  }
+
+  const features =
+    metadata.features && typeof metadata.features === 'object'
+      ? (metadata.features as Record<string, unknown>)
+      : null
+  if (!features) return null
+
+  const raw =
+    features.replyKeyboard && typeof features.replyKeyboard === 'object'
+      ? (features.replyKeyboard as Record<string, unknown>)
+      : null
+  if (!raw) return null
+
+  const rawRules = Array.isArray(raw.rules) ? raw.rules : []
+  const rules: ReplyKeyboardRuleRuntimeConfig[] = []
+  for (let index = 0; index < rawRules.length; index += 1) {
+    const item = rawRules[index]
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const id = normalizeText(record.id) || `rule_${index + 1}`
+    const variable = normalizeText(record.variable)
+    const operator = normalizeText(record.operator || 'equals') || 'equals'
+    const rows = sanitizeReplyKeyboardRowsRuntime(record.rows)
+    if (!id || rows.length === 0) {
+      continue
+    }
+    rules.push({
+      id,
+      name: normalizeText(record.name) || `Rule ${index + 1}`,
+      enabled: record.enabled === undefined ? true : Boolean(record.enabled),
+      variable,
+      operator,
+      value: record.value,
+      rows,
+    })
+  }
+
+  return {
+    enabled: Boolean(raw.enabled),
+    resizeKeyboard: raw.resizeKeyboard === undefined ? true : Boolean(raw.resizeKeyboard),
+    oneTimeKeyboard: Boolean(raw.oneTimeKeyboard),
+    isPersistent: raw.isPersistent === undefined ? true : Boolean(raw.isPersistent),
+    baseRows: sanitizeReplyKeyboardRowsRuntime(raw.baseRows),
+    rules,
+  }
+}
+
+function getReplyKeyboardVariantRows(
+  config: ReplyKeyboardRuntimeConfig,
+  variantKey: string | undefined
+): ReplyKeyboardButtonRuntime[][] | null {
+  const normalizedVariantKey = normalizeText(variantKey || 'base') || 'base'
+  if (normalizedVariantKey === 'base') {
+    return config.baseRows.length > 0 ? config.baseRows : null
+  }
+
+  if (normalizedVariantKey.startsWith('rule:')) {
+    const ruleId = normalizedVariantKey.slice('rule:'.length).trim()
+    const rule = config.rules.find((item) => item.id === ruleId)
+    return rule?.rows?.length ? rule.rows : null
+  }
+
+  return null
+}
+
+function buildReplyKeyboardMarkup(
+  config: ReplyKeyboardRuntimeConfig,
+  rows: ReplyKeyboardButtonRuntime[][],
+  variables?: Record<string, unknown>
+): ReplyKeyboardMarkup | undefined {
+  if (!rows.length) return undefined
+
+  const keyboard = rows
+    .map((row) =>
+      row
+        .map((button) => {
+          const baseText = normalizeText(button.text)
+          const emojiText = normalizeText(button.emoji)
+          const composedTextRaw = [emojiText, baseText].filter(Boolean).join(' ')
+          const text = variables ? interpolateTemplate(composedTextRaw, variables).trim() : composedTextRaw.trim()
+          if (!text) {
+            return null
+          }
+
+          const replyButton: ReplyKeyboardButton = { text }
+          const style = normalizeReplyKeyboardButtonStyleRuntime(button.style)
+          if (style && style !== 'default') {
+            replyButton.style = style
+          }
+          const iconCustomEmojiId = normalizeText(button.iconCustomEmojiId)
+          if (iconCustomEmojiId) {
+            replyButton.icon_custom_emoji_id = iconCustomEmojiId
+          }
+
+          return replyButton
+        })
+        .filter((button): button is ReplyKeyboardButton => Boolean(button))
+    )
+    .filter((row) => row.length > 0)
+
+  if (!keyboard.length) return undefined
+
+  const markup: ReplyKeyboardMarkup = { keyboard }
+  if (config.resizeKeyboard) {
+    markup.resize_keyboard = true
+  }
+  if (config.oneTimeKeyboard) {
+    markup.one_time_keyboard = true
+  }
+  if (config.isPersistent) {
+    markup.is_persistent = true
+  }
+
+  return markup
+}
+
+function resolveSystemReplyKeyboardMarkupForSend(args: {
+  metadata?: Record<string, unknown> | null
+  session: RuntimeSession
+  contextVariables: Record<string, unknown>
+}): ReplyKeyboardMarkup | ReplyKeyboardRemoveMarkup | undefined {
+  const { metadata, session, contextVariables } = args
+  const config = readReplyKeyboardRuntimeConfig(metadata)
+  const state = session.replyKeyboardState
+
+  if (state?.mode === 'hidden') {
+    if (state.pendingRemove) {
+      state.pendingRemove = false
+      return { remove_keyboard: true }
+    }
+    return undefined
+  }
+
+  if (!config?.enabled) {
+    return undefined
+  }
+
+  if (state?.mode === 'variant') {
+    const variantRows = getReplyKeyboardVariantRows(config, state.variantKey)
+    return variantRows ? buildReplyKeyboardMarkup(config, variantRows, contextVariables) : undefined
+  }
+
+  for (const rule of config.rules) {
+    if (!rule.enabled || !rule.variable) continue
+    const leftValue = resolvePath(contextVariables, rule.variable)
+    if (evaluateConditionValue(rule.operator || 'equals', leftValue, rule.value)) {
+      return buildReplyKeyboardMarkup(config, rule.rows, contextVariables)
+    }
+  }
+
+  return buildReplyKeyboardMarkup(config, config.baseRows, contextVariables)
 }
 
 function getIncomingMessageReactionText(message: TelegramMessage): string {
@@ -1356,7 +1640,10 @@ function findMatchingTrigger(config: BotConfig, update: TelegramUpdate): BotNode
     }
 
     if (triggerType === 'text') {
-      if (!pattern) continue
+      if (!pattern) {
+        if (Boolean(data.aiEnabled) && messageText) return trigger
+        continue
+      }
       if (messageText.toLowerCase().includes(pattern.toLowerCase())) return trigger
       continue
     }
@@ -1425,8 +1712,9 @@ export async function handleScheduledWorkflowTriggersTick(args: {
   botId: string
   botToken: string
   config: BotConfig
+  metadata?: Record<string, unknown> | null
 }): Promise<void> {
-  const { botId, botToken, config } = args
+  const { botId, botToken, config, metadata } = args
   const nowMs = Date.now()
 
   const scheduleTriggers = config.nodes.filter((node) => {
@@ -1505,6 +1793,7 @@ export async function handleScheduledWorkflowTriggersTick(args: {
         botToken,
         chatId,
         config,
+        metadata,
         session,
         sessionKey,
         update: syntheticUpdate,
@@ -1532,6 +1821,7 @@ async function sendMessage(
   text: string,
   parseMode?: unknown,
   keyboard?: unknown,
+  systemReplyMarkup?: AnyReplyMarkup,
   options?: {
     forceReply?: boolean
     inputPlaceholder?: string
@@ -1575,9 +1865,11 @@ async function sendMessage(
     }
     payload.reply_markup = forceReply
   } else {
-    const replyMarkup = buildInlineKeyboardMarkup(keyboard)
-    if (replyMarkup) {
-      payload.reply_markup = replyMarkup
+    const inlineReplyMarkup = buildInlineKeyboardMarkup(keyboard)
+    if (inlineReplyMarkup) {
+      payload.reply_markup = inlineReplyMarkup
+    } else if (systemReplyMarkup) {
+      payload.reply_markup = systemReplyMarkup
     }
   }
 
@@ -1671,6 +1963,7 @@ async function sendMediaMessage(
   caption: string,
   parseMode?: unknown,
   keyboard?: unknown,
+  systemReplyMarkup?: AnyReplyMarkup,
   options?: {
     disableNotification?: boolean
   }
@@ -1708,9 +2001,11 @@ async function sendMediaMessage(
     payload.disable_notification = true
   }
 
-  const replyMarkup = buildInlineKeyboardMarkup(keyboard)
-  if (replyMarkup) {
-    payload.reply_markup = replyMarkup
+  const inlineReplyMarkup = buildInlineKeyboardMarkup(keyboard)
+  if (inlineReplyMarkup) {
+    payload.reply_markup = inlineReplyMarkup
+  } else if (systemReplyMarkup) {
+    payload.reply_markup = systemReplyMarkup
   }
 
   const ensureLocalFileBuffer = async () => {
@@ -1961,6 +2256,292 @@ async function executeHttpNode(
   await executeHttpRequestData(data, session, contextVariables)
 }
 
+function normalizeScriptTimeoutMs(value: unknown): number {
+  const raw = Number(value || DEFAULT_SCRIPT_TIMEOUT_MS)
+  if (!Number.isFinite(raw)) return DEFAULT_SCRIPT_TIMEOUT_MS
+  return Math.min(MAX_SCRIPT_TIMEOUT_MS, Math.max(100, Math.round(raw)))
+}
+
+function createScriptExecutionContext(args: {
+  contextVariables: Record<string, unknown>
+  update: TelegramUpdate
+  user: TelegramUser | null
+  chatId: number
+}): Record<string, unknown> {
+  const { contextVariables, update, user, chatId } = args
+
+  return {
+    ...contextVariables,
+    chat: {
+      id: chatId,
+    },
+    message: update.message
+      ? {
+          messageId: update.message.message_id,
+          text: update.message.text,
+          caption: update.message.caption,
+          chatId: update.message.chat?.id,
+          from: update.message.from
+            ? {
+                id: update.message.from.id,
+                isBot: Boolean(update.message.from.is_bot),
+                username: update.message.from.username,
+                firstName: update.message.from.first_name,
+                lastName: update.message.from.last_name,
+                languageCode: update.message.from.language_code,
+              }
+            : undefined,
+        }
+      : undefined,
+    callback: update.callback_query
+      ? {
+          id: update.callback_query.id,
+          data: update.callback_query.data,
+          from: {
+            id: update.callback_query.from.id,
+            isBot: Boolean(update.callback_query.from.is_bot),
+            username: update.callback_query.from.username,
+            firstName: update.callback_query.from.first_name,
+            lastName: update.callback_query.from.last_name,
+            languageCode: update.callback_query.from.language_code,
+          },
+          message: update.callback_query.message
+            ? {
+                messageId: update.callback_query.message.message_id,
+                chatId: update.callback_query.message.chat?.id,
+                text: update.callback_query.message.text,
+                caption: update.callback_query.message.caption,
+              }
+            : undefined,
+        }
+      : undefined,
+    update: {
+      updateId: update.update_id,
+      hasMessage: Boolean(update.message),
+      hasCallback: Boolean(update.callback_query),
+    },
+    user: {
+      id: user?.id,
+      username: user?.username,
+      firstName: user?.first_name,
+      lastName: user?.last_name,
+      languageCode: user?.language_code,
+      isBot: Boolean(user?.is_bot),
+    },
+  }
+}
+
+function safeJsonClone<T>(value: T): T {
+  try {
+    return JSON.parse(JSON.stringify(value)) as T
+  } catch {
+    return value
+  }
+}
+
+function runJavascriptScript(args: {
+  code: string
+  inputValue: unknown
+  executionContext: Record<string, unknown>
+  sessionVariables: Record<string, unknown>
+  timeoutMs: number
+}): unknown {
+  const { code, inputValue, executionContext, sessionVariables, timeoutMs } = args
+
+  const sandbox: Record<string, unknown> = {
+    input: safeJsonClone(inputValue),
+    context: safeJsonClone(executionContext),
+    vars: safeJsonClone(sessionVariables),
+    result: null,
+    Math,
+    Date,
+    JSON,
+    Number,
+    String,
+    Boolean,
+    Array,
+    Object,
+  }
+
+  const context = createVmContext(sandbox)
+  const compiled = new VmScript(String(code || ''), {
+    filename: 'tflow-script-node.js',
+  })
+  compiled.runInContext(context, { timeout: timeoutMs })
+  return sandbox.result
+}
+
+async function runPythonScriptProcess(
+  command: string,
+  payload: Record<string, unknown>,
+  timeoutMs: number
+): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, ['-c', PYTHON_NODE_WRAPPER_CODE], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+
+    let stdout = ''
+    let stderr = ''
+    let finished = false
+
+    const timeout = setTimeout(() => {
+      if (finished) return
+      finished = true
+      child.kill('SIGKILL')
+      reject(new Error(`Python script timeout (${timeoutMs}ms)`))
+    }, timeoutMs)
+
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk)
+    })
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk)
+    })
+
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      if (finished) return
+      finished = true
+      clearTimeout(timeout)
+      reject(error)
+    })
+
+    child.on('close', (code) => {
+      if (finished) return
+      finished = true
+      clearTimeout(timeout)
+
+      const markerLine = stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .reverse()
+        .find((line) => line.startsWith(PYTHON_RESULT_MARKER))
+
+      if (!markerLine) {
+        reject(
+          new Error(
+            stderr.trim()
+              ? `Python script failed: ${stderr.trim().slice(0, 500)}`
+              : `Python script failed (exit ${code ?? 'unknown'})`
+          )
+        )
+        return
+      }
+
+      try {
+        const parsed = JSON.parse(markerLine.slice(PYTHON_RESULT_MARKER.length)) as {
+          ok?: boolean
+          result?: unknown
+          error?: string
+        }
+        if (!parsed.ok) {
+          reject(new Error(parsed.error || 'Python script execution failed'))
+          return
+        }
+        resolve(parsed.result)
+      } catch (error) {
+        reject(new Error(`Invalid Python script response: ${String(error)}`))
+      }
+    })
+
+    child.stdin.write(JSON.stringify(payload))
+    child.stdin.end()
+  })
+}
+
+async function runPythonScript(args: {
+  code: string
+  inputValue: unknown
+  executionContext: Record<string, unknown>
+  sessionVariables: Record<string, unknown>
+  timeoutMs: number
+}): Promise<unknown> {
+  const payload = {
+    code: String(args.code || ''),
+    input: safeJsonClone(args.inputValue),
+    context: safeJsonClone(args.executionContext),
+    vars: safeJsonClone(args.sessionVariables),
+  }
+
+  try {
+    return await runPythonScriptProcess('python3', payload, args.timeoutMs)
+  } catch (error) {
+    const message = String(error)
+    if (!/ENOENT/i.test(message)) {
+      throw error
+    }
+  }
+
+  return runPythonScriptProcess('python', payload, args.timeoutMs)
+}
+
+async function executeScriptNode(args: {
+  node: BotNode
+  session: RuntimeSession
+  contextVariables: Record<string, unknown>
+  update: TelegramUpdate
+  user: TelegramUser | null
+  chatId: number
+  botId: string
+}): Promise<void> {
+  if (!SCRIPT_NODES_ENABLED) {
+    throw new Error(
+      'Script node disabled in production. Set TFLOW_ENABLE_UNSAFE_SCRIPT_NODES=1 to enable.'
+    )
+  }
+
+  const { node, session, contextVariables, update, user, chatId, botId } = args
+  const data = (node.data || {}) as Record<string, unknown>
+  const language = normalizeText(data.language || 'javascript').toLowerCase()
+  const code = String(data.code || '')
+  const timeoutMs = normalizeScriptTimeoutMs(data.timeoutMs)
+  const saveToVariable = normalizeText(data.saveToVariable)
+  const inputPath = normalizeText(data.inputPath)
+
+  if (!code.trim()) {
+    appendBotTestLog(botId, 'workflow', `Script -> ${node.id} skipped: empty code`, 'warn')
+    return
+  }
+
+  const executionContext = createScriptExecutionContext({
+    contextVariables,
+    update,
+    user,
+    chatId,
+  })
+  const inputValue = inputPath ? resolvePath(executionContext, inputPath) : executionContext
+
+  let result: unknown
+  if (language === 'python') {
+    result = await runPythonScript({
+      code,
+      inputValue,
+      executionContext,
+      sessionVariables: session.variables,
+      timeoutMs,
+    })
+  } else {
+    result = runJavascriptScript({
+      code,
+      inputValue,
+      executionContext,
+      sessionVariables: session.variables,
+      timeoutMs,
+    })
+  }
+
+  if (saveToVariable) {
+    session.variables[saveToVariable] = result
+  }
+
+  appendBotTestLog(
+    botId,
+    'workflow',
+    `Script -> ${node.id} (${language === 'python' ? 'python' : 'js'})${saveToVariable ? ` saved to ${saveToVariable}` : ''}`,
+    'info'
+  )
+}
+
 function resolveSchedulerDelayMs(data: Record<string, unknown>): number {
   const rawValue = Number(data.delayValue ?? 0)
   const safeValue = Number.isFinite(rawValue) ? Math.max(0, rawValue) : 0
@@ -2018,6 +2599,7 @@ function scheduleSchedulerResume(args: {
   botId: string
   botToken: string
   config: BotConfig
+  metadata?: Record<string, unknown> | null
   session: RuntimeSession
   schedulerNodeId: string
   nextNodeId: string
@@ -2031,6 +2613,7 @@ function scheduleSchedulerResume(args: {
     botId,
     botToken,
     config,
+    metadata,
     session,
     schedulerNodeId,
     nextNodeId,
@@ -2072,6 +2655,7 @@ function scheduleSchedulerResume(args: {
             botToken,
             chatId,
             config,
+            metadata,
             session,
             sessionKey,
             update,
@@ -2113,12 +2697,13 @@ async function executeFromNode(args: {
   botToken: string
   chatId: number
   config: BotConfig
+  metadata?: Record<string, unknown> | null
   session: RuntimeSession
   sessionKey: string
   update: TelegramUpdate
   user: TelegramUser | null
 }): Promise<WorkflowRunState> {
-  const { botId, botToken, chatId, config, session, sessionKey, update, user } = args
+  const { botId, botToken, chatId, config, metadata, session, sessionKey, update, user } = args
   const nodeMap = buildNodeMap(config)
 
   let currentNodeId: string | null = args.startNodeId
@@ -2132,6 +2717,28 @@ async function executeFromNode(args: {
 
     const contextVariables: Record<string, unknown> = {
       ...session.variables,
+      chat: {
+        id: chatId,
+      },
+      message: update.message
+        ? {
+            messageId: update.message.message_id,
+            text: update.message.text,
+            caption: update.message.caption,
+            chatId: update.message.chat?.id,
+          }
+        : undefined,
+      callback: update.callback_query
+        ? {
+            id: update.callback_query.id,
+            data: update.callback_query.data,
+            messageId: update.callback_query.message?.message_id,
+            chatId: update.callback_query.message?.chat?.id,
+          }
+        : undefined,
+      update: {
+        updateId: update.update_id,
+      },
       user: {
         id: user?.id,
         username: user?.username,
@@ -2146,6 +2753,11 @@ async function executeFromNode(args: {
       const rawText = normalizeText(data.text || data.__label || data._label || '')
       const text = interpolateTemplate(rawText, contextVariables)
       const attachment = resolveMessageAttachment(data)
+      const systemReplyMarkup = resolveSystemReplyKeyboardMarkupForSend({
+        metadata,
+        session,
+        contextVariables,
+      })
       appendBotTestLog(botId, 'workflow', `Node message -> ${node.id}`, 'debug')
 
       if (attachment) {
@@ -2159,21 +2771,40 @@ async function executeFromNode(args: {
             text,
             resolveNodeParseMode(data),
             resolveKeyboardData(data),
+            systemReplyMarkup,
             {
               disableNotification: normalizeBoolean(data.disableNotification),
             }
           )
         } else {
-          await sendMessage(botToken, botId, chatId, text, resolveNodeParseMode(data), resolveKeyboardData(data), {
-            disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
-            disableNotification: normalizeBoolean(data.disableNotification),
-          })
+          await sendMessage(
+            botToken,
+            botId,
+            chatId,
+            text,
+            resolveNodeParseMode(data),
+            resolveKeyboardData(data),
+            systemReplyMarkup,
+            {
+              disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
+              disableNotification: normalizeBoolean(data.disableNotification),
+            }
+          )
         }
       } else {
-        await sendMessage(botToken, botId, chatId, text, resolveNodeParseMode(data), resolveKeyboardData(data), {
-          disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
-          disableNotification: normalizeBoolean(data.disableNotification),
-        })
+        await sendMessage(
+          botToken,
+          botId,
+          chatId,
+          text,
+          resolveNodeParseMode(data),
+          resolveKeyboardData(data),
+          systemReplyMarkup,
+          {
+            disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
+            disableNotification: normalizeBoolean(data.disableNotification),
+          }
+        )
       }
       currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
@@ -2187,6 +2818,11 @@ async function executeFromNode(args: {
       const shouldUseForceReply = data.forceReply !== false
       const keyboard = resolveKeyboardData(data)
       const parseMode = resolveNodeParseMode(data)
+      const systemReplyMarkup = resolveSystemReplyKeyboardMarkupForSend({
+        metadata,
+        session,
+        contextVariables,
+      })
       const messageOptions = {
         disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
         disableNotification: normalizeBoolean(data.disableNotification),
@@ -2195,7 +2831,7 @@ async function executeFromNode(args: {
       if (shouldUseForceReply) {
         try {
           appendBotTestLog(botId, 'workflow', `Node input(forceReply) -> ${node.id}`, 'debug')
-          await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, {
+          await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, systemReplyMarkup, {
             forceReply: true,
             inputPlaceholder: placeholder,
             ...messageOptions,
@@ -2203,11 +2839,11 @@ async function executeFromNode(args: {
         } catch (error) {
           console.error('Failed to send input with force-reply, fallback to plain message:', error)
           appendBotTestLog(botId, 'workflow', `Input forceReply fallback: ${String(error)}`, 'warn')
-          await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, messageOptions)
+          await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, systemReplyMarkup, messageOptions)
         }
       } else {
         appendBotTestLog(botId, 'workflow', `Node input -> ${node.id}`, 'debug')
-        await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, messageOptions)
+        await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, systemReplyMarkup, messageOptions)
       }
 
       session.waitingForNodeId = node.id
@@ -2304,6 +2940,7 @@ async function executeFromNode(args: {
         botId,
         botToken,
         config,
+        metadata,
         session,
         schedulerNodeId: node.id,
         nextNodeId,
@@ -2322,6 +2959,66 @@ async function executeFromNode(args: {
       return 'waiting'
     }
 
+    if (node.type === 'replyKeyboard') {
+      const data = (node.data || {}) as Record<string, unknown>
+      const mode = normalizeText(data.mode || 'system') || 'system'
+
+      const applyReplyKeyboardMode = (
+        nextModeRaw: string,
+        nextVariantKeyRaw?: unknown
+      ) => {
+        const nextMode = normalizeText(nextModeRaw || 'system') || 'system'
+        if (nextMode === 'clear') {
+          session.replyKeyboardState = {
+            mode: 'hidden',
+            pendingRemove: true,
+          }
+          appendBotTestLog(botId, 'workflow', `ReplyKeyboard -> ${node.id} clear`, 'info')
+          return
+        }
+
+        if (nextMode === 'variant') {
+          const variantKey = normalizeText(nextVariantKeyRaw || 'base') || 'base'
+          session.replyKeyboardState = {
+            mode: 'variant',
+            variantKey,
+            pendingRemove: false,
+          }
+          appendBotTestLog(botId, 'workflow', `ReplyKeyboard -> ${node.id} variant ${variantKey}`, 'info')
+          return
+        }
+
+        session.replyKeyboardState = {
+          mode: 'system',
+          pendingRemove: false,
+        }
+        appendBotTestLog(botId, 'workflow', `ReplyKeyboard -> ${node.id} system`, 'debug')
+      }
+
+      if (mode === 'condition') {
+        const variableName = normalizeText(data.variable)
+        const operator = normalizeText(data.operator || 'equals') || 'equals'
+        const compareTo = data.value
+        const leftValue = variableName ? resolvePath(contextVariables, variableName) : undefined
+        const matched = evaluateConditionValue(operator, leftValue, compareTo)
+
+        if (matched) {
+          applyReplyKeyboardMode(String(data.trueMode || 'variant'), data.trueVariantKey)
+        } else {
+          applyReplyKeyboardMode(String(data.falseMode || 'system'), data.falseVariantKey)
+        }
+      } else if (mode === 'variant') {
+        applyReplyKeyboardMode('variant', data.variantKey)
+      } else if (mode === 'clear') {
+        applyReplyKeyboardMode('clear')
+      } else {
+        applyReplyKeyboardMode('system')
+      }
+
+      currentNodeId = getDefaultNextNodeId(config, node.id)
+      continue
+    }
+
     if (node.type === 'action') {
       appendBotTestLog(botId, 'workflow', `Node action -> ${node.id}`, 'debug')
       const selectedActionHandle = await executeActionNode(
@@ -2335,6 +3032,21 @@ async function executeFromNode(args: {
       currentNodeId = selectedActionHandle
         ? getNextNodeIdBySourceHandle(config, node.id, selectedActionHandle) || getDefaultNextNodeId(config, node.id)
         : getDefaultNextNodeId(config, node.id)
+      continue
+    }
+
+    if (node.type === 'script') {
+      appendBotTestLog(botId, 'workflow', `Node script -> ${node.id}`, 'debug')
+      await executeScriptNode({
+        node,
+        session,
+        contextVariables,
+        update,
+        user,
+        chatId,
+        botId,
+      })
+      currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
     }
 
@@ -2431,6 +3143,7 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
       botToken: context.botToken,
       chatId,
       config: context.config,
+      metadata: context.metadata,
       session,
       sessionKey,
       update: context.update,
@@ -2533,6 +3246,7 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
         botToken: context.botToken,
         chatId,
         config: context.config,
+        metadata: context.metadata,
         session,
         sessionKey,
         update: context.update,

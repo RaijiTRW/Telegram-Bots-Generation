@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Node } from 'reactflow'
 import {
@@ -13,6 +13,9 @@ import {
   Play,
   Clock,
   MessageCircle,
+  Code2,
+  Maximize2,
+  Minimize2,
   X,
   Plus,
   Trash2,
@@ -41,16 +44,19 @@ import type {
   ConditionNodeData,
   RouterNodeData,
   ActionNodeData,
+  ScriptNodeData,
   HttpNodeData,
   WebhookNodeData,
   TriggerNodeData,
   WaitNodeData,
   SchedulerNodeData,
+  ReplyKeyboardNodeData,
   CommentNodeData,
   ParseMode,
   MessageAttachmentType,
   ComparisonOperator,
   HttpMethod,
+  ScriptLanguage,
 } from '@/lib/bot-editor/types/component-schemas'
 import { NODE_CONFIGS } from '@/lib/bot-editor/types/component-schemas'
 import type { NodeType } from '@/lib/bot-editor/types/bot.types'
@@ -81,15 +87,58 @@ const ICONS: Record<string, LucideIcon> = {
   trigger: Play,
   wait: Clock,
   scheduler: Clock,
+  replyKeyboard: Keyboard,
+  script: Code2,
   comment: MessageCircle,
+}
+
+type ReplyKeyboardVariantOption = {
+  value: string
+  label: string
+}
+
+function getReplyKeyboardVariantOptionsFromMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+  t?: (key: string) => string
+): ReplyKeyboardVariantOption[] {
+  const features =
+    metadata && typeof metadata.features === 'object'
+      ? (metadata.features as Record<string, unknown>)
+      : null
+  const replyKeyboard =
+    features?.replyKeyboard && typeof features.replyKeyboard === 'object'
+      ? (features.replyKeyboard as Record<string, unknown>)
+      : null
+
+  const options: ReplyKeyboardVariantOption[] = [
+    { value: 'base', label: t ? t('replyKeyboardNode.baseVariantLabel') : 'Base keyboard' },
+  ]
+
+  const rules = Array.isArray(replyKeyboard?.rules) ? replyKeyboard?.rules : []
+  for (let index = 0; index < rules.length; index += 1) {
+    const item = rules[index]
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const id = String(record.id || '').trim()
+    if (!id) continue
+    const name =
+      String(record.name || '').trim() || `${t ? t('replyKeyboardNode.ruleFallbackLabel') : 'Rule'} ${index + 1}`
+    options.push({
+      value: `rule:${id}`,
+      label: `${t ? t('replyKeyboardNode.ruleVariantPrefix') : 'Rule'}: ${name}`,
+    })
+  }
+
+  return options
 }
 
 export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables = [] }: NodeSettingsPanelProps) {
   const t = useTranslations('editor.nodeSettings')
-  const { isDirty } = useBotState()
+  const { isDirty, bot } = useBotState()
   const [data, setData] = useState<Partial<NodeData>>({})
   const [hasChanges, setHasChanges] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDetailedMode, setIsDetailedMode] = useState(false)
 
   useEffect(() => {
     if (node) {
@@ -103,6 +152,23 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
       setHasChanges(false)
     }
   }, [isDirty])
+
+  useEffect(() => {
+    setIsDetailedMode(false)
+  }, [node?.id])
+
+  useEffect(() => {
+    if (!isDetailedMode || typeof document === 'undefined') {
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isDetailedMode])
 
   if (!node) {
     return (
@@ -118,9 +184,21 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
   const nodeType = node.type as NodeType
   const config = NODE_CONFIGS[nodeType]
   const Icon = ICONS[nodeType] || Settings
+  const replyKeyboardVariantOptions = getReplyKeyboardVariantOptionsFromMetadata(
+    (bot?.metadata || null) as Record<string, unknown> | null,
+    t
+  )
+  const panelTitle =
+    typeof (data as Record<string, unknown> | null)?.__label === 'string' &&
+    String((data as Record<string, unknown>).__label || '').trim()
+      ? String((data as Record<string, unknown>).__label)
+      : config.label
 
   const handleUpdate = (newData: Partial<NodeData>) => {
-    const updatedData = { ...data, ...newData }
+    const updatedData = {
+      ...(data as Record<string, unknown>),
+      ...(newData as Record<string, unknown>),
+    } as Partial<NodeData>
     setData(updatedData)
     setHasChanges(true)
     onUpdate(node.id, updatedData)
@@ -145,31 +223,58 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
     }
   }
 
-  return (
-    <div className="w-96 bg-zinc-900/95 backdrop-blur-xl border-l border-white/10 flex flex-col h-full">
+  const panelSurface = (
+    <div
+      className={`${
+        isDetailedMode
+          ? 'w-full max-w-[980px] h-[min(88vh,920px)] rounded-2xl border border-white/10 shadow-2xl shadow-black/50 bg-zinc-900/95'
+          : 'w-96 h-full border-l border-white/10 bg-zinc-900/95'
+      } backdrop-blur-xl flex flex-col overflow-hidden`}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-white/10">
+      <div className={`${isDetailedMode ? 'p-5' : 'p-4'} border-b border-white/10`}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg" style={{ background: `${config.color}20` }}>
               <Icon className="w-4 h-4" style={{ color: config.color }} />
             </div>
             <div>
-              <h3 className="text-white font-semibold">{config.label}</h3>
+              <h3 className={`text-white font-semibold ${isDetailedMode ? 'text-base' : ''}`}>{panelTitle}</h3>
               <p className="text-xs text-zinc-500">{t('nodeId')} {node.id}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setIsDetailedMode((prev) => !prev)}
+              title={isDetailedMode ? t('collapseDetailedMode') : t('openDetailedMode')}
+              className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
+            >
+              {isDetailedMode ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
+              title={t('close')}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+        {isDetailedMode && (
+          <div className="text-xs text-zinc-400">
+            {t('detailedModeHint')}
+          </div>
+        )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className={`flex-1 overflow-y-auto ${isDetailedMode ? 'p-5' : 'p-4'}`}>
         {nodeType === 'message' && (
           <MessageSettings
             data={data as MessageNodeData}
@@ -199,11 +304,20 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as RouterNodeData}
             onUpdate={handleUpdate}
             variables={variables}
+            t={t}
           />
         )}
         {nodeType === 'action' && (
           <ActionSettings
             data={data as ActionNodeData}
+            onUpdate={handleUpdate}
+            variables={variables}
+            t={t}
+          />
+        )}
+        {nodeType === 'script' && (
+          <ScriptSettings
+            data={data as ScriptNodeData}
             onUpdate={handleUpdate}
             variables={variables}
             t={t}
@@ -245,6 +359,16 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as SchedulerNodeData}
             onUpdate={handleUpdate}
             variables={variables}
+            t={t}
+          />
+        )}
+        {nodeType === 'replyKeyboard' && (
+          <ReplyKeyboardSettings
+            data={data as ReplyKeyboardNodeData}
+            onUpdate={handleUpdate}
+            variables={variables}
+            variantOptions={replyKeyboardVariantOptions}
+            t={t}
           />
         )}
         {nodeType === 'comment' && (
@@ -258,7 +382,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
 
       {/* Footer */}
       {hasChanges && (
-        <div className="p-4 border-t border-white/10">
+        <div className={`${isDetailedMode ? 'p-5' : 'p-4'} border-t border-white/10`}>
           <Button
             onClick={handleSave}
             disabled={isSaving}
@@ -270,6 +394,26 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
         </div>
       )}
     </div>
+  )
+
+  if (!isDetailedMode || typeof document === 'undefined') {
+    return panelSurface
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[3000]">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={() => setIsDetailedMode(false)}
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 p-4 md:p-6 flex items-center justify-center pointer-events-none">
+        <div className="w-full flex items-center justify-center pointer-events-auto">
+          {panelSurface}
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 
@@ -400,6 +544,12 @@ function MessageSettings({
   t: (key: string) => string
 }) {
   const tm = (key: string) => t(`message.${key}`)
+  const aiMeta = data as unknown as {
+    aiEnabled?: boolean
+    aiPrompt?: string
+    aiModel?: string
+  }
+  const isAiMessage = Boolean(aiMeta.aiEnabled)
   const { bot } = useBotState()
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -572,6 +722,40 @@ function MessageSettings({
 
   return (
     <div className="space-y-4 relative">
+      {isAiMessage && (
+        <div className="rounded-lg border border-cyan-400/20 bg-cyan-500/5 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-white">{tm('aiTitle')}</div>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {tm('aiDescription')}
+              </p>
+            </div>
+            <div className="text-[11px] px-2 py-1 rounded border border-cyan-300/20 bg-cyan-400/10 text-cyan-200">
+              {tm('soon')}
+            </div>
+          </div>
+
+          <div className="relative">
+            <Label htmlFor="ai-message-prompt" className="text-xs text-zinc-300">
+              {tm('aiPromptLabel')}
+            </Label>
+            <Textarea
+              id="ai-message-prompt"
+              value={String(aiMeta.aiPrompt || '')}
+              readOnly
+              disabled
+              placeholder={tm('aiPromptPlaceholder')}
+              rows={3}
+              className="mt-1.5 bg-zinc-900/40 border-white/10"
+            />
+            <div className="absolute inset-x-0 bottom-0 top-7 rounded-md bg-zinc-950/45 border border-white/5 flex items-center justify-center pointer-events-none">
+              <span className="text-xs font-medium text-zinc-300">{tm('aiSoonOverlay')}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <Label htmlFor="msg-text">{tm('textLabel')}</Label>
         <TemplateVariableTextarea
@@ -920,6 +1104,11 @@ function ConditionSettings({
   t: (key: string, values?: Record<string, unknown>) => string
 }) {
   const tc = (key: string, values?: Record<string, unknown>) => t(`condition.${key}`, values)
+  const aiMeta = data as unknown as {
+    aiEnabled?: boolean
+    aiPrompt?: string
+  }
+  const isAiLogic = Boolean(aiMeta.aiEnabled)
   const conditionVariableOptions = Array.from(
     new Set(
       [
@@ -957,6 +1146,40 @@ function ConditionSettings({
 
   return (
     <div className="space-y-4">
+      {isAiLogic && (
+        <div className="rounded-lg border border-amber-400/20 bg-amber-500/5 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-white">{tc('aiTitle')}</div>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {tc('aiDescription')}
+              </p>
+            </div>
+            <div className="text-[11px] px-2 py-1 rounded border border-amber-300/20 bg-amber-400/10 text-amber-200">
+              {tc('soon')}
+            </div>
+          </div>
+
+          <div className="relative">
+            <Label htmlFor="ai-logic-prompt" className="text-xs text-zinc-300">
+              {tc('aiPromptLabel')}
+            </Label>
+            <Textarea
+              id="ai-logic-prompt"
+              value={String(aiMeta.aiPrompt || '')}
+              readOnly
+              disabled
+              placeholder={tc('aiPromptPlaceholder')}
+              rows={3}
+              className="mt-1.5 bg-zinc-900/40 border-white/10"
+            />
+            <div className="absolute inset-x-0 bottom-0 top-7 rounded-md bg-zinc-950/45 border border-white/5 flex items-center justify-center pointer-events-none">
+              <span className="text-xs font-medium text-zinc-300">{tc('aiSoonOverlay')}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <Label htmlFor="cond-var">{tc('variableLabel')}</Label>
         <Select
@@ -1032,11 +1255,15 @@ function RouterSettings({
   data,
   onUpdate,
   variables,
+  t,
 }: {
   data: RouterNodeData
   onUpdate: (data: Partial<RouterNodeData>) => void
   variables: string[]
+  t: (key: string) => string
 }) {
+  const tr = (key: string) => t(`router.${key}`)
+  const tc = (key: string) => t(`condition.${key}`)
   const cases = Array.isArray(data.cases) ? data.cases : []
   const operator = (data.operator || 'equals') as ComparisonOperator
 
@@ -1054,7 +1281,7 @@ function RouterSettings({
         ...cases,
         {
           id: createRouterCaseId(),
-          label: `Case ${cases.length + 1}`,
+          label: `${tr('caseDefaultLabel')} ${cases.length + 1}`,
           value: '',
         },
       ],
@@ -1070,22 +1297,22 @@ function RouterSettings({
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="router-variable">Variable</Label>
+        <Label htmlFor="router-variable">{tr('variableLabel')}</Label>
         <VariableAutocompleteInput
           id="router-variable"
           value={data.variable || ''}
           onValueChange={(value) => onUpdate({ variable: value })}
-          placeholder="user.languageCode"
+          placeholder={tr('variablePlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
           variables={variables}
         />
         <p className="text-xs text-zinc-500 mt-1">
-          Compare this variable against multiple cases. First match wins.
+          {tr('variableHint')}
         </p>
       </div>
 
       <div>
-        <Label htmlFor="router-operator">Operator (applies to all cases)</Label>
+        <Label htmlFor="router-operator">{tr('operatorLabel')}</Label>
         <Select
           value={operator}
           onValueChange={(value) => onUpdate({ operator: value as ComparisonOperator })}
@@ -1094,19 +1321,19 @@ function RouterSettings({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="equals">equals</SelectItem>
-            <SelectItem value="notEquals">notEquals</SelectItem>
-            <SelectItem value="contains">contains</SelectItem>
-            <SelectItem value="notContains">notContains</SelectItem>
-            <SelectItem value="gt">gt</SelectItem>
-            <SelectItem value="lt">lt</SelectItem>
+            <SelectItem value="equals">{tc('equals')}</SelectItem>
+            <SelectItem value="notEquals">{tc('notEquals')}</SelectItem>
+            <SelectItem value="contains">{tc('contains')}</SelectItem>
+            <SelectItem value="notContains">{tc('notContains')}</SelectItem>
+            <SelectItem value="gt">{tc('gt')}</SelectItem>
+            <SelectItem value="lt">{tc('lt')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label>Cases</Label>
+          <Label>{tr('casesLabel')}</Label>
           <Button
             type="button"
             size="sm"
@@ -1115,13 +1342,13 @@ function RouterSettings({
             onClick={addCase}
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Case
+            {tr('addCase')}
           </Button>
         </div>
 
         {cases.length === 0 && (
           <div className="rounded-lg border border-white/10 bg-zinc-800/20 px-3 py-2 text-sm text-zinc-500">
-            No cases yet. Add at least one case.
+            {tr('noCases')}
           </div>
         )}
 
@@ -1132,7 +1359,7 @@ function RouterSettings({
           >
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs uppercase tracking-wide text-zinc-500">
-                Handle:{' '}
+                {tr('handleLabel')}{' '}
                 <code
                   className="text-zinc-300"
                   title={String(routerCase.id || '')}
@@ -1152,23 +1379,23 @@ function RouterSettings({
             </div>
 
             <div>
-              <Label htmlFor={`router-case-label-${index}`}>Label</Label>
+              <Label htmlFor={`router-case-label-${index}`}>{tr('caseLabel')}</Label>
               <Input
                 id={`router-case-label-${index}`}
                 value={String(routerCase.label || '')}
                 onChange={(e) => updateCase(String(routerCase.id), { label: e.target.value })}
-                placeholder={`Case ${index + 1}`}
+                placeholder={`${tr('caseDefaultLabel')} ${index + 1}`}
                 className="mt-1.5 bg-zinc-800/50 border-white/10"
               />
             </div>
 
             <div>
-              <Label htmlFor={`router-case-value-${index}`}>Compare Value</Label>
+              <Label htmlFor={`router-case-value-${index}`}>{tr('caseValueLabel')}</Label>
               <Input
                 id={`router-case-value-${index}`}
                 value={routerCase.value == null ? '' : String(routerCase.value)}
                 onChange={(e) => updateCase(String(routerCase.id), { value: e.target.value })}
-                placeholder="en"
+                placeholder={tr('caseValuePlaceholder')}
                 className="mt-1.5 bg-zinc-800/50 border-white/10"
               />
             </div>
@@ -1177,16 +1404,16 @@ function RouterSettings({
       </div>
 
       <div>
-        <Label htmlFor="router-default-label">Default Branch Label</Label>
+        <Label htmlFor="router-default-label">{tr('defaultBranchLabel')}</Label>
         <Input
           id="router-default-label"
           value={data.defaultLabel || ''}
           onChange={(e) => onUpdate({ defaultLabel: e.target.value })}
-          placeholder="Default"
+          placeholder={tr('defaultPlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
         />
         <p className="text-xs text-zinc-500 mt-1">
-          Connect the bottom output handle for the default branch.
+          {tr('defaultHint')}
         </p>
       </div>
     </div>
@@ -1411,6 +1638,497 @@ function ActionSettings({
 }
 
 // ============================================================================
+// SCRIPT NODE SETTINGS
+// ============================================================================
+
+function getDefaultScriptCode(language: ScriptLanguage): string {
+  if (language === 'python') {
+    return [
+      '# Available: input, context, vars',
+      '# Assign output to `result`',
+      "text = str(input or '')",
+      'result = text.upper()',
+    ].join('\n')
+  }
+
+  return [
+    '// Available: input, context, vars',
+    '// Assign output to `result`',
+    "result = String(input ?? '').toUpperCase()",
+  ].join('\n')
+}
+
+type ScriptEditorSuggestion = {
+  label: string
+  insertText: string
+  detail?: string
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function highlightScriptCode(code: string, language: ScriptLanguage): string {
+  const source = code || ''
+  const escaped = escapeHtml(source)
+
+  const jsKeywordSet = new Set([
+    'const', 'let', 'var', 'if', 'else', 'return', 'function', 'async', 'await', 'for', 'while',
+    'try', 'catch', 'throw', 'switch', 'case', 'break', 'continue', 'true', 'false', 'null', 'undefined',
+  ])
+  const pyKeywordSet = new Set([
+    'def', 'if', 'elif', 'else', 'return', 'for', 'while', 'try', 'except', 'finally', 'raise',
+    'import', 'from', 'as', 'in', 'not', 'and', 'or', 'True', 'False', 'None', 'class', 'pass',
+  ])
+  const runtimeSymbols = new Set([
+    'input', 'context', 'vars', 'result',
+  ])
+
+  const combinedRegex =
+    language === 'python'
+      ? /(#.*$|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][A-Za-z0-9_]*\b)/gm
+      : /(\/\/.*$|\/\*[\s\S]*?\*\/|`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][A-Za-z0-9_]*\b)/gm
+
+  return escaped.replace(combinedRegex, (token) => {
+    const raw = token
+    const plain = raw
+
+    if (language === 'python' && plain.startsWith('#')) {
+      return `<span class="text-zinc-500">${raw}</span>`
+    }
+    if (language !== 'python' && (plain.startsWith('//') || plain.startsWith('/*'))) {
+      return `<span class="text-zinc-500">${raw}</span>`
+    }
+    if (plain.startsWith('"') || plain.startsWith("'") || plain.startsWith('`')) {
+      return `<span class="text-emerald-300">${raw}</span>`
+    }
+    if (/^\d/.test(plain)) {
+      return `<span class="text-amber-300">${raw}</span>`
+    }
+    if (runtimeSymbols.has(plain)) {
+      return `<span class="text-cyan-300 font-medium">${raw}</span>`
+    }
+    if ((language === 'python' ? pyKeywordSet : jsKeywordSet).has(plain)) {
+      return `<span class="text-violet-300">${raw}</span>`
+    }
+
+    return raw
+  })
+}
+
+function getScriptSuggestions(language: ScriptLanguage, variables: string[]): ScriptEditorSuggestion[] {
+  const shared: ScriptEditorSuggestion[] = [
+    { label: 'input', insertText: 'input', detail: 'Input value from Input Path / context' },
+    { label: 'context', insertText: 'context', detail: 'Full execution context object' },
+    { label: 'vars', insertText: 'vars', detail: 'Session variables map/object' },
+    { label: 'result', insertText: 'result', detail: 'Assign final result here' },
+  ]
+
+  const commonContext: ScriptEditorSuggestion[] =
+    language === 'python'
+      ? [
+          { label: 'context.get("user")', insertText: 'context.get("user")', detail: 'User data' },
+          { label: 'context.get("message")', insertText: 'context.get("message")', detail: 'Message data' },
+          { label: 'context.get("callback")', insertText: 'context.get("callback")', detail: 'Callback data' },
+        ]
+      : [
+          { label: 'context.user', insertText: 'context.user', detail: 'User data' },
+          { label: 'context.message', insertText: 'context.message', detail: 'Message data' },
+          { label: 'context.callback', insertText: 'context.callback', detail: 'Callback data' },
+          { label: 'context.chat', insertText: 'context.chat', detail: 'Chat data' },
+          { label: 'context.update', insertText: 'context.update', detail: 'Update flags' },
+        ]
+
+  const languageBuiltins: ScriptEditorSuggestion[] =
+    language === 'python'
+      ? [
+          { label: 'str()', insertText: 'str()', detail: 'Convert to string' },
+          { label: 'len()', insertText: 'len()', detail: 'Length' },
+          { label: 'int()', insertText: 'int()', detail: 'Convert to int' },
+          { label: 'float()', insertText: 'float()', detail: 'Convert to float' },
+          { label: 'bool()', insertText: 'bool()', detail: 'Convert to bool' },
+          { label: 'dict', insertText: 'dict', detail: 'Dictionary type' },
+          { label: 'list', insertText: 'list', detail: 'List type' },
+        ]
+      : [
+          { label: 'String()', insertText: 'String()', detail: 'Convert to string' },
+          { label: 'Number()', insertText: 'Number()', detail: 'Convert to number' },
+          { label: 'Boolean()', insertText: 'Boolean()', detail: 'Convert to boolean' },
+          { label: 'Math', insertText: 'Math', detail: 'Math helpers' },
+          { label: 'JSON', insertText: 'JSON', detail: 'JSON parse/stringify' },
+          { label: 'Date', insertText: 'Date', detail: 'Date API' },
+          { label: 'Array.isArray()', insertText: 'Array.isArray()', detail: 'Array check' },
+        ]
+
+  const variableSuggestions: ScriptEditorSuggestion[] = []
+  for (const rawVar of variables) {
+    const name = String(rawVar || '').trim().replace(/^\{\{\s*|\s*\}\}$/g, '')
+    if (!name) continue
+    variableSuggestions.push(
+      language === 'python'
+        ? { label: `vars.get("${name}")`, insertText: `vars.get("${name}")`, detail: `Variable: ${name}` }
+        : { label: `vars.${name}`, insertText: `vars.${name}`, detail: `Variable: ${name}` }
+    )
+  }
+
+  const seen = new Set<string>()
+  return [...shared, ...commonContext, ...variableSuggestions, ...languageBuiltins].filter((item) => {
+    if (seen.has(item.label)) return false
+    seen.add(item.label)
+    return true
+  })
+}
+
+function getScriptCompletionRange(value: string, caretIndex: number): { start: number; end: number; query: string } | null {
+  const safeCaret = Math.max(0, Math.min(value.length, caretIndex))
+  const prefix = value.slice(0, safeCaret)
+  const match = prefix.match(/([A-Za-z_][A-Za-z0-9_."']*)$/)
+  if (!match) return null
+  const query = match[1] || ''
+  return {
+    start: safeCaret - query.length,
+    end: safeCaret,
+    query,
+  }
+}
+
+function ScriptCodeEditor({
+  id,
+  language,
+  value,
+  onValueChange,
+  placeholder,
+  variables,
+}: {
+  id: string
+  language: ScriptLanguage
+  value: string
+  onValueChange: (value: string) => void
+  placeholder?: string
+  variables: string[]
+}) {
+  const ts = useTranslations('editor.nodeSettings.script')
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const highlightedRef = useRef<HTMLPreElement | null>(null)
+  const blurTimerRef = useRef<number | null>(null)
+  const [isFocused, setIsFocused] = useState(false)
+  const [caretIndex, setCaretIndex] = useState(0)
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
+  const [forceSuggestions, setForceSuggestions] = useState(false)
+
+  const allSuggestions = useMemo(
+    () => getScriptSuggestions(language, variables),
+    [language, variables]
+  )
+
+  const completionRange = getScriptCompletionRange(value, caretIndex)
+  const normalizedQuery = completionRange?.query?.toLowerCase() || ''
+
+  const filteredSuggestions = useMemo(() => {
+    const list = !normalizedQuery
+      ? (forceSuggestions ? allSuggestions : [])
+      : allSuggestions.filter((item) => item.label.toLowerCase().includes(normalizedQuery))
+    return list.slice(0, 8)
+  }, [allSuggestions, normalizedQuery, forceSuggestions])
+
+  useEffect(() => {
+    return () => {
+      if (blurTimerRef.current) {
+        window.clearTimeout(blurTimerRef.current)
+      }
+    }
+  }, [])
+
+  const syncScroll = () => {
+    if (!textareaRef.current || !highlightedRef.current) return
+    highlightedRef.current.scrollTop = textareaRef.current.scrollTop
+    highlightedRef.current.scrollLeft = textareaRef.current.scrollLeft
+  }
+
+  const applySuggestion = (suggestion: ScriptEditorSuggestion) => {
+    const textarea = textareaRef.current
+    const range = completionRange
+    if (!textarea || !range) {
+      return
+    }
+
+    const nextValue = `${value.slice(0, range.start)}${suggestion.insertText}${value.slice(range.end)}`
+    const nextCaret = range.start + suggestion.insertText.length
+    onValueChange(nextValue)
+    setForceSuggestions(false)
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      textarea.setSelectionRange(nextCaret, nextCaret)
+      setCaretIndex(nextCaret)
+      syncScroll()
+    })
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const hasSuggestions = filteredSuggestions.length > 0
+    const resolvedActiveSuggestionIndex =
+      filteredSuggestions.length > 0
+        ? Math.min(activeSuggestionIndex, filteredSuggestions.length - 1)
+        : 0
+
+    if ((event.metaKey || event.ctrlKey) && event.code === 'Space') {
+      event.preventDefault()
+      setForceSuggestions(true)
+      return
+    }
+
+    if (hasSuggestions && event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveSuggestionIndex((prev) => (prev + 1) % filteredSuggestions.length)
+      return
+    }
+
+    if (hasSuggestions && event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveSuggestionIndex((prev) => (prev - 1 + filteredSuggestions.length) % filteredSuggestions.length)
+      return
+    }
+
+    if (hasSuggestions && (event.key === 'Tab' || event.key === 'Enter')) {
+      event.preventDefault()
+      applySuggestion(filteredSuggestions[resolvedActiveSuggestionIndex])
+      return
+    }
+
+    if (event.key === 'Escape') {
+      setForceSuggestions(false)
+      return
+    }
+  }
+
+  const showSuggestions = isFocused && filteredSuggestions.length > 0
+  const resolvedActiveSuggestionIndex =
+    filteredSuggestions.length > 0
+      ? Math.min(activeSuggestionIndex, filteredSuggestions.length - 1)
+      : 0
+  const highlightedHtml = highlightScriptCode(value, language)
+
+  return (
+    <div className="mt-1.5 rounded-lg border border-white/10 bg-zinc-900/40 overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/10 bg-zinc-800/20">
+        <div className="text-[11px] text-zinc-400">
+          {language === 'python'
+            ? ts('editorHeaderPython')
+            : ts('editorHeaderJavascript')}
+        </div>
+        <div className="text-[10px] text-zinc-500">
+          {ts('editorShortcut')}
+        </div>
+      </div>
+
+      <div className="relative">
+        <pre
+          ref={highlightedRef}
+          aria-hidden="true"
+          className="m-0 h-[360px] overflow-auto p-3 font-mono text-xs leading-5 whitespace-pre-wrap break-words text-zinc-200"
+          dangerouslySetInnerHTML={{
+            __html: highlightedHtml || `<span class="text-zinc-500">${escapeHtml(placeholder || '')}</span>`,
+          }}
+        />
+
+        <Textarea
+          ref={textareaRef}
+          id={id}
+          value={value}
+          onChange={(e) => {
+            onValueChange(e.target.value)
+            setCaretIndex(e.target.selectionStart ?? 0)
+            setForceSuggestions(false)
+          }}
+          onKeyDown={handleKeyDown}
+          onClick={(e) => {
+            setCaretIndex(e.currentTarget.selectionStart ?? 0)
+            setForceSuggestions(false)
+          }}
+          onKeyUp={(e) => setCaretIndex(e.currentTarget.selectionStart ?? 0)}
+          onSelect={(e) => setCaretIndex(e.currentTarget.selectionStart ?? 0)}
+          onScroll={syncScroll}
+          onFocus={() => {
+            if (blurTimerRef.current) {
+              window.clearTimeout(blurTimerRef.current)
+            }
+            setIsFocused(true)
+          }}
+          onBlur={() => {
+            blurTimerRef.current = window.setTimeout(() => {
+              setIsFocused(false)
+              setForceSuggestions(false)
+            }, 120)
+          }}
+          placeholder={placeholder}
+          rows={12}
+          className="absolute inset-0 h-full w-full resize-none border-0 bg-transparent p-3 font-mono text-xs leading-5 text-transparent caret-white selection:bg-[#24A1DE]/35 focus-visible:ring-0 focus-visible:ring-offset-0"
+          style={{
+            color: 'transparent',
+            caretColor: '#ffffff',
+          }}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          autoComplete="off"
+        />
+
+        {showSuggestions && (
+          <div className="absolute right-2 top-2 z-20 w-[320px] max-w-[calc(100%-1rem)] rounded-lg border border-white/10 bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
+            <div className="px-2 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 border-b border-white/10">
+              {ts('suggestionsTitle')}
+            </div>
+            <div className="max-h-48 overflow-y-auto p-1">
+              {filteredSuggestions.map((suggestion, index) => (
+                <button
+                  key={`${suggestion.label}-${index}`}
+                  type="button"
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    applySuggestion(suggestion)
+                  }}
+                  className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${
+                    index === resolvedActiveSuggestionIndex
+                      ? 'bg-[#24A1DE]/15 border border-[#24A1DE]/20'
+                      : 'hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  <div className="text-xs text-zinc-100 font-mono truncate">{suggestion.label}</div>
+                  {suggestion.detail && (
+                    <div className="text-[10px] text-zinc-500 truncate">{suggestion.detail}</div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ScriptSettings({
+  data,
+  onUpdate,
+  variables,
+  t,
+}: {
+  data: ScriptNodeData
+  onUpdate: (data: Partial<ScriptNodeData>) => void
+  variables: string[]
+  t: (key: string) => string
+}) {
+  const ts = (key: string) => t(`script.${key}`)
+  const language = (data.language || 'javascript') as ScriptLanguage
+  const timeoutMs = Math.min(30_000, Math.max(100, Number(data.timeoutMs || 1000) || 1000))
+  const code = typeof data.code === 'string' ? data.code : ''
+
+  const handleLanguageChange = (nextLanguage: ScriptLanguage) => {
+    const shouldSeedExample = !code.trim()
+    onUpdate({
+      language: nextLanguage,
+      code: shouldSeedExample ? getDefaultScriptCode(nextLanguage) : code,
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="script-language">{ts('languageLabel')}</Label>
+          <Select
+            value={language}
+            onValueChange={(value) => handleLanguageChange(value as ScriptLanguage)}
+          >
+            <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="javascript">{ts('languageJavascript')}</SelectItem>
+              <SelectItem value="python">{ts('languagePython')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="script-timeout">{ts('timeoutLabel')}</Label>
+          <Input
+            id="script-timeout"
+            type="number"
+            min={100}
+            max={30000}
+            step={100}
+            value={timeoutMs}
+            onChange={(e) =>
+              onUpdate({
+                timeoutMs: Math.min(30_000, Math.max(100, Number(e.target.value || 1000) || 1000)),
+              })
+            }
+            className="mt-1.5 bg-zinc-800/50 border-white/10"
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="script-input-path">{ts('inputPathLabel')}</Label>
+        <VariableAutocompleteInput
+          id="script-input-path"
+          value={data.inputPath || ''}
+          onValueChange={(value) => onUpdate({ inputPath: value })}
+          placeholder={ts('inputPathPlaceholder')}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+        <p className="text-xs text-zinc-500 mt-1">
+          {ts('inputPathHint')}
+        </p>
+      </div>
+
+      <div>
+        <Label htmlFor="script-savevar">{ts('saveVarLabel')}</Label>
+        <VariableAutocompleteInput
+          id="script-savevar"
+          value={data.saveToVariable || ''}
+          onValueChange={(value) => onUpdate({ saveToVariable: value })}
+          placeholder={ts('saveVarPlaceholder')}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="script-code">{ts('codeLabel')}</Label>
+        <ScriptCodeEditor
+          id="script-code"
+          value={code}
+          onValueChange={(nextCode) => onUpdate({ code: nextCode })}
+          language={language}
+          placeholder={getDefaultScriptCode(language)}
+          variables={variables}
+        />
+      </div>
+
+      <div className="rounded-lg border border-white/10 bg-zinc-800/20 px-3 py-3 space-y-2">
+        <div className="text-xs font-medium text-zinc-200">{ts('contractTitle')}</div>
+        <div className="text-xs text-zinc-400">
+          {ts('contractPrefix')} <code className="text-zinc-200">input</code>,{' '}
+          <code className="text-zinc-200">context</code>,{' '}
+          <code className="text-zinc-200">vars</code>. {ts('contractSuffix')}{' '}
+          <code className="text-zinc-200">result</code>.
+        </div>
+        <div className="text-xs text-amber-300/90">
+          {ts('safetyHint')}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
 // HTTP NODE SETTINGS
 // ============================================================================
 
@@ -1453,6 +2171,8 @@ function KeyValueListEditor({
   label,
   addLabel,
   emptyLabel,
+  keyPlaceholder,
+  valuePlaceholder,
   rows,
   onChange,
 }: {
@@ -1460,6 +2180,8 @@ function KeyValueListEditor({
   label: string
   addLabel: string
   emptyLabel: string
+  keyPlaceholder: string
+  valuePlaceholder: string
   rows: HttpPair[]
   onChange: (rows: HttpPair[]) => void
 }) {
@@ -1499,14 +2221,14 @@ function KeyValueListEditor({
             id={`${idPrefix}-key-${index}`}
             value={row.key}
             onChange={(e) => updateRow(index, 'key', e.target.value)}
-            placeholder="key"
+            placeholder={keyPlaceholder}
             className="bg-zinc-800/50 border-white/10"
           />
           <Input
             id={`${idPrefix}-value-${index}`}
             value={row.value}
             onChange={(e) => updateRow(index, 'value', e.target.value)}
-            placeholder="value"
+            placeholder={valuePlaceholder}
             className="bg-zinc-800/50 border-white/10"
           />
           <Button
@@ -1581,6 +2303,8 @@ function HttpSettings({
         label={thttp('queryParamsLabel')}
         addLabel={thttp('addPair')}
         emptyLabel={thttp('emptyList')}
+        keyPlaceholder={thttp('keyPlaceholder')}
+        valuePlaceholder={thttp('valuePlaceholder')}
         rows={queryParams}
         onChange={(rows) => onUpdate({ queryParams: rows })}
       />
@@ -1590,6 +2314,8 @@ function HttpSettings({
         label={thttp('headersLabel')}
         addLabel={thttp('addPair')}
         emptyLabel={thttp('emptyList')}
+        keyPlaceholder={thttp('keyPlaceholder')}
+        valuePlaceholder={thttp('valuePlaceholder')}
         rows={headers}
         onChange={(rows) => onUpdate({ headers: rows })}
       />
@@ -1609,8 +2335,8 @@ function HttpSettings({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="json">JSON</SelectItem>
-                <SelectItem value="form">Form Data</SelectItem>
-                <SelectItem value="raw">Raw</SelectItem>
+                <SelectItem value="form">{thttp('bodyForm')}</SelectItem>
+                <SelectItem value="raw">{thttp('bodyRaw')}</SelectItem>
                 <SelectItem value="none">{thttp('bodyNone')}</SelectItem>
               </SelectContent>
             </Select>
@@ -1674,6 +2400,11 @@ function TriggerSettings({
   t: (key: string) => string
 }) {
   const tr = (key: string) => t(`trigger.${key}`)
+  const aiMeta = data as unknown as {
+    aiEnabled?: boolean
+    aiPrompt?: string
+  }
+  const isAiTrigger = Boolean(aiMeta.aiEnabled)
   const isCommandTrigger = data.trigger === 'command'
   const isTextTrigger = data.trigger === 'text'
   const isCallbackTrigger = data.trigger === 'callbackQuery'
@@ -1682,6 +2413,40 @@ function TriggerSettings({
 
   return (
     <div className="space-y-4">
+      {isAiTrigger && (
+        <div className="rounded-lg border border-indigo-400/20 bg-indigo-500/5 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-white">{tr('aiTitle')}</div>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {tr('aiDescription')}
+              </p>
+            </div>
+            <div className="text-[11px] px-2 py-1 rounded border border-indigo-300/20 bg-indigo-400/10 text-indigo-200">
+              {tr('soon')}
+            </div>
+          </div>
+
+          <div className="relative">
+            <Label htmlFor="ai-trigger-prompt" className="text-xs text-zinc-300">
+              {tr('aiPromptLabel')}
+            </Label>
+            <Textarea
+              id="ai-trigger-prompt"
+              value={String(aiMeta.aiPrompt || '')}
+              readOnly
+              disabled
+              placeholder={tr('aiPromptPlaceholder')}
+              rows={3}
+              className="mt-1.5 bg-zinc-900/40 border-white/10"
+            />
+            <div className="absolute inset-x-0 bottom-0 top-7 rounded-md bg-zinc-950/45 border border-white/5 flex items-center justify-center pointer-events-none">
+              <span className="text-xs font-medium text-zinc-300">{tr('aiSoonOverlay')}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <Label htmlFor="trigger-type">{tr('typeLabel')}</Label>
         <Select
@@ -1697,7 +2462,7 @@ function TriggerSettings({
             <SelectItem value="callbackQuery">{tr('callbackQuery')}</SelectItem>
             <SelectItem value="photo">{tr('photo')}</SelectItem>
             <SelectItem value="any">{tr('any')}</SelectItem>
-            <SelectItem value="schedule">Schedule (time)</SelectItem>
+            <SelectItem value="schedule">{tr('schedule')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1705,7 +2470,7 @@ function TriggerSettings({
       {(isCommandTrigger || isTextTrigger || isCallbackTrigger) && (
         <div>
           <Label htmlFor="trigger-pattern">
-            {isCommandTrigger ? tr('command') : isCallbackTrigger ? 'Callback Data' : tr('patternLabel')}
+            {isCommandTrigger ? tr('command') : isCallbackTrigger ? tr('callbackDataLabel') : tr('patternLabel')}
           </Label>
           <Input
             id="trigger-pattern"
@@ -1715,14 +2480,14 @@ function TriggerSettings({
               isCommandTrigger
                 ? tr('commandPlaceholder')
                 : isCallbackTrigger
-                  ? 'Например: menu:settings'
+                  ? tr('callbackPlaceholder')
                   : tr('textPlaceholder')
             }
             className="mt-1.5 bg-zinc-800/50 border-white/10"
           />
           {isCallbackTrigger && (
             <p className="text-xs text-zinc-500 mt-1">
-              Оставьте пустым, чтобы ловить любое нажатие inline-кнопки.
+              {tr('callbackAnyHint')}
             </p>
           )}
         </div>
@@ -1731,7 +2496,7 @@ function TriggerSettings({
       {isScheduleTrigger && (
         <>
           <div>
-            <Label htmlFor="trigger-schedule-mode">Schedule Mode</Label>
+            <Label htmlFor="trigger-schedule-mode">{tr('scheduleModeLabel')}</Label>
             <Select
               value={scheduleMode}
               onValueChange={(value) =>
@@ -1742,15 +2507,15 @@ function TriggerSettings({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="daily">Every day at time</SelectItem>
-                <SelectItem value="hourly">Every N hours</SelectItem>
+                <SelectItem value="daily">{tr('scheduleDaily')}</SelectItem>
+                <SelectItem value="hourly">{tr('scheduleHourly')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {scheduleMode === 'daily' ? (
             <div>
-              <Label htmlFor="trigger-schedule-time">Time (HH:mm)</Label>
+              <Label htmlFor="trigger-schedule-time">{tr('scheduleTimeLabel')}</Label>
               <Input
                 id="trigger-schedule-time"
                 type="time"
@@ -1762,7 +2527,7 @@ function TriggerSettings({
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="trigger-schedule-every-hours">Every N Hours</Label>
+                <Label htmlFor="trigger-schedule-every-hours">{tr('scheduleEveryHoursLabel')}</Label>
                 <Input
                   id="trigger-schedule-every-hours"
                   type="number"
@@ -1774,7 +2539,7 @@ function TriggerSettings({
                 />
               </div>
               <div>
-                <Label htmlFor="trigger-schedule-minute">At Minute</Label>
+                <Label htmlFor="trigger-schedule-minute">{tr('scheduleMinuteLabel')}</Label>
                 <Input
                   id="trigger-schedule-minute"
                   type="number"
@@ -1792,45 +2557,45 @@ function TriggerSettings({
           )}
 
           <div>
-            <Label htmlFor="trigger-schedule-timezone">Timezone (IANA)</Label>
+            <Label htmlFor="trigger-schedule-timezone">{tr('scheduleTimezoneLabel')}</Label>
             <Input
               id="trigger-schedule-timezone"
               value={data.timeZone || 'UTC'}
               onChange={(e) => onUpdate({ timeZone: e.target.value })}
-              placeholder="Europe/Moscow"
+              placeholder={tr('scheduleTimezonePlaceholder')}
               className="mt-1.5 bg-zinc-800/50 border-white/10"
             />
             <p className="text-xs text-zinc-500 mt-1">
-              Examples: `UTC`, `Europe/Moscow`, `America/New_York`
+              {tr('scheduleTimezoneHint')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <Label htmlFor="trigger-target-chat-id">Target Chat ID</Label>
+              <Label htmlFor="trigger-target-chat-id">{tr('scheduleTargetChatIdLabel')}</Label>
               <Input
                 id="trigger-target-chat-id"
                 value={data.targetChatId || ''}
                 onChange={(e) => onUpdate({ targetChatId: e.target.value })}
-                placeholder="-1001234567890 or 123456789"
+                placeholder={tr('scheduleTargetChatIdPlaceholder')}
                 className="mt-1.5 bg-zinc-800/50 border-white/10"
               />
               <p className="text-xs text-zinc-500 mt-1">
-                Required for message-based workflows started by schedule trigger.
+                {tr('scheduleTargetChatIdHint')}
               </p>
             </div>
 
             <div>
-              <Label htmlFor="trigger-target-user-id">Target User ID (optional)</Label>
+              <Label htmlFor="trigger-target-user-id">{tr('scheduleTargetUserIdLabel')}</Label>
               <Input
                 id="trigger-target-user-id"
                 value={data.targetUserId || ''}
                 onChange={(e) => onUpdate({ targetUserId: e.target.value })}
-                placeholder="123456789"
+                placeholder={tr('scheduleTargetUserIdPlaceholder')}
                 className="mt-1.5 bg-zinc-800/50 border-white/10"
               />
               <p className="text-xs text-zinc-500 mt-1">
-                Optional. Helps preserve `user.*` context in some flows.
+                {tr('scheduleTargetUserIdHint')}
               </p>
             </div>
           </div>
@@ -1859,18 +2624,21 @@ function SchedulerSettings({
   data,
   onUpdate,
   variables,
+  t,
 }: {
   data: SchedulerNodeData
   onUpdate: (data: Partial<SchedulerNodeData>) => void
   variables: string[]
+  t: (key: string) => string
 }) {
+  const ts = (key: string) => t(`scheduler.${key}`)
   const mode = (data.mode || 'delay') as SchedulerNodeData['mode']
   const delayUnit = (data.delayUnit || 'minutes') as NonNullable<SchedulerNodeData['delayUnit']>
 
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="scheduler-mode">Mode</Label>
+        <Label htmlFor="scheduler-mode">{ts('modeLabel')}</Label>
         <Select
           value={mode || 'delay'}
           onValueChange={(value) =>
@@ -1881,8 +2649,8 @@ function SchedulerSettings({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="delay">Delay (relative)</SelectItem>
-            <SelectItem value="dateTime">Date & Time (timezone-aware)</SelectItem>
+            <SelectItem value="delay">{ts('modeDelay')}</SelectItem>
+            <SelectItem value="dateTime">{ts('modeDateTime')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1890,7 +2658,7 @@ function SchedulerSettings({
       {mode === 'delay' ? (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="scheduler-delay-value">Delay Value</Label>
+            <Label htmlFor="scheduler-delay-value">{ts('delayValueLabel')}</Label>
             <Input
               id="scheduler-delay-value"
               type="number"
@@ -1901,7 +2669,7 @@ function SchedulerSettings({
             />
           </div>
           <div>
-            <Label htmlFor="scheduler-delay-unit">Delay Unit</Label>
+            <Label htmlFor="scheduler-delay-unit">{ts('delayUnitLabel')}</Label>
             <Select
               value={delayUnit}
               onValueChange={(value) =>
@@ -1914,10 +2682,10 @@ function SchedulerSettings({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="seconds">Seconds</SelectItem>
-                <SelectItem value="minutes">Minutes</SelectItem>
-                <SelectItem value="hours">Hours</SelectItem>
-                <SelectItem value="days">Days</SelectItem>
+                <SelectItem value="seconds">{ts('unitSeconds')}</SelectItem>
+                <SelectItem value="minutes">{ts('unitMinutes')}</SelectItem>
+                <SelectItem value="hours">{ts('unitHours')}</SelectItem>
+                <SelectItem value="days">{ts('unitDays')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1925,7 +2693,7 @@ function SchedulerSettings({
       ) : (
         <>
           <div>
-            <Label htmlFor="scheduler-datetime">Date & Time</Label>
+            <Label htmlFor="scheduler-datetime">{ts('dateTimeLabel')}</Label>
             <Input
               id="scheduler-datetime"
               type="datetime-local"
@@ -1934,40 +2702,250 @@ function SchedulerSettings({
               className="mt-1.5 bg-zinc-800/50 border-white/10"
             />
             <p className="text-xs text-zinc-500 mt-1">
-              Interpreted in the selected timezone below.
+              {ts('dateTimeHint')}
             </p>
           </div>
 
           <div>
-            <Label htmlFor="scheduler-timezone">Timezone (IANA)</Label>
+            <Label htmlFor="scheduler-timezone">{ts('timezoneLabel')}</Label>
             <Input
               id="scheduler-timezone"
               value={data.timeZone || 'UTC'}
               onChange={(e) => onUpdate({ timeZone: e.target.value })}
-              placeholder="Europe/Moscow"
+              placeholder={ts('timezonePlaceholder')}
               className="mt-1.5 bg-zinc-800/50 border-white/10"
             />
             <p className="text-xs text-zinc-500 mt-1">
-              Examples: `UTC`, `Europe/Moscow`, `America/New_York`
+              {ts('timezoneHint')}
             </p>
           </div>
         </>
       )}
 
       <div>
-        <Label htmlFor="scheduler-savevar">Save Scheduled Time To Variable (optional)</Label>
+        <Label htmlFor="scheduler-savevar">{ts('saveVarLabel')}</Label>
         <VariableAutocompleteInput
           id="scheduler-savevar"
           value={data.saveToVariable || ''}
           onValueChange={(value) => onUpdate({ saveToVariable: value })}
-          placeholder="scheduledAt"
+          placeholder={ts('saveVarPlaceholder')}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
           variables={variables}
         />
         <p className="text-xs text-zinc-500 mt-1">
-          Stores ISO UTC timestamp (e.g. `2026-02-24T12:30:00.000Z`).
+          {ts('saveVarHint')}
         </p>
       </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// REPLY KEYBOARD CONTROL NODE SETTINGS
+// ============================================================================
+
+function ReplyKeyboardSettings({
+  data,
+  onUpdate,
+  variables,
+  variantOptions,
+  t,
+}: {
+  data: ReplyKeyboardNodeData
+  onUpdate: (data: Partial<ReplyKeyboardNodeData>) => void
+  variables: string[]
+  variantOptions: ReplyKeyboardVariantOption[]
+  t: (key: string) => string
+}) {
+  const trk = (key: string) => t(`replyKeyboardNode.${key}`)
+  const tc = (key: string) => t(`condition.${key}`)
+  const mode = (data.mode || 'system') as NonNullable<ReplyKeyboardNodeData['mode']>
+  const operator = (data.operator || 'equals') as ComparisonOperator
+  const trueMode = (data.trueMode || 'variant') as NonNullable<ReplyKeyboardNodeData['trueMode']>
+  const falseMode = (data.falseMode || 'system') as NonNullable<ReplyKeyboardNodeData['falseMode']>
+
+  const renderVariantSelect = (
+    id: string,
+    value: string | undefined,
+    onValueChange: (value: string) => void,
+    disabled?: boolean
+  ) => (
+    <div className={disabled ? 'opacity-60 pointer-events-none' : ''}>
+      <Select value={(value || 'base').trim() || 'base'} onValueChange={onValueChange}>
+        <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {variantOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <input type="hidden" id={id} value={(value || 'base').trim() || 'base'} readOnly />
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="replykb-mode">{trk('modeLabel')}</Label>
+        <Select
+          value={mode}
+          onValueChange={(value) => onUpdate({ mode: value as ReplyKeyboardNodeData['mode'] })}
+        >
+          <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="system">{trk('modeSystem')}</SelectItem>
+            <SelectItem value="variant">{trk('modeVariant')}</SelectItem>
+            <SelectItem value="condition">{trk('modeCondition')}</SelectItem>
+            <SelectItem value="clear">{trk('modeClear')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-zinc-500 mt-1">
+          {trk('modeHint')}
+        </p>
+      </div>
+
+      {mode === 'variant' && (
+        <div>
+          <Label htmlFor="replykb-variant">{trk('variantLabel')}</Label>
+          {renderVariantSelect('replykb-variant', data.variantKey, (value) => onUpdate({ variantKey: value }))}
+          <p className="text-xs text-zinc-500 mt-1">
+            {trk('variantHint')}
+          </p>
+        </div>
+      )}
+
+      {mode === 'condition' && (
+        <>
+          <div>
+            <Label htmlFor="replykb-variable">{trk('variableLabel')}</Label>
+            <VariableAutocompleteInput
+              id="replykb-variable"
+              value={data.variable || ''}
+              onValueChange={(value) => onUpdate({ variable: value })}
+              placeholder={trk('variablePlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+              variables={variables}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="replykb-operator">{trk('operatorLabel')}</Label>
+              <Select
+                value={operator}
+                onValueChange={(value) =>
+                  onUpdate({ operator: value as ReplyKeyboardNodeData['operator'] })
+                }
+              >
+                <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="equals">{tc('equals')}</SelectItem>
+                  <SelectItem value="notEquals">{tc('notEquals')}</SelectItem>
+                  <SelectItem value="contains">{tc('contains')}</SelectItem>
+                  <SelectItem value="notContains">{tc('notContains')}</SelectItem>
+                  <SelectItem value="gt">{tc('gt')}</SelectItem>
+                  <SelectItem value="lt">{tc('lt')}</SelectItem>
+                  <SelectItem value="gte">{tc('gte')}</SelectItem>
+                  <SelectItem value="lte">{tc('lte')}</SelectItem>
+                  <SelectItem value="isEmpty">{tc('isEmpty')}</SelectItem>
+                  <SelectItem value="isNotEmpty">{tc('isNotEmpty')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="replykb-value">{trk('valueLabel')}</Label>
+              <Input
+                id="replykb-value"
+                value={data.value == null ? '' : String(data.value)}
+                onChange={(e) => onUpdate({ value: e.target.value })}
+                placeholder={trk('valuePlaceholder')}
+                className="mt-1.5 bg-zinc-800/50 border-white/10"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-zinc-900/40 p-3 space-y-3">
+            <div className="text-xs font-medium text-zinc-300">{trk('ifTrue')}</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="replykb-true-mode">{trk('actionLabel')}</Label>
+                <Select
+                  value={trueMode}
+                  onValueChange={(value) =>
+                    onUpdate({ trueMode: value as ReplyKeyboardNodeData['trueMode'] })
+                  }
+                >
+                  <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="variant">{trk('actionSetVariant')}</SelectItem>
+                    <SelectItem value="system">{trk('actionUseSystem')}</SelectItem>
+                    <SelectItem value="clear">{trk('actionHide')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="replykb-true-variant">{trk('variantLabel')}</Label>
+                {renderVariantSelect(
+                  'replykb-true-variant',
+                  data.trueVariantKey,
+                  (value) => onUpdate({ trueVariantKey: value }),
+                  trueMode !== 'variant'
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-zinc-900/40 p-3 space-y-3">
+            <div className="text-xs font-medium text-zinc-300">{trk('ifFalse')}</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="replykb-false-mode">{trk('actionLabel')}</Label>
+                <Select
+                  value={falseMode}
+                  onValueChange={(value) =>
+                    onUpdate({ falseMode: value as ReplyKeyboardNodeData['falseMode'] })
+                  }
+                >
+                  <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="variant">{trk('actionSetVariant')}</SelectItem>
+                    <SelectItem value="system">{trk('actionUseSystem')}</SelectItem>
+                    <SelectItem value="clear">{trk('actionHide')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="replykb-false-variant">{trk('variantLabel')}</Label>
+                {renderVariantSelect(
+                  'replykb-false-variant',
+                  data.falseVariantKey,
+                  (value) => onUpdate({ falseVariantKey: value }),
+                  falseMode !== 'variant'
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {mode === 'clear' && (
+        <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
+          {trk('clearHint')}
+        </div>
+      )}
     </div>
   )
 }

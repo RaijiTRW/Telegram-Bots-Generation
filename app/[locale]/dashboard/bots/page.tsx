@@ -5,13 +5,14 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Plus, Bot as BotIcon, LogIn, Sparkles, MoreVertical, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { CreateBotModal, EditBotModal } from '@/components/bot-editor/modals'
 import { getUserBots, createBotAction, updateBotAction, deleteBotAction } from './actions'
 import type { Bot } from '@/lib/bot-editor/types/bot.types'
 
 export default function BotsPage() {
   const t = useTranslations('dashboard.bots')
+  const uiLocale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -59,7 +60,7 @@ export default function BotsPage() {
       router.push(`/${locale}/dashboard/bots/${result.bot.id}/editor/canvas`)
       // Router will refresh automatically
     } else {
-      setError(result.error || 'Failed to create bot')
+      setError(result.error || t('errors.create'))
     }
   }
 
@@ -75,7 +76,7 @@ export default function BotsPage() {
       setSelectedBot(null)
       // Router will refresh automatically
     } else {
-      setError(result.error || 'Failed to update bot')
+      setError(result.error || t('errors.update'))
     }
   }
 
@@ -91,7 +92,7 @@ export default function BotsPage() {
       setSelectedBot(null)
       // Router will refresh automatically
     } else {
-      setError(result.error || 'Failed to delete bot')
+      setError(result.error || t('errors.delete'))
     }
   }
 
@@ -276,7 +277,11 @@ export default function BotsPage() {
                       {t(`status.${bot.status}` as any)}
                     </span>
                     <span className="text-xs text-zinc-500">
-                      {bot.updatedAt ? new Date(bot.updatedAt).toLocaleDateString() : t('new')}
+                      {bot.updatedAt
+                        ? new Intl.DateTimeFormat(uiLocale, { dateStyle: 'short', timeZone: 'UTC' }).format(
+                            new Date(bot.updatedAt)
+                          )
+                        : t('new')}
                     </span>
                   </div>
                 </CardContent>

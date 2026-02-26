@@ -75,6 +75,11 @@
       "delete": "Delete",
       "noDescription": "No description",
       "new": "New",
+      "errors": {
+        "create": "Failed to create bot",
+        "update": "Failed to update bot",
+        "delete": "Failed to delete bot"
+      },
       "status": {
         "active": "Active",
         "draft": "Draft",
@@ -97,6 +102,7 @@
       "unverifiedAccount": "Unverified account",
       "profileInfo": "Profile Information",
       "username": "Username",
+      "usernamePlaceholder": "username",
       "emailNotChangeable": "Email address cannot be changed",
       "emailChangeInSettings": "You can change your email in settings.",
       "openSettings": "Open settings",
@@ -315,7 +321,9 @@
       "settingsDesc": "Configuration and options",
       "botEditor": "Bot Editor",
       "unsavedChanges": "Unsaved changes",
-      "toSave": "to save"
+      "toSave": "to save",
+      "press": "Press",
+      "saveShortcutTitle": "Cmd+S to save"
     },
     "canvas": {
       "test": "Test",
@@ -335,12 +343,113 @@
       "logsLoadError": "Failed to load logs",
       "errorStart": "Failed to start test",
       "errorStop": "Failed to stop test",
+      "errorStartFallback": "Failed to start test",
+      "errorStopFallback": "Failed to stop test",
+      "errorSaveFallback": "Failed to save changes",
       "clearCanvas": "Clear canvas",
       "clearConfirm": "Are you sure you want to clear the canvas?",
+      "copyLogsTitle": "Copy logs",
+      "copyLogsText": "Text",
+      "copyLogsJson": "JSON",
       "canvasEmpty": "Canvas Empty",
       "startBuilding": "Start building your bot workflow by dragging nodes from the palette or clicking on them.",
       "nodes": "Nodes",
-      "connections": "Connections"
+      "connections": "Connections",
+      "palette": {
+        "pinned": "pinned",
+        "hoverPreviewClickPin": "Hover to preview, click to pin/unpin",
+        "nodesCount": "{count} nodes",
+        "hoverClickPin": "Hover • Click = pin",
+        "categories": {
+          "trigger": {
+            "label": "Triggers",
+            "hint": "Entry points: command, text, callback, schedule, AI"
+          },
+          "messaging": {
+            "label": "Messages",
+            "hint": "Send messages and control keyboards"
+          },
+          "logic": {
+            "label": "Logic",
+            "hint": "Conditions, branching, switch / AI logic"
+          },
+          "data": {
+            "label": "Data",
+            "hint": "Variables, actions, HTTP"
+          },
+          "advanced": {
+            "label": "Advanced",
+            "hint": "Advanced nodes (e.g. Script)"
+          },
+          "other": {
+            "label": "Other",
+            "hint": "Utility and miscellaneous nodes"
+          }
+        }
+      },
+      "nodeTemplateDescriptions": {
+        "triggerCommand": "Start workflow when user sends a command",
+        "triggerText": "Start workflow when message text matches a pattern",
+        "triggerCallback": "Start workflow from inline button click",
+        "triggerSchedule": "Start workflow on a recurring schedule",
+        "triggerAI": "Start workflow by AI intent / semantic match (soon)",
+        "message": "Send text, images, or media to user",
+        "messageAI": "Generate message text with AI (fallback supported)",
+        "condition": "Branch workflow based on conditions",
+        "conditionAI": "Branch by AI classification / intent (fallback available)",
+        "router": "Branch to multiple paths by variable value",
+        "scheduler": "Continue workflow later (timezone-aware)",
+        "replyKeyboard": "Control Telegram reply keyboard",
+        "script": "Run JavaScript or Python transform code",
+        "action": "Perform custom actions",
+        "input": "Request user input or data",
+        "http": "Make HTTP requests to external APIs"
+      },
+      "nodeDescriptions": {
+        "defaults": {
+          "default": "Default",
+          "variable": "variable",
+          "cases": "cases",
+          "dateTime": "date/time"
+        },
+        "trigger": {
+          "aiIntentPrompt": "AI intent • {prompt}",
+          "aiIntentSoon": "AI intent / semantic match (soon)",
+          "callbackPattern": "Callback: {pattern}",
+          "anyCallback": "Starts on any callback",
+          "textPattern": "Matches text: {pattern}",
+          "incomingText": "Matches incoming text",
+          "photo": "Starts on photo",
+          "anyUpdate": "Starts on any update",
+          "scheduleHourly": "Every {everyHours}h at :{minute} • {timeZone}",
+          "scheduleDaily": "Daily {atTime} • {timeZone}",
+          "command": "Starts on {pattern}"
+        },
+        "router": {
+          "summary": "{variable} • {count} {casesWord}",
+          "bottomOutput": "Bottom output"
+        },
+        "scheduler": {
+          "at": "At {dateTime}{timeZoneSuffix}",
+          "delay": "Delay {value} {unit}",
+          "units": {
+            "seconds": "sec",
+            "minutes": "min",
+            "hours": "h",
+            "days": "days"
+          }
+        },
+        "replyKeyboard": {
+          "hide": "Hide keyboard",
+          "variant": "Variant • {variant}",
+          "condition": "If {variable}",
+          "system": "Use system rules"
+        },
+        "condition": {
+          "true": "Yes",
+          "false": "No"
+        }
+      }
     },
     "settings": {
       "basicInfo": "Basic Information",
@@ -390,6 +499,9 @@
       "typeArray": "Array",
       "typeUser": "User",
       "typeMessage": "Message",
+      "typeDate": "Date",
+      "booleanTrue": "Yes",
+      "booleanFalse": "No",
       "eventTriggers": "Event Triggers",
       "active": "active",
       "tip": "Tip:",
@@ -425,12 +537,158 @@
       "type": "Type",
       "actions": "Actions",
       "deleteConfirm": "Are you sure you want to delete this variable?",
-      "separateCommands": "Separate multiple commands with commas"
+      "separateCommands": "Separate multiple commands with commas",
+      "commandsPlaceholder": "/help, /start, /about",
+      "regexPlaceholder": "regex pattern",
+      "inlineQueryTemplatePlaceholder": "@{bot} {query}",
+      "notAvailable": "N/A",
+      "autoReactions": {
+        "title": "Extra Feature: Telegram Reactions",
+        "description": "The bot will react to incoming user messages using rule-based logic (without AI).",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "cooldownLabel": "Cooldown between reactions (sec)",
+        "cooldownHint": "Limit to avoid reacting to every message in a row.",
+        "onlyTextTitle": "Only text/caption",
+        "onlyTextHint": "If disabled, the bot may react to non-text messages too.",
+        "aiTitle": "AI reactions",
+        "aiPlaceholder": "AI reaction logic description",
+        "aiSoon": "AI reactions (soon)",
+        "aiHint": "Prompt/analysis settings for AI-based reaction selection will appear here later.",
+        "rulesTitle": "How the reaction is selected (without AI)",
+        "ruleThanks": "`thanks`, `thank you` → ❤️",
+        "rulePositive": "positive (`cool`, `super`, `great`) → 🔥",
+        "ruleQuestion": "question / `?` → 🤔",
+        "ruleError": "error/problem (`error`, `not working`) → 👀",
+        "ruleStart": "`/start` → 👋",
+        "ruleOther": "other commands `/...` → ⚡, otherwise → 👍",
+        "footerHint": "Reactions are added only to user messages (not the bot's own messages)."
+      },
+      "replyKeyboard": {
+        "title": "Reply Keyboard (under input)",
+        "description": "Persistent Telegram keyboard under the input field. You can define base buttons and conditional variants.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "resizeTitle": "Resize keyboard",
+        "resizeHint": "More compact height in Telegram clients.",
+        "persistentTitle": "Persistent",
+        "persistentHint": "Ask Telegram to keep the keyboard visible.",
+        "oneTimeTitle": "One-time",
+        "oneTimeHint": "Telegram may hide the keyboard after a press.",
+        "baseButtonsTitle": "Base buttons (default)",
+        "baseButtonsEmpty": "Base keyboard is empty. Add buttons for the persistent keyboard.",
+        "rulesTitle": "Conditional keyboard variants",
+        "rulesHint": "The first matching rule replaces the base keyboard. These variants are also available in the `Reply Keyboard` node.",
+        "ruleButton": "Rule",
+        "noRules": "No rules yet. You can keep only the base keyboard or add conditions (e.g. `user.languageCode = ru`).",
+        "ruleNameLabel": "Variant name",
+        "ruleNamePlaceholder": "Rule {index}",
+        "ruleIdLabel": "ID: `rule:{id}`",
+        "ruleVariableLabel": "Variable",
+        "ruleOperatorLabel": "Operator",
+        "ruleValueLabel": "Value",
+        "ruleVariablePlaceholder": "user.languageCode",
+        "ruleValuePlaceholder": "ru",
+        "ruleButtonsLabel": "Variant buttons",
+        "ruleButtonsEmpty": "This variant is empty. Add buttons.",
+        "defaultButtonText": "Button",
+        "howItWorksTitle": "How it works",
+        "howItWorks1": "1. Bot sends a regular message -> runtime injects the system reply keyboard.",
+        "howItWorks2": "2. Rules are checked first (top to bottom), then it falls back to the base keyboard.",
+        "howItWorks3": "3. `Reply Keyboard` node on the canvas can switch variant / hide keyboard / return to system mode.",
+        "operators": {
+          "equals": "equals",
+          "notEquals": "not equals",
+          "contains": "contains",
+          "notContains": "does not contain",
+          "gt": "greater than",
+          "lt": "less than",
+          "gte": "greater or equal",
+          "lte": "less or equal",
+          "isEmpty": "is empty",
+          "isNotEmpty": "is not empty"
+        },
+        "emojiPicker": {
+          "title": "Emoji picker",
+          "clear": "Clear",
+          "close": "Close",
+          "noRecent": "No recent emoji yet",
+          "categories": {
+            "recent": "Recent",
+            "smileys": "Smileys",
+            "gestures": "Gestures",
+            "travel": "Travel",
+            "objects": "Objects",
+            "symbols": "Symbols"
+          }
+        },
+        "stylePicker": {
+          "title": "Button style",
+          "close": "Close"
+        },
+        "styleOptions": {
+          "default": "Default",
+          "primary": "Primary",
+          "success": "Success",
+          "danger": "Danger"
+        },
+        "editor": {
+          "preview": "Preview",
+          "button": "Button",
+          "rowSummary": "Row {row} • {count} btn",
+          "chooseEmoji": "Choose emoji",
+          "chooseStyle": "Choose style",
+          "buttonTextPlaceholder": "Button text",
+          "customEmojiIdPlaceholder": "Custom emoji ID (optional, Telegram premium/owner dependent)",
+          "addRow": "Add row",
+          "replyKeyboardTextTriggerHint": "Reply keyboard buttons send plain text. Handle presses with Text Trigger (or Condition/Router by message.text), not Callback Trigger.",
+          "empty": {
+            "noButtons": "No buttons",
+            "addButtonAndRow": "Add at least one button and one row."
+          }
+        }
+      }
     },
     "chat": {
       "placeholder": "Describe what you want to build...",
       "quickActions": "Quick actions:",
-      "enterToSend": "Press Enter to send, Shift+Enter for new line"
+      "enterToSend": "Press Enter to send, Shift+Enter for new line",
+      "panelSubtitle": "Build your bot with AI",
+      "poweredByAI": "Powered by AI",
+      "suggestionsPrefix": "Suggestions",
+      "errorFallback": "Sorry, I encountered an error. Please try again.",
+      "nodesAddedOne": "Added 1 node to canvas",
+      "nodesAddedMany": "Added {count} nodes to canvas",
+      "emptyIntro": "Hello! I'm your AI assistant for building Telegram bots. I can help you:",
+      "emptyHelp1": "Create conversational flows and message handlers",
+      "emptyHelp2": "Add conditions, actions, and HTTP requests",
+      "emptyHelp3": "Set up variables and data storage",
+      "emptyHelp4": "Explain and debug existing bot logic",
+      "emptyQuestion": "What would you like to build today?",
+      "thinking": "AI is thinking..."
+    },
+    "variableAssist": {
+      "errors": {
+        "nameRequired": "Variable name is required",
+        "alreadyExists": "Variable already exists",
+        "defaultJson": "Default value must be valid JSON for object/array"
+      },
+      "create": {
+        "title": "Create Variable",
+        "nameLabel": "Name",
+        "namePlaceholder": "user_email",
+        "typeLabel": "Type",
+        "defaultValueLabel": "Default Value",
+        "descriptionLabel": "Description",
+        "cancel": "Cancel",
+        "create": "Create"
+      },
+      "suggestions": {
+        "title": "Variables",
+        "createTitle": "Create variable",
+        "createButton": "Create",
+        "noMatch": "No matching variables"
+      }
     },
     "modals": {
       "createBot": "Create Bot",
@@ -459,6 +717,9 @@
       "deploy": "Deploy",
       "autoOpenTelegram": "Auto-open Telegram",
       "unsavedChanges": "Unsaved changes",
+      "resizeSectionsPanel": "Resize sections panel",
+      "resizeSectionsPanelHint": "Drag to resize. Double click to reset",
+      "sectionsPanelResetHint": "Double click the divider to reset the sections panel size",
       "exitConfirm": "Exit editor?",
       "exitDesc": "You have unsaved changes. They will be lost if you exit.",
       "stay": "Stay",
@@ -467,6 +728,10 @@
     "nodeSettings": {
       "selectNode": "Select a component to edit",
       "save": "Save",
+      "close": "Close",
+      "openDetailedMode": "Open detailed settings",
+      "collapseDetailedMode": "Collapse detailed mode",
+      "detailedModeHint": "Detailed node settings. Background is locked; editing is available only in this window.",
       "nodeId": "ID:",
       "message": {
         "textLabel": "Message Text",
@@ -509,7 +774,13 @@
         "attachmentUploadFailed": "Failed to upload file",
         "attachmentsComingSoon": "Attachment editor coming soon",
         "keyboard": "Keyboard (buttons)",
-        "addRow": "Add Row"
+        "addRow": "Add Row",
+        "aiTitle": "AI Message",
+        "aiDescription": "AI response generation will be added later. For now, the fallback text below is used.",
+        "soon": "soon",
+        "aiPromptLabel": "AI Prompt",
+        "aiPromptPlaceholder": "Describe AI reply style/goal",
+        "aiSoonOverlay": "AI Message (soon)"
       },
       "input": {
         "questionLabel": "Question to user",
@@ -540,7 +811,13 @@
         "isNotEmpty": "is not empty",
         "valueLabel": "Value",
         "valuePlaceholder": "Value to compare",
-        "preview": "If {variable} {condition} \"{value}\""
+        "preview": "If {variable} {condition} \"{value}\"",
+        "aiTitle": "AI Logic",
+        "aiDescription": "AI branching/classification will be added later. The fallback condition below is used for now.",
+        "soon": "soon",
+        "aiPromptLabel": "AI Classification Prompt",
+        "aiPromptPlaceholder": "For example: determine whether this is a support question",
+        "aiSoonOverlay": "AI Logic (soon)"
       },
       "action": {
         "actionTab": "Action",
@@ -585,7 +862,11 @@
         "timeoutLabel": "Timeout (ms)",
         "emptyList": "Empty",
         "addPair": "Add",
-        "bodyNone": "No body"
+        "bodyNone": "No body",
+        "keyPlaceholder": "key",
+        "valuePlaceholder": "value",
+        "bodyForm": "Form Data",
+        "bodyRaw": "Raw"
       },
       "trigger": {
         "typeLabel": "Trigger type",
@@ -594,9 +875,34 @@
         "callbackQuery": "Callback Query",
         "photo": "Photo",
         "any": "Any message",
+        "schedule": "Schedule (time)",
         "patternLabel": "Pattern",
         "commandPlaceholder": "/start",
         "textPlaceholder": "Hello",
+        "callbackDataLabel": "Callback Data",
+        "callbackPlaceholder": "Example: menu:settings",
+        "callbackAnyHint": "Leave empty to catch any inline button press.",
+        "scheduleModeLabel": "Schedule Mode",
+        "scheduleDaily": "Every day at time",
+        "scheduleHourly": "Every N hours",
+        "scheduleTimeLabel": "Time (HH:mm)",
+        "scheduleEveryHoursLabel": "Every N Hours",
+        "scheduleMinuteLabel": "At Minute",
+        "scheduleTimezoneLabel": "Timezone (IANA)",
+        "scheduleTimezonePlaceholder": "Europe/Moscow",
+        "scheduleTimezoneHint": "Examples: `UTC`, `Europe/Moscow`, `America/New_York`",
+        "scheduleTargetChatIdLabel": "Target Chat ID",
+        "scheduleTargetChatIdPlaceholder": "-1001234567890 or 123456789",
+        "scheduleTargetChatIdHint": "Required for message-based workflows started by schedule trigger.",
+        "scheduleTargetUserIdLabel": "Target User ID (optional)",
+        "scheduleTargetUserIdPlaceholder": "123456789",
+        "scheduleTargetUserIdHint": "Optional. Helps preserve `user.*` context in some flows.",
+        "aiTitle": "AI Trigger",
+        "aiDescription": "AI intent/semantic trigger will be added later. Current fallback: empty pattern matches any text.",
+        "soon": "soon",
+        "aiPromptLabel": "AI Intent Prompt",
+        "aiPromptPlaceholder": "For example: trigger on order/payment requests",
+        "aiSoonOverlay": "AI Trigger (soon)",
         "descriptionLabel": "Description",
         "descriptionPlaceholder": "Entry point description"
       },
@@ -625,12 +931,96 @@
         "row": "Row",
         "button": "Button",
         "callbackPlaceholder": "Callback data (for Callback Trigger)"
+      },
+      "router": {
+        "variableLabel": "Variable",
+        "variablePlaceholder": "user.languageCode",
+        "variableHint": "Compare this variable against multiple cases. First match wins.",
+        "operatorLabel": "Operator (applies to all cases)",
+        "casesLabel": "Cases",
+        "addCase": "Add Case",
+        "noCases": "No cases yet. Add at least one case.",
+        "handleLabel": "Handle:",
+        "caseLabel": "Label",
+        "caseDefaultLabel": "Case",
+        "caseValueLabel": "Compare Value",
+        "caseValuePlaceholder": "en",
+        "defaultBranchLabel": "Default Branch Label",
+        "defaultPlaceholder": "Default",
+        "defaultHint": "Connect the bottom output handle for the default branch."
+      },
+      "script": {
+        "languageLabel": "Language",
+        "languageJavascript": "JavaScript (Node)",
+        "languagePython": "Python",
+        "timeoutLabel": "Timeout (ms)",
+        "inputPathLabel": "Input Path (optional)",
+        "inputPathPlaceholder": "message.text or user.languageCode",
+        "inputPathHint": "If empty, `input` will be the full `context` object.",
+        "saveVarLabel": "Save Result To Variable (optional)",
+        "saveVarPlaceholder": "scriptResult",
+        "codeLabel": "Code",
+        "contractTitle": "Contract",
+        "contractPrefix": "Available variables:",
+        "contractSuffix": "Assign final value to",
+        "safetyHint": "Python/JS scripts execute on server runtime. Use only in trusted/self-host environments.",
+        "editorHeaderPython": "Python syntax highlighting + suggestions",
+        "editorHeaderJavascript": "JavaScript syntax highlighting + suggestions",
+        "editorShortcut": "Ctrl/Cmd + Space",
+        "suggestionsTitle": "Suggestions"
+      },
+      "scheduler": {
+        "modeLabel": "Mode",
+        "modeDelay": "Delay (relative)",
+        "modeDateTime": "Date & Time (timezone-aware)",
+        "delayValueLabel": "Delay Value",
+        "delayUnitLabel": "Delay Unit",
+        "unitSeconds": "Seconds",
+        "unitMinutes": "Minutes",
+        "unitHours": "Hours",
+        "unitDays": "Days",
+        "dateTimeLabel": "Date & Time",
+        "dateTimeHint": "Interpreted in the selected timezone below.",
+        "timezoneLabel": "Timezone (IANA)",
+        "timezonePlaceholder": "Europe/Moscow",
+        "timezoneHint": "Examples: `UTC`, `Europe/Moscow`, `America/New_York`",
+        "saveVarLabel": "Save Scheduled Time To Variable (optional)",
+        "saveVarPlaceholder": "scheduledAt",
+        "saveVarHint": "Stores ISO UTC timestamp (e.g. `2026-02-24T12:30:00.000Z`)."
+      },
+      "replyKeyboardNode": {
+        "baseVariantLabel": "Base keyboard",
+        "ruleVariantPrefix": "Rule",
+        "ruleFallbackLabel": "Rule",
+        "modeLabel": "Mode",
+        "modeSystem": "Use system rules/default",
+        "modeVariant": "Set specific keyboard variant",
+        "modeCondition": "Condition -> choose keyboard",
+        "modeClear": "Hide keyboard (remove)",
+        "modeHint": "Works with the system Reply Keyboard settings (base keyboard + conditional variants).",
+        "variantLabel": "Variant",
+        "variantHint": "`base` = base keyboard from System section. `rule:*` = variant from conditional rules.",
+        "variableLabel": "Variable Path",
+        "variablePlaceholder": "user.languageCode",
+        "operatorLabel": "Operator",
+        "valueLabel": "Value",
+        "valuePlaceholder": "ru",
+        "ifTrue": "If TRUE",
+        "ifFalse": "If FALSE",
+        "actionLabel": "Action",
+        "actionSetVariant": "Set variant",
+        "actionUseSystem": "Use system rules",
+        "actionHide": "Hide keyboard",
+        "clearHint": "Node marks reply keyboard for removal. It will be hidden on the next bot message (without inline keyboard)."
       }
     }
   },
   "header": {
     "logo": "TFlow",
     "welcomeBack": "Welcome back",
+    "switchLanguage": "Switch language",
+    "appVersionAria": "Application version {version}",
+    "userAvatarAlt": "User avatar",
     "nav": {
       "features": "Features",
       "templates": "Templates",

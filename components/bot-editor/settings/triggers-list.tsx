@@ -159,7 +159,7 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave, t }: TriggerConfi
           <div>
             <label className="text-sm text-zinc-400 mb-2 block">{t('commands')}</label>
             <Input
-              placeholder="/help, /start, /about"
+              placeholder={t('commandsPlaceholder')}
               value={config.commands?.join(', ') || ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfig({
                 ...config,
@@ -175,7 +175,7 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave, t }: TriggerConfi
           <div>
             <label className="text-sm text-zinc-400 mb-2 block">{t('filterPlaceholder')}</label>
             <Input
-              placeholder="regex pattern"
+              placeholder={t('regexPlaceholder')}
               value={config.pattern || ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfig({ ...config, pattern: e.target.value })}
               className="bg-zinc-900/50 border-white/10 text-white"
@@ -187,7 +187,7 @@ function TriggerConfigDialog({ trigger, open, onClose, onSave, t }: TriggerConfi
           <div>
             <label className="text-sm text-zinc-400 mb-2 block">{t('queryTemplate')}</label>
             <Input
-              placeholder="@{bot} {query}"
+              placeholder={t('inlineQueryTemplatePlaceholder')}
               value={config.template || ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfig({ ...config, template: e.target.value })}
               className="bg-zinc-900/50 border-white/10 text-white"

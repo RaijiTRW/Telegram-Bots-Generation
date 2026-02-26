@@ -18,6 +18,10 @@ export type ComparisonOperator =
   | 'notContains'
   | 'gt'
   | 'lt'
+  | 'gte'
+  | 'lte'
+  | 'isEmpty'
+  | 'isNotEmpty'
 
 export type ActionType =
   | 'setVariable'
@@ -27,6 +31,7 @@ export type ActionType =
 
 export type TriggerType = 'command' | 'text' | 'callbackQuery' | 'photo' | 'any' | 'schedule'
 export type MessageAttachmentType = 'photo' | 'video' | 'document' | 'audio'
+export type ScriptLanguage = 'javascript' | 'python'
 
 // ============================================================================
 // NODE DATA TYPES (simplified with 'any')
@@ -35,6 +40,11 @@ export type MessageAttachmentType = 'photo' | 'video' | 'document' | 'audio'
 export interface BaseNodeData {
   __label?: string
   __description?: string
+  aiEnabled?: boolean
+  aiNodeKind?: 'message' | 'logic' | 'trigger'
+  aiPrompt?: string
+  aiSystemPrompt?: string
+  aiModel?: string
 }
 
 export interface MessageNodeData extends BaseNodeData {
@@ -94,6 +104,15 @@ export interface ActionNodeData extends BaseNodeData {
   retryCount?: number
 }
 
+export interface ScriptNodeData extends BaseNodeData {
+  type: 'script'
+  language?: ScriptLanguage
+  code?: string
+  inputPath?: string
+  saveToVariable?: string
+  timeoutMs?: number
+}
+
 export interface HttpNodeData extends BaseNodeData {
   type: 'http'
   url: string
@@ -151,6 +170,19 @@ export interface SchedulerNodeData extends BaseNodeData {
   saveToVariable?: string // stores scheduled ISO timestamp
 }
 
+export interface ReplyKeyboardNodeData extends BaseNodeData {
+  type: 'replyKeyboard'
+  mode?: 'system' | 'variant' | 'clear' | 'condition'
+  variantKey?: string // `base` or `rule:<id>`
+  variable?: string
+  operator?: ComparisonOperator
+  value?: any
+  trueMode?: 'system' | 'variant' | 'clear'
+  trueVariantKey?: string
+  falseMode?: 'system' | 'variant' | 'clear'
+  falseVariantKey?: string
+}
+
 export interface CommentNodeData extends BaseNodeData {
   type: 'comment'
   text: string
@@ -164,11 +196,13 @@ export type NodeData =
   | ConditionNodeData
   | RouterNodeData
   | ActionNodeData
+  | ScriptNodeData
   | HttpNodeData
   | WebhookNodeData
   | TriggerNodeData
   | WaitNodeData
   | SchedulerNodeData
+  | ReplyKeyboardNodeData
   | CommentNodeData
 
 // ============================================================================
@@ -236,6 +270,15 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
     category: 'data',
     editable: true,
   },
+  script: {
+    type: 'script',
+    label: 'Скрипт',
+    description: 'Выполнить JS/Python скрипт (self-host / local test)',
+    color: '#06B6D4',
+    icon: 'Code2',
+    category: 'advanced',
+    editable: true,
+  },
   http: {
     type: 'http',
     label: 'HTTP',
@@ -279,6 +322,15 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
     color: '#22C55E',
     icon: 'Clock',
     category: 'logic',
+    editable: true,
+  },
+  replyKeyboard: {
+    type: 'replyKeyboard',
+    label: 'Reply Keyboard',
+    description: 'Управление базовой клавиатурой под input (system/variant/clear)',
+    color: '#0EA5E9',
+    icon: 'Keyboard',
+    category: 'messaging',
     editable: true,
   },
   comment: {
@@ -361,6 +413,17 @@ export const DEFAULT_NODE_DATA: Record<string, any> = {
     dateTime: '',
     timeZone: 'UTC',
     saveToVariable: '',
+  },
+  replyKeyboard: {
+    mode: 'system',
+    variantKey: 'base',
+    variable: '',
+    operator: 'equals',
+    value: '',
+    trueMode: 'variant',
+    trueVariantKey: 'base',
+    falseMode: 'system',
+    falseVariantKey: '',
   },
   comment: {
     text: '',

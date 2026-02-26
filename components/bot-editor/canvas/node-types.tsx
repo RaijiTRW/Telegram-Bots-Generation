@@ -3,10 +3,12 @@
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType, CSSProperties } from 'react'
 import { Handle, Position, NodeProps, useUpdateNodeInternals } from 'reactflow'
+import { useTranslations } from 'next-intl'
 import {
   MessageSquare,
   GitBranch,
   Zap,
+  Code2,
   Keyboard,
   Webhook,
   Globe,
@@ -34,6 +36,10 @@ const getNodeStyles = (type: string) => {
       return `${baseNodeStyles} bg-yellow-500/10 border-yellow-500/30`
     case 'scheduler':
       return `${baseNodeStyles} bg-emerald-500/10 border-emerald-500/30`
+    case 'replyKeyboard':
+      return `${baseNodeStyles} bg-sky-500/10 border-sky-500/30`
+    case 'script':
+      return `${baseNodeStyles} bg-cyan-500/10 border-cyan-500/30`
     case 'action':
       return `${baseNodeStyles} bg-purple-500/10 border-purple-500/30`
     case 'input':
@@ -62,6 +68,10 @@ const getNodeIcon = (type: string) => {
       return <GitBranch className={iconClassName} style={{ color: nodeColor }} />
     case 'scheduler':
       return <Clock className={iconClassName} style={{ color: nodeColor }} />
+    case 'replyKeyboard':
+      return <Keyboard className={iconClassName} style={{ color: nodeColor }} />
+    case 'script':
+      return <Code2 className={iconClassName} style={{ color: nodeColor }} />
     case 'action':
       return <Zap className={iconClassName} style={{ color: nodeColor }} />
     case 'input':
@@ -83,6 +93,8 @@ const getNodeColor = (type: string) => {
     case 'condition': return '#F59E0B'
     case 'router': return '#EAB308'
     case 'scheduler': return '#22C55E'
+    case 'replyKeyboard': return '#0EA5E9'
+    case 'script': return '#06B6D4'
     case 'action': return '#8B5CF6'
     case 'input': return '#10B981'
     case 'http': return '#F43F5E'
@@ -97,6 +109,8 @@ interface RouterCasePreview {
   label: string
   value: string
 }
+
+type CanvasT = (key: string, values?: Record<string, unknown>) => string
 
 const getRouterCases = (data: Record<string, unknown>): RouterCasePreview[] => {
   if (!Array.isArray(data.cases)) {
@@ -117,6 +131,10 @@ const getRouterCases = (data: Record<string, unknown>): RouterCasePreview[] => {
 }
 
 const getTriggerNodeLabel = (data: Record<string, unknown>): string => {
+  if (Boolean(data.aiEnabled)) {
+    return 'AI Trigger'
+  }
+
   const triggerType = String(data.trigger || 'command')
 
   switch (triggerType) {
@@ -136,38 +154,63 @@ const getTriggerNodeLabel = (data: Record<string, unknown>): string => {
   }
 }
 
-const getTriggerNodeDescription = (data: Record<string, unknown>): string => {
+const getTriggerNodeDescription = (
+  data: Record<string, unknown>,
+  t?: CanvasT
+): string => {
+  const tr = (key: string, fallback: string, values?: Record<string, unknown>) => {
+    if (!t) return fallback
+    return t(`nodeDescriptions.trigger.${key}`, values)
+  }
+
+  if (Boolean(data.aiEnabled)) {
+    const prompt = String(data.aiPrompt || '').trim()
+    return prompt
+      ? tr('aiIntentPrompt', `AI intent • ${prompt.slice(0, 42)}`, { prompt: prompt.slice(0, 42) })
+      : tr('aiIntentSoon', 'AI intent / semantic match (soon)')
+  }
+
   const triggerType = String(data.trigger || 'command')
   const pattern = String(data.pattern || '').trim()
 
   switch (triggerType) {
     case 'callbackQuery':
-      return pattern ? `Callback: ${pattern}` : 'Starts on any callback'
+      return pattern
+        ? tr('callbackPattern', `Callback: ${pattern}`, { pattern })
+        : tr('anyCallback', 'Starts on any callback')
     case 'text':
-      return pattern ? `Matches text: ${pattern}` : 'Matches incoming text'
+      return pattern
+        ? tr('textPattern', `Matches text: ${pattern}`, { pattern })
+        : tr('incomingText', 'Matches incoming text')
     case 'photo':
-      return 'Starts on photo'
+      return tr('photo', 'Starts on photo')
     case 'any':
-      return 'Starts on any update'
+      return tr('anyUpdate', 'Starts on any update')
     case 'schedule': {
       const scheduleMode = String(data.scheduleMode || 'daily')
       const timeZone = String(data.timeZone || 'UTC').trim() || 'UTC'
       if (scheduleMode === 'hourly') {
         const everyHours = Math.max(1, Number(data.everyHours || 1) || 1)
         const atMinute = Math.max(0, Math.min(59, Number(data.atMinute || 0) || 0))
-        return `Every ${everyHours}h at :${String(atMinute).padStart(2, '0')} • ${timeZone}`
+        const minute = String(atMinute).padStart(2, '0')
+        return tr(
+          'scheduleHourly',
+          `Every ${everyHours}h at :${minute} • ${timeZone}`,
+          { everyHours, minute, timeZone }
+        )
       }
       const atTime = String(data.atTime || '10:00').trim() || '10:00'
-      return `Daily ${atTime} • ${timeZone}`
+      return tr('scheduleDaily', `Daily ${atTime} • ${timeZone}`, { atTime, timeZone })
     }
     case 'command':
     default:
-      return `Starts on ${pattern || '/start'}`
+      return tr('command', `Starts on ${pattern || '/start'}`, { pattern: pattern || '/start' })
   }
 }
 
 // Base Custom Node Component
 const CustomNode = ({ id, data, type, selected }: NodeProps) => {
+  const tCanvas = useTranslations('editor.canvas')
   const updateNodeInternals = useUpdateNodeInternals()
   const rootRef = useRef<HTMLDivElement | null>(null)
   const routerCaseRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -181,6 +224,10 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'action' && dataRecord.action && typeof dataRecord.action === 'object'
       ? String((dataRecord.action as Record<string, unknown>).type || '')
       : ''
+  const scriptLanguage =
+    normalizedType === 'script' ? String(dataRecord.language || 'javascript').trim() || 'javascript' : 'javascript'
+  const scriptSaveToVariable =
+    normalizedType === 'script' ? String(dataRecord.saveToVariable || '').trim() : ''
   const isRandomSplitAction = normalizedType === 'action' && actionType === 'random'
   const randomSplitAPercent = isRandomSplitAction
     ? Math.min(
@@ -203,8 +250,8 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'router' ? String(dataRecord.variable || '').trim() : ''
   const routerDefaultLabel =
     normalizedType === 'router'
-      ? String(dataRecord.defaultLabel || '').trim() || 'Default'
-      : 'Default'
+      ? String(dataRecord.defaultLabel || '').trim() || tCanvas('nodeDescriptions.defaults.default')
+      : tCanvas('nodeDescriptions.defaults.default')
   const routerCasesSignature =
     normalizedType === 'router'
       ? routerCases.map((routerCase) => `${routerCase.id}:${routerCase.label}:${routerCase.value}`).join('|')
@@ -219,6 +266,21 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'scheduler' ? String(dataRecord.dateTime || '').trim() : ''
   const schedulerTimeZone =
     normalizedType === 'scheduler' ? String(dataRecord.timeZone || '').trim() : ''
+  const replyKeyboardMode =
+    normalizedType === 'replyKeyboard' ? String(dataRecord.mode || 'system').trim() || 'system' : 'system'
+  const replyKeyboardVariantKey =
+    normalizedType === 'replyKeyboard' ? String(dataRecord.variantKey || '').trim() : ''
+  const replyKeyboardVariable =
+    normalizedType === 'replyKeyboard' ? String(dataRecord.variable || '').trim() : ''
+  const schedulerDelayUnitLabel =
+    normalizedType === 'scheduler'
+      ? ({
+          seconds: tCanvas('nodeDescriptions.scheduler.units.seconds'),
+          minutes: tCanvas('nodeDescriptions.scheduler.units.minutes'),
+          hours: tCanvas('nodeDescriptions.scheduler.units.hours'),
+          days: tCanvas('nodeDescriptions.scheduler.units.days'),
+        } as Record<string, string>)[schedulerDelayUnit] || schedulerDelayUnit
+      : schedulerDelayUnit
 
   const nodeLabel =
     normalizedType === 'trigger' && triggerData
@@ -226,15 +288,39 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
       : String(dataRecord.__label ?? dataRecord.label ?? normalizedType)
   const nodeDescriptionRaw =
     normalizedType === 'router'
-      ? `${routerVariable || 'variable'} • ${routerCases.length} case${routerCases.length === 1 ? '' : 's'}`
+      ? tCanvas('nodeDescriptions.router.summary', {
+          variable: routerVariable || tCanvas('nodeDescriptions.defaults.variable'),
+          count: routerCases.length,
+          casesWord: tCanvas('nodeDescriptions.defaults.cases'),
+        })
       : isRandomSplitAction
       ? `A ${randomSplitAPercent}% • B ${100 - randomSplitAPercent}%`
       : normalizedType === 'scheduler'
       ? schedulerMode === 'dateTime'
-        ? `At ${schedulerDateTime || 'date/time'}${schedulerTimeZone ? ` • ${schedulerTimeZone}` : ''}`
-        : `Delay ${Number.isFinite(schedulerDelayValue) ? schedulerDelayValue : 0} ${schedulerDelayUnit}`
+        ? tCanvas('nodeDescriptions.scheduler.at', {
+            dateTime: schedulerDateTime || tCanvas('nodeDescriptions.defaults.dateTime'),
+            timeZoneSuffix: schedulerTimeZone ? ` • ${schedulerTimeZone}` : '',
+          })
+        : tCanvas('nodeDescriptions.scheduler.delay', {
+            value: Number.isFinite(schedulerDelayValue) ? schedulerDelayValue : 0,
+            unit: schedulerDelayUnitLabel,
+          })
+      : normalizedType === 'replyKeyboard'
+      ? replyKeyboardMode === 'clear'
+        ? tCanvas('nodeDescriptions.replyKeyboard.hide')
+        : replyKeyboardMode === 'variant'
+        ? tCanvas('nodeDescriptions.replyKeyboard.variant', {
+            variant: replyKeyboardVariantKey || 'base',
+          })
+        : replyKeyboardMode === 'condition'
+        ? tCanvas('nodeDescriptions.replyKeyboard.condition', {
+            variable: replyKeyboardVariable || tCanvas('nodeDescriptions.defaults.variable'),
+          })
+        : tCanvas('nodeDescriptions.replyKeyboard.system')
+      : normalizedType === 'script'
+      ? `${scriptLanguage === 'python' ? 'Python' : 'JavaScript'}${scriptSaveToVariable ? ` • -> ${scriptSaveToVariable}` : ''}`
       : normalizedType === 'trigger' && triggerData
-      ? getTriggerNodeDescription(triggerData)
+      ? getTriggerNodeDescription(triggerData, tCanvas)
       : dataRecord.__description ?? dataRecord.description
   const nodeDescription =
     typeof nodeDescriptionRaw === 'string'
@@ -352,7 +438,7 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             </div>
           ))}
           <div className="text-[10px] text-zinc-500 px-1">
-            Bottom output: <span className="text-zinc-300">{routerDefaultLabel}</span>
+            {tCanvas('nodeDescriptions.router.bottomOutput')}: <span className="text-zinc-300">{routerDefaultLabel}</span>
           </div>
         </div>
       )}
@@ -481,7 +567,7 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             className="pointer-events-none absolute z-20 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-emerald-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.12)]"
             style={{ left: '38%' }}
           >
-            Да
+            {tCanvas('nodeDescriptions.condition.true')}
           </div>
 
           <Handle
@@ -495,7 +581,7 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             className="pointer-events-none absolute z-20 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-rose-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.12)]"
             style={{ left: '62%' }}
           >
-            Нет
+            {tCanvas('nodeDescriptions.condition.false')}
           </div>
         </>
       )}
@@ -508,6 +594,8 @@ const MessageNodeComponent = (props: NodeProps) => <CustomNode {...props} type="
 const ConditionNodeComponent = (props: NodeProps) => <CustomNode {...props} type="condition" />
 const RouterNodeComponent = (props: NodeProps) => <CustomNode {...props} type="router" />
 const SchedulerNodeComponent = (props: NodeProps) => <CustomNode {...props} type="scheduler" />
+const ReplyKeyboardNodeComponent = (props: NodeProps) => <CustomNode {...props} type="replyKeyboard" />
+const ScriptNodeComponent = (props: NodeProps) => <CustomNode {...props} type="script" />
 const ActionNodeComponent = (props: NodeProps) => <CustomNode {...props} type="action" />
 const InputNodeComponent = (props: NodeProps) => <CustomNode {...props} type="input" />
 const HttpNodeComponent = (props: NodeProps) => <CustomNode {...props} type="http" />
@@ -518,6 +606,8 @@ MessageNodeComponent.displayName = 'MessageNodeComponent'
 ConditionNodeComponent.displayName = 'ConditionNodeComponent'
 RouterNodeComponent.displayName = 'RouterNodeComponent'
 SchedulerNodeComponent.displayName = 'SchedulerNodeComponent'
+ReplyKeyboardNodeComponent.displayName = 'ReplyKeyboardNodeComponent'
+ScriptNodeComponent.displayName = 'ScriptNodeComponent'
 ActionNodeComponent.displayName = 'ActionNodeComponent'
 InputNodeComponent.displayName = 'InputNodeComponent'
 HttpNodeComponent.displayName = 'HttpNodeComponent'
@@ -528,6 +618,8 @@ export const MessageNode = memo(MessageNodeComponent)
 export const ConditionNode = memo(ConditionNodeComponent)
 export const RouterNode = memo(RouterNodeComponent)
 export const SchedulerNode = memo(SchedulerNodeComponent)
+export const ReplyKeyboardNode = memo(ReplyKeyboardNodeComponent)
+export const ScriptNode = memo(ScriptNodeComponent)
 export const ActionNode = memo(ActionNodeComponent)
 export const InputNode = memo(InputNodeComponent)
 export const HttpNode = memo(HttpNodeComponent)
@@ -540,6 +632,8 @@ export const nodeTypes = {
   condition: ConditionNode,
   router: RouterNode,
   scheduler: SchedulerNode,
+  replyKeyboard: ReplyKeyboardNode,
+  script: ScriptNode,
   action: ActionNode,
   input: InputNode,
   http: HttpNode,
@@ -575,6 +669,22 @@ export const nodeTemplates: NodeTemplate[] = [
       pattern: '/start',
       __label: 'Command Trigger',
       __description: 'Starts on command',
+    },
+  },
+  {
+    id: 'trigger-text',
+    type: 'trigger',
+    label: 'Text Trigger',
+    description: 'Start workflow when incoming text matches pattern',
+    color: '#6366F1',
+    gradient: 'from-indigo-500/20 to-indigo-600/10',
+    border: 'border-indigo-500/30',
+    icon: Play,
+    data: {
+      trigger: 'text',
+      pattern: '',
+      __label: 'Text Trigger',
+      __description: 'Starts on message text',
     },
   },
   {
@@ -616,6 +726,26 @@ export const nodeTemplates: NodeTemplate[] = [
     },
   },
   {
+    id: 'trigger-ai',
+    type: 'trigger',
+    label: 'AI Trigger',
+    description: 'Start workflow by AI intent / semantic text match',
+    color: '#6366F1',
+    gradient: 'from-indigo-500/20 to-indigo-600/10',
+    border: 'border-indigo-500/30',
+    icon: Play,
+    data: {
+      trigger: 'text',
+      pattern: '',
+      aiEnabled: true,
+      aiNodeKind: 'trigger',
+      aiPrompt: '',
+      aiModel: 'auto',
+      __label: 'AI Trigger',
+      __description: 'AI intent / semantic trigger (soon)',
+    },
+  },
+  {
     id: 'message',
     type: 'message',
     label: 'Message',
@@ -626,6 +756,27 @@ export const nodeTemplates: NodeTemplate[] = [
     icon: MessageSquare
   },
   {
+    id: 'message-ai',
+    type: 'message',
+    label: 'AI Message',
+    description: 'Generate message text with AI (fallback text supported)',
+    color: '#24A1DE',
+    gradient: 'from-blue-500/20 to-cyan-500/10',
+    border: 'border-cyan-400/30',
+    icon: MessageSquare,
+    data: {
+      aiEnabled: true,
+      aiNodeKind: 'message',
+      aiPrompt: '',
+      aiSystemPrompt: '',
+      aiModel: 'auto',
+      text: 'AI Message (soon). Пока используйте этот fallback текст.',
+      parseMode: 'None',
+      __label: 'AI Message',
+      __description: 'AI-generated reply (soon)',
+    },
+  },
+  {
     id: 'condition',
     type: 'condition',
     label: 'Condition',
@@ -634,6 +785,29 @@ export const nodeTemplates: NodeTemplate[] = [
     gradient: 'from-amber-500/20 to-amber-600/10',
     border: 'border-amber-500/30',
     icon: GitBranch
+  },
+  {
+    id: 'condition-ai',
+    type: 'condition',
+    label: 'AI Logic',
+    description: 'Branch by AI classification / intent (fallback condition available)',
+    color: '#F59E0B',
+    gradient: 'from-amber-500/20 to-orange-600/10',
+    border: 'border-amber-400/30',
+    icon: GitBranch,
+    data: {
+      aiEnabled: true,
+      aiNodeKind: 'logic',
+      aiPrompt: '',
+      aiModel: 'auto',
+      variable: 'message.text',
+      operator: 'contains',
+      value: '?',
+      trueLabel: 'True',
+      falseLabel: 'False',
+      __label: 'AI Logic',
+      __description: 'AI branching / classification (soon)',
+    },
   },
   {
     id: 'router',
@@ -674,6 +848,52 @@ export const nodeTemplates: NodeTemplate[] = [
       saveToVariable: '',
       __label: 'Date/Time Scheduler',
       __description: 'Continue later (timezone-aware)',
+    },
+  },
+  {
+    id: 'reply-keyboard',
+    type: 'replyKeyboard',
+    label: 'Reply Keyboard',
+    description: 'Control Telegram base keyboard (system / variant / clear)',
+    color: '#0EA5E9',
+    gradient: 'from-sky-500/20 to-sky-600/10',
+    border: 'border-sky-500/30',
+    icon: Keyboard,
+    data: {
+      mode: 'system',
+      variantKey: 'base',
+      variable: '',
+      operator: 'equals',
+      value: '',
+      trueMode: 'variant',
+      trueVariantKey: 'base',
+      falseMode: 'system',
+      falseVariantKey: '',
+      __label: 'Reply Keyboard',
+      __description: 'Use system reply keyboard',
+    },
+  },
+  {
+    id: 'script',
+    type: 'script',
+    label: 'Script',
+    description: 'Run JavaScript or Python transform code',
+    color: '#06B6D4',
+    gradient: 'from-cyan-500/20 to-cyan-600/10',
+    border: 'border-cyan-500/30',
+    icon: Code2,
+    data: {
+      language: 'javascript',
+      inputPath: '',
+      saveToVariable: '',
+      timeoutMs: 1000,
+      code: [
+        '// Use `input`, `context`, `vars` and assign to `result`.',
+        '// Example:',
+        "result = String(input ?? '').toUpperCase()",
+      ].join('\n'),
+      __label: 'Script',
+      __description: 'Run JS/Python code',
     },
   },
   {

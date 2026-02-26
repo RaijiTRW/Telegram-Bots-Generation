@@ -106,18 +106,6 @@ export function EditorNav({
     >
       {/* Header */}
       <div className={cn('mb-6', isCompact ? 'w-full px-0' : 'px-2')}>
-        {isCompact ? (
-          <div className="w-full flex items-center justify-center">
-            <div
-              className="w-9 h-9 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-white"
-              title={t('botEditor')}
-            >
-              <Workflow className="w-4 h-4" />
-            </div>
-          </div>
-        ) : (
-          <h2 className="text-lg font-semibold text-white">{t('botEditor')}</h2>
-        )}
         {isDirty && (
           isCompact ? (
             <div className="mt-2 flex items-center justify-center">
@@ -194,14 +182,14 @@ export function EditorNav({
       {!isCompact ? (
         <div className="pt-4 border-t border-white/10 px-2">
           <div className="text-xs text-zinc-500 text-center">
-            Press <kbd className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">Cmd+S</kbd> {t('toSave')}
+            {t('press')} <kbd className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">Cmd+S</kbd> {t('toSave')}
           </div>
         </div>
       ) : (
         <div className="pt-4 border-t border-white/10 w-full flex items-center justify-center">
           <kbd
             className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 text-[10px]"
-            title={`Cmd+S ${t('toSave')}`}
+            title={t('saveShortcutTitle')}
           >
             ⌘S
           </kbd>

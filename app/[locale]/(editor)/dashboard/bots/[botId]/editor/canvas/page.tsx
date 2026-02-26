@@ -236,7 +236,7 @@ export default function CanvasPage() {
       await fetchLogs(false)
 
       if (!stopResult.success) {
-        setError(stopResult.error || 'Не удалось остановить тест')
+        setError(stopResult.error || t('errorStopFallback'))
         return
       }
 
@@ -266,7 +266,7 @@ export default function CanvasPage() {
     await fetchLogs(false)
 
     if (!result.success) {
-      setError(result.error || 'Не удалось запустить тест')
+      setError(result.error || t('errorStartFallback'))
       return
     }
 
@@ -278,7 +278,7 @@ export default function CanvasPage() {
     if (result.deepLink && autoOpenTelegramAfterTest) {
       window.open(result.deepLink, '_blank', 'noopener,noreferrer')
     }
-  }, [botId, config.variables, config.version, isTestActive, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest])
+  }, [botId, config.variables, config.version, isTestActive, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, t])
 
   const handleSaveCanvas = useCallback(async (currentNodes: Node[], currentEdges: Edge[]) => {
     if (!botId) return false
@@ -296,13 +296,13 @@ export default function CanvasPage() {
     })
 
     if (!result.success) {
-      setError(result.error || 'Не удалось сохранить изменения')
+      setError(result.error || t('errorSaveFallback'))
       return false
     }
 
     setIsDirty(false)
     return true
-  }, [botId, config.variables, config.version, setIsDirty])
+  }, [botId, config.variables, config.version, setIsDirty, t])
 
   const startLogsResize = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -460,7 +460,7 @@ export default function CanvasPage() {
                       >
                         <button
                           type="button"
-                          title="Копировать логи"
+                          title={t('copyLogsTitle')}
                           disabled={logs.length === 0}
                           className="flex items-center justify-center w-8 h-8 rounded-md text-zinc-300 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
@@ -478,7 +478,7 @@ export default function CanvasPage() {
                                 <Check className="w-4 h-4 text-emerald-400 mx-auto" />
                               ) : (
                                 <>
-                                  <span>Text</span>
+                                  <span>{t('copyLogsText')}</span>
                                   <span className="text-zinc-500">.txt</span>
                                 </>
                               )}
@@ -492,7 +492,7 @@ export default function CanvasPage() {
                                 <Check className="w-4 h-4 text-emerald-400 mx-auto" />
                               ) : (
                                 <>
-                                  <span>JSON</span>
+                                  <span>{t('copyLogsJson')}</span>
                                   <span className="text-zinc-500">{'{ }'}</span>
                                 </>
                               )}

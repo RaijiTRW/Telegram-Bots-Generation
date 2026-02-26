@@ -15,6 +15,8 @@ export type NodeType =
   | 'condition'
   | 'router'
   | 'scheduler'
+  | 'replyKeyboard'
+  | 'script'
   | 'action'
   | 'http'
   | 'webhook'

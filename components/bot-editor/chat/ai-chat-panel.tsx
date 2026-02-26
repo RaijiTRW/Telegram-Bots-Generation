@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { MessageSquare, Sparkles, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ChatMessages } from './chat-messages'
@@ -16,6 +17,8 @@ interface AiChatPanelProps {
 }
 
 export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
+  const tChat = useTranslations('editor.chat')
+  const tNav = useTranslations('editor.nav')
   const { config, setConfig } = useBotState()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -101,38 +104,36 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
       if (response.suggestions && response.suggestions.length > 0) {
         const suggestionMessage = createMessage(
           'system',
-          `Suggestions: ${response.suggestions.map((s, i) => `${i + 1}. ${s}`).join(' | ')}`
+          `${tChat('suggestionsPrefix')}: ${response.suggestions.map((s, i) => `${i + 1}. ${s}`).join(' | ')}`
         )
         setMessages(prev => [...prev, suggestionMessage])
       }
-    } catch (error) {
+    } catch {
       // Add error message
       const errorMessage = createMessage(
         'assistant',
-        'Sorry, I encountered an error. Please try again.'
+        tChat('errorFallback')
       )
       setMessages(prev => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
     }
-  }, [createMessage, config, setConfig])
+  }, [createMessage, config, setConfig, tChat])
 
   return (
     <div className={cn("h-full flex flex-col bg-[#05070A]", className)}>
       {/* Header */}
       <header className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-zinc-950/50 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
-            <MessageSquare className="w-4 h-4 text-[#24A1DE]" />
-          </div>
-          <h1 className="text-white font-semibold">AI Assistant</h1>
+          <MessageSquare className="w-4 h-4 text-[#24A1DE] shrink-0" />
+          <h1 className="text-white font-semibold">{tNav('aiAssistant')}</h1>
           <span className="text-zinc-500">|</span>
-          <span className="text-sm text-zinc-400">Build your bot with AI</span>
+          <span className="text-sm text-zinc-400">{tChat('panelSubtitle')}</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/30">
             <Sparkles className="w-3 h-3 text-[#8B5CF6]" />
-            <span className="text-xs text-[#8B5CF6]">Powered by AI</span>
+            <span className="text-xs text-[#8B5CF6]">{tChat('poweredByAI')}</span>
           </span>
           {onClose && (
             <Button

@@ -59,12 +59,42 @@ type CanvasHistorySnapshot = {
   edges: SerializableWorkflowEdge[]
 }
 
+type CanvasClipboardSnapshot = {
+  nodes: SerializableWorkflowNode[]
+  edges: SerializableWorkflowEdge[]
+}
+
 const createUniqueNodeId = (existingNodes: Node[]): string => {
   let id = `node_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
   while (existingNodes.some((node) => node.id === id)) {
     id = `node_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
   }
   return id
+}
+
+const createUniqueEdgeId = (existingEdges: Edge[]): string => {
+  let id = `edge_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  while (existingEdges.some((edge) => edge.id === id)) {
+    id = `edge_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  }
+  return id
+}
+
+const cloneValue = <T,>(value: T): T => {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value)
+  }
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
+const isEditableElement = (target: EventTarget | null) => {
+  const element = target as HTMLElement | null
+  if (!element) return false
+
+  if (element.isContentEditable) return true
+
+  const tagName = element.tagName?.toLowerCase()
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
 }
 
 const INPUT_NODE_WRAPPER_STYLE = {
@@ -182,6 +212,8 @@ type PaletteCategoryId = 'trigger' | 'messaging' | 'logic' | 'data' | 'advanced'
 type PaletteCategoryMeta = {
   id: PaletteCategoryId
   label: string
+  shortLabel: string
+  hint?: string
   icon: LucideIcon
 }
 
@@ -195,12 +227,107 @@ const PALETTE_CATEGORY_ORDER: PaletteCategoryId[] = [
 ]
 
 const PALETTE_CATEGORY_META: Record<PaletteCategoryId, PaletteCategoryMeta> = {
-  trigger: { id: 'trigger', label: 'Триггеры', icon: Play },
-  messaging: { id: 'messaging', label: 'Сообщения', icon: MessageSquare },
-  logic: { id: 'logic', label: 'Логика', icon: GitBranch },
-  data: { id: 'data', label: 'Данные', icon: Database },
-  advanced: { id: 'advanced', label: 'Доп.', icon: LayoutGrid },
-  other: { id: 'other', label: 'Другое', icon: Workflow },
+  trigger: {
+    id: 'trigger',
+    label: 'Триггеры',
+    shortLabel: 'Триг',
+    hint: 'Точки входа: команда, callback, расписание, AI',
+    icon: Play,
+  },
+  messaging: {
+    id: 'messaging',
+    label: 'Сообщения',
+    shortLabel: 'Сообщ',
+    hint: 'Отправка сообщений и запрос данных',
+    icon: MessageSquare,
+  },
+  logic: {
+    id: 'logic',
+    label: 'Логика',
+    shortLabel: 'Логика',
+    hint: 'Условия, ветвления, switch / AI logic',
+    icon: GitBranch,
+  },
+  data: {
+    id: 'data',
+    label: 'Данные',
+    shortLabel: 'Данные',
+    hint: 'Переменные, действия, HTTP',
+    icon: Database,
+  },
+  advanced: {
+    id: 'advanced',
+    label: 'Доп.',
+    shortLabel: 'Доп',
+    hint: 'Расширенные ноды (например Script)',
+    icon: LayoutGrid,
+  },
+  other: {
+    id: 'other',
+    label: 'Другое',
+    shortLabel: 'Другое',
+    hint: 'Служебные и прочие ноды',
+    icon: Workflow,
+  },
+}
+
+function getPaletteCategoryLabel(
+  t: (key: string, values?: Record<string, unknown>) => string,
+  categoryId: PaletteCategoryId
+): string {
+  const keyMap: Record<PaletteCategoryId, string> = {
+    trigger: 'palette.categories.trigger.label',
+    messaging: 'palette.categories.messaging.label',
+    logic: 'palette.categories.logic.label',
+    data: 'palette.categories.data.label',
+    advanced: 'palette.categories.advanced.label',
+    other: 'palette.categories.other.label',
+  }
+
+  return t(keyMap[categoryId])
+}
+
+function getPaletteCategoryHint(
+  t: (key: string, values?: Record<string, unknown>) => string,
+  categoryId: PaletteCategoryId
+): string {
+  const keyMap: Record<PaletteCategoryId, string> = {
+    trigger: 'palette.categories.trigger.hint',
+    messaging: 'palette.categories.messaging.hint',
+    logic: 'palette.categories.logic.hint',
+    data: 'palette.categories.data.hint',
+    advanced: 'palette.categories.advanced.hint',
+    other: 'palette.categories.other.hint',
+  }
+
+  return t(keyMap[categoryId])
+}
+
+function getNodeTemplateDescription(
+  t: (key: string, values?: Record<string, unknown>) => string,
+  template: NodeTemplate
+): string {
+  const keyMap: Record<string, string> = {
+    'trigger-command': 'nodeTemplateDescriptions.triggerCommand',
+    'trigger-text': 'nodeTemplateDescriptions.triggerText',
+    'trigger-callback': 'nodeTemplateDescriptions.triggerCallback',
+    'trigger-schedule': 'nodeTemplateDescriptions.triggerSchedule',
+    'trigger-ai': 'nodeTemplateDescriptions.triggerAI',
+    message: 'nodeTemplateDescriptions.message',
+    'message-ai': 'nodeTemplateDescriptions.messageAI',
+    condition: 'nodeTemplateDescriptions.condition',
+    'condition-ai': 'nodeTemplateDescriptions.conditionAI',
+    router: 'nodeTemplateDescriptions.router',
+    scheduler: 'nodeTemplateDescriptions.scheduler',
+    'reply-keyboard': 'nodeTemplateDescriptions.replyKeyboard',
+    script: 'nodeTemplateDescriptions.script',
+    action: 'nodeTemplateDescriptions.action',
+    input: 'nodeTemplateDescriptions.input',
+    http: 'nodeTemplateDescriptions.http',
+  }
+
+  const key = keyMap[template.id]
+  return key ? t(key) : template.description
 }
 
 function getTemplatePaletteCategory(template: NodeTemplate): PaletteCategoryId {
@@ -251,6 +378,8 @@ function FlowCanvasInner({
   const historyIndexRef = useRef(-1)
   const skipNextHistoryCaptureRef = useRef(false)
   const lastHistorySnapshotKeyRef = useRef('')
+  const clipboardRef = useRef<CanvasClipboardSnapshot | null>(null)
+  const clipboardPasteCountRef = useRef(0)
 
   useEffect(() => {
     onChange?.(nodes, edges)
@@ -440,6 +569,126 @@ function FlowCanvasInner({
     }
   }, [applyRuntimeNodeData, selectedNode, setEdges, setNodes])
 
+  const copySelectedNodesToClipboard = useCallback(() => {
+    const selectedNodes = nodes.filter((node) => node.selected)
+    if (selectedNodes.length === 0) {
+      return false
+    }
+
+    const selectedNodeIds = new Set(selectedNodes.map((node) => node.id))
+    const selectedEdges = edges.filter(
+      (edge) => selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target)
+    )
+
+    clipboardRef.current = {
+      nodes: serializeWorkflowNodes(selectedNodes as unknown[]),
+      edges: serializeWorkflowEdges(selectedEdges as unknown[]),
+    }
+    clipboardPasteCountRef.current = 0
+    return true
+  }, [edges, nodes])
+
+  const cutSelectedNodesToClipboard = useCallback(() => {
+    const selectedNodes = nodes.filter((node) => node.selected)
+    if (selectedNodes.length === 0) {
+      return false
+    }
+
+    const didCopy = copySelectedNodesToClipboard()
+    if (!didCopy) {
+      return false
+    }
+
+    const selectedNodeIds = new Set(selectedNodes.map((node) => node.id))
+    setNodes(nodes.filter((node) => !selectedNodeIds.has(node.id)))
+    setEdges(edges.filter((edge) => !selectedNodeIds.has(edge.source) && !selectedNodeIds.has(edge.target)))
+
+    setSelectedNode(null)
+    setSettingsPanelOpen(false)
+
+    return true
+  }, [copySelectedNodesToClipboard, edges, nodes, setEdges, setNodes])
+
+  const pasteClipboardNodes = useCallback(() => {
+    const clipboard = clipboardRef.current
+    if (!clipboard || clipboard.nodes.length === 0) {
+      return false
+    }
+
+    const nextPasteIndex = clipboardPasteCountRef.current + 1
+    clipboardPasteCountRef.current = nextPasteIndex
+
+    const offset = 40 * nextPasteIndex
+    const existingNodes = [...nodes]
+    const existingEdges = [...edges]
+    const idMap = new Map<string, string>()
+
+    const pastedNodes = clipboard.nodes.map((serializedNode) => {
+      const newId = createUniqueNodeId(existingNodes)
+      idMap.set(serializedNode.id, newId)
+
+      const restoredNode = applyRuntimeNodeData({
+        id: newId,
+        type: (serializedNode.type || 'message') as Node['type'],
+        position: {
+          x: Number(serializedNode.position?.x || 0) + offset,
+          y: Number(serializedNode.position?.y || 0) + offset,
+        },
+        data: cloneValue((serializedNode.data || {}) as Node['data']),
+        selected: true,
+      } as Node)
+
+      existingNodes.push(restoredNode)
+      return restoredNode
+    })
+
+    const pastedEdges = clipboard.edges
+      .map((serializedEdge) => {
+        const source = idMap.get(serializedEdge.source)
+        const target = idMap.get(serializedEdge.target)
+        if (!source || !target) {
+          return null
+        }
+
+        const edge: Edge = {
+          id: createUniqueEdgeId(existingEdges),
+          source,
+          target,
+          sourceHandle: serializedEdge.sourceHandle ?? null,
+          targetHandle: serializedEdge.targetHandle ?? null,
+          label: serializedEdge.label,
+          data: cloneValue(serializedEdge.data as Edge['data']),
+          animated: Boolean(serializedEdge.animated),
+          type: serializedEdge.type,
+        }
+
+        existingEdges.push(edge)
+        return edge
+      })
+      .filter((edge): edge is Edge => Boolean(edge))
+
+    const nextNodes = [
+      ...nodes.map((node) => (node.selected ? { ...node, selected: false } : node)),
+      ...pastedNodes,
+    ]
+
+    setNodes(nextNodes)
+    setEdges([
+      ...edges.map((edge) => (edge.selected ? { ...edge, selected: false } : edge)),
+      ...pastedEdges,
+    ])
+
+    if (pastedNodes.length === 1) {
+      setSelectedNode(pastedNodes[0])
+      setSettingsPanelOpen(true)
+    } else {
+      setSelectedNode(null)
+      setSettingsPanelOpen(false)
+    }
+
+    return true
+  }, [applyRuntimeNodeData, edges, nodes, setEdges, setNodes])
+
   const undoCanvasChange = useCallback(() => {
     const nextIndex = historyIndexRef.current - 1
     if (nextIndex < 0) return
@@ -492,16 +741,6 @@ function FlowCanvasInner({
   }, [nodes, edges])
 
   useEffect(() => {
-    const isEditableElement = (target: EventTarget | null) => {
-      const element = target as HTMLElement | null
-      if (!element) return false
-
-      if (element.isContentEditable) return true
-
-      const tagName = element.tagName?.toLowerCase()
-      return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableElement(event.target)) {
         return
@@ -513,6 +752,27 @@ function FlowCanvasInner({
       }
 
       const key = event.key.toLowerCase()
+      if (key === 'c') {
+        if (copySelectedNodesToClipboard()) {
+          event.preventDefault()
+        }
+        return
+      }
+
+      if (key === 'x') {
+        if (cutSelectedNodesToClipboard()) {
+          event.preventDefault()
+        }
+        return
+      }
+
+      if (key === 'v') {
+        if (pasteClipboardNodes()) {
+          event.preventDefault()
+        }
+        return
+      }
+
       if (key === 'z') {
         event.preventDefault()
         if (event.shiftKey) {
@@ -532,7 +792,13 @@ function FlowCanvasInner({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [redoCanvasChange, undoCanvasChange])
+  }, [
+    copySelectedNodesToClipboard,
+    cutSelectedNodesToClipboard,
+    pasteClipboardNodes,
+    redoCanvasChange,
+    undoCanvasChange,
+  ])
 
   const availableVariables = useMemo(() => extractVariableNames(nodes), [nodes])
 
@@ -552,6 +818,8 @@ function FlowCanvasInner({
         if (templates.length === 0) return null
         return {
           ...PALETTE_CATEGORY_META[categoryId],
+          label: getPaletteCategoryLabel(t, categoryId),
+          hint: getPaletteCategoryHint(t, categoryId),
           templates,
         }
       })
@@ -562,7 +830,7 @@ function FlowCanvasInner({
           templates: NodeTemplate[]
         } => Boolean(item)
       )
-  }, [])
+  }, [t])
 
   const validPinnedPaletteCategory =
     pinnedPaletteCategory &&
@@ -699,16 +967,16 @@ function FlowCanvasInner({
         <Panel position="top-left" className="!transform-none !left-4 !top-4">
           <div
             className={`${
-              isPaletteExpanded ? 'w-[360px] sm:w-[380px]' : 'w-[170px]'
-            } max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-3 transition-[width] duration-200`}
+              isPaletteExpanded ? 'w-[328px] sm:w-[360px]' : 'w-[136px]'
+            } max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-2.5 transition-[width] duration-200`}
           >
-            <h3 className="text-xs font-semibold text-white mb-3">{t('nodes')}</h3>
+            <h3 className="text-xs font-semibold text-white mb-2.5">{t('nodes')}</h3>
             <div
-              className={`grid ${isPaletteExpanded ? 'grid-cols-[112px_minmax(0,1fr)]' : 'grid-cols-1'} gap-3`}
+              className={`grid ${isPaletteExpanded ? 'grid-cols-[74px_minmax(0,1fr)]' : 'grid-cols-1'} gap-2.5`}
               onMouseLeave={() => setHoveredPaletteCategory(null)}
             >
               <div
-                className="space-y-1 rounded-lg border border-white/10 bg-zinc-800/20 p-1.5"
+                className="space-y-1 rounded-lg border border-white/10 bg-zinc-800/20 p-1"
               >
                 {paletteCategories.map((category) => {
                   const isPinned = validPinnedPaletteCategory === category.id
@@ -724,21 +992,30 @@ function FlowCanvasInner({
                       onClick={() =>
                         setPinnedPaletteCategory((prev) => (prev === category.id ? null : category.id))
                       }
-                      className={`w-full text-left rounded-lg px-2 py-2 transition-colors border ${
+                      aria-label={`${category.label}${isPinned ? ` (${t('palette.pinned')})` : ''}`}
+                      title={`${category.label}${category.hint ? ` • ${category.hint}` : ''}${isPinned ? ` • ${t('palette.pinned')}` : ''}`}
+                      className={`w-full text-left rounded-lg px-1.5 py-1.5 transition-colors border ${
                         isActive
                           ? 'bg-white/10 border-white/20 text-white'
                           : 'bg-transparent border-transparent text-zinc-300 hover:bg-white/5 hover:text-white'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <CategoryIcon className="w-3.5 h-3.5 shrink-0" />
-                        <span className="text-xs font-medium truncate">{category.label}</span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between text-[10px]">
-                        <span className={`${isActive ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <div className="relative shrink-0">
+                          <CategoryIcon className="w-3.5 h-3.5" />
+                          {isPinned && (
+                            <span className="absolute -top-1 -right-1 block h-1.5 w-1.5 rounded-full bg-[#24A1DE] ring-1 ring-zinc-900" />
+                          )}
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-md px-1 py-0.5 text-[9px] leading-none border ${
+                            isActive
+                              ? 'border-white/20 bg-white/10 text-zinc-200'
+                              : 'border-white/10 bg-zinc-900/40 text-zinc-400'
+                          }`}
+                        >
                           {category.templates.length}
                         </span>
-                        {isPinned && <span className="text-[#24A1DE]">Pin</span>}
                       </div>
                     </button>
                   )
@@ -753,12 +1030,10 @@ function FlowCanvasInner({
                         <div className="text-xs font-medium text-white truncate">
                           {activePaletteCategory.label}
                         </div>
-                        <div className="text-[10px] text-zinc-500">
-                          Hover preview, click to pin/unpin
-                        </div>
+                        <div className="text-[10px] text-zinc-500">{t('palette.hoverPreviewClickPin')}</div>
                       </div>
                       <div className="text-[10px] text-zinc-400 shrink-0">
-                        {activePaletteCategory.templates.length} nodes
+                        {t('palette.nodesCount', { count: activePaletteCategory.templates.length })}
                       </div>
                     </div>
 
@@ -781,7 +1056,7 @@ function FlowCanvasInner({
                             <div className="min-w-0">
                               <div className="text-xs font-medium text-white truncate">{node.label}</div>
                               <div className="text-[10px] text-zinc-300/90 line-clamp-2">
-                                {node.description}
+                                {getNodeTemplateDescription(t, node)}
                               </div>
                             </div>
                           </div>
@@ -794,8 +1069,8 @@ function FlowCanvasInner({
             </div>
 
             {!isPaletteExpanded && (
-              <div className="mt-2 rounded-lg border border-dashed border-white/10 bg-zinc-800/10 px-2 py-2 text-[10px] text-zinc-500">
-                Наведи категорию, чтобы показать ноды справа. Клик закрепляет.
+              <div className="mt-2 rounded-lg border border-dashed border-white/10 bg-zinc-800/10 px-2 py-1.5 text-[10px] text-zinc-500 leading-tight text-center">
+                {t('palette.hoverClickPin')}
               </div>
             )}
 

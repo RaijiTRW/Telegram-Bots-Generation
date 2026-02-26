@@ -98,6 +98,8 @@ const ALLOWED_NODE_TYPES = new Set<WorkflowNode['type']>([
   'condition',
   'router',
   'scheduler',
+  'replyKeyboard',
+  'script',
   'action',
   'http',
   'webhook',
@@ -185,6 +187,150 @@ function sanitizeAutoReactionsFeatureConfig(value: unknown): Record<string, unkn
   }
 }
 
+type SanitizedReplyKeyboardRule = {
+  id: string
+  name: string
+  enabled: boolean
+  variable: string
+  operator: string
+  value: string
+  rows: Array<
+    Array<{
+      id: string
+      text: string
+      emoji?: string
+      style?: 'default' | 'primary' | 'success' | 'danger'
+      iconCustomEmojiId?: string
+    }>
+  >
+}
+
+type SanitizedReplyKeyboardButton = {
+  id: string
+  text: string
+  emoji?: string
+  style?: 'default' | 'primary' | 'success' | 'danger'
+  iconCustomEmojiId?: string
+}
+
+function sanitizeReplyKeyboardButton(input: unknown, rowIndex: number, buttonIndex: number): SanitizedReplyKeyboardButton | null {
+  const allowedStyles = new Set(['default', 'primary', 'success', 'danger'] as const)
+
+  if (typeof input === 'string') {
+    const text = input.trim().slice(0, 64)
+    if (!text) return null
+    return {
+      id: `b_${rowIndex + 1}_${buttonIndex + 1}`,
+      text,
+      style: 'default',
+    }
+  }
+
+  if (!input || typeof input !== 'object') {
+    return null
+  }
+
+  const raw = input as Record<string, unknown>
+  const text = String(raw.text ?? '').trim().slice(0, 64)
+  const emoji = String(raw.emoji ?? '').trim().slice(0, 8)
+  const iconCustomEmojiId = String(raw.iconCustomEmojiId ?? raw.icon_custom_emoji_id ?? '').trim().slice(0, 128)
+  if (!text && !emoji) {
+    return null
+  }
+
+  const styleRaw = String(raw.style || 'default').trim()
+  const style = allowedStyles.has(styleRaw as 'default' | 'primary' | 'success' | 'danger')
+    ? (styleRaw as 'default' | 'primary' | 'success' | 'danger')
+    : 'default'
+
+  return {
+    id: String(raw.id || `b_${rowIndex + 1}_${buttonIndex + 1}`).trim().slice(0, 48) || `b_${rowIndex + 1}_${buttonIndex + 1}`,
+    text,
+    ...(emoji ? { emoji } : {}),
+    ...(style !== 'default' ? { style } : { style: 'default' as const }),
+    ...(iconCustomEmojiId ? { iconCustomEmojiId } : {}),
+  }
+}
+
+function sanitizeReplyKeyboardRows(value: unknown): SanitizedReplyKeyboardButton[][] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const rows: SanitizedReplyKeyboardButton[][] = []
+  for (let rowIndex = 0; rowIndex < value.length; rowIndex += 1) {
+    const rawRow = value[rowIndex]
+    if (!Array.isArray(rawRow)) continue
+    const row = rawRow
+      .map((button, buttonIndex) => sanitizeReplyKeyboardButton(button, rowIndex, buttonIndex))
+      .filter((button): button is SanitizedReplyKeyboardButton => Boolean(button))
+      .slice(0, 10)
+    if (row.length > 0) {
+      rows.push(row)
+    }
+    if (rows.length >= 12) break
+  }
+
+  return rows
+}
+
+function sanitizeReplyKeyboardRule(value: unknown, index: number): SanitizedReplyKeyboardRule | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const raw = value as Record<string, unknown>
+  const rawId = String(raw.id || '').trim()
+  const id = (rawId || `rule_${index + 1}`).replace(/[^\w:-]+/g, '_').slice(0, 48)
+  if (!id) return null
+
+  const operatorRaw = String(raw.operator || 'equals').trim()
+  const allowedOperators = new Set([
+    'equals',
+    'notEquals',
+    'contains',
+    'notContains',
+    'gt',
+    'lt',
+    'gte',
+    'lte',
+    'isEmpty',
+    'isNotEmpty',
+  ])
+  const operator = allowedOperators.has(operatorRaw) ? operatorRaw : 'equals'
+
+  return {
+    id,
+    name: String(raw.name || '').trim().slice(0, 80) || `Rule ${index + 1}`,
+    enabled: raw.enabled === undefined ? true : Boolean(raw.enabled),
+    variable: String(raw.variable || '').trim().slice(0, 120),
+    operator,
+    value: String(raw.value ?? '').slice(0, 256),
+    rows: sanitizeReplyKeyboardRows(raw.rows),
+  }
+}
+
+function sanitizeReplyKeyboardFeatureConfig(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const raw = value as Record<string, unknown>
+  const rulesRaw = Array.isArray(raw.rules) ? raw.rules : []
+  const rules = rulesRaw
+    .map((rule, index) => sanitizeReplyKeyboardRule(rule, index))
+    .filter((rule): rule is SanitizedReplyKeyboardRule => Boolean(rule))
+
+  return {
+    enabled: Boolean(raw.enabled),
+    resizeKeyboard: raw.resizeKeyboard === undefined ? true : Boolean(raw.resizeKeyboard),
+    oneTimeKeyboard: Boolean(raw.oneTimeKeyboard),
+    isPersistent: raw.isPersistent === undefined ? true : Boolean(raw.isPersistent),
+    baseRows: sanitizeReplyKeyboardRows(raw.baseRows),
+    rules,
+  }
+}
+
 function sanitizeSettingsMetadataPatch(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== 'object') {
     return {}
@@ -198,14 +344,16 @@ function sanitizeSettingsMetadataPatch(input: unknown): Record<string, unknown> 
 
   const featureRecord = features as Record<string, unknown>
   const autoReactions = sanitizeAutoReactionsFeatureConfig(featureRecord.autoReactions)
+  const replyKeyboard = sanitizeReplyKeyboardFeatureConfig(featureRecord.replyKeyboard)
 
-  if (!autoReactions) {
+  if (!autoReactions && !replyKeyboard) {
     return {}
   }
 
   return {
     features: {
-      autoReactions,
+      ...(autoReactions ? { autoReactions } : {}),
+      ...(replyKeyboard ? { replyKeyboard } : {}),
     },
   }
 }

@@ -56,9 +56,12 @@ const NAV_PANEL_COMPACT_THRESHOLD = 176
 const NAV_PANEL_HIDDEN_THRESHOLD = 72
 const NAV_PANEL_HIDDEN_STRIP_WIDTH = 14
 const NAV_PANEL_STORAGE_KEY = 'tflow.editor.sectionsPanelWidth'
+const NAV_PANEL_STORAGE_KEY_PREFIX = 'tflow.editor.sectionsPanelWidthByBot'
 
 const clampNavPanelWidth = (width: number) =>
   Math.min(NAV_PANEL_MAX_WIDTH, Math.max(NAV_PANEL_MIN_WIDTH, Math.round(width)))
+
+const getBotSpecificNavPanelStorageKey = (botId: string) => `${NAV_PANEL_STORAGE_KEY_PREFIX}:${botId}`
 
 export function EditorShell({ botId, children }: EditorShellProps) {
   const t = useTranslations('editor.shell')
@@ -82,6 +85,8 @@ export function EditorShell({ botId, children }: EditorShellProps) {
   const [sectionsPanelWidth, setSectionsPanelWidth] = useState(NAV_PANEL_DEFAULT_WIDTH)
   const [isResizingSectionsPanel, setIsResizingSectionsPanel] = useState(false)
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
+  const hasLoadedSectionsPanelWidthRef = useRef(false)
+  const pendingRestoreSectionsPanelWidthRef = useRef<number | null>(null)
   const isBotActive = Boolean(bot?.metadata?.testActive)
 
   useBotActivityFavicon(isBotActive)
@@ -212,24 +217,46 @@ export function EditorShell({ botId, children }: EditorShellProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
-      const storedWidth = window.localStorage.getItem(NAV_PANEL_STORAGE_KEY)
-      if (!storedWidth) return
+      const botKey = getBotSpecificNavPanelStorageKey(botId)
+      const storedWidth =
+        window.localStorage.getItem(botKey) ||
+        window.localStorage.getItem(NAV_PANEL_STORAGE_KEY)
+      if (!storedWidth) {
+        hasLoadedSectionsPanelWidthRef.current = true
+        return
+      }
       const parsed = Number(storedWidth)
-      if (!Number.isFinite(parsed)) return
-      setSectionsPanelWidth(clampNavPanelWidth(parsed))
+      if (Number.isFinite(parsed)) {
+        const nextWidth = clampNavPanelWidth(parsed)
+        pendingRestoreSectionsPanelWidthRef.current = nextWidth
+        setSectionsPanelWidth(nextWidth)
+      } else {
+        pendingRestoreSectionsPanelWidthRef.current = null
+      }
     } catch {
       // ignore storage errors
+    } finally {
+      hasLoadedSectionsPanelWidthRef.current = true
     }
-  }, [])
+  }, [botId])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (!hasLoadedSectionsPanelWidthRef.current) return
+    const pendingRestoreWidth = pendingRestoreSectionsPanelWidthRef.current
+    if (pendingRestoreWidth !== null && sectionsPanelWidth !== pendingRestoreWidth) {
+      return
+    }
+    if (pendingRestoreWidth !== null && sectionsPanelWidth === pendingRestoreWidth) {
+      pendingRestoreSectionsPanelWidthRef.current = null
+    }
     try {
+      window.localStorage.setItem(getBotSpecificNavPanelStorageKey(botId), String(sectionsPanelWidth))
       window.localStorage.setItem(NAV_PANEL_STORAGE_KEY, String(sectionsPanelWidth))
     } catch {
       // ignore storage errors
     }
-  }, [sectionsPanelWidth])
+  }, [botId, sectionsPanelWidth])
 
   useEffect(() => {
     if (!isResizingSectionsPanel) return
@@ -361,10 +388,10 @@ export function EditorShell({ botId, children }: EditorShellProps) {
         >
           {sectionsPanelMode === 'hidden' ? (
             <div className="h-full w-full border-r border-white/10 bg-zinc-950/30 backdrop-blur-xl flex items-center justify-center">
-              <div
-                className="flex flex-col items-center gap-2 text-zinc-500"
-                title="Double click divider to reset sections panel"
-              >
+                <div
+                  className="flex flex-col items-center gap-2 text-zinc-500"
+                  title={t('sectionsPanelResetHint')}
+                >
                 <PanelLeftClose className="w-3.5 h-3.5" />
                 <div className="w-1 h-1 rounded-full bg-white/20" />
               </div>
@@ -383,11 +410,11 @@ export function EditorShell({ botId, children }: EditorShellProps) {
           <div
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize sections panel"
+            aria-label={t('resizeSectionsPanel')}
             onMouseDown={startSectionsPanelResize}
             onDoubleClick={resetSectionsPanelSize}
             className="absolute top-0 -right-1 z-20 h-full w-2 cursor-col-resize group"
-            title="Drag to resize. Double click to reset"
+            title={t('resizeSectionsPanelHint')}
           >
             <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-white/10 group-hover:bg-[#24A1DE]/40 group-active:bg-[#24A1DE]/60 transition-colors" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-12 w-1.5 rounded-full bg-white/5 border border-white/10 group-hover:bg-white/10 group-active:bg-[#24A1DE]/20 transition-colors" />

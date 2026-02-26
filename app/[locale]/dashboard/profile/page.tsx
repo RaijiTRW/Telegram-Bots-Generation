@@ -463,7 +463,7 @@ export default function ProfilePage() {
                   onChange={(event) => {
                     setForm((prev) => ({ ...prev, username: event.target.value }))
                   }}
-                  placeholder="username"
+                  placeholder={t('usernamePlaceholder')}
                   disabled={isLoading || isSaving}
                   className="bg-zinc-950/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] focus:ring-[#24A1DE]/20"
                 />

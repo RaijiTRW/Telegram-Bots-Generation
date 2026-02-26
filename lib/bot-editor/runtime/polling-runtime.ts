@@ -111,6 +111,7 @@ async function runPollingCycle(botId: string, runId: string): Promise<void> {
       botId,
       botToken: state.botToken,
       config: state.config,
+      metadata: state.metadata,
     })
 
     const updates = await callTelegramApi<TelegramUpdate[]>(

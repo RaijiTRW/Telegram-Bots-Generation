@@ -2,6 +2,7 @@
 
 import { memo, RefObject } from 'react'
 import { Sparkles, User, Loader2, CheckCircle2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import type { ChatMessage } from './types'
 import type { Node } from '@/lib/bot-editor/types/bot.types'
@@ -19,6 +20,7 @@ interface MessageBubbleProps {
 }
 
 const NodePreview = ({ nodes }: { nodes: Node[] }) => {
+  const t = useTranslations('editor.chat')
   if (!nodes || nodes.length === 0) return null
 
   const getNodeColor = (type: string) => {
@@ -37,7 +39,9 @@ const NodePreview = ({ nodes }: { nodes: Node[] }) => {
     <div className="mt-3 pt-3 border-t border-white/10">
       <div className="flex items-center gap-2 mb-2">
         <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-        <span className="text-xs text-zinc-400">Added {nodes.length} node{nodes.length > 1 ? 's' : ''} to canvas</span>
+        <span className="text-xs text-zinc-400">
+          {nodes.length > 1 ? t('nodesAddedMany', { count: nodes.length }) : t('nodesAddedOne')}
+        </span>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {nodes.map((node) => (
@@ -128,6 +132,7 @@ const MessageBubble = memo(({ message, isLast }: MessageBubbleProps) => {
 MessageBubble.displayName = 'MessageBubble'
 
 export const ChatMessages = memo(({ messages, isLoading, className, containerRef }: ChatMessagesProps) => {
+  const t = useTranslations('editor.chat')
   return (
     <div ref={containerRef} className={cn("flex-1 overflow-y-auto p-6 space-y-4", className)}>
       {messages.length === 0 ? (
@@ -138,28 +143,28 @@ export const ChatMessages = memo(({ messages, isLoading, className, containerRef
           <div className="flex-1">
             <div className="rounded-2xl rounded-tl-none bg-zinc-900/80 border border-white/10 p-4">
               <p className="text-white text-sm">
-                Hello! I'm your AI assistant for building Telegram bots. I can help you:
+                {t('emptyIntro')}
               </p>
               <ul className="mt-3 space-y-2 text-sm text-zinc-300">
                 <li className="flex items-start gap-2">
                   <span className="text-[#24A1DE]">•</span>
-                  <span>Create conversational flows and message handlers</span>
+                  <span>{t('emptyHelp1')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-[#24A1DE]">•</span>
-                  <span>Add conditions, actions, and HTTP requests</span>
+                  <span>{t('emptyHelp2')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-[#24A1DE]">•</span>
-                  <span>Set up variables and data storage</span>
+                  <span>{t('emptyHelp3')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-[#24A1DE]">•</span>
-                  <span>Explain and debug existing bot logic</span>
+                  <span>{t('emptyHelp4')}</span>
                 </li>
               </ul>
               <p className="mt-3 text-sm text-zinc-400">
-                What would you like to build today?
+                {t('emptyQuestion')}
               </p>
             </div>
           </div>
@@ -183,7 +188,7 @@ export const ChatMessages = memo(({ messages, isLoading, className, containerRef
             <div className="rounded-2xl rounded-tl-none bg-zinc-900/80 border border-white/10 p-4">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 text-[#8B5CF6] animate-spin" />
-                <span className="text-sm text-zinc-400">AI is thinking...</span>
+                <span className="text-sm text-zinc-400">{t('thinking')}</span>
               </div>
             </div>
           </div>

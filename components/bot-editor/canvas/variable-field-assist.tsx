@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Textarea, type TextareaProps } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -96,6 +97,8 @@ function VariableCreateModalContent({
   onClose,
   onCreated,
 }: VariableCreateModalContentProps) {
+  const t = useTranslations('editor.variableAssist')
+  const ts = useTranslations('editor.system')
   const { config, addVariable } = useBotState()
 
   const [name, setName] = useState(initialName)
@@ -107,13 +110,13 @@ function VariableCreateModalContent({
   const handleCreate = () => {
     const variableName = normalizeName(name)
     if (!variableName) {
-      setError('Variable name is required')
+      setError(t('errors.nameRequired'))
       return
     }
 
     const exists = (config.variables || []).some((variable) => variable.name === variableName)
     if (exists) {
-      setError('Variable already exists')
+      setError(t('errors.alreadyExists'))
       return
     }
 
@@ -126,7 +129,7 @@ function VariableCreateModalContent({
       try {
         parsedDefault = defaultValue ? JSON.parse(defaultValue) : getDefaultValue(type)
       } catch {
-        setError('Default value must be valid JSON for object/array')
+        setError(t('errors.defaultJson'))
         return
       }
     } else if (defaultValue === '') {
@@ -148,7 +151,7 @@ function VariableCreateModalContent({
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-semibold">Create Variable</h3>
+          <h3 className="text-white font-semibold">{t('create.title')}</h3>
           <button
             type="button"
             onClick={onClose}
@@ -160,38 +163,38 @@ function VariableCreateModalContent({
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="var-create-name" className="text-white">Name</Label>
+            <Label htmlFor="var-create-name" className="text-white">{t('create.nameLabel')}</Label>
             <Input
               id="var-create-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="user_email"
+              placeholder={t('create.namePlaceholder')}
               className="mt-1.5 bg-zinc-800/50 border-white/10"
               autoFocus
             />
           </div>
 
           <div>
-            <Label htmlFor="var-create-type" className="text-white">Type</Label>
+            <Label htmlFor="var-create-type" className="text-white">{t('create.typeLabel')}</Label>
             <select
               id="var-create-type"
               value={type}
               onChange={(e) => setType(e.target.value as VariableType)}
               className="mt-1.5 w-full rounded-md border border-white/10 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#24A1DE]"
             >
-              <option value="string">string</option>
-              <option value="number">number</option>
-              <option value="boolean">boolean</option>
-              <option value="object">object</option>
-              <option value="array">array</option>
-              <option value="user">user</option>
-              <option value="message">message</option>
-              <option value="date">date</option>
+              <option value="string">{ts('typeString')}</option>
+              <option value="number">{ts('typeNumber')}</option>
+              <option value="boolean">{ts('typeBoolean')}</option>
+              <option value="object">{ts('typeObject')}</option>
+              <option value="array">{ts('typeArray')}</option>
+              <option value="user">{ts('typeUser')}</option>
+              <option value="message">{ts('typeMessage')}</option>
+              <option value="date">{ts('typeDate')}</option>
             </select>
           </div>
 
           <div>
-            <Label htmlFor="var-create-default" className="text-white">Default Value</Label>
+            <Label htmlFor="var-create-default" className="text-white">{t('create.defaultValueLabel')}</Label>
             <Input
               id="var-create-default"
               value={defaultValue}
@@ -202,7 +205,7 @@ function VariableCreateModalContent({
           </div>
 
           <div>
-            <Label htmlFor="var-create-description" className="text-white">Description</Label>
+            <Label htmlFor="var-create-description" className="text-white">{t('create.descriptionLabel')}</Label>
             <Textarea
               id="var-create-description"
               value={description}
@@ -220,14 +223,14 @@ function VariableCreateModalContent({
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('create.cancel')}
             </Button>
             <Button
               type="button"
               onClick={handleCreate}
               className="bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80"
             >
-              Create
+              {t('create.create')}
             </Button>
           </div>
         </div>
@@ -251,6 +254,7 @@ function VariableSuggestions({
   onSelect,
   onCreate,
 }: VariableSuggestionsProps) {
+  const t = useTranslations('editor.variableAssist')
   if (!open) return null
 
   const filtered = getFilteredVariables(variables, query)
@@ -260,17 +264,17 @@ function VariableSuggestions({
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
         <div className="flex items-center gap-2 text-xs text-zinc-400">
           <Search className="w-3.5 h-3.5" />
-          <span>Variables</span>
+          <span>{t('suggestions.title')}</span>
         </div>
         <button
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onCreate(query)}
           className="inline-flex items-center gap-1 text-xs text-[#24A1DE] hover:text-white"
-          title="Create variable"
+          title={t('suggestions.createTitle')}
         >
           <Plus className="w-3.5 h-3.5" />
-          Create
+          {t('suggestions.createButton')}
         </button>
       </div>
 
@@ -289,7 +293,7 @@ function VariableSuggestions({
           ))
         ) : (
           <div className="px-2.5 py-3 text-sm text-zinc-500">
-            No matching variables
+            {t('suggestions.noMatch')}
           </div>
         )}
       </div>

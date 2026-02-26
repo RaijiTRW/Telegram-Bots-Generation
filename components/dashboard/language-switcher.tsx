@@ -1,6 +1,6 @@
 'use client'
 
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useRouter, usePathname } from 'next/navigation'
 import { Globe } from 'lucide-react'
 import { motion } from '@/components/motion-wrapper'
@@ -10,6 +10,7 @@ import { useState, useTransition } from 'react'
 
 export function LanguageSwitcher() {
   const locale = useLocale()
+  const t = useTranslations()
   const router = useRouter()
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
@@ -37,7 +38,7 @@ export function LanguageSwitcher() {
       onClick={switchLocale}
       disabled={isSaving || isPending}
       className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-zinc-400 hover:text-white disabled:opacity-50"
-      aria-label="Switch language"
+      aria-label={t('header.switchLanguage')}
       whileHover={{ scale: isSaving || isPending ? 1 : 1.05 }}
       whileTap={{ scale: isSaving || isPending ? 1 : 0.95 }}
     >

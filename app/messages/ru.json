@@ -75,6 +75,11 @@
       "delete": "Удалить",
       "noDescription": "Нет описания",
       "new": "Новый",
+      "errors": {
+        "create": "Не удалось создать бота",
+        "update": "Не удалось обновить бота",
+        "delete": "Не удалось удалить бота"
+      },
       "status": {
         "active": "Активный",
         "draft": "Черновик",
@@ -97,6 +102,7 @@
       "unverifiedAccount": "Аккаунт не подтвержден",
       "profileInfo": "Информация профиля",
       "username": "Имя пользователя",
+      "usernamePlaceholder": "username",
       "emailNotChangeable": "Адрес электронной почты нельзя изменить",
       "emailChangeInSettings": "Изменить email можно в разделе настроек.",
       "openSettings": "Открыть настройки",
@@ -315,7 +321,9 @@
       "settingsDesc": "Конфигурация и опции",
       "botEditor": "Редактор бота",
       "unsavedChanges": "Несохранённые изменения",
-      "toSave": "для сохранения"
+      "toSave": "для сохранения",
+      "press": "Нажми",
+      "saveShortcutTitle": "Cmd+S для сохранения"
     },
     "canvas": {
       "test": "Тест",
@@ -335,12 +343,113 @@
       "logsLoadError": "Ошибка загрузки логов",
       "errorStart": "Не удалось запустить тест",
       "errorStop": "Не удалось остановить тест",
+      "errorStartFallback": "Не удалось запустить тест",
+      "errorStopFallback": "Не удалось остановить тест",
+      "errorSaveFallback": "Не удалось сохранить изменения",
       "clearCanvas": "Очистить холст",
       "clearConfirm": "Вы уверены, что хотите очистить холст?",
+      "copyLogsTitle": "Копировать логи",
+      "copyLogsText": "Текст",
+      "copyLogsJson": "JSON",
       "nodes": "Узлы",
       "connections": "Связи",
       "canvasEmpty": "Холст пуст",
-      "startBuilding": "Начните создавать рабочего бота, перетаскивая узлы из палитры или нажимая на них."
+      "startBuilding": "Начните создавать рабочего бота, перетаскивая узлы из палитры или нажимая на них.",
+      "palette": {
+        "pinned": "закреплено",
+        "hoverPreviewClickPin": "Наведи для просмотра, клик для закрепления",
+        "nodesCount": "{count} узлов",
+        "hoverClickPin": "Наведи • Клик = pin",
+        "categories": {
+          "trigger": {
+            "label": "Триггеры",
+            "hint": "Точки входа: команда, текст, callback, расписание, AI"
+          },
+          "messaging": {
+            "label": "Сообщения",
+            "hint": "Отправка сообщений и управление клавиатурой"
+          },
+          "logic": {
+            "label": "Логика",
+            "hint": "Условия, ветвления, switch / AI logic"
+          },
+          "data": {
+            "label": "Данные",
+            "hint": "Переменные, действия, HTTP"
+          },
+          "advanced": {
+            "label": "Доп.",
+            "hint": "Расширенные ноды (например Script)"
+          },
+          "other": {
+            "label": "Другое",
+            "hint": "Служебные и прочие ноды"
+          }
+        }
+      },
+      "nodeTemplateDescriptions": {
+        "triggerCommand": "Запуск workflow по команде пользователя",
+        "triggerText": "Запуск workflow по совпадению текста сообщения",
+        "triggerCallback": "Запуск workflow по нажатию inline-кнопки",
+        "triggerSchedule": "Запуск workflow по расписанию",
+        "triggerAI": "Запуск workflow по AI intent / семантике (скоро)",
+        "message": "Отправка текста, изображений и медиа",
+        "messageAI": "Генерация текста сообщения через AI (есть fallback)",
+        "condition": "Ветвление workflow по условию",
+        "conditionAI": "Ветвление через AI-классификацию (есть fallback-условие)",
+        "router": "Ветвление по нескольким путям по значению переменной",
+        "scheduler": "Продолжить workflow позже (с таймзоной)",
+        "replyKeyboard": "Управление базовой Telegram-клавиатурой",
+        "script": "Запуск transform-кода на JavaScript или Python",
+        "action": "Выполнение пользовательских действий",
+        "input": "Запрос ввода пользователя или данных",
+        "http": "HTTP-запросы к внешним API"
+      },
+      "nodeDescriptions": {
+        "defaults": {
+          "default": "Default",
+          "variable": "переменная",
+          "cases": "веток",
+          "dateTime": "дата/время"
+        },
+        "trigger": {
+          "aiIntentPrompt": "AI intent • {prompt}",
+          "aiIntentSoon": "AI intent / semantic match (soon)",
+          "callbackPattern": "Callback: {pattern}",
+          "anyCallback": "Любой callback",
+          "textPattern": "Текст: {pattern}",
+          "incomingText": "Совпадение по входящему тексту",
+          "photo": "Запуск по фото",
+          "anyUpdate": "Запуск по любому событию",
+          "scheduleHourly": "Каждые {everyHours}ч в :{minute} • {timeZone}",
+          "scheduleDaily": "Ежедневно {atTime} • {timeZone}",
+          "command": "Запуск по {pattern}"
+        },
+        "router": {
+          "summary": "{variable} • {count} {casesWord}",
+          "bottomOutput": "Нижний выход"
+        },
+        "scheduler": {
+          "at": "В {dateTime}{timeZoneSuffix}",
+          "delay": "Задержка {value} {unit}",
+          "units": {
+            "seconds": "сек",
+            "minutes": "мин",
+            "hours": "ч",
+            "days": "дн"
+          }
+        },
+        "replyKeyboard": {
+          "hide": "Скрыть клавиатуру",
+          "variant": "Вариант • {variant}",
+          "condition": "Если {variable}",
+          "system": "Использовать системные правила"
+        },
+        "condition": {
+          "true": "Да",
+          "false": "Нет"
+        }
+      }
     },
     "settings": {
       "basicInfo": "Основная информация",
@@ -390,6 +499,9 @@
       "typeArray": "Массив",
       "typeUser": "Пользователь",
       "typeMessage": "Сообщение",
+      "typeDate": "Дата",
+      "booleanTrue": "Да",
+      "booleanFalse": "Нет",
       "eventTriggers": "Триггеры событий",
       "active": "активно",
       "tip": "Совет:",
@@ -425,12 +537,158 @@
       "type": "Тип",
       "actions": "Действия",
       "deleteConfirm": "Вы уверены, что хотите удалить эту переменную?",
-      "separateCommands": "Разделяйте несколько команд запятыми"
+      "separateCommands": "Разделяйте несколько команд запятыми",
+      "commandsPlaceholder": "/help, /start, /about",
+      "regexPlaceholder": "regex шаблон",
+      "inlineQueryTemplatePlaceholder": "@{bot} {query}",
+      "notAvailable": "N/A",
+      "autoReactions": {
+        "title": "Доп. функция: Реакции Telegram",
+        "description": "Бот будет ставить реакцию на входящие сообщения пользователя через правило-ориентированную логику (без AI).",
+        "enabled": "Включено",
+        "disabled": "Выключено",
+        "cooldownLabel": "Cooldown между реакциями (сек)",
+        "cooldownHint": "Ограничение, чтобы бот не спамил реакциями на каждое сообщение подряд.",
+        "onlyTextTitle": "Только текст/подпись",
+        "onlyTextHint": "Если выключить, бот будет ставить базовую реакцию и на нетекстовые сообщения.",
+        "aiTitle": "AI реакций",
+        "aiPlaceholder": "Описание логики AI-реакций",
+        "aiSoon": "AI реакций (скоро)",
+        "aiHint": "Позже здесь будет prompt/настройка анализа сообщения для выбора реакции через AI.",
+        "rulesTitle": "Как выбирается реакция (без AI)",
+        "ruleThanks": "`спасибо`, `thanks` → ❤️",
+        "rulePositive": "позитив (`круто`, `super`, `great`) → 🔥",
+        "ruleQuestion": "вопрос/`?` → 🤔",
+        "ruleError": "ошибка/проблема (`error`, `не работает`) → 👀",
+        "ruleStart": "`/start` → 👋",
+        "ruleOther": "прочие команды `/...` → ⚡, иначе → 👍",
+        "footerHint": "Реакция ставится только на сообщения пользователя (не на сообщения самого бота)."
+      },
+      "replyKeyboard": {
+        "title": "Reply Keyboard (под input)",
+        "description": "Постоянная клавиатура Telegram под полем ввода. Можно задать базовые кнопки и условные варианты.",
+        "enabled": "Включено",
+        "disabled": "Выключено",
+        "resizeTitle": "Resize keyboard",
+        "resizeHint": "Компактнее по высоте на клиенте Telegram.",
+        "persistentTitle": "Persistent",
+        "persistentHint": "Просить Telegram держать клавиатуру постоянно.",
+        "oneTimeTitle": "One-time",
+        "oneTimeHint": "Telegram может скрыть клавиатуру после нажатия.",
+        "baseButtonsTitle": "Базовые кнопки (по умолчанию)",
+        "baseButtonsEmpty": "Базовая клавиатура пустая. Добавь кнопки для постоянной клавиатуры.",
+        "rulesTitle": "Условные варианты клавиатуры",
+        "rulesHint": "Первый совпавший rule заменит базовую клавиатуру. Эти же варианты доступны в ноде `Reply Keyboard`.",
+        "ruleButton": "Rule",
+        "noRules": "Пока нет правил. Можно оставить только базовую клавиатуру или добавить условия (например `user.languageCode = ru`).",
+        "ruleNameLabel": "Название варианта",
+        "ruleNamePlaceholder": "Правило {index}",
+        "ruleIdLabel": "ID: `rule:{id}`",
+        "ruleVariableLabel": "Переменная",
+        "ruleOperatorLabel": "Оператор",
+        "ruleValueLabel": "Значение",
+        "ruleVariablePlaceholder": "user.languageCode",
+        "ruleValuePlaceholder": "ru",
+        "ruleButtonsLabel": "Кнопки варианта",
+        "ruleButtonsEmpty": "Этот вариант пустой. Добавь кнопки.",
+        "defaultButtonText": "Кнопка",
+        "howItWorksTitle": "Как это работает",
+        "howItWorks1": "1. Бот отправляет обычное сообщение -> runtime подставляет system reply keyboard.",
+        "howItWorks2": "2. Сначала проверяются rules (сверху вниз), затем fallback на базовую клавиатуру.",
+        "howItWorks3": "3. Нода `Reply Keyboard` на холсте может переключить variant / скрыть клавиатуру / вернуть system mode.",
+        "operators": {
+          "equals": "равно",
+          "notEquals": "не равно",
+          "contains": "содержит",
+          "notContains": "не содержит",
+          "gt": "больше",
+          "lt": "меньше",
+          "gte": "больше или равно",
+          "lte": "меньше или равно",
+          "isEmpty": "пусто",
+          "isNotEmpty": "не пусто"
+        },
+        "emojiPicker": {
+          "title": "Выбор эмодзи",
+          "clear": "Очистить",
+          "close": "Закрыть",
+          "noRecent": "Пока нет недавних эмодзи",
+          "categories": {
+            "recent": "Недавние",
+            "smileys": "Смайлы",
+            "gestures": "Жесты",
+            "travel": "Транспорт",
+            "objects": "Предметы",
+            "symbols": "Символы"
+          }
+        },
+        "stylePicker": {
+          "title": "Стиль кнопки",
+          "close": "Закрыть"
+        },
+        "styleOptions": {
+          "default": "Default",
+          "primary": "Primary",
+          "success": "Success",
+          "danger": "Danger"
+        },
+        "editor": {
+          "preview": "Предпросмотр",
+          "button": "Кнопка",
+          "rowSummary": "Ряд {row} • {count} кноп.",
+          "chooseEmoji": "Выбрать эмодзи",
+          "chooseStyle": "Выбрать стиль",
+          "buttonTextPlaceholder": "Текст кнопки",
+          "customEmojiIdPlaceholder": "Custom emoji ID (опционально, зависит от premium/владельца)",
+          "addRow": "Добавить ряд",
+          "replyKeyboardTextTriggerHint": "Reply keyboard кнопки отправляют обычный текст. Для обработки нажатий используй Text Trigger (или Condition/Router по message.text), а не Callback Trigger.",
+          "empty": {
+            "noButtons": "Нет кнопок",
+            "addButtonAndRow": "Добавь хотя бы одну кнопку и ряд."
+          }
+        }
+      }
     },
     "chat": {
       "placeholder": "Опишите, что вы хотите создать...",
       "quickActions": "Быстрые действия:",
-      "enterToSend": "Нажмите Enter для отправки, Shift+Enter для новой строки"
+      "enterToSend": "Нажмите Enter для отправки, Shift+Enter для новой строки",
+      "panelSubtitle": "Создавайте бота с помощью AI",
+      "poweredByAI": "Работает на AI",
+      "suggestionsPrefix": "Подсказки",
+      "errorFallback": "Извините, произошла ошибка. Попробуйте ещё раз.",
+      "nodesAddedOne": "Добавлен 1 узел на холст",
+      "nodesAddedMany": "Добавлено {count} узлов на холст",
+      "emptyIntro": "Привет! Я AI-ассистент для создания Telegram-ботов. Я могу помочь вам:",
+      "emptyHelp1": "Создавать диалоговые сценарии и обработчики сообщений",
+      "emptyHelp2": "Добавлять условия, действия и HTTP-запросы",
+      "emptyHelp3": "Настраивать переменные и хранение данных",
+      "emptyHelp4": "Объяснять и отлаживать существующую логику бота",
+      "emptyQuestion": "Что вы хотите создать сегодня?",
+      "thinking": "AI думает..."
+    },
+    "variableAssist": {
+      "errors": {
+        "nameRequired": "Имя переменной обязательно",
+        "alreadyExists": "Переменная уже существует",
+        "defaultJson": "Значение по умолчанию должно быть валидным JSON для object/array"
+      },
+      "create": {
+        "title": "Создать переменную",
+        "nameLabel": "Имя",
+        "namePlaceholder": "user_email",
+        "typeLabel": "Тип",
+        "defaultValueLabel": "Значение по умолчанию",
+        "descriptionLabel": "Описание",
+        "cancel": "Отмена",
+        "create": "Создать"
+      },
+      "suggestions": {
+        "title": "Переменные",
+        "createTitle": "Создать переменную",
+        "createButton": "Создать",
+        "noMatch": "Нет подходящих переменных"
+      }
     },
     "modals": {
       "createBot": "Создать бота",
@@ -459,6 +717,9 @@
       "deploy": "Развернуть",
       "autoOpenTelegram": "Авто-переход в Telegram",
       "unsavedChanges": "Несохранённые изменения",
+      "resizeSectionsPanel": "Изменить ширину панели разделов",
+      "resizeSectionsPanelHint": "Потяни для изменения ширины. Двойной клик — сброс",
+      "sectionsPanelResetHint": "Двойной клик по разделителю сбрасывает размер панели разделов",
       "exitConfirm": "Выйти из редактора?",
       "exitDesc": "У вас есть несохранённые изменения. При выходе они будут потеряны.",
       "stay": "Остаться",
@@ -467,6 +728,10 @@
     "nodeSettings": {
       "selectNode": "Выберите компонент для редактирования",
       "save": "Сохранить",
+      "close": "Закрыть",
+      "openDetailedMode": "Открыть детальные настройки",
+      "collapseDetailedMode": "Свернуть детальный режим",
+      "detailedModeHint": "Детальные настройки ноды. Фон заблокирован, редактирование доступно только в этом окне.",
       "nodeId": "ID:",
       "message": {
         "textLabel": "Текст сообщения",
@@ -509,7 +774,13 @@
         "attachmentUploadFailed": "Не удалось загрузить файл",
         "attachmentsComingSoon": "Редактор вложений скоро будет доступен",
         "keyboard": "Клавиатура (кнопки)",
-        "addRow": "Добавить ряд"
+        "addRow": "Добавить ряд",
+        "aiTitle": "AI Message",
+        "aiDescription": "AI генерация ответа будет добавлена позже. Ниже пока работает fallback-текст.",
+        "soon": "скоро",
+        "aiPromptLabel": "AI Prompt",
+        "aiPromptPlaceholder": "Опиши стиль/цель AI ответа",
+        "aiSoonOverlay": "AI Message (скоро)"
       },
       "input": {
         "questionLabel": "Вопрос пользователю",
@@ -540,7 +811,13 @@
         "isNotEmpty": "не пусто",
         "valueLabel": "Значение",
         "valuePlaceholder": "Значение для сравнения",
-        "preview": "Если {variable} {condition} \"{value}\""
+        "preview": "Если {variable} {condition} \"{value}\"",
+        "aiTitle": "AI Logic",
+        "aiDescription": "AI-классификация ветвления будет добавлена позже. Ниже сейчас используется fallback-условие.",
+        "soon": "скоро",
+        "aiPromptLabel": "AI Classification Prompt",
+        "aiPromptPlaceholder": "Например: Определи, это вопрос о поддержке или нет",
+        "aiSoonOverlay": "AI Logic (скоро)"
       },
       "action": {
         "actionTab": "Действие",
@@ -585,7 +862,11 @@
         "timeoutLabel": "Таймаут (мс)",
         "emptyList": "Пусто",
         "addPair": "Добавить",
-        "bodyNone": "Без тела"
+        "bodyNone": "Без тела",
+        "keyPlaceholder": "ключ",
+        "valuePlaceholder": "значение",
+        "bodyForm": "Form Data",
+        "bodyRaw": "Raw"
       },
       "trigger": {
         "typeLabel": "Тип триггера",
@@ -594,9 +875,34 @@
         "callbackQuery": "Callback Query",
         "photo": "Фото",
         "any": "Любое сообщение",
+        "schedule": "Расписание (время)",
         "patternLabel": "Шаблон",
         "commandPlaceholder": "/start",
         "textPlaceholder": "Привет",
+        "callbackDataLabel": "Callback Data",
+        "callbackPlaceholder": "Например: menu:settings",
+        "callbackAnyHint": "Оставьте пустым, чтобы ловить любое нажатие inline-кнопки.",
+        "scheduleModeLabel": "Режим расписания",
+        "scheduleDaily": "Каждый день в заданное время",
+        "scheduleHourly": "Каждые N часов",
+        "scheduleTimeLabel": "Время (HH:mm)",
+        "scheduleEveryHoursLabel": "Каждые N часов",
+        "scheduleMinuteLabel": "На минуте",
+        "scheduleTimezoneLabel": "Таймзона (IANA)",
+        "scheduleTimezonePlaceholder": "Europe/Moscow",
+        "scheduleTimezoneHint": "Примеры: `UTC`, `Europe/Moscow`, `America/New_York`",
+        "scheduleTargetChatIdLabel": "Target Chat ID",
+        "scheduleTargetChatIdPlaceholder": "-1001234567890 или 123456789",
+        "scheduleTargetChatIdHint": "Обязательно для message-based workflow, запущенных по расписанию.",
+        "scheduleTargetUserIdLabel": "Target User ID (опционально)",
+        "scheduleTargetUserIdPlaceholder": "123456789",
+        "scheduleTargetUserIdHint": "Опционально. Помогает сохранить `user.*` контекст в некоторых сценариях.",
+        "aiTitle": "AI Trigger",
+        "aiDescription": "AI intent/semantic trigger будет добавлен позже. Сейчас fallback: пустой pattern ловит любой текст.",
+        "soon": "скоро",
+        "aiPromptLabel": "AI Intent Prompt",
+        "aiPromptPlaceholder": "Например: срабатывай на запросы о заказе и оплате",
+        "aiSoonOverlay": "AI Trigger (скоро)",
         "descriptionLabel": "Описание",
         "descriptionPlaceholder": "Описание точки входа"
       },
@@ -625,12 +931,96 @@
         "row": "Ряд",
         "button": "Кнопка",
         "callbackPlaceholder": "Callback data (для Callback Trigger)"
+      },
+      "router": {
+        "variableLabel": "Переменная",
+        "variablePlaceholder": "user.languageCode",
+        "variableHint": "Сравнивает эту переменную с несколькими вариантами. Срабатывает первое совпадение.",
+        "operatorLabel": "Оператор (для всех вариантов)",
+        "casesLabel": "Варианты",
+        "addCase": "Добавить вариант",
+        "noCases": "Пока нет вариантов. Добавьте хотя бы один.",
+        "handleLabel": "Handle:",
+        "caseLabel": "Название",
+        "caseDefaultLabel": "Case",
+        "caseValueLabel": "Сравниваемое значение",
+        "caseValuePlaceholder": "en",
+        "defaultBranchLabel": "Название ветки по умолчанию",
+        "defaultPlaceholder": "Default",
+        "defaultHint": "Подключите нижний выход для ветки по умолчанию."
+      },
+      "script": {
+        "languageLabel": "Язык",
+        "languageJavascript": "JavaScript (Node)",
+        "languagePython": "Python",
+        "timeoutLabel": "Таймаут (мс)",
+        "inputPathLabel": "Путь входных данных (опционально)",
+        "inputPathPlaceholder": "message.text or user.languageCode",
+        "inputPathHint": "Если пусто, `input` будет полным объектом `context`.",
+        "saveVarLabel": "Сохранить результат в переменную (опционально)",
+        "saveVarPlaceholder": "scriptResult",
+        "codeLabel": "Код",
+        "contractTitle": "Контракт",
+        "contractPrefix": "Доступные переменные:",
+        "contractSuffix": "Запишите итоговое значение в",
+        "safetyHint": "Python/JS скрипты выполняются на сервере. Используйте только в доверенной/self-host среде.",
+        "editorHeaderPython": "Подсветка синтаксиса Python + подсказки",
+        "editorHeaderJavascript": "Подсветка синтаксиса JavaScript + подсказки",
+        "editorShortcut": "Ctrl/Cmd + Space",
+        "suggestionsTitle": "Подсказки"
+      },
+      "scheduler": {
+        "modeLabel": "Режим",
+        "modeDelay": "Задержка (относительно)",
+        "modeDateTime": "Дата и время (с таймзоной)",
+        "delayValueLabel": "Значение задержки",
+        "delayUnitLabel": "Единица задержки",
+        "unitSeconds": "Секунды",
+        "unitMinutes": "Минуты",
+        "unitHours": "Часы",
+        "unitDays": "Дни",
+        "dateTimeLabel": "Дата и время",
+        "dateTimeHint": "Интерпретируется в выбранной ниже таймзоне.",
+        "timezoneLabel": "Таймзона (IANA)",
+        "timezonePlaceholder": "Europe/Moscow",
+        "timezoneHint": "Примеры: `UTC`, `Europe/Moscow`, `America/New_York`",
+        "saveVarLabel": "Сохранить запланированное время в переменную (опционально)",
+        "saveVarPlaceholder": "scheduledAt",
+        "saveVarHint": "Сохраняет ISO UTC timestamp (например `2026-02-24T12:30:00.000Z`)."
+      },
+      "replyKeyboardNode": {
+        "baseVariantLabel": "Базовая клавиатура",
+        "ruleVariantPrefix": "Rule",
+        "ruleFallbackLabel": "Rule",
+        "modeLabel": "Режим",
+        "modeSystem": "Использовать системные правила/по умолчанию",
+        "modeVariant": "Выбрать конкретный вариант клавиатуры",
+        "modeCondition": "Условие -> выбрать клавиатуру",
+        "modeClear": "Скрыть клавиатуру (remove)",
+        "modeHint": "Работает с системными настройками Reply Keyboard (базовая клавиатура + условные варианты).",
+        "variantLabel": "Вариант",
+        "variantHint": "`base` = базовая клавиатура из раздела Система. `rule:*` = вариант из условного списка.",
+        "variableLabel": "Путь к переменной",
+        "variablePlaceholder": "user.languageCode",
+        "operatorLabel": "Оператор",
+        "valueLabel": "Значение",
+        "valuePlaceholder": "ru",
+        "ifTrue": "Если TRUE",
+        "ifFalse": "Если FALSE",
+        "actionLabel": "Действие",
+        "actionSetVariant": "Установить вариант",
+        "actionUseSystem": "Использовать системные правила",
+        "actionHide": "Скрыть клавиатуру",
+        "clearHint": "Нода пометит reply keyboard на удаление. Скрытие произойдёт на следующем сообщении бота (без inline keyboard)."
       }
     }
   },
   "header": {
     "logo": "TFlow",
     "welcomeBack": "Добро пожаловать",
+    "switchLanguage": "Сменить язык",
+    "appVersionAria": "Версия приложения {version}",
+    "userAvatarAlt": "Аватар пользователя",
     "nav": {
       "features": "Возможности",
       "templates": "Шаблоны",

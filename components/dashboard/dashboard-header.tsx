@@ -6,6 +6,9 @@ import { User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import { LanguageSwitcher } from '@/components/dashboard/language-switcher'
+import packageJson from '@/package.json'
+
+const APP_VERSION = packageJson.version
 
 export function DashboardHeader() {
   const t = useTranslations()
@@ -104,11 +107,22 @@ export function DashboardHeader() {
 
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
+          <div
+            className="inline-flex items-center rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-zinc-300"
+            title={`CBTooll v${APP_VERSION}`}
+            aria-label={t('header.appVersionAria', { version: APP_VERSION })}
+          >
+            v{APP_VERSION}
+          </div>
           {/* Avatar with gradient border */}
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#24A1DE] to-[#8B5CF6] blur-sm opacity-70" />
             <Avatar className="relative bg-zinc-900 border-2 border-zinc-800 shadow-xl">
-              <AvatarImage src={avatarUrl || undefined} alt={userName || 'User avatar'} className="object-cover" />
+              <AvatarImage
+                src={avatarUrl || undefined}
+                alt={userName || t('header.userAvatarAlt')}
+                className="object-cover"
+              />
               <AvatarFallback className="bg-gradient-to-br from-zinc-800 to-zinc-900 text-white font-semibold text-sm">
                 {initials || <User className="w-5 h-5" />}
               </AvatarFallback>

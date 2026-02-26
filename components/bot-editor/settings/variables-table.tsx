@@ -145,8 +145,8 @@ export function VariablesTable() {
             onChange={(e) => onChange(e.target.value === 'true')}
             className="px-2 py-1 rounded bg-zinc-900/50 border border-white/10 text-white text-sm focus:border-[#24A1DE] focus:outline-none"
           >
-            <option value="true">True</option>
-            <option value="false">False</option>
+            <option value="true">{t('booleanTrue')}</option>
+            <option value="false">{t('booleanFalse')}</option>
           </select>
         )
       case 'number':
