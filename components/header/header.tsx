@@ -135,10 +135,10 @@ export function Header() {
   };
 
   const navItems = [
-    { key: 'nav.features', href: '#features' },
-    { key: 'nav.templates', href: '#templates' },
-    { key: 'nav.pricing', href: '#pricing' },
-    { key: 'nav.docs', href: '#docs' },
+    { key: 'nav.features', href: `/${locale}#features` },
+    { key: 'nav.templates', href: `/${locale}#templates` },
+    { key: 'nav.pricing', href: `/${locale}#pricing` },
+    { key: 'nav.docs', href: `/${locale}/docs` },
   ];
 
   return (
@@ -200,7 +200,7 @@ export function Header() {
             <motion.button
               onClick={() => switchLocale(locale === 'ru' ? 'en' : 'ru')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
-              aria-label="Switch language"
+              aria-label={t('switchLanguage')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -223,7 +223,7 @@ export function Header() {
 
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Link
-                    href="#cta"
+                    href={`/${locale}#cta`}
                     className="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold text-white shadow-lg inline-block"
                   >
                     {t('buttons.createBot')}
@@ -339,7 +339,7 @@ export function Header() {
                       {t('buttons.login')}
                     </Link>
                     <Link
-                      href="#cta"
+                      href={`/${locale}#cta`}
                       className="btn-primary block px-4 py-3 text-center rounded-lg font-semibold text-white"
                       onClick={() => setIsMenuOpen(false)}
                     >

@@ -1,7 +1,8 @@
 'use client'
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Search, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { CircleHelp, Plus, Search, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Textarea, type TextareaProps } from '@/components/ui/textarea'
@@ -16,7 +17,15 @@ const SYSTEM_VARIABLES = [
   'user.firstName',
   'user.lastName',
   'user.languageCode',
-]
+] as const
+
+type VariableSuggestionKind = 'system' | 'custom' | 'external'
+
+interface VariableSuggestionItem {
+  name: string
+  kind: VariableSuggestionKind
+  description?: string
+}
 
 function getDefaultValue(type: VariableType): unknown {
   switch (type) {
@@ -37,13 +46,13 @@ function normalizeName(value: string): string {
   return value.trim()
 }
 
-function getFilteredVariables(allVariables: string[], query: string) {
+function getFilteredVariables(allVariables: VariableSuggestionItem[], query: string) {
   const normalizedQuery = query.trim().toLowerCase()
   if (!normalizedQuery) return allVariables
 
   return [...allVariables].sort((left, right) => {
-    const leftLower = left.toLowerCase()
-    const rightLower = right.toLowerCase()
+    const leftLower = left.name.toLowerCase()
+    const rightLower = right.name.toLowerCase()
 
     const leftStarts = leftLower.startsWith(normalizedQuery)
     const rightStarts = rightLower.startsWith(normalizedQuery)
@@ -57,8 +66,8 @@ function getFilteredVariables(allVariables: string[], query: string) {
       return leftIncludes ? -1 : 1
     }
 
-    return left.localeCompare(right)
-  }).filter((item) => item.toLowerCase().includes(normalizedQuery))
+    return left.name.localeCompare(right.name)
+  }).filter((item) => item.name.toLowerCase().includes(normalizedQuery))
 }
 
 interface VariableCreateModalProps {
@@ -242,9 +251,17 @@ function VariableCreateModalContent({
 interface VariableSuggestionsProps {
   open: boolean
   query: string
-  variables: string[]
+  variables: VariableSuggestionItem[]
   onSelect: (name: string) => void
   onCreate: (prefill: string) => void
+}
+
+interface VariableTooltipState {
+  left: number
+  top: number
+  placement: 'top' | 'bottom'
+  kindLabel: string
+  description: string
 }
 
 function VariableSuggestions({
@@ -255,67 +272,200 @@ function VariableSuggestions({
   onCreate,
 }: VariableSuggestionsProps) {
   const t = useTranslations('editor.variableAssist')
+  const [tooltipState, setTooltipState] = useState<VariableTooltipState | null>(null)
   if (!open) return null
 
   const filtered = getFilteredVariables(variables, query)
+  const getSystemDescription = (name: string) => {
+    switch (name) {
+      case 'user.id':
+        return t('suggestions.systemDescriptions.userId')
+      case 'user.username':
+        return t('suggestions.systemDescriptions.username')
+      case 'user.firstName':
+        return t('suggestions.systemDescriptions.firstName')
+      case 'user.lastName':
+        return t('suggestions.systemDescriptions.lastName')
+      case 'user.languageCode':
+        return t('suggestions.systemDescriptions.languageCode')
+      default:
+        return t('suggestions.systemDescriptionFallback')
+    }
+  }
+
+  const getDescriptionMeta = (variable: VariableSuggestionItem) => {
+    if (variable.kind === 'system') {
+      return {
+        kindLabel: t('suggestions.typeSystem'),
+        description: getSystemDescription(variable.name),
+      }
+    }
+
+    if (variable.kind === 'custom') {
+      return {
+        kindLabel: t('suggestions.typeCustom'),
+        description: variable.description || t('suggestions.customDescriptionFallback'),
+      }
+    }
+
+    return {
+      kindLabel: t('suggestions.typeExternal'),
+      description: variable.description || t('suggestions.externalDescriptionFallback'),
+    }
+  }
+
+  const hideTooltip = () => {
+    setTooltipState(null)
+  }
+
+  const showTooltip = (target: HTMLElement, variable: VariableSuggestionItem) => {
+    const tooltipMeta = getDescriptionMeta(variable)
+    const rect = target.getBoundingClientRect()
+    const tooltipWidth = 256
+    const gap = 10
+    const viewportPadding = 8
+    const estimatedHeight = 88
+
+    const left = Math.min(
+      Math.max(viewportPadding, rect.right - tooltipWidth),
+      window.innerWidth - tooltipWidth - viewportPadding
+    )
+
+    const placeBottom = rect.top < estimatedHeight + gap + viewportPadding
+    const top = placeBottom ? rect.bottom + gap : rect.top - gap
+
+    setTooltipState({
+      left,
+      top,
+      placement: placeBottom ? 'bottom' : 'top',
+      kindLabel: tooltipMeta.kindLabel,
+      description: tooltipMeta.description,
+    })
+  }
 
   return (
-    <div className="absolute left-0 right-0 top-full mt-2 z-[110] rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur-xl shadow-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
-          <Search className="w-3.5 h-3.5" />
-          <span>{t('suggestions.title')}</span>
+    <>
+      <div className="absolute left-0 right-0 top-full mt-2 z-[110] rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur-xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+          <div className="flex items-center gap-2 text-xs text-zinc-400">
+            <Search className="w-3.5 h-3.5" />
+            <span>{t('suggestions.title')}</span>
+          </div>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onCreate(query)}
+            className="inline-flex items-center gap-1 text-xs text-[#24A1DE] hover:text-white"
+            title={t('suggestions.createTitle')}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {t('suggestions.createButton')}
+          </button>
         </div>
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => onCreate(query)}
-          className="inline-flex items-center gap-1 text-xs text-[#24A1DE] hover:text-white"
-          title={t('suggestions.createTitle')}
+
+        <div
+          className="max-h-56 overflow-y-auto p-2 space-y-1"
+          onScroll={hideTooltip}
         >
-          <Plus className="w-3.5 h-3.5" />
-          {t('suggestions.createButton')}
-        </button>
+          {filtered.length > 0 ? (
+            filtered.map((variable) => (
+              <div
+                key={variable.name}
+                className="flex items-center gap-2 rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onSelect(variable.name)}
+                  className="flex-1 text-left px-2.5 py-2 rounded-lg"
+                >
+                  <code className="text-sm text-[#24A1DE]">{variable.name}</code>
+                </button>
+
+                <button
+                  type="button"
+                  aria-label={t('suggestions.descriptionIconAria')}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={(e) => showTooltip(e.currentTarget, variable)}
+                  onMouseLeave={hideTooltip}
+                  onFocus={(e) => showTooltip(e.currentTarget, variable)}
+                  onBlur={hideTooltip}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/15 text-zinc-400 transition-colors hover:border-white/30 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24A1DE]/70"
+                >
+                  <CircleHelp className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="px-2.5 py-3 text-sm text-zinc-500">
+              {t('suggestions.noMatch')}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="max-h-56 overflow-y-auto p-2 space-y-1">
-        {filtered.length > 0 ? (
-          filtered.map((variable) => (
-            <button
-              key={variable}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => onSelect(variable)}
-              className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors"
+      {tooltipState && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="fixed z-[4000] w-64 rounded-lg border border-white/10 bg-zinc-900 px-2.5 py-2 text-left text-xs text-zinc-200 shadow-2xl pointer-events-none"
+              style={{
+                left: tooltipState.left,
+                top: tooltipState.top,
+                transform: tooltipState.placement === 'top' ? 'translateY(-100%)' : undefined,
+              }}
             >
-              <code className="text-sm text-[#24A1DE]">{variable}</code>
-            </button>
-          ))
-        ) : (
-          <div className="px-2.5 py-3 text-sm text-zinc-500">
-            {t('suggestions.noMatch')}
-          </div>
-        )}
-      </div>
-    </div>
+              <span className="block text-[11px] uppercase tracking-wide text-zinc-400">
+                {tooltipState.kindLabel}
+              </span>
+              <span className="mt-1 block leading-relaxed">{tooltipState.description}</span>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   )
 }
 
-function useAvailableVariableNames(extraVariables?: string[]) {
+function useAvailableVariables(extraVariables?: string[]) {
   const { config } = useBotState()
 
   return useMemo(() => {
-    const fromConfig = (config.variables || [])
-      .map((variable) => normalizeName(variable.name))
-      .filter(Boolean)
+    const mapped = new Map<string, VariableSuggestionItem>()
 
-    const fromExtra = (extraVariables || [])
-      .map((name) => normalizeName(name))
-      .filter(Boolean)
+    for (const name of SYSTEM_VARIABLES) {
+      mapped.set(name, {
+        name,
+        kind: 'system',
+      })
+    }
 
-    return [...new Set([...SYSTEM_VARIABLES, ...fromConfig, ...fromExtra])].sort((a, b) =>
-      a.localeCompare(b)
-    )
+    for (const variable of config.variables || []) {
+      const variableName = normalizeName(variable.name)
+      if (!variableName || mapped.has(variableName)) continue
+      mapped.set(variableName, {
+        name: variableName,
+        kind: 'custom',
+        description:
+          typeof variable.description === 'string'
+            ? variable.description.trim() || undefined
+            : undefined,
+      })
+    }
+
+    for (const rawName of extraVariables || []) {
+      const variableName = normalizeName(rawName)
+      if (!variableName || mapped.has(variableName)) continue
+      mapped.set(variableName, {
+        name: variableName,
+        kind: 'external',
+      })
+    }
+
+    return [...mapped.values()].sort((left, right) => left.name.localeCompare(right.name))
   }, [config.variables, extraVariables])
 }
 
@@ -336,7 +486,7 @@ export function VariableAutocompleteInput({
   className,
   variables,
 }: VariableAutocompleteInputProps) {
-  const allVariables = useAvailableVariableNames(variables)
+  const allVariables = useAvailableVariables(variables)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [open, setOpen] = useState(false)
@@ -438,7 +588,7 @@ export const TemplateVariableTextarea = forwardRef<HTMLTextAreaElement, Template
   onFocus,
   ...textareaProps
 }: TemplateVariableTextareaProps, forwardedRef) {
-  const allVariables = useAvailableVariableNames(variables)
+  const allVariables = useAvailableVariables(variables)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const pendingCursorRef = useRef<number | null>(null)

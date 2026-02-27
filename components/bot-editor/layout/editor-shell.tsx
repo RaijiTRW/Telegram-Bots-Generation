@@ -156,6 +156,10 @@ export function EditorShell({ botId, children }: EditorShellProps) {
             bot.metadata?.features && typeof bot.metadata.features === 'object'
               ? (bot.metadata.features as Record<string, unknown>)
               : undefined,
+          profileStyle:
+            bot.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
+              ? (bot.metadata.profileStyle as Record<string, unknown>)
+              : undefined,
         },
       })
 

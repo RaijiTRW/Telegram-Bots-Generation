@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { useLocale } from 'next-intl'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Bot, Activity, Users, MessageSquare, ArrowRight } from 'lucide-react'
@@ -6,7 +8,7 @@ import { Bot, Activity, Users, MessageSquare, ArrowRight } from 'lucide-react'
 export default function DashboardPage() {
   const t = useTranslations('dashboard.home')
   const tStats = useTranslations('dashboard.stats')
-  const tNav = useTranslations('dashboard.nav')
+  const locale = useLocale()
 
   const stats = [
     {
@@ -96,12 +98,17 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/90 hover:to-[#8B5CF6]/90 text-white font-medium rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-[#24A1DE]/20 hover:-translate-y-0.5">
-              {t('createBot')}
-              <ArrowRight className="w-4 h-4" />
+            <Button
+              asChild
+              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/90 hover:to-[#8B5CF6]/90 text-white font-medium rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-[#24A1DE]/20 hover:-translate-y-0.5"
+            >
+              <Link href={`/${locale}/dashboard/bots`}>
+                {t('createBot')}
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </Button>
-            <Button variant="outline" className="border-white/10 text-zinc-300 hover:bg-white/5 hover:text-white">
-              {t('viewDocs')}
+            <Button asChild variant="outline" className="border-white/10 text-zinc-300 hover:bg-white/5 hover:text-white">
+              <Link href={`/${locale}/dashboard/docs`}>{t('viewDocs')}</Link>
             </Button>
           </div>
         </div>

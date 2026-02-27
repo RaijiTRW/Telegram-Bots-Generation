@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Home, User, Settings, LogOut, Bot } from 'lucide-react'
+import { Home, User, Settings, LogOut, Bot, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -12,6 +12,7 @@ import { CompactLogo } from '@/components/logo'
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'dashboard.nav.home' },
   { href: '/dashboard/bots', icon: Bot, label: 'dashboard.nav.bots' },
+  { href: '/dashboard/docs', icon: BookOpen, label: 'dashboard.nav.docs' },
   { href: '/dashboard/profile', icon: User, label: 'dashboard.nav.profile' },
   { href: '/dashboard/settings', icon: Settings, label: 'dashboard.nav.settings' },
 ]

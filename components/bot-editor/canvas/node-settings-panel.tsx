@@ -186,11 +186,11 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
   const Icon = ICONS[nodeType] || Settings
   const replyKeyboardVariantOptions = getReplyKeyboardVariantOptionsFromMetadata(
     (bot?.metadata || null) as Record<string, unknown> | null,
-    t
+    t as any
   )
   const panelTitle =
     typeof (data as Record<string, unknown> | null)?.__label === 'string' &&
-    String((data as Record<string, unknown>).__label || '').trim()
+      String((data as Record<string, unknown>).__label || '').trim()
       ? String((data as Record<string, unknown>).__label)
       : config.label
 
@@ -225,11 +225,10 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
 
   const panelSurface = (
     <div
-      className={`${
-        isDetailedMode
-          ? 'w-full max-w-[980px] h-[min(88vh,920px)] rounded-2xl border border-white/10 shadow-2xl shadow-black/50 bg-zinc-900/95'
-          : 'w-96 h-full border-l border-white/10 bg-zinc-900/95'
-      } backdrop-blur-xl flex flex-col overflow-hidden`}
+      className={`${isDetailedMode
+        ? 'w-full max-w-[980px] h-[min(88vh,920px)] rounded-2xl border border-white/10 shadow-2xl shadow-black/50 bg-zinc-900/95'
+        : 'w-96 h-full border-l border-white/10 bg-zinc-900/95'
+        } backdrop-blur-xl flex flex-col overflow-hidden`}
     >
       {/* Header */}
       <div className={`${isDetailedMode ? 'p-5' : 'p-4'} border-b border-white/10`}>
@@ -280,7 +279,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as MessageNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'input' && (
@@ -288,7 +287,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as InputNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'condition' && (
@@ -296,7 +295,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as ConditionNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'router' && (
@@ -304,7 +303,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as RouterNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'action' && (
@@ -312,7 +311,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as ActionNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'script' && (
@@ -320,7 +319,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as ScriptNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'http' && (
@@ -328,7 +327,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as HttpNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'webhook' && (
@@ -336,14 +335,14 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as WebhookNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'trigger' && (
           <TriggerSettings
             data={data as TriggerNodeData}
             onUpdate={handleUpdate}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'wait' && (
@@ -351,7 +350,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as WaitNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'scheduler' && (
@@ -359,7 +358,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             data={data as SchedulerNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'replyKeyboard' && (
@@ -368,14 +367,14 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             onUpdate={handleUpdate}
             variables={variables}
             variantOptions={replyKeyboardVariantOptions}
-            t={t}
+            t={t as any}
           />
         )}
         {nodeType === 'comment' && (
           <CommentSettings
             data={data as CommentNodeData}
             onUpdate={handleUpdate}
-            t={t}
+            t={t as any}
           />
         )}
       </div>
@@ -696,7 +695,7 @@ function MessageSettings({
         return
       }
 
-      updatePrimaryAttachment(attachmentType as MessageAttachmentType, result.path)
+      updatePrimaryAttachment(attachmentType as MessageAttachmentType, result.path || '')
     } catch (error) {
       setAttachmentUploadError(String(error) || tm('attachmentUploadFailed'))
     } finally {
@@ -838,7 +837,7 @@ function MessageSettings({
                 updatePrimaryAttachment(value as MessageAttachmentType | 'none', attachmentSource)
               }
             >
-              <SelectTrigger id="msg-attachment-type" className="mt-1.5 bg-zinc-800/50 border-white/10">
+              <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -885,11 +884,10 @@ function MessageSettings({
                   setIsAttachmentDragActive(false)
                 }}
                 onDrop={(event) => void handleAttachmentDrop(event)}
-                className={`mb-3 rounded-lg border px-3 py-3 text-sm transition-colors cursor-pointer outline-none ${
-                  isAttachmentDragActive
-                    ? 'border-[#24A1DE]/50 bg-[#24A1DE]/10 text-white'
-                    : 'border-white/10 bg-zinc-800/20 text-zinc-300 hover:border-white/20 hover:bg-zinc-800/30'
-                }`}
+                className={`mb-3 rounded-lg border px-3 py-3 text-sm transition-colors cursor-pointer outline-none ${isAttachmentDragActive
+                  ? 'border-[#24A1DE]/50 bg-[#24A1DE]/10 text-white'
+                  : 'border-white/10 bg-zinc-800/20 text-zinc-300 hover:border-white/20 hover:bg-zinc-800/30'
+                  }`}
               >
                 <div className="font-medium">
                   {isUploadingAttachment ? tm('attachmentUploading') : tm('attachmentDropTitle')}
@@ -1435,7 +1433,7 @@ function ActionSettings({
   variables: string[]
   t: (key: string) => string
 }) {
-  const ta = (key: string, values?: Record<string, unknown>) => t(`action.${key}`, values)
+  const ta = (key: string, values?: Record<string, unknown>) => (t as any)(`action.${key}`, values)
   const actionType = data.action?.type || 'setVariable'
 
   const createActionConfigByType = (value: string) => {
@@ -1730,38 +1728,38 @@ function getScriptSuggestions(language: ScriptLanguage, variables: string[]): Sc
   const commonContext: ScriptEditorSuggestion[] =
     language === 'python'
       ? [
-          { label: 'context.get("user")', insertText: 'context.get("user")', detail: 'User data' },
-          { label: 'context.get("message")', insertText: 'context.get("message")', detail: 'Message data' },
-          { label: 'context.get("callback")', insertText: 'context.get("callback")', detail: 'Callback data' },
-        ]
+        { label: 'context.get("user")', insertText: 'context.get("user")', detail: 'User data' },
+        { label: 'context.get("message")', insertText: 'context.get("message")', detail: 'Message data' },
+        { label: 'context.get("callback")', insertText: 'context.get("callback")', detail: 'Callback data' },
+      ]
       : [
-          { label: 'context.user', insertText: 'context.user', detail: 'User data' },
-          { label: 'context.message', insertText: 'context.message', detail: 'Message data' },
-          { label: 'context.callback', insertText: 'context.callback', detail: 'Callback data' },
-          { label: 'context.chat', insertText: 'context.chat', detail: 'Chat data' },
-          { label: 'context.update', insertText: 'context.update', detail: 'Update flags' },
-        ]
+        { label: 'context.user', insertText: 'context.user', detail: 'User data' },
+        { label: 'context.message', insertText: 'context.message', detail: 'Message data' },
+        { label: 'context.callback', insertText: 'context.callback', detail: 'Callback data' },
+        { label: 'context.chat', insertText: 'context.chat', detail: 'Chat data' },
+        { label: 'context.update', insertText: 'context.update', detail: 'Update flags' },
+      ]
 
   const languageBuiltins: ScriptEditorSuggestion[] =
     language === 'python'
       ? [
-          { label: 'str()', insertText: 'str()', detail: 'Convert to string' },
-          { label: 'len()', insertText: 'len()', detail: 'Length' },
-          { label: 'int()', insertText: 'int()', detail: 'Convert to int' },
-          { label: 'float()', insertText: 'float()', detail: 'Convert to float' },
-          { label: 'bool()', insertText: 'bool()', detail: 'Convert to bool' },
-          { label: 'dict', insertText: 'dict', detail: 'Dictionary type' },
-          { label: 'list', insertText: 'list', detail: 'List type' },
-        ]
+        { label: 'str()', insertText: 'str()', detail: 'Convert to string' },
+        { label: 'len()', insertText: 'len()', detail: 'Length' },
+        { label: 'int()', insertText: 'int()', detail: 'Convert to int' },
+        { label: 'float()', insertText: 'float()', detail: 'Convert to float' },
+        { label: 'bool()', insertText: 'bool()', detail: 'Convert to bool' },
+        { label: 'dict', insertText: 'dict', detail: 'Dictionary type' },
+        { label: 'list', insertText: 'list', detail: 'List type' },
+      ]
       : [
-          { label: 'String()', insertText: 'String()', detail: 'Convert to string' },
-          { label: 'Number()', insertText: 'Number()', detail: 'Convert to number' },
-          { label: 'Boolean()', insertText: 'Boolean()', detail: 'Convert to boolean' },
-          { label: 'Math', insertText: 'Math', detail: 'Math helpers' },
-          { label: 'JSON', insertText: 'JSON', detail: 'JSON parse/stringify' },
-          { label: 'Date', insertText: 'Date', detail: 'Date API' },
-          { label: 'Array.isArray()', insertText: 'Array.isArray()', detail: 'Array check' },
-        ]
+        { label: 'String()', insertText: 'String()', detail: 'Convert to string' },
+        { label: 'Number()', insertText: 'Number()', detail: 'Convert to number' },
+        { label: 'Boolean()', insertText: 'Boolean()', detail: 'Convert to boolean' },
+        { label: 'Math', insertText: 'Math', detail: 'Math helpers' },
+        { label: 'JSON', insertText: 'JSON', detail: 'JSON parse/stringify' },
+        { label: 'Date', insertText: 'Date', detail: 'Date API' },
+        { label: 'Array.isArray()', insertText: 'Array.isArray()', detail: 'Array check' },
+      ]
 
   const variableSuggestions: ScriptEditorSuggestion[] = []
   for (const rawVar of variables) {
@@ -1991,11 +1989,10 @@ function ScriptCodeEditor({
                     event.preventDefault()
                     applySuggestion(suggestion)
                   }}
-                  className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${
-                    index === resolvedActiveSuggestionIndex
-                      ? 'bg-[#24A1DE]/15 border border-[#24A1DE]/20'
-                      : 'hover:bg-white/5 border border-transparent'
-                  }`}
+                  className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${index === resolvedActiveSuggestionIndex
+                    ? 'bg-[#24A1DE]/15 border border-[#24A1DE]/20'
+                    : 'hover:bg-white/5 border border-transparent'
+                    }`}
                 >
                   <div className="text-xs text-zinc-100 font-mono truncate">{suggestion.label}</div>
                   {suggestion.detail && (
@@ -2119,9 +2116,6 @@ function ScriptSettings({
           <code className="text-zinc-200">context</code>,{' '}
           <code className="text-zinc-200">vars</code>. {ts('contractSuffix')}{' '}
           <code className="text-zinc-200">result</code>.
-        </div>
-        <div className="text-xs text-amber-300/90">
-          {ts('safetyHint')}
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ import { getServerUser, createServerClientWrapper } from '@/lib/supabase/server'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
 import { createBotSecretsService } from '@/lib/bot-editor/services/bot-secrets-service'
 import { appendBotAuditEventSafe } from '@/lib/bot-editor/services/bot-audit-service'
+import { getBotSubscribersStats } from '@/lib/bot-editor/services/bot-subscriber-service'
 import type {
   BotConfig,
   BotVariable,
@@ -72,6 +73,14 @@ interface SaveSettingsInput {
   metadataPatch?: Record<string, unknown>
 }
 
+interface SyncTelegramBotStyleInput {
+  displayName?: string
+  about?: string
+  shortDescription?: string
+  desiredUsername?: string
+  avatarUrl?: string
+}
+
 function sanitizeAttachmentFileName(name: string): string {
   const trimmed = String(name || '').trim() || 'attachment'
   const extension = extname(trimmed).slice(0, 16)
@@ -91,6 +100,7 @@ function sanitizeAttachmentFileName(name: string): string {
 
 type SecretsClient = Parameters<typeof createBotSecretsService>[0]
 type AuditClient = Parameters<typeof appendBotAuditEventSafe>[0]
+type SubscribersClient = Parameters<typeof getBotSubscribersStats>[0]
 
 const ALLOWED_NODE_TYPES = new Set<WorkflowNode['type']>([
   'message',
@@ -184,6 +194,19 @@ function sanitizeAutoReactionsFeatureConfig(value: unknown): Record<string, unkn
     onlyTextMessages: raw.onlyTextMessages === undefined ? true : Boolean(raw.onlyTextMessages),
     cooldownSeconds,
     mode: 'rule-based',
+  }
+}
+
+function sanitizeSubscriberModeFeatureConfig(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const raw = value as Record<string, unknown>
+  return {
+    enabled: Boolean(raw.enabled),
+    privateChatsOnly: raw.privateChatsOnly === undefined ? true : Boolean(raw.privateChatsOnly),
+    trackCallbacks: raw.trackCallbacks === undefined ? true : Boolean(raw.trackCallbacks),
   }
 }
 
@@ -331,30 +354,112 @@ function sanitizeReplyKeyboardFeatureConfig(value: unknown): Record<string, unkn
   }
 }
 
+function normalizeTelegramUsernameCandidate(value: unknown): string {
+  return String(value || '')
+    .trim()
+    .replace(/^@+/, '')
+    .toLowerCase()
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return String(error)
+}
+
+function isTelegramChatNotFoundError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase()
+  return message.includes('chat not found')
+}
+
+function isTelegramUsernameInvalidError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase()
+  return (
+    message.includes('chat username is invalid') ||
+    message.includes('username is invalid') ||
+    message.includes('username invalid')
+  )
+}
+
+function validateTelegramBotUsernameCandidate(username: string): {
+  valid: boolean
+  reason?: 'format' | 'suffix'
+} {
+  if (!/^[a-z][a-z0-9_]{4,31}$/.test(username)) {
+    return { valid: false, reason: 'format' }
+  }
+
+  if (!username.endsWith('bot')) {
+    return { valid: false, reason: 'suffix' }
+  }
+
+  return { valid: true }
+}
+
+function sanitizeBotStyleMetadataPatch(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const raw = value as Record<string, unknown>
+  const displayName = String(raw.displayName || '').trim().slice(0, 64)
+  const desiredUsername = normalizeTelegramUsernameCandidate(raw.desiredUsername).slice(0, 32)
+  const avatarUrlRaw = String(raw.avatarUrl || '').trim().slice(0, 512)
+  const about = String(raw.about || '').trim().slice(0, 512)
+  const shortDescription = String(raw.shortDescription || '').trim().slice(0, 120)
+
+  const avatarUrl =
+    avatarUrlRaw && /^https?:\/\//i.test(avatarUrlRaw)
+      ? avatarUrlRaw
+      : ''
+
+  return {
+    displayName,
+    desiredUsername,
+    avatarUrl,
+    about,
+    shortDescription,
+  }
+}
+
 function sanitizeSettingsMetadataPatch(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== 'object') {
     return {}
   }
 
   const patch = input as Record<string, unknown>
+  const profileStyle = sanitizeBotStyleMetadataPatch(patch.profileStyle)
   const features = patch.features
-  if (!features || typeof features !== 'object') {
-    return {}
-  }
+  const featureRecord =
+    features && typeof features === 'object'
+      ? (features as Record<string, unknown>)
+      : null
+  const autoReactions = featureRecord
+    ? sanitizeAutoReactionsFeatureConfig(featureRecord.autoReactions)
+    : null
+  const replyKeyboard = featureRecord
+    ? sanitizeReplyKeyboardFeatureConfig(featureRecord.replyKeyboard)
+    : null
+  const subscriberMode = featureRecord
+    ? sanitizeSubscriberModeFeatureConfig(featureRecord.subscriberMode)
+    : null
 
-  const featureRecord = features as Record<string, unknown>
-  const autoReactions = sanitizeAutoReactionsFeatureConfig(featureRecord.autoReactions)
-  const replyKeyboard = sanitizeReplyKeyboardFeatureConfig(featureRecord.replyKeyboard)
-
-  if (!autoReactions && !replyKeyboard) {
+  if (!autoReactions && !replyKeyboard && !subscriberMode && !profileStyle) {
     return {}
   }
 
   return {
-    features: {
-      ...(autoReactions ? { autoReactions } : {}),
-      ...(replyKeyboard ? { replyKeyboard } : {}),
-    },
+    ...(autoReactions || replyKeyboard || subscriberMode
+      ? {
+          features: {
+            ...(autoReactions ? { autoReactions } : {}),
+            ...(replyKeyboard ? { replyKeyboard } : {}),
+            ...(subscriberMode ? { subscriberMode } : {}),
+          },
+        }
+      : {}),
+    ...(profileStyle ? { profileStyle } : {}),
   }
 }
 
@@ -514,6 +619,33 @@ export async function getEditorBotAction(botId: string) {
   }
 }
 
+export async function getBotSubscribersStatsAction(botId: string) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  const normalizedBotId = String(botId || '').trim()
+  if (!normalizedBotId) {
+    return { success: false, error: 'Bot not found' }
+  }
+
+  try {
+    const supabase = await createServerClientWrapper()
+    const botService = createBotService(supabase)
+    const bot = await botService.getBot(normalizedBotId)
+    if (!bot) {
+      return { success: false, error: 'Bot not found' }
+    }
+
+    const stats = await getBotSubscribersStats(supabase as unknown as SubscribersClient, normalizedBotId)
+    return { success: true, stats }
+  } catch (error) {
+    console.error('Failed to load bot subscribers stats:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
 export async function saveCanvasAction(
   botId: string,
   input: {
@@ -602,6 +734,11 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
       (bot.metadata || {}) as Record<string, unknown>
     )
     const safeSettingsMetadataPatch = sanitizeSettingsMetadataPatch(input.metadataPatch)
+    const profileStylePatch =
+      safeSettingsMetadataPatch.profileStyle &&
+      typeof safeSettingsMetadataPatch.profileStyle === 'object'
+        ? (safeSettingsMetadataPatch.profileStyle as Record<string, unknown>)
+        : null
     const mergedFeatures =
       safeMetadataBase.features && typeof safeMetadataBase.features === 'object'
         ? {
@@ -609,6 +746,14 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
             ...((safeSettingsMetadataPatch.features as Record<string, unknown> | undefined) || {}),
           }
         : ((safeSettingsMetadataPatch.features as Record<string, unknown> | undefined) || undefined)
+    const mergedProfileStyle = profileStylePatch
+      ? safeMetadataBase.profileStyle && typeof safeMetadataBase.profileStyle === 'object'
+        ? {
+            ...(safeMetadataBase.profileStyle as Record<string, unknown>),
+            ...profileStylePatch,
+          }
+        : profileStylePatch
+      : undefined
 
     const updatedBot = await botService.updateBot(botId, {
       name: input.name.trim(),
@@ -617,6 +762,7 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
       metadata: {
         ...safeMetadataBase,
         ...(mergedFeatures ? { features: mergedFeatures } : {}),
+        ...(mergedProfileStyle ? { profileStyle: mergedProfileStyle } : {}),
         webhookUrl,
         hasTelegramToken: Boolean(effectiveToken),
         testActive: requestedToken && requestedToken !== existingToken ? false : bot.metadata?.testActive,
@@ -642,6 +788,275 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
   } catch (error) {
     console.error('Failed to save bot settings:', error)
     return { success: false, error: String(error) }
+  }
+}
+
+export async function checkTelegramUsernameAvailabilityAction(botId: string, username: string) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  const normalizedBotId = String(botId || '').trim()
+  if (!normalizedBotId) {
+    return { success: false, error: 'Bot not found' as const }
+  }
+
+  const normalizedUsername = normalizeTelegramUsernameCandidate(username)
+  if (!normalizedUsername) {
+    return {
+      success: true,
+      status: 'invalid' as const,
+      reason: 'format' as const,
+      normalizedUsername,
+    }
+  }
+
+  const validation = validateTelegramBotUsernameCandidate(normalizedUsername)
+  if (!validation.valid) {
+    return {
+      success: true,
+      status: 'invalid' as const,
+      reason: validation.reason || 'format',
+      normalizedUsername,
+    }
+  }
+
+  try {
+    const supabase = await createServerClientWrapper()
+    const botService = createBotService(supabase)
+    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
+    const bot = await botService.getBot(normalizedBotId)
+
+    if (!bot) {
+      return { success: false, error: 'Bot not found' as const }
+    }
+
+    const token = String(await botSecretsService.getTelegramToken(normalizedBotId) || '').trim()
+    if (!token) {
+      return { success: false, error: 'Bot token is missing' as const }
+    }
+
+    const me = await callTelegramApi<{ username?: string }>(token, 'getMe')
+    const currentUsername = normalizeTelegramUsernameCandidate(me.username)
+    if (currentUsername && currentUsername === normalizedUsername) {
+      return {
+        success: true,
+        status: 'unchanged' as const,
+        normalizedUsername,
+        currentUsername,
+      }
+    }
+
+    try {
+      const chat = await callTelegramApi<{ username?: string }>(token, 'getChat', {
+        chat_id: `@${normalizedUsername}`,
+      })
+      const foundUsername = normalizeTelegramUsernameCandidate(chat.username)
+      if (foundUsername && currentUsername && foundUsername === currentUsername) {
+        return {
+          success: true,
+          status: 'unchanged' as const,
+          normalizedUsername,
+          currentUsername,
+        }
+      }
+
+      return {
+        success: true,
+        status: 'taken' as const,
+        normalizedUsername,
+        currentUsername,
+      }
+    } catch (error) {
+      if (isTelegramChatNotFoundError(error)) {
+        return {
+          success: true,
+          status: 'available' as const,
+          normalizedUsername,
+          currentUsername,
+        }
+      }
+
+      if (isTelegramUsernameInvalidError(error)) {
+        return {
+          success: true,
+          status: 'invalid' as const,
+          reason: 'format' as const,
+          normalizedUsername,
+          currentUsername,
+        }
+      }
+
+      return {
+        success: false,
+        error: getErrorMessage(error),
+      }
+    }
+  } catch (error) {
+    console.error('Failed to check Telegram username availability:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+export async function syncTelegramBotStyleAction(
+  botId: string,
+  input: SyncTelegramBotStyleInput
+) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  const normalizedBotId = String(botId || '').trim()
+  if (!normalizedBotId) {
+    return { success: false, error: 'Bot not found' as const }
+  }
+
+  try {
+    const supabase = await createServerClientWrapper()
+    const botService = createBotService(supabase)
+    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
+    const bot = await botService.getBot(normalizedBotId)
+
+    if (!bot) {
+      return { success: false, error: 'Bot not found' as const }
+    }
+
+    const token = String(await botSecretsService.getTelegramToken(normalizedBotId) || '').trim()
+    if (!token) {
+      return { success: false, error: 'Bot token is missing' as const }
+    }
+
+    const safeProfileStyle = sanitizeBotStyleMetadataPatch(input) || {
+      displayName: '',
+      desiredUsername: '',
+      avatarUrl: '',
+      about: '',
+      shortDescription: '',
+    }
+    const existingProfileStyle =
+      bot.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
+        ? (bot.metadata.profileStyle as Record<string, unknown>)
+        : {}
+
+    const warnings: string[] = []
+    const syncErrors: string[] = []
+    const applied: string[] = []
+
+    const me = await callTelegramApi<{ username?: string }>(token, 'getMe')
+    const currentUsername = normalizeTelegramUsernameCandidate(me.username)
+    const desiredUsername = normalizeTelegramUsernameCandidate(safeProfileStyle.desiredUsername)
+    const avatarUrl = String(safeProfileStyle.avatarUrl || '').trim()
+
+    const displayName = String(safeProfileStyle.displayName || '').trim()
+    const previousDisplayName = String(existingProfileStyle.displayName || '').trim()
+    if (displayName && displayName !== previousDisplayName) {
+      try {
+        await callTelegramApi(token, 'setMyName', { name: displayName })
+        applied.push('displayName')
+      } catch (error) {
+        syncErrors.push(getErrorMessage(error))
+      }
+    }
+
+    const about = String(safeProfileStyle.about || '')
+    const previousAbout = String(existingProfileStyle.about || '')
+    if (about !== previousAbout) {
+      try {
+        await callTelegramApi(token, 'setMyDescription', {
+          description: about,
+        })
+        applied.push('about')
+      } catch (error) {
+        syncErrors.push(getErrorMessage(error))
+      }
+    }
+
+    const shortDescription = String(safeProfileStyle.shortDescription || '')
+    const previousShortDescription = String(existingProfileStyle.shortDescription || '')
+    if (shortDescription !== previousShortDescription) {
+      try {
+        await callTelegramApi(token, 'setMyShortDescription', {
+          short_description: shortDescription,
+        })
+        applied.push('shortDescription')
+      } catch (error) {
+        syncErrors.push(getErrorMessage(error))
+      }
+    }
+
+    if (desiredUsername && desiredUsername !== currentUsername) {
+      warnings.push('Username change is managed by @BotFather.')
+    }
+
+    if (avatarUrl) {
+      warnings.push('Bot profile photo update is managed by @BotFather.')
+    }
+
+    const safeMetadataBase = removeSecretFieldsFromMetadata(
+      (bot.metadata || {}) as Record<string, unknown>
+    )
+    const mergedProfileStyle =
+      safeMetadataBase.profileStyle && typeof safeMetadataBase.profileStyle === 'object'
+        ? {
+            ...(safeMetadataBase.profileStyle as Record<string, unknown>),
+            ...safeProfileStyle,
+            lastSyncAt: new Date().toISOString(),
+          }
+        : {
+            ...safeProfileStyle,
+            lastSyncAt: new Date().toISOString(),
+          }
+
+    const updatedBot = await botService.updateBot(normalizedBotId, {
+      metadata: {
+        ...safeMetadataBase,
+        profileStyle: mergedProfileStyle,
+      },
+    })
+
+    await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
+      botId: normalizedBotId,
+      actorUserId: user.id,
+      source: 'editor',
+      eventType: 'settings.telegram_style_synced',
+      payload: {
+        applied,
+        warnings,
+        hasErrors: syncErrors.length > 0,
+      },
+    })
+
+    if (syncErrors.length > 0) {
+      return {
+        success: false,
+        error: syncErrors.join('; '),
+        warnings,
+        applied,
+        currentUsername,
+        profileStyle: mergedProfileStyle,
+        bot: updatedBot,
+      }
+    }
+
+    return {
+      success: true,
+      warnings,
+      applied,
+      currentUsername,
+      profileStyle: mergedProfileStyle,
+      bot: updatedBot,
+    }
+  } catch (error) {
+    console.error('Failed to sync Telegram bot style:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
   }
 }
 

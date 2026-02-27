@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { Cpu, Zap, Database, Code2, Info, Keyboard, Plus, Trash2, ChevronDown } from 'lucide-react'
+import { Cpu, Zap, Database, Code2, Info, Keyboard, Plus, Trash2, ChevronDown, Users } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { VariablesTable } from './variables-table'
 import { useBotState } from '../providers/bot-state-provider'
@@ -15,11 +15,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getBotSubscribersStatsAction } from '@/lib/bot-editor/actions/editor-actions'
 
 type AutoReactionsConfig = {
   enabled: boolean
   cooldownSeconds: number
   onlyTextMessages: boolean
+}
+
+type SubscriberModeConfig = {
+  enabled: boolean
+  privateChatsOnly: boolean
+  trackCallbacks: boolean
+}
+
+type SubscribersStats = {
+  totalSubscribers: number
+  activeLast7Days: number
+  lastSubscriberAt: string | null
+  recentSubscribers: Array<{
+    telegramUserId: number
+    username: string
+    firstName: string
+    lastName: string
+    languageCode: string
+    lastSeenAt: string
+  }>
 }
 
 type ReplyKeyboardButtonStyle = 'default' | 'primary' | 'success' | 'danger'
@@ -53,16 +74,16 @@ type ReplyKeyboardRuleConfig = {
   enabled: boolean
   variable: string
   operator:
-    | 'equals'
-    | 'notEquals'
-    | 'contains'
-    | 'notContains'
-    | 'gt'
-    | 'lt'
-    | 'gte'
-    | 'lte'
-    | 'isEmpty'
-    | 'isNotEmpty'
+  | 'equals'
+  | 'notEquals'
+  | 'contains'
+  | 'notContains'
+  | 'gt'
+  | 'lt'
+  | 'gte'
+  | 'lte'
+  | 'isEmpty'
+  | 'isNotEmpty'
   value: string
   rows: ReplyKeyboardButtonConfig[][]
 }
@@ -158,11 +179,11 @@ const REPLY_KEYBOARD_STYLE_OPTIONS: Array<{
   label: string
   dotClassName: string
 }> = [
-  { value: 'default', label: 'Default', dotClassName: 'bg-zinc-300' },
-  { value: 'primary', label: 'Primary', dotClassName: 'bg-sky-400' },
-  { value: 'success', label: 'Success', dotClassName: 'bg-emerald-400' },
-  { value: 'danger', label: 'Danger', dotClassName: 'bg-rose-400' },
-]
+    { value: 'default', label: 'Default', dotClassName: 'bg-zinc-300' },
+    { value: 'primary', label: 'Primary', dotClassName: 'bg-sky-400' },
+    { value: 'success', label: 'Success', dotClassName: 'bg-emerald-400' },
+    { value: 'danger', label: 'Danger', dotClassName: 'bg-rose-400' },
+  ]
 
 const EMOJI_PICKER_RECENT_STORAGE_KEY = 'tflow.replyKeyboard.emojiPickerRecent'
 const EMOJI_PICKER_MAX_RECENT = 18
@@ -297,6 +318,8 @@ function EmojiPickerPopover({
   disabled?: boolean
 }) {
   const t = useTranslations('editor.system.replyKeyboard')
+  const translate = (key: string, values?: Record<string, unknown>) =>
+    t(key as never, values as never)
   const [recentEmojis, setRecentEmojis] = useState<string[]>(() => readRecentEmojis())
   const [activeCategory, setActiveCategory] = useState<EmojiPickerCategoryId>('smileys')
 
@@ -382,12 +405,11 @@ function EmojiPickerPopover({
                   if (!isDisabled) setActiveCategory(category.id)
                 }}
                 disabled={isDisabled}
-                title={getEmojiPickerCategoryLabel(category.id, t)}
-                className={`h-8 min-w-8 px-2 rounded-lg border text-sm transition-colors ${
-                  isActive
-                    ? 'bg-[#24A1DE]/15 border-[#24A1DE]/30 text-[#7dd3fc]'
-                    : 'bg-transparent border-transparent text-zinc-400 hover:text-white hover:bg-white/5'
-                } ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                title={getEmojiPickerCategoryLabel(category.id, translate)}
+                className={`h-8 min-w-8 px-2 rounded-lg border text-sm transition-colors ${isActive
+                  ? 'bg-[#24A1DE]/15 border-[#24A1DE]/30 text-[#7dd3fc]'
+                  : 'bg-transparent border-transparent text-zinc-400 hover:text-white hover:bg-white/5'
+                  } ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 {category.icon}
               </button>
@@ -411,6 +433,8 @@ function ReplyKeyboardStylePopover({
   disabled?: boolean
 }) {
   const t = useTranslations('editor.system.replyKeyboard')
+  const translate = (key: string, values?: Record<string, unknown>) =>
+    t(key as never, values as never)
   const currentStyle = normalizeReplyKeyboardButtonStyle(value)
 
   return (
@@ -443,16 +467,15 @@ function ReplyKeyboardStylePopover({
                   onClose()
                 }}
                 disabled={disabled}
-                className={`w-full rounded-lg border px-2 py-2 text-left transition-colors ${
-                  isActive
-                    ? 'border-[#24A1DE]/30 bg-[#24A1DE]/10'
-                    : 'border-transparent hover:border-white/10 hover:bg-white/5'
-                }`}
+                className={`w-full rounded-lg border px-2 py-2 text-left transition-colors ${isActive
+                  ? 'border-[#24A1DE]/30 bg-[#24A1DE]/10'
+                  : 'border-transparent hover:border-white/10 hover:bg-white/5'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <span className={`h-2.5 w-2.5 rounded-full ${option.dotClassName}`} />
                   <span className="text-sm text-white">
-                    {getReplyKeyboardStyleLabel(option.value, t)}
+                    {getReplyKeyboardStyleLabel(option.value, translate)}
                   </span>
                 </div>
                 <div className="mt-2">
@@ -485,6 +508,8 @@ function ReplyKeyboardButtonsEditor({
   compact?: boolean
 }) {
   const t = useTranslations('editor.system.replyKeyboard')
+  const translate = (key: string, values?: Record<string, unknown>) =>
+    t(key as never, values as never)
   const safeRows = normalizeReplyKeyboardRows(rowsValue)
   const [emojiPickerTarget, setEmojiPickerTarget] = useState<{ rowIndex: number; buttonIndex: number } | null>(null)
   const [stylePickerTarget, setStylePickerTarget] = useState<{ rowIndex: number; buttonIndex: number } | null>(null)
@@ -595,9 +620,9 @@ function ReplyKeyboardButtonsEditor({
         return row.map((button, bIdx) =>
           bIdx === buttonIndex
             ? {
-                ...button,
-                ...patch,
-              }
+              ...button,
+              ...patch,
+            }
             : button
         )
       })
@@ -683,9 +708,9 @@ function ReplyKeyboardButtonsEditor({
                           setEmojiPickerTarget((prev) => {
                             setStylePickerTarget(null)
                             return (
-                            prev && prev.rowIndex === rowIndex && prev.buttonIndex === buttonIndex
-                              ? null
-                              : { rowIndex, buttonIndex }
+                              prev && prev.rowIndex === rowIndex && prev.buttonIndex === buttonIndex
+                                ? null
+                                : { rowIndex, buttonIndex }
                             )
                           })
                         }
@@ -744,14 +769,13 @@ function ReplyKeyboardButtonsEditor({
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span
-                                className={`h-2.5 w-2.5 rounded-full ${
-                                  REPLY_KEYBOARD_STYLE_OPTIONS.find(
-                                    (option) => option.value === normalizeReplyKeyboardButtonStyle(button.style)
-                                  )?.dotClassName || 'bg-zinc-300'
-                                }`}
+                                className={`h-2.5 w-2.5 rounded-full ${REPLY_KEYBOARD_STYLE_OPTIONS.find(
+                                  (option) => option.value === normalizeReplyKeyboardButtonStyle(button.style)
+                                )?.dotClassName || 'bg-zinc-300'
+                                  }`}
                               />
                               <span className="truncate text-zinc-200">
-                                {getReplyKeyboardStyleLabel(normalizeReplyKeyboardButtonStyle(button.style), t)}
+                                {getReplyKeyboardStyleLabel(normalizeReplyKeyboardButtonStyle(button.style), translate)}
                               </span>
                             </div>
                             <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
@@ -896,6 +920,26 @@ function getAutoReactionsConfig(metadata: Record<string, unknown> | undefined | 
   }
 }
 
+function getSubscriberModeConfig(
+  metadata: Record<string, unknown> | undefined | null
+): SubscriberModeConfig {
+  const features =
+    metadata && typeof metadata.features === 'object' && metadata.features
+      ? (metadata.features as Record<string, unknown>)
+      : {}
+
+  const raw =
+    features.subscriberMode && typeof features.subscriberMode === 'object'
+      ? (features.subscriberMode as Record<string, unknown>)
+      : {}
+
+  return {
+    enabled: Boolean(raw.enabled),
+    privateChatsOnly: raw.privateChatsOnly === undefined ? true : Boolean(raw.privateChatsOnly),
+    trackCallbacks: raw.trackCallbacks === undefined ? true : Boolean(raw.trackCallbacks),
+  }
+}
+
 function formatSystemPanelDate(
   dateValue: string | undefined,
   locale: string,
@@ -929,6 +973,9 @@ export function SystemPanel() {
   const t = useTranslations('editor.system')
   const locale = useLocale()
   const { bot, config, updateBotDraft } = useBotState()
+  const [subscribersStats, setSubscribersStats] = useState<SubscribersStats | null>(null)
+  const [isSubscribersStatsLoading, setIsSubscribersStatsLoading] = useState(false)
+  const [subscribersStatsError, setSubscribersStatsError] = useState<string | null>(null)
 
   const stats = [
     { label: t('nodes'), value: config.nodes.length, icon: Code2, color: 'text-[#24A1DE]' },
@@ -938,6 +985,44 @@ export function SystemPanel() {
 
   const autoReactions = getAutoReactionsConfig((bot?.metadata || {}) as Record<string, unknown>)
   const replyKeyboard = getReplyKeyboardConfig((bot?.metadata || {}) as Record<string, unknown>)
+  const subscriberMode = getSubscriberModeConfig((bot?.metadata || {}) as Record<string, unknown>)
+
+  useEffect(() => {
+    if (!bot?.id) {
+      setSubscribersStats(null)
+      setSubscribersStatsError(null)
+      return
+    }
+
+    let cancelled = false
+    setIsSubscribersStatsLoading(true)
+    setSubscribersStatsError(null)
+
+    void (async () => {
+      try {
+        const result = await getBotSubscribersStatsAction(bot.id)
+        if (cancelled) return
+        if (!result.success || !result.stats) {
+          setSubscribersStats(null)
+          setSubscribersStatsError(result.error || t('subscribers.statsError'))
+          return
+        }
+        setSubscribersStats(result.stats as SubscribersStats)
+      } catch {
+        if (cancelled) return
+        setSubscribersStats(null)
+        setSubscribersStatsError(t('subscribers.statsError'))
+      } finally {
+        if (!cancelled) {
+          setIsSubscribersStatsLoading(false)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [bot?.id, subscriberMode.enabled, t])
 
   const updateAutoReactions = (patch: Partial<AutoReactionsConfig>) => {
     if (!bot) return
@@ -1004,6 +1089,34 @@ export function SystemPanel() {
     })
   }
 
+  const updateSubscriberMode = (patch: Partial<SubscriberModeConfig>) => {
+    if (!bot) return
+
+    const currentMetadata = (bot.metadata || {}) as Record<string, unknown>
+    const currentFeatures =
+      currentMetadata.features && typeof currentMetadata.features === 'object'
+        ? (currentMetadata.features as Record<string, unknown>)
+        : {}
+    const currentSubscriberMode =
+      currentFeatures.subscriberMode && typeof currentFeatures.subscriberMode === 'object'
+        ? (currentFeatures.subscriberMode as Record<string, unknown>)
+        : {}
+
+    updateBotDraft({
+      metadata: {
+        features: {
+          ...currentFeatures,
+          subscriberMode: {
+            ...currentSubscriberMode,
+            enabled: patch.enabled ?? subscriberMode.enabled,
+            privateChatsOnly: patch.privateChatsOnly ?? subscriberMode.privateChatsOnly,
+            trackCallbacks: patch.trackCallbacks ?? subscriberMode.trackCallbacks,
+          },
+        },
+      },
+    })
+  }
+
   const addReplyKeyboardRule = () => {
     updateReplyKeyboard({
       rules: [
@@ -1026,9 +1139,9 @@ export function SystemPanel() {
       rules: replyKeyboard.rules.map((rule) =>
         rule.id === ruleId
           ? {
-              ...rule,
-              ...patch,
-            }
+            ...rule,
+            ...patch,
+          }
           : rule
       ),
     })
@@ -1350,23 +1463,23 @@ export function SystemPanel() {
                               })
                             }
                           >
-                          <SelectTrigger
-                            className="mt-1.5 bg-zinc-800/50 border-white/10"
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="equals">{t('replyKeyboard.operators.equals')}</SelectItem>
-                            <SelectItem value="notEquals">{t('replyKeyboard.operators.notEquals')}</SelectItem>
-                            <SelectItem value="contains">{t('replyKeyboard.operators.contains')}</SelectItem>
-                            <SelectItem value="notContains">{t('replyKeyboard.operators.notContains')}</SelectItem>
-                            <SelectItem value="gt">{t('replyKeyboard.operators.gt')}</SelectItem>
-                            <SelectItem value="lt">{t('replyKeyboard.operators.lt')}</SelectItem>
-                            <SelectItem value="gte">{t('replyKeyboard.operators.gte')}</SelectItem>
-                            <SelectItem value="lte">{t('replyKeyboard.operators.lte')}</SelectItem>
-                            <SelectItem value="isEmpty">{t('replyKeyboard.operators.isEmpty')}</SelectItem>
-                            <SelectItem value="isNotEmpty">{t('replyKeyboard.operators.isNotEmpty')}</SelectItem>
-                          </SelectContent>
+                            <SelectTrigger
+                              className="mt-1.5 bg-zinc-800/50 border-white/10"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="equals">{t('replyKeyboard.operators.equals')}</SelectItem>
+                              <SelectItem value="notEquals">{t('replyKeyboard.operators.notEquals')}</SelectItem>
+                              <SelectItem value="contains">{t('replyKeyboard.operators.contains')}</SelectItem>
+                              <SelectItem value="notContains">{t('replyKeyboard.operators.notContains')}</SelectItem>
+                              <SelectItem value="gt">{t('replyKeyboard.operators.gt')}</SelectItem>
+                              <SelectItem value="lt">{t('replyKeyboard.operators.lt')}</SelectItem>
+                              <SelectItem value="gte">{t('replyKeyboard.operators.gte')}</SelectItem>
+                              <SelectItem value="lte">{t('replyKeyboard.operators.lte')}</SelectItem>
+                              <SelectItem value="isEmpty">{t('replyKeyboard.operators.isEmpty')}</SelectItem>
+                              <SelectItem value="isNotEmpty">{t('replyKeyboard.operators.isNotEmpty')}</SelectItem>
+                            </SelectContent>
                           </Select>
                         </div>
                       </div>
@@ -1409,6 +1522,117 @@ export function SystemPanel() {
                 <div>{t('replyKeyboard.howItWorks2')}</div>
                 <div>{t('replyKeyboard.howItWorks3')}</div>
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl bg-zinc-900/50 border border-white/10 p-6 backdrop-blur-sm">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#24A1DE]" />
+                  {t('subscribers.title')}
+                </h3>
+                <p className="text-sm text-zinc-400 mt-1">{t('subscribers.description')}</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className={`text-sm ${subscriberMode.enabled ? 'text-emerald-300' : 'text-zinc-400'}`}>
+                  {subscriberMode.enabled ? t('subscribers.enabled') : t('subscribers.disabled')}
+                </span>
+                <Switch
+                  checked={subscriberMode.enabled}
+                  onCheckedChange={(checked) => updateSubscriberMode({ enabled: checked })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                <div className="text-xs text-zinc-500 mb-1">{t('subscribers.totalLabel')}</div>
+                <div className="text-2xl font-semibold text-white">
+                  {isSubscribersStatsLoading ? '…' : subscribersStats?.totalSubscribers ?? 0}
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                <div className="text-xs text-zinc-500 mb-1">{t('subscribers.active7dLabel')}</div>
+                <div className="text-2xl font-semibold text-white">
+                  {isSubscribersStatsLoading ? '…' : subscribersStats?.activeLast7Days ?? 0}
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                <div className="text-xs text-zinc-500 mb-1">{t('subscribers.lastSeenLabel')}</div>
+                <div className="text-sm font-medium text-zinc-200">
+                  {formatSystemPanelDate(
+                    subscribersStats?.lastSubscriberAt || undefined,
+                    locale,
+                    t('notAvailable')
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {subscribersStatsError && (
+              <div className="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
+                {subscribersStatsError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-zinc-300">{t('subscribers.privateOnlyTitle')}</div>
+                    <p className="text-xs text-zinc-500 mt-1">{t('subscribers.privateOnlyHint')}</p>
+                  </div>
+                  <Switch
+                    checked={subscriberMode.privateChatsOnly}
+                    onCheckedChange={(checked) => updateSubscriberMode({ privateChatsOnly: checked })}
+                    disabled={!subscriberMode.enabled}
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-zinc-300">{t('subscribers.trackCallbacksTitle')}</div>
+                    <p className="text-xs text-zinc-500 mt-1">{t('subscribers.trackCallbacksHint')}</p>
+                  </div>
+                  <Switch
+                    checked={subscriberMode.trackCallbacks}
+                    onCheckedChange={(checked) => updateSubscriberMode({ trackCallbacks: checked })}
+                    disabled={!subscriberMode.enabled}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-[#24A1DE]/20 bg-[#24A1DE]/5 p-4">
+              <div className="text-sm font-medium text-white mb-2">{t('subscribers.recentTitle')}</div>
+              {subscribersStats?.recentSubscribers?.length ? (
+                <div className="space-y-2">
+                  {subscribersStats.recentSubscribers.slice(0, 6).map((item) => {
+                    const displayName =
+                      [item.firstName, item.lastName].filter(Boolean).join(' ').trim() ||
+                      (item.username ? `@${item.username}` : `#${item.telegramUserId}`)
+                    return (
+                      <div
+                        key={`${item.telegramUserId}-${item.lastSeenAt}`}
+                        className="text-xs text-zinc-300 flex items-center justify-between gap-3"
+                      >
+                        <span className="truncate">{displayName}</span>
+                        <span className="text-zinc-500 shrink-0">
+                          {formatSystemPanelDate(item.lastSeenAt, locale, t('notAvailable'))}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="text-xs text-zinc-500">{t('subscribers.recentEmpty')}</div>
+              )}
+            </div>
+
+            <div className="mt-4 rounded-lg border border-dashed border-white/10 bg-zinc-950/30 p-4">
+              <div className="text-xs text-zinc-400">{t('subscribers.note')}</div>
             </div>
           </section>
 

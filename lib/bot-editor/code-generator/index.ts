@@ -542,7 +542,7 @@ function resolveMediaInput(source) {
   private generateMessageHandler(data: MessageNodeData): string[] {
     const lines: string[] = []
 
-    const dataRecord = (data || {}) as Record<string, unknown>
+    const dataRecord = (data || {}) as unknown as Record<string, unknown>
     const keyboardSource =
       dataRecord.keyboard ?? dataRecord.inlineKeyboard ?? dataRecord.buttons
     const keyboardLiteral = keyboardSource ? JSON.stringify(keyboardSource) : ''
@@ -611,13 +611,11 @@ function resolveMediaInput(source) {
   private generateInputHandler(node: Node): string[] {
     const data = node.data as InputNodeData
     const lines: string[] = []
-    const dataRecord = (data || {}) as Record<string, unknown>
+    const dataRecord = (data || {}) as unknown as Record<string, unknown>
     const keyboardSource =
       dataRecord.keyboard ?? dataRecord.inlineKeyboard ?? dataRecord.buttons
     const keyboardLiteral = keyboardSource ? JSON.stringify(keyboardSource) : ''
     const parseMode = this.resolveParseMode(dataRecord)
-    const shouldDisablePreview = Boolean(data.disableWebPagePreview)
-    const shouldDisableNotification = Boolean(data.disableNotification)
 
     lines.push(`  // Input: ${data.variableName}`)
     lines.push(`  ctx.session.waitingForInput = '${node.id}';`)
@@ -631,18 +629,11 @@ function resolveMediaInput(source) {
     if (keyboardLiteral) {
       lines.push(`  replyOptions.reply_markup = buildKeyboard(${keyboardLiteral});`)
     }
-    if (shouldDisablePreview) {
-      lines.push(`  replyOptions.disable_web_page_preview = true;`)
-      lines.push(`  replyOptions.link_preview_options = { is_disabled: true };`)
-    } else {
-      lines.push(`  const previewMatch = questionText.match(/https?:\\/\\/[^\\s)]+/i);`)
-      lines.push(`  replyOptions.link_preview_options = previewMatch`)
-      lines.push(`    ? { is_disabled: false, url: previewMatch[0] }`)
-      lines.push(`    : { is_disabled: false };`)
-    }
-    if (shouldDisableNotification) {
-      lines.push(`  replyOptions.disable_notification = true;`)
-    }
+
+    lines.push(`  const previewMatch = questionText.match(/https?:\\/\\/[^\\s)]+/i);`)
+    lines.push(`  replyOptions.link_preview_options = previewMatch`)
+    lines.push(`    ? { is_disabled: false, url: previewMatch[0] }`)
+    lines.push(`    : { is_disabled: false };`)
 
     lines.push(`  if (Object.keys(replyOptions).length > 0) {`)
     lines.push(`    await ctx.reply(questionText, replyOptions);`)

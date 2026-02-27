@@ -231,16 +231,16 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const isRandomSplitAction = normalizedType === 'action' && actionType === 'random'
   const randomSplitAPercent = isRandomSplitAction
     ? Math.min(
-        100,
-        Math.max(
-          0,
-          Number(
-            (dataRecord.action as Record<string, unknown> | undefined)?.aPercent ??
-            (dataRecord.action as Record<string, unknown> | undefined)?.percent ??
-            50
-          ) || 0
-        )
+      100,
+      Math.max(
+        0,
+        Number(
+          (dataRecord.action as Record<string, unknown> | undefined)?.aPercent ??
+          (dataRecord.action as Record<string, unknown> | undefined)?.percent ??
+          50
+        ) || 0
       )
+    )
     : 50
   const routerCases = useMemo(
     () => (normalizedType === 'router' ? getRouterCases(dataRecord) : []),
@@ -275,11 +275,11 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const schedulerDelayUnitLabel =
     normalizedType === 'scheduler'
       ? ({
-          seconds: tCanvas('nodeDescriptions.scheduler.units.seconds'),
-          minutes: tCanvas('nodeDescriptions.scheduler.units.minutes'),
-          hours: tCanvas('nodeDescriptions.scheduler.units.hours'),
-          days: tCanvas('nodeDescriptions.scheduler.units.days'),
-        } as Record<string, string>)[schedulerDelayUnit] || schedulerDelayUnit
+        seconds: tCanvas('nodeDescriptions.scheduler.units.seconds'),
+        minutes: tCanvas('nodeDescriptions.scheduler.units.minutes'),
+        hours: tCanvas('nodeDescriptions.scheduler.units.hours'),
+        days: tCanvas('nodeDescriptions.scheduler.units.days'),
+      } as Record<string, string>)[schedulerDelayUnit] || schedulerDelayUnit
       : schedulerDelayUnit
 
   const nodeLabel =
@@ -289,45 +289,45 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const nodeDescriptionRaw =
     normalizedType === 'router'
       ? tCanvas('nodeDescriptions.router.summary', {
-          variable: routerVariable || tCanvas('nodeDescriptions.defaults.variable'),
-          count: routerCases.length,
-          casesWord: tCanvas('nodeDescriptions.defaults.cases'),
-        })
+        variable: routerVariable || tCanvas('nodeDescriptions.defaults.variable'),
+        count: routerCases.length,
+        casesWord: tCanvas('nodeDescriptions.defaults.cases'),
+      })
       : isRandomSplitAction
-      ? `A ${randomSplitAPercent}% • B ${100 - randomSplitAPercent}%`
-      : normalizedType === 'scheduler'
-      ? schedulerMode === 'dateTime'
-        ? tCanvas('nodeDescriptions.scheduler.at', {
-            dateTime: schedulerDateTime || tCanvas('nodeDescriptions.defaults.dateTime'),
-            timeZoneSuffix: schedulerTimeZone ? ` • ${schedulerTimeZone}` : '',
-          })
-        : tCanvas('nodeDescriptions.scheduler.delay', {
-            value: Number.isFinite(schedulerDelayValue) ? schedulerDelayValue : 0,
-            unit: schedulerDelayUnitLabel,
-          })
-      : normalizedType === 'replyKeyboard'
-      ? replyKeyboardMode === 'clear'
-        ? tCanvas('nodeDescriptions.replyKeyboard.hide')
-        : replyKeyboardMode === 'variant'
-        ? tCanvas('nodeDescriptions.replyKeyboard.variant', {
-            variant: replyKeyboardVariantKey || 'base',
-          })
-        : replyKeyboardMode === 'condition'
-        ? tCanvas('nodeDescriptions.replyKeyboard.condition', {
-            variable: replyKeyboardVariable || tCanvas('nodeDescriptions.defaults.variable'),
-          })
-        : tCanvas('nodeDescriptions.replyKeyboard.system')
-      : normalizedType === 'script'
-      ? `${scriptLanguage === 'python' ? 'Python' : 'JavaScript'}${scriptSaveToVariable ? ` • -> ${scriptSaveToVariable}` : ''}`
-      : normalizedType === 'trigger' && triggerData
-      ? getTriggerNodeDescription(triggerData, tCanvas)
-      : dataRecord.__description ?? dataRecord.description
+        ? `A ${randomSplitAPercent}% • B ${100 - randomSplitAPercent}%`
+        : normalizedType === 'scheduler'
+          ? schedulerMode === 'dateTime'
+            ? tCanvas('nodeDescriptions.scheduler.at', {
+              dateTime: schedulerDateTime || tCanvas('nodeDescriptions.defaults.dateTime'),
+              timeZoneSuffix: schedulerTimeZone ? ` • ${schedulerTimeZone}` : '',
+            })
+            : tCanvas('nodeDescriptions.scheduler.delay', {
+              value: Number.isFinite(schedulerDelayValue) ? schedulerDelayValue : 0,
+              unit: schedulerDelayUnitLabel,
+            })
+          : normalizedType === 'replyKeyboard'
+            ? replyKeyboardMode === 'clear'
+              ? tCanvas('nodeDescriptions.replyKeyboard.hide')
+              : replyKeyboardMode === 'variant'
+                ? tCanvas('nodeDescriptions.replyKeyboard.variant', {
+                  variant: replyKeyboardVariantKey || 'base',
+                })
+                : replyKeyboardMode === 'condition'
+                  ? tCanvas('nodeDescriptions.replyKeyboard.condition', {
+                    variable: replyKeyboardVariable || tCanvas('nodeDescriptions.defaults.variable'),
+                  })
+                  : tCanvas('nodeDescriptions.replyKeyboard.system')
+            : normalizedType === 'script'
+              ? `${scriptLanguage === 'python' ? 'Python' : 'JavaScript'}${scriptSaveToVariable ? ` • -> ${scriptSaveToVariable}` : ''}`
+              : normalizedType === 'trigger' && triggerData
+                ? getTriggerNodeDescription(triggerData, tCanvas as any)
+                : dataRecord.__description ?? dataRecord.description
   const nodeDescription =
     typeof nodeDescriptionRaw === 'string'
       ? nodeDescriptionRaw
       : nodeDescriptionRaw == null
-      ? ''
-      : String(nodeDescriptionRaw)
+        ? ''
+        : String(nodeDescriptionRaw)
 
   const setRouterCaseRowRef = useCallback((caseId: string, element: HTMLDivElement | null) => {
     routerCaseRowRefs.current[caseId] = element

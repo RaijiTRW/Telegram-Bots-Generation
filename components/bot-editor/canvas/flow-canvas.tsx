@@ -818,29 +818,23 @@ function FlowCanvasInner({
         if (templates.length === 0) return null
         return {
           ...PALETTE_CATEGORY_META[categoryId],
-          label: getPaletteCategoryLabel(t, categoryId),
-          hint: getPaletteCategoryHint(t, categoryId),
+          label: getPaletteCategoryLabel(t as any, categoryId),
+          hint: getPaletteCategoryHint(t as any, categoryId),
           templates,
         }
       })
-      .filter(
-        (
-          item
-        ): item is PaletteCategoryMeta & {
-          templates: NodeTemplate[]
-        } => Boolean(item)
-      )
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
   }, [t])
 
   const validPinnedPaletteCategory =
     pinnedPaletteCategory &&
-    paletteCategories.some((category) => category.id === pinnedPaletteCategory)
+      paletteCategories.some((category) => category.id === pinnedPaletteCategory)
       ? pinnedPaletteCategory
       : null
 
   const validHoveredPaletteCategory =
     hoveredPaletteCategory &&
-    paletteCategories.some((category) => category.id === hoveredPaletteCategory)
+      paletteCategories.some((category) => category.id === hoveredPaletteCategory)
       ? hoveredPaletteCategory
       : null
 
@@ -883,228 +877,226 @@ function FlowCanvasInner({
       {/* Canvas Area */}
       <div className="flex-1" ref={canvasWrapperRef}>
         <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onSelectionChange={onSelectionChange}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-        nodeTypes={nodeTypes}
-        connectionMode={ConnectionMode.Loose}
-        defaultEdgeOptions={defaultEdgeOptions}
-        fitView
-        className="bg-[#05070A]"
-        proOptions={{ hideAttribution: true }}
-      >
-        {/* Custom Grid Background */}
-        <BackgroundComponent
-          variant={BackgroundVariant.Lines}
-          gap={24}
-          size={1}
-          color="rgba(255, 255, 255, 0.06)"
-        />
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onSelectionChange={onSelectionChange}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          nodeTypes={nodeTypes}
+          connectionMode={ConnectionMode.Loose}
+          defaultEdgeOptions={defaultEdgeOptions}
+          fitView
+          className="bg-[#05070A]"
+          proOptions={{ hideAttribution: true }}
+        >
+          {/* Custom Grid Background */}
+          <BackgroundComponent
+            variant={BackgroundVariant.Lines}
+            gap={24}
+            size={1}
+            color="rgba(255, 255, 255, 0.06)"
+          />
 
-        {/* Controls */}
-        <Controls
-          className="tflow-canvas-controls !bg-zinc-900/80 !backdrop-blur-xl !border !border-white/10"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px'
-          }}
-        />
+          {/* Controls */}
+          <Controls
+            className="tflow-canvas-controls !bg-zinc-900/80 !backdrop-blur-xl !border !border-white/10"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}
+          />
 
-        {/* Mini Map */}
-        <MiniMap
-          nodeColor={(node) => {
-            const colors = {
-              message: '#24A1DE',
-              condition: '#F59E0B',
-              router: '#EAB308',
-              scheduler: '#22C55E',
-              action: '#8B5CF6',
-              input: '#10B981',
-              http: '#F43F5E',
-              webhook: '#EF4444',
-              trigger: '#6366F1',
-            }
-            return colors[node.type as keyof typeof colors] || '#71717A'
-          }}
-          maskColor="rgba(0, 0, 0, 0.8)"
-          className="!bg-zinc-900/80 !backdrop-blur-xl !border !border-white/10"
-        />
+          {/* Mini Map */}
+          <MiniMap
+            nodeColor={(node) => {
+              const colors = {
+                message: '#24A1DE',
+                condition: '#F59E0B',
+                router: '#EAB308',
+                scheduler: '#22C55E',
+                action: '#8B5CF6',
+                input: '#10B981',
+                http: '#F43F5E',
+                webhook: '#EF4444',
+                trigger: '#6366F1',
+              }
+              return colors[node.type as keyof typeof colors] || '#71717A'
+            }}
+            maskColor="rgba(0, 0, 0, 0.8)"
+            className="!bg-zinc-900/80 !backdrop-blur-xl !border !border-white/10"
+          />
 
-        {/* Action Buttons - Top Right */}
-        <Panel position="top-right" className="!transform-none !right-4 !top-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-zinc-900/80 backdrop-blur-xl border-white/10"
-              onClick={handleClearCanvas}
-            >
-              <Trash2 className="w-4 h-4" />
-              {t('clearCanvas')}
-            </Button>
-            <Button
-              size="sm"
-              className={`gap-2 ${
-                isTestActive
+          {/* Action Buttons - Top Right */}
+          <Panel position="top-right" className="!transform-none !right-4 !top-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 bg-zinc-900/80 backdrop-blur-xl border-white/10"
+                onClick={handleClearCanvas}
+              >
+                <Trash2 className="w-4 h-4" />
+                {t('clearCanvas')}
+              </Button>
+              <Button
+                size="sm"
+                className={`gap-2 ${isTestActive
                   ? 'bg-red-600 hover:bg-red-600/85'
                   : 'bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80'
-              }`}
-              onClick={() => onTest?.(nodes, edges)}
-            >
-              <Play className="w-4 h-4" />
-              {testButtonLabel}
-            </Button>
-          </div>
-        </Panel>
-
-        {/* Left Panel - Node Palette */}
-        <Panel position="top-left" className="!transform-none !left-4 !top-4">
-          <div
-            className={`${
-              isPaletteExpanded ? 'w-[328px] sm:w-[360px]' : 'w-[136px]'
-            } max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-2.5 transition-[width] duration-200`}
-          >
-            <h3 className="text-xs font-semibold text-white mb-2.5">{t('nodes')}</h3>
-            <div
-              className={`grid ${isPaletteExpanded ? 'grid-cols-[74px_minmax(0,1fr)]' : 'grid-cols-1'} gap-2.5`}
-              onMouseLeave={() => setHoveredPaletteCategory(null)}
-            >
-              <div
-                className="space-y-1 rounded-lg border border-white/10 bg-zinc-800/20 p-1"
+                  }`}
+                onClick={() => onTest?.(nodes, edges)}
               >
-                {paletteCategories.map((category) => {
-                  const isPinned = validPinnedPaletteCategory === category.id
-                  const isActive = activePaletteCategoryId === category.id
-                  const CategoryIcon = category.icon
+                <Play className="w-4 h-4" />
+                {testButtonLabel}
+              </Button>
+            </div>
+          </Panel>
 
-                  return (
-                    <button
-                      key={category.id}
-                      type="button"
-                      onMouseEnter={() => setHoveredPaletteCategory(category.id)}
-                      onFocus={() => setHoveredPaletteCategory(category.id)}
-                      onClick={() =>
-                        setPinnedPaletteCategory((prev) => (prev === category.id ? null : category.id))
-                      }
-                      aria-label={`${category.label}${isPinned ? ` (${t('palette.pinned')})` : ''}`}
-                      title={`${category.label}${category.hint ? ` • ${category.hint}` : ''}${isPinned ? ` • ${t('palette.pinned')}` : ''}`}
-                      className={`w-full text-left rounded-lg px-1.5 py-1.5 transition-colors border ${
-                        isActive
+          {/* Left Panel - Node Palette */}
+          <Panel position="top-left" className="!transform-none !left-4 !top-4">
+            <div
+              className={`${isPaletteExpanded ? 'w-[328px] sm:w-[360px]' : 'w-[136px]'
+                } max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-2.5 transition-[width] duration-200`}
+            >
+              <h3 className="text-xs font-semibold text-white mb-2.5">{t('nodes')}</h3>
+              <div
+                className={`grid ${isPaletteExpanded ? 'grid-cols-[74px_minmax(0,1fr)]' : 'grid-cols-1'} gap-2.5`}
+                onMouseLeave={() => setHoveredPaletteCategory(null)}
+              >
+                <div
+                  className="space-y-1 rounded-lg border border-white/10 bg-zinc-800/20 p-1"
+                >
+                  {paletteCategories.map((category) => {
+                    if (!category) return null;
+
+                    const isPinned = validPinnedPaletteCategory === category.id
+                    const isActive = activePaletteCategoryId === category.id
+                    const CategoryIcon = category.icon
+
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onMouseEnter={() => setHoveredPaletteCategory(category.id)}
+                        onFocus={() => setHoveredPaletteCategory(category.id)}
+                        onClick={() =>
+                          setPinnedPaletteCategory((prev) => (prev === category.id ? null : category.id))
+                        }
+                        aria-label={`${category.label}${isPinned ? ` (${t('palette.pinned')})` : ''}`}
+                        title={`${category.label}${category.hint ? ` • ${category.hint}` : ''}${isPinned ? ` • ${t('palette.pinned')}` : ''}`}
+                        className={`w-full text-left rounded-lg px-1.5 py-1.5 transition-colors border ${isActive
                           ? 'bg-white/10 border-white/20 text-white'
                           : 'bg-transparent border-transparent text-zinc-300 hover:bg-white/5 hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-1.5">
-                        <div className="relative shrink-0">
-                          <CategoryIcon className="w-3.5 h-3.5" />
-                          {isPinned && (
-                            <span className="absolute -top-1 -right-1 block h-1.5 w-1.5 rounded-full bg-[#24A1DE] ring-1 ring-zinc-900" />
-                          )}
-                        </div>
-                        <span
-                          className={`shrink-0 rounded-md px-1 py-0.5 text-[9px] leading-none border ${
-                            isActive
+                          }`}
+                      >
+                        <div className="flex items-center justify-center gap-1.5">
+                          <div className="relative shrink-0">
+                            <CategoryIcon className="w-3.5 h-3.5" />
+                            {isPinned && (
+                              <span className="absolute -top-1 -right-1 block h-1.5 w-1.5 rounded-full bg-[#24A1DE] ring-1 ring-zinc-900" />
+                            )}
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-md px-1 py-0.5 text-[9px] leading-none border ${isActive
                               ? 'border-white/20 bg-white/10 text-zinc-200'
                               : 'border-white/10 bg-zinc-900/40 text-zinc-400'
-                          }`}
-                        >
-                          {category.templates.length}
-                        </span>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {activePaletteCategory && (
-                <div className="min-w-0 rounded-lg border border-white/10 bg-zinc-800/20 p-2">
-                  <>
-                    <div className="flex items-center justify-between gap-2 px-1 pb-2 border-b border-white/10">
-                      <div className="min-w-0">
-                        <div className="text-xs font-medium text-white truncate">
-                          {activePaletteCategory.label}
+                              }`}
+                          >
+                            {category.templates.length}
+                          </span>
                         </div>
-                        <div className="text-[10px] text-zinc-500">{t('palette.hoverPreviewClickPin')}</div>
-                      </div>
-                      <div className="text-[10px] text-zinc-400 shrink-0">
-                        {t('palette.nodesCount', { count: activePaletteCategory.templates.length })}
-                      </div>
-                    </div>
+                      </button>
+                    )
+                  })}
+                </div>
 
-                    <div className="mt-2 space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
-                      {activePaletteCategory.templates.map((node) => (
-                        <div
-                          key={node.id}
-                          draggable
-                          onDragStart={(event) => handleTemplateDragStart(event, node)}
-                          onClick={() => handleAddNode(node)}
-                          className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
-                        >
-                          <div className="flex items-start gap-2">
-                            <div
-                              className="p-1 rounded mt-0.5"
-                              style={{ background: `${node.color}20` }}
-                            >
-                              <node.icon className="w-3.5 h-3.5" style={{ color: node.color }} />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-xs font-medium text-white truncate">{node.label}</div>
-                              <div className="text-[10px] text-zinc-300/90 line-clamp-2">
-                                {getNodeTemplateDescription(t, node)}
+                {activePaletteCategory && (
+                  <div className="min-w-0 rounded-lg border border-white/10 bg-zinc-800/20 p-2">
+                    <>
+                      <div className="flex items-center justify-between gap-2 px-1 pb-2 border-b border-white/10">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-white truncate">
+                            {activePaletteCategory.label}
+                          </div>
+                          <div className="text-[10px] text-zinc-500">{t('palette.hoverPreviewClickPin')}</div>
+                        </div>
+                        <div className="text-[10px] text-zinc-400 shrink-0">
+                          {t('palette.nodesCount', { count: activePaletteCategory.templates.length })}
+                        </div>
+                      </div>
+
+                      <div className="mt-2 space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                        {activePaletteCategory.templates.map((node) => (
+                          <div
+                            key={node.id}
+                            draggable
+                            onDragStart={(event) => handleTemplateDragStart(event, node)}
+                            onClick={() => handleAddNode(node)}
+                            className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <div
+                                className="p-1 rounded mt-0.5"
+                                style={{ background: `${node.color}20` }}
+                              >
+                                <node.icon className="w-3.5 h-3.5" style={{ color: node.color }} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-medium text-white truncate">{node.label}</div>
+                                <div className="text-[10px] text-zinc-300/90 line-clamp-2">
+                                  {getNodeTemplateDescription(t as any, node)}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
+                        ))}
+                      </div>
+                    </>
+                  </div>
+                )}
+              </div>
+
+              {!isPaletteExpanded && (
+                <div className="mt-2 rounded-lg border border-dashed border-white/10 bg-zinc-800/10 px-2 py-1.5 text-[10px] text-zinc-500 leading-tight text-center">
+                  {t('palette.hoverClickPin')}
                 </div>
               )}
-            </div>
 
-            {!isPaletteExpanded && (
-              <div className="mt-2 rounded-lg border border-dashed border-white/10 bg-zinc-800/10 px-2 py-1.5 text-[10px] text-zinc-500 leading-tight text-center">
-                {t('palette.hoverClickPin')}
-              </div>
-            )}
-
-            {/* Quick Stats */}
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <div className={`text-[10px] text-zinc-500 ${isPaletteExpanded ? 'space-y-1' : 'flex items-center justify-between gap-2'}`}>
-                <div className="flex justify-between gap-2">
-                  <span>{t('nodes')}:</span>
-                  <span className="text-white">{nodes.length}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span>{t('connections')}:</span>
-                  <span className="text-white">{edges.length}</span>
+              {/* Quick Stats */}
+              <div className="mt-3 pt-3 border-t border-white/10">
+                <div className={`text-[10px] text-zinc-500 ${isPaletteExpanded ? 'space-y-1' : 'flex items-center justify-between gap-2'}`}>
+                  <div className="flex justify-between gap-2">
+                    <span>{t('nodes')}:</span>
+                    <span className="text-white">{nodes.length}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span>{t('connections')}:</span>
+                    <span className="text-white">{edges.length}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </Panel>
-
-        {/* Empty State */}
-        {nodes.length === 0 && (
-          <Panel position="top-right" className="!transform-none !left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2 pointer-events-none">
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#24A1DE]/10 to-[#8B5CF6]/10 border border-white/10 flex items-center justify-center mx-auto mb-4">
-                <Workflow className="w-10 h-10 text-zinc-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">{t('canvasEmpty')}</h3>
-              <p className="text-zinc-400 text-sm mb-4 max-w-sm mx-auto">
-                {t('startBuilding')}
-              </p>
             </div>
           </Panel>
-        )}
-      </ReactFlow>
+
+          {/* Empty State */}
+          {nodes.length === 0 && (
+            <Panel position="top-right" className="!transform-none !left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2 pointer-events-none">
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#24A1DE]/10 to-[#8B5CF6]/10 border border-white/10 flex items-center justify-center mx-auto mb-4">
+                  <Workflow className="w-10 h-10 text-zinc-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">{t('canvasEmpty')}</h3>
+                <p className="text-zinc-400 text-sm mb-4 max-w-sm mx-auto">
+                  {t('startBuilding')}
+                </p>
+              </div>
+            </Panel>
+          )}
+        </ReactFlow>
       </div>
 
       {/* Settings Panel */}
