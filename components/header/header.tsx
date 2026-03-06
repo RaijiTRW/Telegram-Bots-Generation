@@ -223,7 +223,7 @@ export function Header() {
 
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Link
-                    href={`/${locale}#cta`}
+                    href={`/${locale}/auth/signup`}
                     className="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold text-white shadow-lg inline-block"
                   >
                     {t('buttons.createBot')}
@@ -339,7 +339,7 @@ export function Header() {
                       {t('buttons.login')}
                     </Link>
                     <Link
-                      href={`/${locale}#cta`}
+                      href={`/${locale}/auth/signup`}
                       className="btn-primary block px-4 py-3 text-center rounded-lg font-semibold text-white"
                       onClick={() => setIsMenuOpen(false)}
                     >

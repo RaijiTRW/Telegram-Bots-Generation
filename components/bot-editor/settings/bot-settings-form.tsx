@@ -1,42 +1,54 @@
 'use client'
 
-import { useState } from 'react'
-import { AlertCircle, AtSign, CheckCircle2, Eye, EyeOff, Key, Loader2, Palette, User, Webhook } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useRef, useState } from 'react'
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Key, Loader2, Palette, Trash2, Upload, User } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useBotState } from '../providers/bot-state-provider'
+import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 import type { BotStatus } from '@/lib/bot-editor/types/bot.types'
 import {
-  checkTelegramUsernameAvailabilityAction,
   syncTelegramBotStyleAction,
+  uploadBotMessageAttachmentAction,
 } from '@/lib/bot-editor/actions/editor-actions'
+
+const SUPPORTED_PROFILE_IMAGE_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+])
+const MAX_PROFILE_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
 export function BotSettingsForm() {
   const t = useTranslations('editor.settings')
+  const locale = useLocale()
   const { bot, updateBotDraft } = useBotState()
+  const docsBasePath = `/${locale}/dashboard/docs`
+  const docsGettingStarted = `${docsBasePath}/getting-started`
+  const docsDataSecurity = `${docsBasePath}/data-security`
 
   // Form state
   const [showToken, setShowToken] = useState(false)
-  const [isCheckingUsername, setIsCheckingUsername] = useState(false)
-  const [usernameCheckMessage, setUsernameCheckMessage] = useState<{
-    tone: 'success' | 'warning' | 'error' | 'neutral'
-    text: string
-  } | null>(null)
   const [isSyncingStyle, setIsSyncingStyle] = useState(false)
   const [styleSyncMessage, setStyleSyncMessage] = useState<{
     tone: 'success' | 'warning' | 'error' | 'neutral'
     text: string
   } | null>(null)
+  const [isAvatarUploadDragging, setIsAvatarUploadDragging] = useState(false)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null)
+  const [avatarPreviewDataUrl, setAvatarPreviewDataUrl] = useState<string | null>(null)
+  const avatarFileInputRef = useRef<HTMLInputElement | null>(null)
 
   const name = bot?.name || ''
   const description = bot?.description || ''
   const status: BotStatus = bot?.status || 'draft'
   const telegramToken = String(bot?.metadata?.telegramToken || '')
   const hasStoredTelegramToken = Boolean((bot?.metadata as Record<string, unknown> | undefined)?.hasTelegramToken)
-  const webhookUrl = String(bot?.metadata?.webhookUrl || '')
   const profileStyleRaw =
     bot?.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
       ? (bot.metadata.profileStyle as Record<string, unknown>)
@@ -70,15 +82,6 @@ export function BotSettingsForm() {
     })
   }
 
-  const checkMessageClasses =
-    usernameCheckMessage?.tone === 'success'
-      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-      : usernameCheckMessage?.tone === 'warning'
-        ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-        : usernameCheckMessage?.tone === 'error'
-          ? 'border-red-500/30 bg-red-500/10 text-red-200'
-          : 'border-white/10 bg-zinc-900/40 text-zinc-300'
-
   const styleSyncMessageClasses =
     styleSyncMessage?.tone === 'success'
       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
@@ -88,64 +91,56 @@ export function BotSettingsForm() {
           ? 'border-red-500/30 bg-red-500/10 text-red-200'
           : 'border-white/10 bg-zinc-900/40 text-zinc-300'
 
-  const handleUsernameCheck = async () => {
-    if (!bot?.id) return
-    setIsCheckingUsername(true)
-    setUsernameCheckMessage(null)
+  const processAvatarFile = async (file: File) => {
+    if (!bot?.id) {
+      setAvatarUploadError(t('profileAvatarUploadBotMissing'))
+      return
+    }
 
+    if (!SUPPORTED_PROFILE_IMAGE_TYPES.has(file.type)) {
+      setAvatarUploadError(t('profileAvatarInvalidType'))
+      return
+    }
+
+    if (!file.size || file.size <= 0) {
+      setAvatarUploadError(t('profileAvatarEmptyFile'))
+      return
+    }
+
+    if (file.size > MAX_PROFILE_IMAGE_SIZE_BYTES) {
+      setAvatarUploadError(t('profileAvatarTooLarge'))
+      return
+    }
+
+    setAvatarUploadError(null)
+    setIsUploadingAvatar(true)
     try {
-      const result = await checkTelegramUsernameAvailabilityAction(bot.id, profileDesiredUsername)
-      if (!result.success) {
-        setUsernameCheckMessage({
-          tone: 'error',
-          text: t('profileUsernameCheckError'),
-        })
-        return
-      }
-
-      if (result.status === 'available') {
-        setUsernameCheckMessage({
-          tone: 'success',
-          text: t('profileUsernameAvailable', { username: result.normalizedUsername }),
-        })
-        return
-      }
-
-      if (result.status === 'taken') {
-        setUsernameCheckMessage({
-          tone: 'warning',
-          text: t('profileUsernameTaken', { username: result.normalizedUsername }),
-        })
-        return
-      }
-
-      if (result.status === 'unchanged') {
-        setUsernameCheckMessage({
-          tone: 'neutral',
-          text: t('profileUsernameCurrent', { username: result.normalizedUsername }),
-        })
-        return
-      }
-
-      if (result.reason === 'suffix') {
-        setUsernameCheckMessage({
-          tone: 'error',
-          text: t('profileUsernameInvalidSuffix'),
-        })
-        return
-      }
-
-      setUsernameCheckMessage({
-        tone: 'error',
-        text: t('profileUsernameInvalidFormat'),
+      const previewDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const value = reader.result
+          if (typeof value === 'string') {
+            resolve(value)
+            return
+          }
+          reject(new Error('invalid preview data'))
+        }
+        reader.onerror = () => reject(new Error('preview read failed'))
+        reader.readAsDataURL(file)
       })
+      setAvatarPreviewDataUrl(previewDataUrl)
+
+      const result = await uploadBotMessageAttachmentAction(bot.id, file)
+      if (!result.success || !result.path) {
+        setAvatarUploadError(result.error || t('profileAvatarUploadFailed'))
+        return
+      }
+
+      updateProfileStyleDraft({ avatarUrl: result.path })
     } catch {
-      setUsernameCheckMessage({
-        tone: 'error',
-        text: t('profileUsernameCheckError'),
-      })
+      setAvatarUploadError(t('profileAvatarUploadFailed'))
     } finally {
-      setIsCheckingUsername(false)
+      setIsUploadingAvatar(false)
     }
   }
 
@@ -168,9 +163,16 @@ export function BotSettingsForm() {
       }
 
       if (!result.success) {
+        const reason = String(result.error || '').trim()
+        const warningText =
+          Array.isArray(result.warnings) && result.warnings.length > 0
+            ? ` ${result.warnings.join(' ')}`
+            : ''
         setStyleSyncMessage({
           tone: 'error',
-          text: t('profileSyncError'),
+          text: reason
+            ? `${t('profileSyncErrorWithReason', { reason })}${warningText}`
+            : `${t('profileSyncError')}${warningText}`,
         })
         return
       }
@@ -178,7 +180,7 @@ export function BotSettingsForm() {
       if (Array.isArray(result.warnings) && result.warnings.length > 0) {
         setStyleSyncMessage({
           tone: 'warning',
-          text: t('profileSyncDoneWithWarnings'),
+          text: `${t('profileSyncDoneWithWarnings')} ${result.warnings.join(' ')}`.trim(),
         })
         return
       }
@@ -197,6 +199,21 @@ export function BotSettingsForm() {
     }
   }
 
+  const handleAvatarInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.currentTarget.value = ''
+    if (!file) return
+    await processAvatarFile(file)
+  }
+
+  const handleAvatarDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsAvatarUploadDragging(false)
+    const file = event.dataTransfer.files?.[0]
+    if (!file) return
+    await processAvatarFile(file)
+  }
+
   return (
     <div className="space-y-6">
       {/* Basic Settings */}
@@ -206,6 +223,13 @@ export function BotSettingsForm() {
             <Palette className="w-4 h-4 text-[#24A1DE]" />
           </div>
           {t('basicInfo')}
+          <HelpGuideButton
+            title={t('basicInfo')}
+            summary={t('help.basicSummary')}
+            steps={[t('help.basicStep1'), t('help.basicStep2'), t('help.basicStep3')]}
+            docsHref={docsGettingStarted}
+            className="ml-1"
+          />
         </h2>
 
         <div className="space-y-4">
@@ -267,6 +291,14 @@ export function BotSettingsForm() {
             <User className="w-4 h-4 text-[#24A1DE]" />
           </div>
           {t('profileStyleTitle')}
+          <HelpGuideButton
+            title={t('profileStyleTitle')}
+            summary={t('help.profileSummary')}
+            steps={[t('help.profileStep1'), t('help.profileStep2'), t('help.profileStep3')]}
+            notes={[t('profileUsernameHint')]}
+            docsHref={docsDataSecurity}
+            className="ml-1"
+          />
         </h2>
         <p className="text-xs text-zinc-400 mb-4">{t('profileStyleDesc')}</p>
 
@@ -283,66 +315,96 @@ export function BotSettingsForm() {
           </div>
 
           <div>
-            <Label htmlFor="profile-username" className="text-white">{t('profileUsername')}</Label>
-            <div className="mt-1.5 flex items-center gap-2">
-              <div className="relative flex-1">
-                <AtSign className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <Input
-                  id="profile-username"
-                  value={profileDesiredUsername}
-                  onChange={(e) => {
-                    setUsernameCheckMessage(null)
-                    updateProfileStyleDraft({
-                      desiredUsername: e.target.value.replace(/^@+/, ''),
-                    })
-                  }}
-                  placeholder={t('profileUsernamePlaceholder')}
-                  className="pl-9 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
-                />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                onClick={() => void handleUsernameCheck()}
-                disabled={isCheckingUsername || !profileDesiredUsername.trim()}
-              >
-                {isCheckingUsername ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {t('profileUsernameChecking')}
-                  </>
-                ) : (
-                  t('profileUsernameCheck')
-                )}
-              </Button>
-            </div>
-            {usernameCheckMessage && (
-              <div className={`mt-2 rounded-lg border px-3 py-2 text-xs ${checkMessageClasses}`}>
-                {usernameCheckMessage.text}
-              </div>
-            )}
+            <Label className="text-white">{t('profileUsername')}</Label>
             <p className="text-xs text-zinc-500 mt-1.5">{t('profileUsernameHint')}</p>
           </div>
 
           <div>
-            <Label htmlFor="profile-avatar-url" className="text-white">{t('profileAvatarUrl')}</Label>
-            <Input
-              id="profile-avatar-url"
-              value={profileAvatarUrl}
-              onChange={(e) => updateProfileStyleDraft({ avatarUrl: e.target.value })}
-              placeholder={t('profileAvatarUrlPlaceholder')}
-              className="mt-1.5 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-white">{t('profileAvatarUploadTitle')}</Label>
+              {profileAvatarUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 border-white/10"
+                  onClick={() => {
+                    updateProfileStyleDraft({ avatarUrl: '' })
+                    setAvatarPreviewDataUrl(null)
+                    setAvatarUploadError(null)
+                  }}
+                  disabled={isUploadingAvatar}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {t('profileAvatarRemove')}
+                </Button>
+              )}
+            </div>
+            <input
+              ref={avatarFileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(event) => void handleAvatarInputChange(event)}
             />
-            {/^https?:\/\//i.test(profileAvatarUrl) && (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => avatarFileInputRef.current?.click()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  avatarFileInputRef.current?.click()
+                }
+              }}
+              onDragOver={(event) => {
+                event.preventDefault()
+                if (!isAvatarUploadDragging) {
+                  setIsAvatarUploadDragging(true)
+                }
+              }}
+              onDragLeave={(event) => {
+                if (
+                  event.relatedTarget instanceof HTMLElement &&
+                  event.currentTarget.contains(event.relatedTarget)
+                ) {
+                  return
+                }
+                setIsAvatarUploadDragging(false)
+              }}
+              onDrop={(event) => void handleAvatarDrop(event)}
+              className={`mt-1.5 rounded-lg border px-3 py-3 text-sm transition-colors cursor-pointer outline-none ${isAvatarUploadDragging
+                ? 'border-[#24A1DE]/50 bg-[#24A1DE]/10 text-white'
+                : 'border-white/10 bg-zinc-900/50 text-zinc-300 hover:border-white/20 hover:bg-zinc-800/30'
+                }`}
+            >
+              <div className="flex items-center gap-2 font-medium">
+                <Upload className="w-4 h-4 text-[#24A1DE]" />
+                {isUploadingAvatar ? t('profileAvatarUploading') : t('profileAvatarDropTitle')}
+              </div>
+              <div className="text-xs mt-1 text-zinc-400">
+                {t('profileAvatarDropHint')}
+              </div>
+            </div>
+
+            {(avatarPreviewDataUrl || /^https?:\/\//i.test(profileAvatarUrl)) && (
               <div className="mt-2 rounded-lg border border-white/10 bg-zinc-950/60 p-2 w-fit">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={profileAvatarUrl}
+                  src={avatarPreviewDataUrl || profileAvatarUrl}
                   alt={t('profileAvatarPreviewAlt')}
                   className="w-16 h-16 rounded-md object-cover bg-zinc-900/60 border border-white/10"
                 />
               </div>
+            )}
+
+            {profileAvatarUrl && (
+              <p className="text-[11px] text-zinc-500 mt-2 break-all">
+                {t('profileAvatarStoredPath')}: <code>{profileAvatarUrl}</code>
+              </p>
+            )}
+            {avatarUploadError && (
+              <p className="text-xs text-red-300 mt-1.5">{avatarUploadError}</p>
             )}
             <p className="text-xs text-zinc-500 mt-1.5">{t('profileAvatarHint')}</p>
           </div>
@@ -406,11 +468,27 @@ export function BotSettingsForm() {
             <Key className="w-4 h-4 text-[#24A1DE]" />
           </div>
           {t('telegramIntegration')}
+          <HelpGuideButton
+            title={t('telegramIntegration')}
+            summary={t('help.tokenSummary')}
+            steps={[t('help.tokenStep1'), t('help.tokenStep2'), t('help.tokenStep3')]}
+            docsHref={docsDataSecurity}
+            className="ml-1"
+          />
         </h2>
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="telegram-token" className="text-white">{t('botToken')}</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="telegram-token" className="text-white">{t('botToken')}</Label>
+              <HelpGuideButton
+                title={t('botToken')}
+                summary={t('help.tokenSummary')}
+                steps={[t('help.tokenStep1'), t('help.tokenStep2'), t('help.tokenStep3')]}
+                notes={[t('botTokenStoredSecurely')]}
+                docsHref={docsDataSecurity}
+              />
+            </div>
             <div className="mt-1.5 relative">
               <Input
                 id="telegram-token"
@@ -429,6 +507,9 @@ export function BotSettingsForm() {
                     ? t('botTokenReplacePlaceholder')
                     : t('botTokenPlaceholder')
                 }
+                autoComplete="new-password"
+                data-lpignore="true"
+                data-form-type="other"
                 className="pr-20 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
               />
               <button
@@ -462,55 +543,6 @@ export function BotSettingsForm() {
                 getBotTokenText
               )}
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Webhook Settings */}
-      <section className="rounded-xl bg-zinc-900/50 border border-white/10 p-6 backdrop-blur-sm">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
-            <Webhook className="w-4 h-4 text-[#24A1DE]" />
-          </div>
-          {t('webhookConfig')}
-        </h2>
-
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="webhook-url" className="text-white">{t('webhookUrl')}</Label>
-            <Input
-              id="webhook-url"
-              value={webhookUrl}
-              onChange={(e) =>
-                updateBotDraft({
-                  metadata: {
-                    ...(bot?.metadata || {}),
-                    webhookUrl: e.target.value,
-                  },
-                })
-              }
-              placeholder={t('webhookUrlPlaceholder')}
-              className="mt-1.5 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE]"
-            />
-            <p className="text-xs text-zinc-500 mt-1.5">
-              {t('webhookDesc')}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex-1 p-3 rounded-lg bg-zinc-900/50 border border-white/10">
-              <code className="text-xs text-[#24A1DE] break-all">
-                {webhookUrl || t('webhookUrlPlaceholder')}
-              </code>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 shrink-0"
-              onClick={() => navigator.clipboard.writeText(webhookUrl || t('webhookUrlPlaceholder'))}
-            >
-              {t('copy')}
-            </Button>
           </div>
         </div>
       </section>

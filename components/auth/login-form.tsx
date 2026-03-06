@@ -144,7 +144,7 @@ export function LoginForm() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       {loginStep === "mfa" && (
         <div className="rounded-lg border border-[#24A1DE]/20 bg-[#24A1DE]/5 p-3 text-sm text-zinc-300">
           <p className="font-medium text-white">{t("mfaStepTitle")}</p>
@@ -152,7 +152,7 @@ export function LoginForm() {
         </div>
       )}
 
-      <form onSubmit={loginStep === "credentials" ? handleSubmit : handleVerifyMfa} className="space-y-5">
+      <form onSubmit={loginStep === "credentials" ? handleSubmit : handleVerifyMfa} className="space-y-4">
         {loginStep === "credentials" ? (
           <>
             <div className="space-y-2">
@@ -165,7 +165,7 @@ export function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] focus:ring-[#24A1DE]/20 h-11 transition-all duration-300"
+                className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] focus:ring-[#24A1DE]/20 h-10 transition-all duration-300"
               />
             </div>
 
@@ -178,7 +178,7 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] focus:ring-[#24A1DE]/20 h-11 transition-all duration-300"
+                className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] focus:ring-[#24A1DE]/20 h-10 transition-all duration-300"
               />
             </div>
           </>
@@ -197,7 +197,7 @@ export function LoginForm() {
                 onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 required
                 disabled={loading}
-                className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] focus:ring-[#24A1DE]/20 h-11 transition-all duration-300 tracking-[0.2em]"
+                className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-[#24A1DE] focus:ring-[#24A1DE]/20 h-10 transition-all duration-300 tracking-[0.2em]"
               />
             </div>
           </>
@@ -212,7 +212,7 @@ export function LoginForm() {
         <div className="flex flex-col gap-2">
           <Button 
             type="submit" 
-            className="w-full h-11 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#1a8bc7] hover:to-[#7c4fdd] text-white font-medium shadow-lg shadow-purple-500/25 transition-all duration-300" 
+            className="w-full h-10 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#1a8bc7] hover:to-[#7c4fdd] text-white font-medium shadow-lg shadow-purple-500/25 transition-all duration-300" 
             disabled={loading}
           >
             {loading && <Loader2 className="animate-spin mr-2" />}

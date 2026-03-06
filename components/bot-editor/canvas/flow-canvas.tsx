@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import ReactFlow, {
-  Controls,
   MiniMap,
   ConnectionMode,
+  PanOnScrollMode,
   Panel,
   useNodesState,
   useEdgesState,
@@ -25,16 +25,18 @@ import type { NodeTemplate } from './node-types'
 import {
   Workflow,
   Play,
+  Zap,
   Trash2,
   MessageSquare,
   GitBranch,
   Database,
-  LayoutGrid,
+  CreditCard,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NodeSettingsPanel } from './node-settings-panel'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 import type { NodeData } from '@/lib/bot-editor/types/component-schemas'
 import { DEFAULT_NODE_DATA, NODE_CONFIGS } from '@/lib/bot-editor/types/component-schemas'
 import {
@@ -62,6 +64,12 @@ type CanvasHistorySnapshot = {
 type CanvasClipboardSnapshot = {
   nodes: SerializableWorkflowNode[]
   edges: SerializableWorkflowEdge[]
+}
+
+type CanvasContextMenuState = {
+  clientX: number
+  clientY: number
+  flowPosition: { x: number; y: number }
 }
 
 const createUniqueNodeId = (existingNodes: Node[]): string => {
@@ -116,6 +124,31 @@ const applyNodeWrapperStyle = (node: Node): Node => {
       ...INPUT_NODE_WRAPPER_STYLE,
     },
   }
+}
+
+const CANVAS_MIN_ZOOM = 0.2
+const CANVAS_MAX_ZOOM = 2
+const CANVAS_WHEEL_ZOOM_STEP = 0.12
+
+function isMouseWheelEvent(event: WheelEvent): boolean {
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE || event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    return true
+  }
+
+  // Pinch-to-zoom on macOS trackpads should stay untouched.
+  if (event.ctrlKey) {
+    return false
+  }
+
+  const absX = Math.abs(event.deltaX)
+  const absY = Math.abs(event.deltaY)
+
+  // Typical mouse wheels generate larger, stepped deltas mostly on one axis.
+  if (absX === 0 && Number.isInteger(event.deltaY) && absY >= 40) {
+    return true
+  }
+
+  return absX === 0 && absY >= 80
 }
 
 const getFallbackNodePosition = (index: number) => {
@@ -202,12 +235,23 @@ const extractVariableNames = (nodes: Node[]): string[] => {
         variables.push(data.saveToVariable)
       }
     }
+    if (
+      node.type === 'paymentYookassa' ||
+      node.type === 'paymentStripe' ||
+      node.type === 'paymentRobokassa' ||
+      node.type === 'paymentStars'
+    ) {
+      const data = node.data as { saveToVariable?: string }
+      if (data.saveToVariable) {
+        variables.push(data.saveToVariable)
+      }
+    }
   })
 
   return [...new Set(variables)]
 }
 
-type PaletteCategoryId = 'trigger' | 'messaging' | 'logic' | 'data' | 'advanced' | 'other'
+type PaletteCategoryId = 'trigger' | 'messaging' | 'logic' | 'data' | 'payments' | 'advanced' | 'other'
 
 type PaletteCategoryMeta = {
   id: PaletteCategoryId
@@ -222,6 +266,7 @@ const PALETTE_CATEGORY_ORDER: PaletteCategoryId[] = [
   'messaging',
   'logic',
   'data',
+  'payments',
   'advanced',
   'other',
 ]
@@ -255,12 +300,19 @@ const PALETTE_CATEGORY_META: Record<PaletteCategoryId, PaletteCategoryMeta> = {
     hint: 'Переменные, действия, HTTP',
     icon: Database,
   },
+  payments: {
+    id: 'payments',
+    label: 'Оплата',
+    shortLabel: 'Оплата',
+    hint: 'Платежные ссылки: YooKassa, Stripe, Robokassa, Telegram Stars',
+    icon: CreditCard,
+  },
   advanced: {
     id: 'advanced',
-    label: 'Доп.',
-    shortLabel: 'Доп',
-    hint: 'Расширенные ноды (например Script)',
-    icon: LayoutGrid,
+    label: 'Действия',
+    shortLabel: 'Действ',
+    hint: 'Скрипты и продвинутые действия',
+    icon: Zap,
   },
   other: {
     id: 'other',
@@ -280,6 +332,7 @@ function getPaletteCategoryLabel(
     messaging: 'palette.categories.messaging.label',
     logic: 'palette.categories.logic.label',
     data: 'palette.categories.data.label',
+    payments: 'palette.categories.payments.label',
     advanced: 'palette.categories.advanced.label',
     other: 'palette.categories.other.label',
   }
@@ -296,6 +349,7 @@ function getPaletteCategoryHint(
     messaging: 'palette.categories.messaging.hint',
     logic: 'palette.categories.logic.hint',
     data: 'palette.categories.data.hint',
+    payments: 'palette.categories.payments.hint',
     advanced: 'palette.categories.advanced.hint',
     other: 'palette.categories.other.hint',
   }
@@ -324,10 +378,117 @@ function getNodeTemplateDescription(
     action: 'nodeTemplateDescriptions.action',
     input: 'nodeTemplateDescriptions.input',
     http: 'nodeTemplateDescriptions.http',
+    'payment-yookassa': 'nodeTemplateDescriptions.paymentYookassa',
+    'payment-stripe': 'nodeTemplateDescriptions.paymentStripe',
+    'payment-robokassa': 'nodeTemplateDescriptions.paymentRobokassa',
+    'payment-stars': 'nodeTemplateDescriptions.paymentStars',
   }
 
   const key = keyMap[template.id]
   return key ? t(key) : template.description
+}
+
+function getNodeTemplateShortDescription(
+  t: (key: string, values?: Record<string, unknown>) => string,
+  template: NodeTemplate
+): string {
+  const keyMap: Record<string, string> = {
+    'trigger-command': 'nodeTemplateShortDescriptions.triggerCommand',
+    'trigger-text': 'nodeTemplateShortDescriptions.triggerText',
+    'trigger-callback': 'nodeTemplateShortDescriptions.triggerCallback',
+    'trigger-schedule': 'nodeTemplateShortDescriptions.triggerSchedule',
+    'trigger-ai': 'nodeTemplateShortDescriptions.triggerAI',
+    message: 'nodeTemplateShortDescriptions.message',
+    'message-ai': 'nodeTemplateShortDescriptions.messageAI',
+    condition: 'nodeTemplateShortDescriptions.condition',
+    'condition-ai': 'nodeTemplateShortDescriptions.conditionAI',
+    router: 'nodeTemplateShortDescriptions.router',
+    scheduler: 'nodeTemplateShortDescriptions.scheduler',
+    'reply-keyboard': 'nodeTemplateShortDescriptions.replyKeyboard',
+    script: 'nodeTemplateShortDescriptions.script',
+    action: 'nodeTemplateShortDescriptions.action',
+    input: 'nodeTemplateShortDescriptions.input',
+    http: 'nodeTemplateShortDescriptions.http',
+    'payment-yookassa': 'nodeTemplateShortDescriptions.paymentYookassa',
+    'payment-stripe': 'nodeTemplateShortDescriptions.paymentStripe',
+    'payment-robokassa': 'nodeTemplateShortDescriptions.paymentRobokassa',
+    'payment-stars': 'nodeTemplateShortDescriptions.paymentStars',
+  }
+
+  const key = keyMap[template.id]
+  return key ? t(key) : template.label
+}
+
+function getNodeTemplateHelpSteps(
+  t: (key: string, values?: Record<string, unknown>) => string,
+  template: NodeTemplate
+): string[] {
+  const keyMap: Record<string, string> = {
+    'trigger-command': 'nodeTemplateHelpSteps.triggerCommand',
+    'trigger-text': 'nodeTemplateHelpSteps.triggerText',
+    'trigger-callback': 'nodeTemplateHelpSteps.triggerCallback',
+    'trigger-schedule': 'nodeTemplateHelpSteps.triggerSchedule',
+    'trigger-ai': 'nodeTemplateHelpSteps.triggerAI',
+    message: 'nodeTemplateHelpSteps.message',
+    'message-ai': 'nodeTemplateHelpSteps.messageAI',
+    condition: 'nodeTemplateHelpSteps.condition',
+    'condition-ai': 'nodeTemplateHelpSteps.conditionAI',
+    router: 'nodeTemplateHelpSteps.router',
+    scheduler: 'nodeTemplateHelpSteps.scheduler',
+    'reply-keyboard': 'nodeTemplateHelpSteps.replyKeyboard',
+    script: 'nodeTemplateHelpSteps.script',
+    action: 'nodeTemplateHelpSteps.action',
+    input: 'nodeTemplateHelpSteps.input',
+    http: 'nodeTemplateHelpSteps.http',
+    'payment-yookassa': 'nodeTemplateHelpSteps.paymentYookassa',
+    'payment-stripe': 'nodeTemplateHelpSteps.paymentStripe',
+    'payment-robokassa': 'nodeTemplateHelpSteps.paymentRobokassa',
+    'payment-stars': 'nodeTemplateHelpSteps.paymentStars',
+  }
+
+  const baseKey = keyMap[template.id]
+  if (!baseKey) {
+    return [
+      t('palette.helpStepAddNode'),
+      t('palette.helpStepOpenSettings'),
+      t('palette.helpStepConnect'),
+    ]
+  }
+
+  return [
+    t(`${baseKey}.step1`),
+    t(`${baseKey}.step2`),
+    t(`${baseKey}.step3`),
+  ]
+}
+
+function getNodeTemplateDocsHref(docsBasePath: string, template: NodeTemplate): string {
+  const anchorByTemplateId: Record<string, string> = {
+    'trigger-command': 'node-trigger-command',
+    'trigger-text': 'node-trigger-text',
+    'trigger-callback': 'node-trigger-callback',
+    'trigger-schedule': 'node-trigger-schedule',
+    'trigger-ai': 'node-trigger-ai',
+    message: 'node-message',
+    'message-ai': 'node-message-ai',
+    input: 'node-input',
+    'reply-keyboard': 'node-reply-keyboard-node',
+    condition: 'node-condition',
+    'condition-ai': 'node-condition-ai',
+    router: 'node-router',
+    scheduler: 'node-date-scheduler',
+    action: 'node-action',
+    http: 'node-http',
+    webhook: 'node-http',
+    script: 'node-script',
+    'payment-yookassa': 'node-payment-yookassa',
+    'payment-stripe': 'node-payment-stripe',
+    'payment-robokassa': 'node-payment-robokassa',
+    'payment-stars': 'node-payment-stars',
+  }
+
+  const anchor = anchorByTemplateId[template.id] || 'nodes-reference'
+  return `${docsBasePath}/nodes#${anchor}`
 }
 
 function getTemplatePaletteCategory(template: NodeTemplate): PaletteCategoryId {
@@ -336,6 +497,7 @@ function getTemplatePaletteCategory(template: NodeTemplate): PaletteCategoryId {
   if (rawCategory === 'messaging') return 'messaging'
   if (rawCategory === 'logic') return 'logic'
   if (rawCategory === 'data') return 'data'
+  if (rawCategory === 'payments') return 'payments'
   if (rawCategory === 'advanced') return 'advanced'
   return 'other'
 }
@@ -361,8 +523,11 @@ function FlowCanvasInner({
   isTestActive = false,
 }: FlowCanvasProps) {
   const t = useTranslations('editor.canvas')
+  const translateCanvas = t as unknown as (key: string, values?: Record<string, unknown>) => string
+  const locale = useLocale()
+  const docsBasePath = `/${locale}/dashboard/docs`
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, getZoom, zoomTo } = useReactFlow()
   const preparedInitialNodes = useMemo(
     () => initialNodes.map(migrateLegacyHttpActionNode).map(applyNodeWrapperStyle),
     [initialNodes]
@@ -374,12 +539,15 @@ function FlowCanvasInner({
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
   const [pinnedPaletteCategory, setPinnedPaletteCategory] = useState<PaletteCategoryId | null>(null)
   const [hoveredPaletteCategory, setHoveredPaletteCategory] = useState<PaletteCategoryId | null>(null)
+  const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null)
+  const [contextMenuCategory, setContextMenuCategory] = useState<PaletteCategoryId | null>(null)
   const historyRef = useRef<CanvasHistorySnapshot[]>([])
   const historyIndexRef = useRef(-1)
   const skipNextHistoryCaptureRef = useRef(false)
   const lastHistorySnapshotKeyRef = useRef('')
   const clipboardRef = useRef<CanvasClipboardSnapshot | null>(null)
   const clipboardPasteCountRef = useRef(0)
+  const contextMenuPanelRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     onChange?.(nodes, edges)
@@ -415,6 +583,51 @@ function FlowCanvasInner({
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
   }, [])
+
+  useEffect(() => {
+    const wrapper = canvasWrapperRef.current
+    if (!wrapper) return
+
+    const flowElement = wrapper.querySelector<HTMLElement>('.react-flow')
+    if (!flowElement) return
+
+    const handleWheel = (event: Event) => {
+      if (!(event instanceof WheelEvent)) {
+        return
+      }
+
+      // Keep native panning for trackpad two-finger gestures and Shift-modified pan.
+      if (event.shiftKey || !isMouseWheelEvent(event)) {
+        return
+      }
+
+      if (event.deltaY === 0) {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const direction = event.deltaY < 0 ? 1 : -1
+      const currentZoom = getZoom()
+      const nextZoom = Math.max(
+        CANVAS_MIN_ZOOM,
+        Math.min(CANVAS_MAX_ZOOM, currentZoom + direction * CANVAS_WHEEL_ZOOM_STEP)
+      )
+
+      if (Math.abs(nextZoom - currentZoom) < Number.EPSILON) {
+        return
+      }
+
+      void zoomTo(nextZoom, { duration: 80 })
+    }
+
+    flowElement.addEventListener('wheel', handleWheel, { passive: false, capture: true })
+
+    return () => {
+      flowElement.removeEventListener('wheel', handleWheel, { capture: true })
+    }
+  }, [getZoom, zoomTo])
 
   const getVisibleCanvasCenterPosition = useCallback(() => {
     if (!canvasWrapperRef.current) {
@@ -473,14 +686,14 @@ function FlowCanvasInner({
     [setNodes, handleDeleteNode, screenToFlowPosition]
   )
 
-  const handleAddNode = useCallback((template: NodeTemplate) => {
+  const handleAddNode = useCallback((template: NodeTemplate, targetPosition?: { x: number; y: number }) => {
     const defaultData = mergeTemplateData(template.type, template.data)
 
     setNodes((nds) => {
       const visibleCenter = getVisibleCanvasCenterPosition()
       const fallbackPosition = getFallbackNodePosition(nds.length)
-      const basePosition = visibleCenter || fallbackPosition
-      const stackOffset = (nds.length % 5) * 20
+      const basePosition = targetPosition || visibleCenter || fallbackPosition
+      const stackOffset = targetPosition ? 0 : (nds.length % 5) * 20
 
       const newNode: Node = {
         id: createUniqueNodeId(nds),
@@ -818,13 +1031,57 @@ function FlowCanvasInner({
         if (templates.length === 0) return null
         return {
           ...PALETTE_CATEGORY_META[categoryId],
-          label: getPaletteCategoryLabel(t as any, categoryId),
-          hint: getPaletteCategoryHint(t as any, categoryId),
+          label: getPaletteCategoryLabel(translateCanvas, categoryId),
+          hint: getPaletteCategoryHint(translateCanvas, categoryId),
           templates,
         }
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
-  }, [t])
+  }, [translateCanvas])
+
+  const activeContextMenuCategory =
+    (contextMenuCategory && paletteCategories.find((category) => category.id === contextMenuCategory)) ||
+    paletteCategories[0] ||
+    null
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
+  const handlePaneContextMenu = useCallback((event: ReactMouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const menuWidth = 360
+    const menuHeight = 420
+    const viewportPadding = 12
+    const maxX = Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding)
+    const maxY = Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding)
+    const nextClientX = Math.max(viewportPadding, Math.min(event.clientX, maxX))
+    const nextClientY = Math.max(viewportPadding, Math.min(event.clientY, maxY))
+
+    setContextMenu({
+      clientX: nextClientX,
+      clientY: nextClientY,
+      flowPosition: screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      }),
+    })
+    setContextMenuCategory((current) => {
+      if (current && paletteCategories.some((category) => category.id === current)) {
+        return current
+      }
+      return paletteCategories[0]?.id ?? null
+    })
+  }, [paletteCategories, screenToFlowPosition])
+
+  const handleContextMenuAddNode = useCallback((template: NodeTemplate) => {
+    if (!contextMenu) return
+
+    handleAddNode(template, contextMenu.flowPosition)
+    closeContextMenu()
+  }, [closeContextMenu, contextMenu, handleAddNode])
 
   const validPinnedPaletteCategory =
     pinnedPaletteCategory &&
@@ -844,6 +1101,19 @@ function FlowCanvasInner({
   const activePaletteCategory =
     paletteCategories.find((category) => category.id === activePaletteCategoryId) || null
   const isPaletteExpanded = Boolean(activePaletteCategory)
+
+  useEffect(() => {
+    if (!contextMenu) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeContextMenu()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [closeContextMenu, contextMenu])
 
   const defaultEdgeOptions = useMemo(() => ({
     animated: true,
@@ -885,9 +1155,19 @@ function FlowCanvasInner({
           onSelectionChange={onSelectionChange}
           onDragOver={onDragOver}
           onDrop={onDrop}
+          onPaneClick={closeContextMenu}
+          onPaneContextMenu={handlePaneContextMenu}
           nodeTypes={nodeTypes}
           connectionMode={ConnectionMode.Loose}
           defaultEdgeOptions={defaultEdgeOptions}
+          panOnScroll
+          panOnScrollMode={PanOnScrollMode.Free}
+          panOnDrag={[0]}
+          panActivationKeyCode="Shift"
+          zoomOnScroll={false}
+          zoomOnPinch
+          minZoom={CANVAS_MIN_ZOOM}
+          maxZoom={CANVAS_MAX_ZOOM}
           fitView
           className="bg-[#05070A]"
           proOptions={{ hideAttribution: true }}
@@ -898,16 +1178,6 @@ function FlowCanvasInner({
             gap={24}
             size={1}
             color="rgba(255, 255, 255, 0.06)"
-          />
-
-          {/* Controls */}
-          <Controls
-            className="tflow-canvas-controls !bg-zinc-900/80 !backdrop-blur-xl !border !border-white/10"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px'
-            }}
           />
 
           {/* Mini Map */}
@@ -922,6 +1192,10 @@ function FlowCanvasInner({
                 input: '#10B981',
                 http: '#F43F5E',
                 webhook: '#EF4444',
+                paymentYookassa: '#38BDF8',
+                paymentStripe: '#6366F1',
+                paymentRobokassa: '#F97316',
+                paymentStars: '#FACC15',
                 trigger: '#6366F1',
               }
               return colors[node.type as keyof typeof colors] || '#71717A'
@@ -933,6 +1207,14 @@ function FlowCanvasInner({
           {/* Action Buttons - Top Right */}
           <Panel position="top-right" className="!transform-none !right-4 !top-4">
             <div className="flex items-center gap-2">
+              <HelpGuideButton
+                title={t('nodes')}
+                summary={t('startBuilding')}
+                steps={[t('test'), t('logsTitle'), t('clearCanvas')]}
+                docsHref={`${docsBasePath}/getting-started#quick-start`}
+                compact={false}
+                className="h-8 w-8 bg-zinc-900/80 backdrop-blur-xl"
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -1030,30 +1312,55 @@ function FlowCanvasInner({
                       </div>
 
                       <div className="mt-2 space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
-                        {activePaletteCategory.templates.map((node) => (
-                          <div
-                            key={node.id}
-                            draggable
-                            onDragStart={(event) => handleTemplateDragStart(event, node)}
-                            onClick={() => handleAddNode(node)}
-                            className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
-                          >
-                            <div className="flex items-start gap-2">
-                              <div
-                                className="p-1 rounded mt-0.5"
-                                style={{ background: `${node.color}20` }}
-                              >
-                                <node.icon className="w-3.5 h-3.5" style={{ color: node.color }} />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-xs font-medium text-white truncate">{node.label}</div>
-                                <div className="text-[10px] text-zinc-300/90 line-clamp-2">
-                                  {getNodeTemplateDescription(t as any, node)}
+                        {activePaletteCategory.templates.map((node) => {
+                          const fullDescription = getNodeTemplateDescription(translateCanvas, node)
+                          const shortDescription = getNodeTemplateShortDescription(translateCanvas, node)
+                          const helpSteps = getNodeTemplateHelpSteps(translateCanvas, node)
+
+                          return (
+                            <div
+                              key={node.id}
+                              draggable
+                              onDragStart={(event) => handleTemplateDragStart(event, node)}
+                              onClick={() => handleAddNode(node)}
+                              className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <div
+                                  className="p-1 rounded mt-0.5"
+                                  style={{ background: `${node.color}20` }}
+                                >
+                                  <node.icon className="w-3.5 h-3.5" style={{ color: node.color }} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <div className="text-xs font-medium text-white truncate">{node.label}</div>
+                                    <span
+                                      className="shrink-0 inline-flex items-center justify-center"
+                                      onClick={(event) => event.stopPropagation()}
+                                      onMouseDown={(event) => event.stopPropagation()}
+                                      onPointerDown={(event) => event.stopPropagation()}
+                                      onDragStart={(event) => event.preventDefault()}
+                                    >
+                                      <HelpGuideButton
+                                        title={node.label}
+                                        summary={fullDescription}
+                                        steps={helpSteps}
+                                        docsHref={getNodeTemplateDocsHref(docsBasePath, node)}
+                                        compact
+                                        className="h-4 w-4 border-white/25 text-zinc-400 hover:text-zinc-100 hover:border-white/45"
+                                        iconClassName="h-3 w-3"
+                                      />
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-zinc-300/90 line-clamp-1">
+                                    {shortDescription}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </>
                   </div>
@@ -1082,6 +1389,96 @@ function FlowCanvasInner({
             </div>
           </Panel>
 
+          {contextMenu && activeContextMenuCategory && (
+            <div className="fixed inset-0 z-[120]">
+              <button
+                type="button"
+                className="absolute inset-0 cursor-default"
+                onMouseDown={closeContextMenu}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  closeContextMenu()
+                }}
+                aria-label={t('contextMenuClose')}
+              />
+
+              <div
+                ref={contextMenuPanelRef}
+                className="absolute w-[360px] max-w-[calc(100vw-1.5rem)] max-h-[min(72vh,520px)] overflow-hidden rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/60"
+                style={{
+                  left: `${contextMenu.clientX}px`,
+                  top: `${contextMenu.clientY}px`,
+                }}
+                onMouseDown={(event) => event.stopPropagation()}
+                onContextMenu={(event) => event.preventDefault()}
+              >
+                <div className="px-3 py-2 border-b border-white/10 bg-white/[0.03]">
+                  <div className="text-xs font-semibold text-white">{t('contextMenuTitle')}</div>
+                  <div className="text-[10px] text-zinc-400 mt-0.5">{t('contextMenuHint')}</div>
+                </div>
+
+                <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-0 min-h-[250px] max-h-[430px]">
+                  <div className="border-r border-white/10 bg-zinc-950/45 p-1.5 space-y-1 overflow-y-auto">
+                    {paletteCategories.map((category) => {
+                      const isActive = category.id === activeContextMenuCategory.id
+                      const CategoryIcon = category.icon
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() => setContextMenuCategory(category.id)}
+                          className={`w-full rounded-md px-2 py-1.5 text-left transition-colors border ${
+                            isActive
+                              ? 'bg-white/10 border-white/20 text-white'
+                              : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <CategoryIcon className="w-3 h-3 shrink-0" />
+                              <span className="truncate text-[11px]">{category.label}</span>
+                            </div>
+                            <span className="shrink-0 text-[9px] text-zinc-400">{category.templates.length}</span>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div className="p-2 space-y-1.5 overflow-y-auto">
+                    {activeContextMenuCategory.templates.map((template) => {
+                      const shortDescription = getNodeTemplateShortDescription(translateCanvas, template)
+
+                      return (
+                        <button
+                          key={template.id}
+                          type="button"
+                          onClick={() => handleContextMenuAddNode(template)}
+                          className={`w-full text-left p-2 rounded-lg bg-gradient-to-r ${template.gradient} ${template.border} hover:scale-[1.01] transition-transform`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div
+                              className="p-1 rounded mt-0.5"
+                              style={{ background: `${template.color}20` }}
+                            >
+                              <template.icon className="w-3.5 h-3.5" style={{ color: template.color }} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium text-white truncate">{template.label}</div>
+                              <div className="text-[10px] text-zinc-300/90 line-clamp-1">
+                                {shortDescription}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Empty State */}
           {nodes.length === 0 && (
             <Panel position="top-right" className="!transform-none !left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2 pointer-events-none">
@@ -1102,6 +1499,7 @@ function FlowCanvasInner({
       {/* Settings Panel */}
       {settingsPanelOpen && (
         <NodeSettingsPanel
+          key={selectedNode?.id || 'no-node'}
           node={selectedNode}
           onUpdate={handleNodeUpdate}
           onSave={handleSettingsSave}

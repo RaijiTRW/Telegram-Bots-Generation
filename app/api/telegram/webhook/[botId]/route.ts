@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
 import { createBotSecretsService } from '@/lib/bot-editor/services/bot-secrets-service'
 import { trackBotSubscriber } from '@/lib/bot-editor/services/bot-subscriber-service'
+import { appendInboundContactEvent } from '@/lib/bot-editor/services/bot-crm-service'
 import {
   handleTelegramWorkflowUpdate,
   type TelegramUpdate,
@@ -31,6 +32,83 @@ function readSubscriberModeConfig(metadata: Record<string, unknown> | null | und
     privateChatsOnly: mode.privateChatsOnly === undefined ? true : Boolean(mode.privateChatsOnly),
     trackCallbacks: mode.trackCallbacks === undefined ? true : Boolean(mode.trackCallbacks),
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function resolveInboundEventKind(update: TelegramUpdate): 'message_text' | 'callback' | 'media' | 'service' {
+  if (update.callback_query) {
+    return 'callback'
+  }
+
+  const message = update.message as unknown
+  if (!isRecord(message)) {
+    return 'service'
+  }
+
+  if (typeof message.text === 'string' || typeof message.caption === 'string') {
+    return 'message_text'
+  }
+
+  if (
+    Array.isArray(message.photo) ||
+    Boolean(message.video) ||
+    Boolean(message.document) ||
+    Boolean(message.audio) ||
+    Boolean(message.voice) ||
+    Boolean(message.animation) ||
+    Boolean(message.video_note) ||
+    Boolean(message.sticker)
+  ) {
+    return 'media'
+  }
+
+  return 'service'
+}
+
+async function appendInboundCrmEvent(args: {
+  supabase: ReturnType<typeof createAdminClient>
+  botId: string
+  update: TelegramUpdate
+}) {
+  const { supabase, botId, update } = args
+  const message = update.message
+  const callback = update.callback_query
+  const user = message?.from || callback?.from
+  const chat = message?.chat || callback?.message?.chat
+
+  if (!user?.id) {
+    return
+  }
+
+  const eventKind = resolveInboundEventKind(update)
+  const messageText =
+    (typeof message?.text === 'string' && message.text) ||
+    (typeof message?.caption === 'string' && message.caption) ||
+    (typeof callback?.data === 'string' && callback.data) ||
+    ''
+
+  await appendInboundContactEvent(
+    supabase as unknown as Parameters<typeof appendInboundContactEvent>[0],
+    {
+      botId,
+      telegramUserId: user.id,
+      telegramChatId: Number.isFinite(Number(chat?.id)) ? Number(chat?.id) : null,
+      username: user.username,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      languageCode: user.language_code,
+      eventKind,
+      messageText,
+      payload: {
+        updateId: update.update_id,
+        callbackId: callback?.id || null,
+        messageId: message?.message_id ?? callback?.message?.message_id ?? null,
+      },
+    }
+  )
 }
 
 async function trackSubscriberIfEnabled(args: {
@@ -138,6 +216,12 @@ export async function POST(
       metadata: (bot.metadata || {}) as Record<string, unknown>,
       update,
     })
+
+    try {
+      await appendInboundCrmEvent({ supabase, botId, update })
+    } catch (error) {
+      console.error('Failed to append inbound CRM event (webhook):', error)
+    }
 
     await handleTelegramWorkflowUpdate({
       botId,

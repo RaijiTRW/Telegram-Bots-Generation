@@ -7,7 +7,7 @@ import type { NodeData } from './component-schemas'
 
 export type BotStatus = 'draft' | 'active' | 'archived' | 'error'
 
-export type EditorSection = 'ai-chat' | 'canvas' | 'settings' | 'system'
+export type EditorSection = 'ai-chat' | 'canvas' | 'settings' | 'system' | 'statistics'
 
 export type NodeType =
   | 'message'
@@ -20,6 +20,10 @@ export type NodeType =
   | 'action'
   | 'http'
   | 'webhook'
+  | 'paymentYookassa'
+  | 'paymentStripe'
+  | 'paymentRobokassa'
+  | 'paymentStars'
   | 'trigger'
   | 'wait'
   | 'comment'

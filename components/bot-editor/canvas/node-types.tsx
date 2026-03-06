@@ -14,6 +14,8 @@ import {
   Globe,
   Play,
   Clock,
+  CreditCard,
+  Star,
   Trash2,
   Settings
 } from 'lucide-react'
@@ -48,6 +50,14 @@ const getNodeStyles = (type: string) => {
       return `${baseNodeStyles} bg-rose-500/10 border-rose-500/30`
     case 'webhook':
       return `${baseNodeStyles} bg-red-500/10 border-red-500/30`
+    case 'paymentYookassa':
+      return `${baseNodeStyles} bg-sky-500/10 border-sky-500/30`
+    case 'paymentStripe':
+      return `${baseNodeStyles} bg-indigo-500/10 border-indigo-500/30`
+    case 'paymentRobokassa':
+      return `${baseNodeStyles} bg-orange-500/10 border-orange-500/30`
+    case 'paymentStars':
+      return `${baseNodeStyles} bg-yellow-400/10 border-yellow-400/30`
     case 'trigger':
       return `${baseNodeStyles} bg-indigo-500/10 border-indigo-500/30`
     default:
@@ -80,6 +90,12 @@ const getNodeIcon = (type: string) => {
       return <Globe className={iconClassName} style={{ color: nodeColor }} />
     case 'webhook':
       return <Webhook className={iconClassName} style={{ color: nodeColor }} />
+    case 'paymentYookassa':
+    case 'paymentStripe':
+    case 'paymentRobokassa':
+      return <CreditCard className={iconClassName} style={{ color: nodeColor }} />
+    case 'paymentStars':
+      return <Star className={iconClassName} style={{ color: nodeColor }} />
     case 'trigger':
       return <Play className={iconClassName} style={{ color: nodeColor }} />
     default:
@@ -99,6 +115,10 @@ const getNodeColor = (type: string) => {
     case 'input': return '#10B981'
     case 'http': return '#F43F5E'
     case 'webhook': return '#EF4444'
+    case 'paymentYookassa': return '#38BDF8'
+    case 'paymentStripe': return '#6366F1'
+    case 'paymentRobokassa': return '#F97316'
+    case 'paymentStars': return '#FACC15'
     case 'trigger': return '#6366F1'
     default: return '#71717A'
   }
@@ -109,8 +129,6 @@ interface RouterCasePreview {
   label: string
   value: string
 }
-
-type CanvasT = (key: string, values?: Record<string, unknown>) => string
 
 const getRouterCases = (data: Record<string, unknown>): RouterCasePreview[] => {
   if (!Array.isArray(data.cases)) {
@@ -154,60 +172,6 @@ const getTriggerNodeLabel = (data: Record<string, unknown>): string => {
   }
 }
 
-const getTriggerNodeDescription = (
-  data: Record<string, unknown>,
-  t?: CanvasT
-): string => {
-  const tr = (key: string, fallback: string, values?: Record<string, unknown>) => {
-    if (!t) return fallback
-    return t(`nodeDescriptions.trigger.${key}`, values)
-  }
-
-  if (Boolean(data.aiEnabled)) {
-    const prompt = String(data.aiPrompt || '').trim()
-    return prompt
-      ? tr('aiIntentPrompt', `AI intent • ${prompt.slice(0, 42)}`, { prompt: prompt.slice(0, 42) })
-      : tr('aiIntentSoon', 'AI intent / semantic match (soon)')
-  }
-
-  const triggerType = String(data.trigger || 'command')
-  const pattern = String(data.pattern || '').trim()
-
-  switch (triggerType) {
-    case 'callbackQuery':
-      return pattern
-        ? tr('callbackPattern', `Callback: ${pattern}`, { pattern })
-        : tr('anyCallback', 'Starts on any callback')
-    case 'text':
-      return pattern
-        ? tr('textPattern', `Matches text: ${pattern}`, { pattern })
-        : tr('incomingText', 'Matches incoming text')
-    case 'photo':
-      return tr('photo', 'Starts on photo')
-    case 'any':
-      return tr('anyUpdate', 'Starts on any update')
-    case 'schedule': {
-      const scheduleMode = String(data.scheduleMode || 'daily')
-      const timeZone = String(data.timeZone || 'UTC').trim() || 'UTC'
-      if (scheduleMode === 'hourly') {
-        const everyHours = Math.max(1, Number(data.everyHours || 1) || 1)
-        const atMinute = Math.max(0, Math.min(59, Number(data.atMinute || 0) || 0))
-        const minute = String(atMinute).padStart(2, '0')
-        return tr(
-          'scheduleHourly',
-          `Every ${everyHours}h at :${minute} • ${timeZone}`,
-          { everyHours, minute, timeZone }
-        )
-      }
-      const atTime = String(data.atTime || '10:00').trim() || '10:00'
-      return tr('scheduleDaily', `Daily ${atTime} • ${timeZone}`, { atTime, timeZone })
-    }
-    case 'command':
-    default:
-      return tr('command', `Starts on ${pattern || '/start'}`, { pattern: pattern || '/start' })
-  }
-}
-
 // Base Custom Node Component
 const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const tCanvas = useTranslations('editor.canvas')
@@ -218,36 +182,15 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const nodeColor = getNodeColor(type || data.type)
   const normalizedType = type || data.type
   const dataRecord = data as Record<string, unknown>
-  const triggerData =
-    normalizedType === 'trigger' ? dataRecord : null
   const actionType =
     normalizedType === 'action' && dataRecord.action && typeof dataRecord.action === 'object'
       ? String((dataRecord.action as Record<string, unknown>).type || '')
       : ''
-  const scriptLanguage =
-    normalizedType === 'script' ? String(dataRecord.language || 'javascript').trim() || 'javascript' : 'javascript'
-  const scriptSaveToVariable =
-    normalizedType === 'script' ? String(dataRecord.saveToVariable || '').trim() : ''
   const isRandomSplitAction = normalizedType === 'action' && actionType === 'random'
-  const randomSplitAPercent = isRandomSplitAction
-    ? Math.min(
-      100,
-      Math.max(
-        0,
-        Number(
-          (dataRecord.action as Record<string, unknown> | undefined)?.aPercent ??
-          (dataRecord.action as Record<string, unknown> | undefined)?.percent ??
-          50
-        ) || 0
-      )
-    )
-    : 50
   const routerCases = useMemo(
     () => (normalizedType === 'router' ? getRouterCases(dataRecord) : []),
     [normalizedType, dataRecord]
   )
-  const routerVariable =
-    normalizedType === 'router' ? String(dataRecord.variable || '').trim() : ''
   const routerDefaultLabel =
     normalizedType === 'router'
       ? String(dataRecord.defaultLabel || '').trim() || tCanvas('nodeDescriptions.defaults.default')
@@ -256,78 +199,11 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'router'
       ? routerCases.map((routerCase) => `${routerCase.id}:${routerCase.label}:${routerCase.value}`).join('|')
       : ''
-  const schedulerMode =
-    normalizedType === 'scheduler' ? String(dataRecord.mode || 'delay') : 'delay'
-  const schedulerDelayValue =
-    normalizedType === 'scheduler' ? Number(dataRecord.delayValue ?? 0) : 0
-  const schedulerDelayUnit =
-    normalizedType === 'scheduler' ? String(dataRecord.delayUnit || 'minutes') : 'minutes'
-  const schedulerDateTime =
-    normalizedType === 'scheduler' ? String(dataRecord.dateTime || '').trim() : ''
-  const schedulerTimeZone =
-    normalizedType === 'scheduler' ? String(dataRecord.timeZone || '').trim() : ''
-  const replyKeyboardMode =
-    normalizedType === 'replyKeyboard' ? String(dataRecord.mode || 'system').trim() || 'system' : 'system'
-  const replyKeyboardVariantKey =
-    normalizedType === 'replyKeyboard' ? String(dataRecord.variantKey || '').trim() : ''
-  const replyKeyboardVariable =
-    normalizedType === 'replyKeyboard' ? String(dataRecord.variable || '').trim() : ''
-  const schedulerDelayUnitLabel =
-    normalizedType === 'scheduler'
-      ? ({
-        seconds: tCanvas('nodeDescriptions.scheduler.units.seconds'),
-        minutes: tCanvas('nodeDescriptions.scheduler.units.minutes'),
-        hours: tCanvas('nodeDescriptions.scheduler.units.hours'),
-        days: tCanvas('nodeDescriptions.scheduler.units.days'),
-      } as Record<string, string>)[schedulerDelayUnit] || schedulerDelayUnit
-      : schedulerDelayUnit
 
   const nodeLabel =
-    normalizedType === 'trigger' && triggerData
-      ? getTriggerNodeLabel(triggerData)
+    normalizedType === 'trigger'
+      ? getTriggerNodeLabel(dataRecord)
       : String(dataRecord.__label ?? dataRecord.label ?? normalizedType)
-  const nodeDescriptionRaw =
-    normalizedType === 'router'
-      ? tCanvas('nodeDescriptions.router.summary', {
-        variable: routerVariable || tCanvas('nodeDescriptions.defaults.variable'),
-        count: routerCases.length,
-        casesWord: tCanvas('nodeDescriptions.defaults.cases'),
-      })
-      : isRandomSplitAction
-        ? `A ${randomSplitAPercent}% • B ${100 - randomSplitAPercent}%`
-        : normalizedType === 'scheduler'
-          ? schedulerMode === 'dateTime'
-            ? tCanvas('nodeDescriptions.scheduler.at', {
-              dateTime: schedulerDateTime || tCanvas('nodeDescriptions.defaults.dateTime'),
-              timeZoneSuffix: schedulerTimeZone ? ` • ${schedulerTimeZone}` : '',
-            })
-            : tCanvas('nodeDescriptions.scheduler.delay', {
-              value: Number.isFinite(schedulerDelayValue) ? schedulerDelayValue : 0,
-              unit: schedulerDelayUnitLabel,
-            })
-          : normalizedType === 'replyKeyboard'
-            ? replyKeyboardMode === 'clear'
-              ? tCanvas('nodeDescriptions.replyKeyboard.hide')
-              : replyKeyboardMode === 'variant'
-                ? tCanvas('nodeDescriptions.replyKeyboard.variant', {
-                  variant: replyKeyboardVariantKey || 'base',
-                })
-                : replyKeyboardMode === 'condition'
-                  ? tCanvas('nodeDescriptions.replyKeyboard.condition', {
-                    variable: replyKeyboardVariable || tCanvas('nodeDescriptions.defaults.variable'),
-                  })
-                  : tCanvas('nodeDescriptions.replyKeyboard.system')
-            : normalizedType === 'script'
-              ? `${scriptLanguage === 'python' ? 'Python' : 'JavaScript'}${scriptSaveToVariable ? ` • -> ${scriptSaveToVariable}` : ''}`
-              : normalizedType === 'trigger' && triggerData
-                ? getTriggerNodeDescription(triggerData, tCanvas as any)
-                : dataRecord.__description ?? dataRecord.description
-  const nodeDescription =
-    typeof nodeDescriptionRaw === 'string'
-      ? nodeDescriptionRaw
-      : nodeDescriptionRaw == null
-        ? ''
-        : String(nodeDescriptionRaw)
 
   const setRouterCaseRowRef = useCallback((caseId: string, element: HTMLDivElement | null) => {
     routerCaseRowRefs.current[caseId] = element
@@ -379,7 +255,7 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
       if (rafId) window.cancelAnimationFrame(rafId)
       resizeObserver?.disconnect()
     }
-  }, [id, normalizedType, routerCases, routerCasesSignature, routerDefaultLabel, updateNodeInternals])
+  }, [id, normalizedType, routerCases, routerCasesSignature, updateNodeInternals])
 
   return (
     <div
@@ -409,13 +285,6 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
         </div>
       </div>
 
-      {/* Node Content */}
-      {nodeDescription && (
-        <div className="text-[10px] text-zinc-400 mt-1 line-clamp-1">
-          {nodeDescription}
-        </div>
-      )}
-
       {normalizedType === 'router' && (
         <div className="mt-2 space-y-1 pr-3">
           {routerCases.map((routerCase) => (
@@ -437,15 +306,18 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
               </span>
             </div>
           ))}
-          <div className="text-[10px] text-zinc-500 px-1">
-            {tCanvas('nodeDescriptions.router.bottomOutput')}: <span className="text-zinc-300">{routerDefaultLabel}</span>
-          </div>
         </div>
       )}
 
       {/* Actions */}
       {selected && (
-        <div className="absolute -right-6 top-1/2 -translate-y-1/2 flex flex-col gap-1">
+        <div
+          className={
+            normalizedType === 'router'
+              ? 'absolute -right-6 top-3 flex flex-col gap-1'
+              : 'absolute -right-6 top-1/2 -translate-y-1/2 flex flex-col gap-1'
+          }
+        >
           <button
             className="p-1 rounded bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 transition-colors"
             onClick={() => data.onDelete?.(id)}
@@ -600,6 +472,10 @@ const ActionNodeComponent = (props: NodeProps) => <CustomNode {...props} type="a
 const InputNodeComponent = (props: NodeProps) => <CustomNode {...props} type="input" />
 const HttpNodeComponent = (props: NodeProps) => <CustomNode {...props} type="http" />
 const WebhookNodeComponent = (props: NodeProps) => <CustomNode {...props} type="webhook" />
+const PaymentYookassaNodeComponent = (props: NodeProps) => <CustomNode {...props} type="paymentYookassa" />
+const PaymentStripeNodeComponent = (props: NodeProps) => <CustomNode {...props} type="paymentStripe" />
+const PaymentRobokassaNodeComponent = (props: NodeProps) => <CustomNode {...props} type="paymentRobokassa" />
+const PaymentStarsNodeComponent = (props: NodeProps) => <CustomNode {...props} type="paymentStars" />
 const TriggerNodeComponent = (props: NodeProps) => <CustomNode {...props} type="trigger" />
 
 MessageNodeComponent.displayName = 'MessageNodeComponent'
@@ -612,6 +488,10 @@ ActionNodeComponent.displayName = 'ActionNodeComponent'
 InputNodeComponent.displayName = 'InputNodeComponent'
 HttpNodeComponent.displayName = 'HttpNodeComponent'
 WebhookNodeComponent.displayName = 'WebhookNodeComponent'
+PaymentYookassaNodeComponent.displayName = 'PaymentYookassaNodeComponent'
+PaymentStripeNodeComponent.displayName = 'PaymentStripeNodeComponent'
+PaymentRobokassaNodeComponent.displayName = 'PaymentRobokassaNodeComponent'
+PaymentStarsNodeComponent.displayName = 'PaymentStarsNodeComponent'
 TriggerNodeComponent.displayName = 'TriggerNodeComponent'
 
 export const MessageNode = memo(MessageNodeComponent)
@@ -624,6 +504,10 @@ export const ActionNode = memo(ActionNodeComponent)
 export const InputNode = memo(InputNodeComponent)
 export const HttpNode = memo(HttpNodeComponent)
 export const WebhookNode = memo(WebhookNodeComponent)
+export const PaymentYookassaNode = memo(PaymentYookassaNodeComponent)
+export const PaymentStripeNode = memo(PaymentStripeNodeComponent)
+export const PaymentRobokassaNode = memo(PaymentRobokassaNodeComponent)
+export const PaymentStarsNode = memo(PaymentStarsNodeComponent)
 export const TriggerNode = memo(TriggerNodeComponent)
 
 // Node type mapping for ReactFlow
@@ -638,6 +522,10 @@ export const nodeTypes = {
   input: InputNode,
   http: HttpNode,
   webhook: WebhookNode,
+  paymentYookassa: PaymentYookassaNode,
+  paymentStripe: PaymentStripeNode,
+  paymentRobokassa: PaymentRobokassaNode,
+  paymentStars: PaymentStarsNode,
   trigger: TriggerNode,
 }
 
@@ -925,6 +813,102 @@ export const nodeTemplates: NodeTemplate[] = [
     gradient: 'from-rose-500/20 to-rose-600/10',
     border: 'border-rose-500/30',
     icon: Globe,
+  },
+  {
+    id: 'payment-yookassa',
+    type: 'paymentYookassa',
+    label: 'YooKassa',
+    description: 'Create payment link via YooKassa',
+    color: '#38BDF8',
+    gradient: 'from-sky-500/20 to-blue-500/10',
+    border: 'border-sky-500/30',
+    icon: CreditCard,
+    data: {
+      shopId: '',
+      secretKey: '',
+      amount: '100.00',
+      currency: 'RUB',
+      description: '',
+      returnUrl: '',
+      capture: true,
+      saveToVariable: 'payment',
+      autoSendPaymentLink: true,
+      messageTemplate: 'Оплатите заказ по ссылке: {{payment.url}}',
+      __label: 'YooKassa',
+      __description: 'Create redirect payment link',
+    },
+  },
+  {
+    id: 'payment-stripe',
+    type: 'paymentStripe',
+    label: 'Stripe',
+    description: 'Create Checkout Session link via Stripe',
+    color: '#6366F1',
+    gradient: 'from-indigo-500/20 to-violet-500/10',
+    border: 'border-indigo-500/30',
+    icon: CreditCard,
+    data: {
+      secretKey: '',
+      amount: '100.00',
+      currency: 'usd',
+      productName: 'Order payment',
+      description: '',
+      successUrl: '',
+      cancelUrl: '',
+      saveToVariable: 'payment',
+      autoSendPaymentLink: true,
+      messageTemplate: 'Complete payment here: {{payment.url}}',
+      __label: 'Stripe',
+      __description: 'Create hosted checkout link',
+    },
+  },
+  {
+    id: 'payment-robokassa',
+    type: 'paymentRobokassa',
+    label: 'Robokassa',
+    description: 'Create payment link via Robokassa',
+    color: '#F97316',
+    gradient: 'from-orange-500/20 to-amber-500/10',
+    border: 'border-orange-500/30',
+    icon: CreditCard,
+    data: {
+      merchantLogin: '',
+      password1: '',
+      amount: '100.00',
+      currency: 'RUB',
+      description: '',
+      invoiceId: '',
+      successUrl: '',
+      failUrl: '',
+      isTest: true,
+      saveToVariable: 'payment',
+      autoSendPaymentLink: true,
+      messageTemplate: 'Оплатите заказ по ссылке: {{payment.url}}',
+      __label: 'Robokassa',
+      __description: 'Create redirect payment link',
+    },
+  },
+  {
+    id: 'payment-stars',
+    type: 'paymentStars',
+    label: 'Telegram Stars',
+    description: 'Create Telegram Stars payment link',
+    color: '#FACC15',
+    gradient: 'from-yellow-400/20 to-amber-500/10',
+    border: 'border-yellow-400/30',
+    icon: Star,
+    data: {
+      title: 'Telegram Stars payment',
+      amount: '100',
+      currency: 'XTR',
+      description: 'Payment via Telegram Stars',
+      payload: '',
+      saveToVariable: 'payment',
+      autoSendPaymentLink: true,
+      messageTemplate: 'Оплатите заказ в Telegram Stars: {{payment.url}}',
+      __label: 'Telegram Stars',
+      __description: 'Create Telegram Stars invoice link',
+    },
   },
   // Legacy 'webhook' node type is still supported in runtime/config,
   // but hidden from palette in favor of the dedicated HTTP node.

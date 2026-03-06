@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react'
 import { Node, Edge } from 'reactflow'
-import { Check, ChevronDown, ChevronUp, Copy, Loader2, Terminal } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Copy, Loader2, Terminal, Trash2 } from 'lucide-react'
 import FlowCanvas from '@/components/bot-editor/canvas/flow-canvas'
 import {
+  clearBotTestLogsAction,
   getBotTestLogsAction,
   saveCanvasAction,
   startBotTestAction,
@@ -66,6 +67,7 @@ export default function CanvasPage() {
   const [logsPaneHeight, setLogsPaneHeight] = useState(220)
   const [isLogsCopyMenuOpen, setIsLogsCopyMenuOpen] = useState(false)
   const [copiedLogsMode, setCopiedLogsMode] = useState<'text' | 'json' | null>(null)
+  const [isClearingLogs, setIsClearingLogs] = useState(false)
   const [logsFetchError, setLogsFetchError] = useState<string | null>(null)
   const [logsFetchErrorTs, setLogsFetchErrorTs] = useState<number | null>(null)
   const pageContainerRef = useRef<HTMLDivElement | null>(null)
@@ -381,6 +383,28 @@ export default function CanvasPage() {
     }
   }
 
+  const handleClearLogs = async () => {
+    if (!botId || isClearingLogs) return
+
+    setIsClearingLogs(true)
+    try {
+      const result = await clearBotTestLogsAction(botId)
+      if (!result.success) {
+        setError(result.error || t('logsClearError'))
+        return
+      }
+
+      latestLogTsRef.current = null
+      setLogs([])
+      setLogsFetchError(null)
+      setLogsFetchErrorTs(null)
+      setCopiedLogsMode(null)
+      setIsLogsCopyMenuOpen(false)
+    } finally {
+      setIsClearingLogs(false)
+    }
+  }
+
   return (
     <div ref={pageContainerRef} className="h-full w-full bg-[#05070A]">
       <div className="h-full w-full flex flex-col min-h-0">
@@ -450,56 +474,68 @@ export default function CanvasPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     {!logsCollapsed && (
-                      <div
-                        className="relative"
-                        onMouseEnter={() => {
-                          if (logs.length === 0) return
-                          setIsLogsCopyMenuOpen(true)
-                        }}
-                        onMouseLeave={() => setIsLogsCopyMenuOpen(false)}
-                      >
+                      <>
+                        <div
+                          className="relative"
+                          onMouseEnter={() => {
+                            if (logs.length === 0) return
+                            setIsLogsCopyMenuOpen(true)
+                          }}
+                          onMouseLeave={() => setIsLogsCopyMenuOpen(false)}
+                        >
+                          <button
+                            type="button"
+                            title={t('copyLogsTitle')}
+                            disabled={logs.length === 0}
+                            className="flex items-center justify-center w-8 h-8 rounded-md text-zinc-300 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+
+                          {isLogsCopyMenuOpen && logs.length > 0 && (
+                            <div className="absolute right-0 top-[calc(100%-2px)] z-20 min-w-[132px] rounded-lg border border-white/10 bg-zinc-950/95 backdrop-blur-xl shadow-xl shadow-black/40 p-1.5">
+                              <button
+                                type="button"
+                                onClick={() => void handleCopyLogs('text')}
+                                className="w-full h-8 px-2 rounded-md text-xs text-zinc-200 hover:bg-white/5 flex items-center justify-between transition-colors"
+                              >
+                                {copiedLogsMode === 'text' ? (
+                                  <Check className="w-4 h-4 text-emerald-400 mx-auto" />
+                                ) : (
+                                  <>
+                                    <span>{t('copyLogsText')}</span>
+                                    <span className="text-zinc-500">.txt</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleCopyLogs('json')}
+                                className="w-full h-8 px-2 rounded-md text-xs text-zinc-200 hover:bg-white/5 flex items-center justify-between transition-colors"
+                              >
+                                {copiedLogsMode === 'json' ? (
+                                  <Check className="w-4 h-4 text-emerald-400 mx-auto" />
+                                ) : (
+                                  <>
+                                    <span>{t('copyLogsJson')}</span>
+                                    <span className="text-zinc-500">{'{ }'}</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
                         <button
                           type="button"
-                          title={t('copyLogsTitle')}
-                          disabled={logs.length === 0}
-                          className="flex items-center justify-center w-8 h-8 rounded-md text-zinc-300 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          title={t('clearLogsTitle')}
+                          disabled={logs.length === 0 || isClearingLogs}
+                          onClick={() => void handleClearLogs()}
+                          className="flex items-center justify-center w-8 h-8 rounded-md text-zinc-300 hover:text-red-200 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
-                          <Copy className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
-
-                        {isLogsCopyMenuOpen && logs.length > 0 && (
-                          <div className="absolute right-0 top-[calc(100%-2px)] z-20 min-w-[132px] rounded-lg border border-white/10 bg-zinc-950/95 backdrop-blur-xl shadow-xl shadow-black/40 p-1.5">
-                            <button
-                              type="button"
-                              onClick={() => void handleCopyLogs('text')}
-                              className="w-full h-8 px-2 rounded-md text-xs text-zinc-200 hover:bg-white/5 flex items-center justify-between transition-colors"
-                            >
-                              {copiedLogsMode === 'text' ? (
-                                <Check className="w-4 h-4 text-emerald-400 mx-auto" />
-                              ) : (
-                                <>
-                                  <span>{t('copyLogsText')}</span>
-                                  <span className="text-zinc-500">.txt</span>
-                                </>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleCopyLogs('json')}
-                              className="w-full h-8 px-2 rounded-md text-xs text-zinc-200 hover:bg-white/5 flex items-center justify-between transition-colors"
-                            >
-                              {copiedLogsMode === 'json' ? (
-                                <Check className="w-4 h-4 text-emerald-400 mx-auto" />
-                              ) : (
-                                <>
-                                  <span>{t('copyLogsJson')}</span>
-                                  <span className="text-zinc-500">{'{ }'}</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      </>
                     )}
 
                     <button

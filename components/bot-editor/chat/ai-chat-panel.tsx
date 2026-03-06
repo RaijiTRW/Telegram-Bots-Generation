@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { MessageSquare, Sparkles, X } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ChatMessages } from './chat-messages'
@@ -10,6 +10,7 @@ import { ChatInput } from './chat-input'
 import type { ChatMessage } from './types'
 import { mockAIResponse, QUICK_PROMPTS } from '@/lib/bot-editor/services/mock-ai-service'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
+import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 
 interface AiChatPanelProps {
   onClose?: () => void
@@ -19,7 +20,9 @@ interface AiChatPanelProps {
 export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
   const tChat = useTranslations('editor.chat')
   const tNav = useTranslations('editor.nav')
+  const locale = useLocale()
   const { config, setConfig } = useBotState()
+  const docsBasePath = `/${locale}/dashboard/docs`
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -127,6 +130,12 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
         <div className="flex items-center gap-3">
           <MessageSquare className="w-4 h-4 text-[#24A1DE] shrink-0" />
           <h1 className="text-white font-semibold">{tNav('aiAssistant')}</h1>
+          <HelpGuideButton
+            title={tNav('aiAssistant')}
+            summary={tChat('panelSubtitle')}
+            steps={[tChat('emptyHelp1'), tChat('emptyHelp2'), tChat('emptyHelp3')]}
+            docsHref={`${docsBasePath}/how-it-works`}
+          />
           <span className="text-zinc-500">|</span>
           <span className="text-sm text-zinc-400">{tChat('panelSubtitle')}</span>
         </div>

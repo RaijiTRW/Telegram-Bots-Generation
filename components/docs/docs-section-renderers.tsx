@@ -17,8 +17,8 @@ import type { ReactElement } from 'react'
 export function SectionHeader({ title, description }: { title: string; description: string }) {
   return (
     <div className="mb-8">
-      <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">{title}</h2>
-      <p className="mt-4 text-base md:text-lg text-zinc-300 leading-relaxed max-w-4xl">
+      <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight leading-tight">{title}</h2>
+      <p className="mt-3 text-[15px] md:text-base text-zinc-300 leading-7 max-w-[72ch]">
         <DocsInlineText text={description} />
       </p>
     </div>
@@ -49,7 +49,7 @@ export function InfoList({ items }: { items: string[] }) {
   return (
     <ul className="space-y-3">
       {items.map((item) => (
-        <li key={item} className="flex items-start gap-3 text-base text-zinc-300 leading-relaxed">
+        <li key={item} className="flex items-start gap-3 text-sm md:text-[15px] text-zinc-300 leading-7">
           <CheckCircle2 className="w-5 h-5 text-[#24A1DE] mt-0.5 shrink-0 opacity-80" />
           <span><DocsInlineText text={item} /></span>
         </li>
@@ -323,17 +323,24 @@ export function ServiceFlowSection({ content }: { content: DocsContent }) {
   return (
     <section id="service-flow" className="scroll-mt-28 rounded-3xl border border-white/10 bg-zinc-900/40 backdrop-blur-xl p-6 md:p-8 shadow-sm">
       <SectionHeader title={content.serviceFlow.title} description={content.serviceFlow.description} />
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-        {content.serviceFlow.stages.map((stage) => (
-          <div key={stage.title} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-5 flex flex-col hover:bg-zinc-950/70 transition-colors duration-300">
-            <h3 className="text-base font-semibold text-white leading-snug">{stage.title}</h3>
-            <p className="mt-2 text-sm text-zinc-400 leading-relaxed flex-1">{stage.description}</p>
-            <div className="mt-4 rounded-xl border border-[#24A1DE]/20 bg-[#24A1DE]/5 p-3">
-              <div className="text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">{isRu ? 'Результат этапа' : 'Stage output'}</div>
-              <div className="text-sm font-medium text-zinc-200 leading-relaxed">{stage.output}</div>
-            </div>
-          </div>
-        ))}
+      <div className="overflow-x-auto pb-2">
+        <div className="flex min-w-max gap-4 snap-x snap-mandatory pr-1">
+          {content.serviceFlow.stages.map((stage) => (
+            <article
+              key={stage.title}
+              className="w-[300px] sm:w-[330px] shrink-0 snap-start rounded-2xl border border-white/10 bg-zinc-950/55 p-5 flex flex-col hover:bg-zinc-950/75 transition-colors duration-300"
+            >
+              <h3 className="text-lg font-semibold text-white leading-7">{stage.title}</h3>
+              <p className="mt-2 text-sm text-zinc-400 leading-7 flex-1">{stage.description}</p>
+              <div className="mt-4 rounded-xl border border-[#24A1DE]/20 bg-[#24A1DE]/5 p-3.5">
+                <div className="text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">
+                  {isRu ? 'Результат этапа' : 'Stage output'}
+                </div>
+                <div className="text-sm font-medium text-zinc-200 leading-7">{stage.output}</div>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   )
@@ -344,19 +351,45 @@ export function EditorAreasSection({ content }: { content: DocsContent }) {
   return (
     <section id="editor-areas" className="scroll-mt-28 rounded-3xl border border-white/10 bg-zinc-900/40 backdrop-blur-xl p-6 md:p-8 shadow-sm">
       <SectionHeader title={content.editorAreas.title} description={content.editorAreas.description} />
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-5">
         {content.editorAreas.cards.map((card) => (
-          <div key={card.id} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-6">
+          <div key={card.id} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-5 md:p-6">
             <h3 className="text-xl font-bold text-white tracking-wide">{card.title}</h3>
-            <div className="mt-1.5 text-base text-zinc-400">{card.subtitle}</div>
-            <div className="mt-4 text-base text-zinc-300 leading-relaxed">
+            <div className="mt-1.5 text-sm md:text-base text-zinc-400">{card.subtitle}</div>
+            <div className="mt-4 text-sm md:text-base text-zinc-300 leading-7">
               <span className="text-zinc-500">{isRu ? 'Когда использовать:' : 'When to use:'}</span> {card.whenToUse}
             </div>
-            <div className="mt-5">
-              <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-3">
-                {isRu ? 'Основные действия' : 'Main actions'}
+            <div className="mt-5 grid grid-cols-1 gap-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-3">
+                  {isRu ? 'Основные действия' : 'Main actions'}
+                </div>
+                <InfoList items={card.actions} />
               </div>
-              <CollapsibleList items={card.actions} isRu={isRu} visibleCount={2} />
+              {card.useCases && card.useCases.length > 0 ? (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-3">
+                    {isRu ? 'Типовые задачи' : 'Typical tasks'}
+                  </div>
+                  <InfoList items={card.useCases} />
+                </div>
+              ) : null}
+              {card.storageNotes && card.storageNotes.length > 0 ? (
+                <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/5 p-4 xl:col-span-2">
+                  <div className="text-xs uppercase tracking-wider font-semibold text-cyan-300 mb-3">
+                    {isRu ? 'Где это хранится' : 'Where this is stored'}
+                  </div>
+                  <InfoList items={card.storageNotes} />
+                </div>
+              ) : null}
+              {card.commonMistakes && card.commonMistakes.length > 0 ? (
+                <div className="rounded-xl border border-amber-300/20 bg-amber-400/5 p-4 xl:col-span-2">
+                  <div className="text-xs uppercase tracking-wider font-semibold text-amber-300 mb-3">
+                    {isRu ? 'Частые ошибки' : 'Common mistakes'}
+                  </div>
+                  <InfoList items={card.commonMistakes} />
+                </div>
+              ) : null}
             </div>
             <div className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-base text-zinc-200 shadow-sm">
               <span className="font-semibold text-emerald-400 mr-2">{isRu ? 'Результат:' : 'Result:'}</span> {card.result}
@@ -427,7 +460,7 @@ export function KeyboardsAndTriggersSection({ content }: { content: DocsContent 
     <section id="keyboards-triggers" className="scroll-mt-28 rounded-3xl border border-white/10 bg-zinc-900/40 backdrop-blur-xl p-6 md:p-8 shadow-sm">
       <SectionHeader title={content.keyboardsAndTriggers.title} description={content.keyboardsAndTriggers.description} />
       <div className="rounded-2xl border border-amber-300/20 bg-amber-400/5 p-5 text-base text-zinc-200 leading-relaxed mb-6 shadow-sm">
-        {content.keyboardsAndTriggers.note}
+        <DocsInlineText text={content.keyboardsAndTriggers.note} />
       </div>
       <details className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4 group transition-all duration-300">
         <summary className="list-none cursor-pointer flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">

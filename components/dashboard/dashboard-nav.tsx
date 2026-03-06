@@ -1,29 +1,98 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Home, User, Settings, LogOut, Bot, BookOpen } from 'lucide-react'
+import { Home, User, Settings, LogOut, Bot, BookOpen, Shield, Users, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { CompactLogo } from '@/components/logo'
 
-const navItems = [
-  { href: '/dashboard', icon: Home, label: 'dashboard.nav.home' },
-  { href: '/dashboard/bots', icon: Bot, label: 'dashboard.nav.bots' },
-  { href: '/dashboard/docs', icon: BookOpen, label: 'dashboard.nav.docs' },
-  { href: '/dashboard/profile', icon: User, label: 'dashboard.nav.profile' },
-  { href: '/dashboard/settings', icon: Settings, label: 'dashboard.nav.settings' },
-]
-
 export function DashboardNav() {
   const t = useTranslations()
   const pathname = usePathname()
   const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Get locale from pathname
   const locale = pathname?.split('/')[1] || 'ru'
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+
+    const refreshAdminRole = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) {
+          if (!cancelled) setIsAdmin(false)
+          return
+        }
+
+        const { data: profileRaw, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (error) {
+          if (!cancelled) setIsAdmin(false)
+          return
+        }
+
+        if (!cancelled) {
+          const profile = profileRaw as { role?: 'user' | 'admin' } | null
+          setIsAdmin(profile?.role === 'admin')
+        }
+      } catch {
+        if (!cancelled) setIsAdmin(false)
+      }
+    }
+
+    void refreshAdminRole()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void refreshAdminRole()
+    })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const navItems = useMemo(() => {
+    const baseItems = [
+      { href: '/dashboard', icon: Home, label: 'dashboard.nav.home' },
+      { href: '/dashboard/bots', icon: Bot, label: 'dashboard.nav.bots' },
+      { href: '/dashboard/crm', icon: Users, label: 'dashboard.nav.crm' },
+      { href: '/dashboard/docs', icon: BookOpen, label: 'dashboard.nav.docs' },
+      { href: '/dashboard/profile', icon: User, label: 'dashboard.nav.profile' },
+      { href: '/dashboard/settings', icon: Settings, label: 'dashboard.nav.settings' },
+    ]
+
+    if (!isAdmin) {
+      return baseItems
+    }
+
+    return [
+      baseItems[0],
+      baseItems[1],
+      baseItems[2],
+      baseItems[3],
+      { href: '/dashboard/cms', icon: FileText, label: 'dashboard.nav.cms' },
+      { href: '/dashboard/admin', icon: Shield, label: 'dashboard.nav.admin' },
+      baseItems[4],
+      baseItems[5],
+    ]
+  }, [isAdmin])
 
   const handleLogout = async () => {
     const supabase = createClient()

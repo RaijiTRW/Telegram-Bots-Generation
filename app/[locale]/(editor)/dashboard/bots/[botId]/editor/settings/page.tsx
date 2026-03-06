@@ -1,11 +1,22 @@
 'use client'
 
+import { useSyncExternalStore } from 'react'
 import { Settings } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { BotSettingsForm } from '@/components/bot-editor/settings/bot-settings-form'
+import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 
 export default function SettingsPage() {
   const tNav = useTranslations('editor.nav')
+  const tHelp = useTranslations('editor.settings.help')
+  const locale = useLocale()
+  const docsBasePath = `/${locale}/dashboard/docs`
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
+
   return (
     <div className="h-full flex flex-col bg-[#05070A] overflow-y-auto">
       {/* Header */}
@@ -13,6 +24,12 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3">
           <Settings className="w-4 h-4 text-[#24A1DE] shrink-0" />
           <h1 className="text-white font-semibold">{tNav('settings')}</h1>
+          <HelpGuideButton
+            title={tNav('settings')}
+            summary={tHelp('basicSummary')}
+            steps={[tHelp('basicStep1'), tHelp('basicStep2'), tHelp('basicStep3')]}
+            docsHref={`${docsBasePath}/getting-started`}
+          />
           <span className="text-zinc-500">|</span>
           <span className="text-sm text-zinc-400">{tNav('settingsDesc')}</span>
         </div>
@@ -21,7 +38,15 @@ export default function SettingsPage() {
       {/* Content */}
       <div className="flex-1 p-6">
         <div className="max-w-3xl mx-auto">
-          <BotSettingsForm />
+          {isMounted ? (
+            <BotSettingsForm />
+          ) : (
+            <div className="space-y-4" suppressHydrationWarning>
+              <div className="h-24 rounded-xl border border-white/10 bg-zinc-900/40 animate-pulse" />
+              <div className="h-48 rounded-xl border border-white/10 bg-zinc-900/40 animate-pulse" />
+              <div className="h-24 rounded-xl border border-white/10 bg-zinc-900/40 animate-pulse" />
+            </div>
+          )}
         </div>
       </div>
     </div>

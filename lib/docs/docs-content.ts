@@ -16,6 +16,9 @@ export type DocsAreaCard = {
   subtitle: string
   whenToUse: string
   actions: string[]
+  useCases?: string[]
+  storageNotes?: string[]
+  commonMistakes?: string[]
   result: string
 }
 
@@ -199,6 +202,7 @@ const ruContent: DocsContent = {
     steps: [
       'Сначала пройдите раздел “Быстрый старт” без попытки изучить все ноды. Цель — увидеть полный цикл работы сервиса.',
       'После первого рабочего теста перейдите к разделу “Разделы редактора” и “Компоненты интерфейса”, чтобы понимать, где находится нужная функция.',
+      'Используйте `?` рядом с названиями блоков и ключевыми полями: это открывает мини-гайд без выхода со страницы.',
       'Далее используйте “Ноды и пресеты” как справочник: открывайте только нужную группу нод под текущую задачу.',
       'Раздел “Клавиатуры и триггеры” обязателен перед настройкой кнопок, чтобы не путать Reply Keyboard и Inline Keyboard.',
       'При проблемах сразу идите в “Частые проблемы” и “Тест, логи, деплой” — там описан порядок диагностики.',
@@ -305,7 +309,7 @@ const ruContent: DocsContent = {
         ],
         systemBehavior: [
           'Перед тестом текущий canvas сохраняется.',
-          'Runtime запускает тестовый режим (polling/webhook в зависимости от конфигурации).',
+          'Runtime запускает тестовый режим (polling).',
           'Логи пишутся в память и в Supabase (`bot_test_logs`) при доступности БД.',
         ],
         check: [
@@ -384,6 +388,23 @@ const ruContent: DocsContent = {
           'Выбор ноды и открытие настроек.',
           'Copy / Cut / Paste нод (`Cmd/Ctrl + C/X/V`).',
           'Запуск теста и просмотр логов.',
+          'Сохранение изменений перед тестом (`Save -> Test`).',
+          'Проверка связей, чтобы не оставлять “висящие” ноды без выхода.',
+        ],
+        useCases: [
+          'Сборка первого сценария: Trigger -> Message -> Condition -> Message.',
+          'Переход с цепочки Condition на Router / Switch при 3+ ветках.',
+          'Быстрая правка сообщений и клавиатуры после анализа логов.',
+        ],
+        storageNotes: [
+          'До сохранения изменения существуют только в интерфейсе (черновик в браузере).',
+          'После сохранения nodes/edges пишутся в Supabase (`bot_configs`).',
+          'Тест запускается только с последней сохранённой конфигурацией.',
+        ],
+        commonMistakes: [
+          'Запускают Test без Save и думают, что “сценарий не обновился”.',
+          'Удаляют ноду, но оставляют логику с незакрытыми ветками.',
+          'Смешивают редактирование структуры и диагностику без промежуточных проверок.',
         ],
         result: 'Рабочая схема поведения бота (workflow).',
       },
@@ -396,6 +417,21 @@ const ruContent: DocsContent = {
           'Формулируете задачу простым текстом.',
           'Получаете предложения по структуре или нодам.',
           'Используете ответ как основу, затем проверяете руками в Canvas.',
+          'Уточняете сценарий пошагово: сначала входы, затем ветки, потом обработка ошибок.',
+          'Переносите итоговые решения в конкретные ноды и параметры вручную.',
+        ],
+        useCases: [
+          'Создание MVP-логики для нового бота за 10-15 минут.',
+          'Поиск причин, почему текущая ветка не отрабатывает как ожидается.',
+          'Подготовка текста для message-нод в одном стиле.',
+        ],
+        storageNotes: [
+          'Ответы AI — это подсказки, они не заменяют автоматом текущий workflow.',
+          'Итог сохраняется только после ваших явных изменений на Canvas/System/Settings.',
+        ],
+        commonMistakes: [
+          'Сразу доверяют AI-ответу без проверки на тестовых кейсах.',
+          'Не фиксируют результат в нодах и теряют рабочую версию после перезагрузки.',
         ],
         result: 'Ускорение проектирования, но итоговую логику всё равно проверяете вы.',
       },
@@ -409,6 +445,24 @@ const ruContent: DocsContent = {
           'Просмотр базовых Telegram переменных (`user.*`).',
           'Настройка reply keyboard (под input).',
           'Настройка авто-реакций и доп. функций.',
+          'Создание вариантов reply keyboard и правил переключения по условию.',
+          'Проверка триггеров и сопоставление с реальными событиями (`text` vs `callback`).',
+          'Описание переменных, чтобы команда понимала, где и зачем они используются.',
+        ],
+        useCases: [
+          'Глобальное меню бота с кнопками под input для типовых действий.',
+          'Хранение общих переменных сценария (статус пользователя, этап воронки, язык).',
+          'Включение доп. поведения (реакции, сервисные переключатели) без правки каждой ноды.',
+        ],
+        storageNotes: [
+          'Пользовательские переменные сохраняются как часть конфигурации бота.',
+          'Базовые `user.*` переменные приходят из Telegram runtime и не редактируются вручную.',
+          'Runtime-значения из теста не равны списку конфиг-переменных в System.',
+        ],
+        commonMistakes: [
+          'Пытаются ловить Reply Keyboard через Callback Trigger (нужно через Text Trigger).',
+          'Ожидают увидеть runtime-значение переменной в списке System сразу после Action.',
+          'Создают переменные без описаний и теряют контекст при поддержке.',
         ],
         result: 'Системная конфигурация, на которую опирается workflow.',
       },
@@ -416,11 +470,29 @@ const ruContent: DocsContent = {
         id: 'settings',
         title: 'Settings (Настройки)',
         subtitle: 'Конфигурация бота и Telegram',
-        whenToUse: 'Когда подключаете токен, webhook/polling параметры, поведение запуска и общие параметры бота.',
+        whenToUse: 'Когда подключаете токен, проверяете параметры запуска и общие параметры бота.',
         actions: [
           'Ввод/обновление Telegram token.',
-          'Настройка webhook/polling режима.',
+          'Проверка параметров запуска.',
           'Проверка статуса и параметров деплоя.',
+          'Проверка webhook/polling режима перед запуском теста.',
+          'Изменение профиля бота (имя/описание) и синхронизация с Telegram API.',
+          'Проверка, что секреты сохранены и не отображаются в открытом виде.',
+        ],
+        useCases: [
+          'Первичное подключение нового бота к редактору.',
+          'Смена токена/режима запуска при переносе между окружениями.',
+          'Подготовка к деплою после завершенного тестового цикла.',
+        ],
+        storageNotes: [
+          'Токены и чувствительные ключи хранятся отдельно как зашифрованные секреты.',
+          'Конфигурация запуска и профильные поля сохраняются в настройках бота в БД.',
+          'Без сохранения настройки не попадут в тестовый runtime.',
+        ],
+        commonMistakes: [
+          'Меняют токен и сразу запускают Test без Save.',
+          'Ожидают, что username/фото всегда обновятся API-методом (часть полей ограничена Telegram).',
+          'Путают ошибку сети с ошибкой конфигурации токена.',
         ],
         result: 'Бот готов к тесту и запуску с корректными внешними настройками.',
       },
@@ -479,6 +551,20 @@ const ruContent: DocsContent = {
         ],
       },
       {
+        id: 'inline-help',
+        title: 'Встроенные подсказки `?`',
+        location: 'Рядом с заголовками блоков и важными полями в Canvas / System / Settings.',
+        purpose: 'Быстро объяснить, что делает параметр и как его настроить.',
+        howToUse: [
+          'Нажмите `?` возле нужного элемента.',
+          'Прочитайте краткое описание и пошаговый мини-гайд.',
+          'При необходимости откройте полную документацию кнопкой в модальном окне.',
+        ],
+        commonMistakes: [
+          'Пропускают мини-гайды и начинают настраивать сложные параметры “наугад”, что увеличивает время отладки.',
+        ],
+      },
+      {
         id: 'logs-panel',
         title: 'Панель логов бота',
         location: 'Нижняя панель на Canvas.',
@@ -490,7 +576,7 @@ const ruContent: DocsContent = {
         ],
         commonMistakes: [
           'Ожидают новые логи без активного теста.',
-          'Путают UI-ошибку с runtime-ошибкой — в логах обычно видно источник (`runtime`, `webhook`, `action`).',
+          'Путают UI-ошибку с runtime-ошибкой — в логах обычно видно источник (`runtime`, `polling`, `action`).',
         ],
       },
       {
@@ -730,6 +816,81 @@ const ruContent: DocsContent = {
         ],
       },
       {
+        id: 'payments',
+        title: 'Платежные ноды',
+        description: 'Ноды для генерации ссылок оплаты в популярных платёжных системах.',
+        items: [
+          {
+            id: 'payment-yookassa',
+            name: 'YooKassa Payment',
+            kind: 'node',
+            purpose: 'Создаёт платёж в YooKassa и получает ссылку оплаты (confirmation_url).',
+            whenToUse: 'Когда нужно принять оплату картой/СБП и отправить пользователю ссылку прямо из сценария.',
+            setup: [
+              'Укажите `shopId`, `secretKey`, `amount`, `currency`; `returnUrl` можно оставить пустым (подставится автоматически).',
+              'Включите авто-отправку ссылки или обработайте переменную вручную в следующем `Message`.',
+              'Укажите `saveToVariable`, чтобы сохранить `payment.id/status/url` для дальнейшей логики.',
+            ],
+            output: 'В переменную сохраняется объект платежа (`provider`, `paymentId`, `status`, `url`, `amount`, `currency`).',
+            notes: [
+              'Ключи не храните в клиентском коде. Рабочий вариант — закрытый контур backend/runtime.',
+              'Для production используйте реальные `shopId/secretKey`; для тестов проверьте тестовые ключи YooKassa.',
+            ],
+          },
+          {
+            id: 'payment-stripe',
+            name: 'Stripe Payment',
+            kind: 'node',
+            purpose: 'Создаёт Stripe Checkout Session и возвращает hosted-ссылку оплаты.',
+            whenToUse: 'Когда нужен быстрый хостед checkout Stripe без собственного платёжного фронта.',
+            setup: [
+              'Укажите `secretKey`, `amount`, `currency`; `successUrl/cancelUrl` формируются автоматически и доступны для копирования/перегенерации.',
+              'Опционально задайте `productName` и `description` для чекаута.',
+              'Сохраните результат в переменную и продолжайте сценарий по статусу/идентификатору.',
+            ],
+            output: 'В переменную сохраняется объект checkout-сессии с `url`, `paymentId`, `status`.',
+            notes: [
+              'Сумма отправляется в Stripe в minor units (например, 100.00 -> 10000).',
+              'Используйте live/test secret key строго по окружению.',
+            ],
+          },
+          {
+            id: 'payment-robokassa',
+            name: 'Robokassa Payment',
+            kind: 'node',
+            purpose: 'Формирует подписанную ссылку оплаты Robokassa (Merchant/Index).',
+            whenToUse: 'Когда нужно быстро получить redirect-ссылку Robokassa без отдельного API-запроса.',
+            setup: [
+              'Укажите `merchantLogin`, `password1`, `amount`, `currency`.',
+              'При необходимости задайте `invoiceId`, `successUrl`, `failUrl` и `testMode`.',
+              'Отправьте пользователю ссылку и сохраните объект в переменную для отчётности.',
+            ],
+            output: 'В переменную сохраняется объект платежа (`url`, `invoiceId`, `amount`, `status=pending`).',
+            notes: [
+              'Подпись формируется по схеме `md5(MerchantLogin:OutSum:InvId:Password1)`.',
+              'Проверку ResultURL/оплачено лучше обрабатывать отдельным webhook backend-слоем.',
+            ],
+          },
+          {
+            id: 'payment-stars',
+            name: 'Telegram Stars Payment',
+            kind: 'node',
+            purpose: 'Создаёт invoice-link оплаты в Telegram Stars (XTR) через createInvoiceLink.',
+            whenToUse: 'Когда нужна нативная оплата в Telegram без внешних платёжных провайдеров.',
+            setup: [
+              'Укажите название счёта, сумму в звёздах и описание платежа.',
+              'Опционально задайте payload заказа для последующего сопоставления оплаты.',
+              'Отправьте пользователю ссылку из `{{payment.url}}` или используйте inline-кнопку Message с типом Stars.',
+            ],
+            output: 'В переменную сохраняется объект с `url`, `paymentId` (payload), `amount`, `currency=XTR`.',
+            notes: [
+              'Reply Keyboard не поддерживает оплату Stars. Используйте только inline-кнопки в Message или прямую ссылку.',
+              'Для Stars сумма должна быть целым числом.',
+            ],
+          },
+        ],
+      },
+      {
         id: 'data-advanced',
         title: 'Данные, интеграции и продвинутые ноды',
         description: 'Операции с переменными, внешними API и пользовательской логикой.',
@@ -752,7 +913,7 @@ const ruContent: DocsContent = {
             name: 'HTTP',
             kind: 'node',
             purpose: 'Вызывает внешний API и сохраняет ответ в переменную.',
-            whenToUse: 'Интеграции с CRM, backend API, webhook endpoints, внешними сервисами.',
+            whenToUse: 'Интеграции с CRM, backend API и внешними сервисами.',
             setup: [
               'Укажите URL, метод, headers и body.',
               'Выберите формат body (`JSON`, `Form Data`, raw).',
@@ -839,7 +1000,7 @@ const ruContent: DocsContent = {
       },
       {
         id: 'secrets',
-        item: 'Telegram token / webhook secrets',
+        item: 'Telegram token / service secrets',
         where: 'Supabase: `bot_secrets` (шифрованно)',
         persistence: 'Постоянно',
         visibility: 'В SB виден ciphertext, не plaintext',
@@ -1078,6 +1239,7 @@ const enContent: DocsContent = {
     steps: [
       'Finish the Quick Start first to understand the full workflow cycle before deep-diving into all nodes.',
       'Then use “Editor areas” and “UI components” to understand where each feature lives in the interface.',
+      'Use `?` icons near section titles and critical fields to open mini-guides without leaving your current screen.',
       'Use “Nodes and presets” as a reference, opening only the relevant group for your current task.',
       'Read “Keyboards and triggers” before configuring buttons to avoid Reply/Inline confusion.',
       'Use “Troubleshooting” and “Test, logs, deploy” when debugging behavior or setup issues.',
@@ -1202,7 +1364,7 @@ const enContent: DocsContent = {
           'Save final changes if needed.',
         ],
         systemBehavior: [
-          'Test runtime/polling stops for this bot.',
+          'Test runtime (polling) stops for this bot.',
           'Test-active metadata is reset.',
           'Logs remain available for review/history.',
         ],
@@ -1234,7 +1396,30 @@ const enContent: DocsContent = {
         title: 'Canvas',
         subtitle: 'Visual workflow builder',
         whenToUse: 'Use when building dialog flow, branching, actions, and execution sequence.',
-        actions: ['Add nodes from palette', 'Connect nodes', 'Edit node settings', 'Copy/Cut/Paste nodes', 'Run Test and inspect logs'],
+        actions: [
+          'Add nodes from palette categories.',
+          'Connect nodes and verify direction of each branch.',
+          'Open node settings and configure behavior.',
+          'Copy/Cut/Paste nodes (`Cmd/Ctrl + C/X/V`).',
+          'Run Test and inspect runtime logs.',
+          'Save before each test cycle (`Save -> Test`).',
+          'Check branch completeness to avoid dead ends.',
+        ],
+        useCases: [
+          'Build first scenario: Trigger -> Message -> Condition -> Message.',
+          'Replace long Condition chains with Router / Switch for 3+ branches.',
+          'Adjust responses and keyboard logic after log analysis.',
+        ],
+        storageNotes: [
+          'Before save, changes exist only in UI draft state.',
+          'After save, nodes/edges are persisted in Supabase (`bot_configs`).',
+          'Test runtime uses only the latest saved configuration.',
+        ],
+        commonMistakes: [
+          'Starting Test without Save and expecting fresh logic to run.',
+          'Deleting nodes without reconnecting branch outputs.',
+          'Mixing structure edits and debugging with no checkpoint.',
+        ],
         result: 'A working workflow graph.',
       },
       {
@@ -1242,7 +1427,26 @@ const enContent: DocsContent = {
         title: 'AI Assistant',
         subtitle: 'Prompt-based assistant for drafting flows',
         whenToUse: 'Use when you need a fast draft, ideas, or explanation of logic.',
-        actions: ['Describe the task', 'Review suggestions', 'Apply/translate into canvas logic', 'Validate manually'],
+        actions: [
+          'Describe the business goal in plain language.',
+          'Review suggested flow blocks and alternatives.',
+          'Translate accepted suggestions into real canvas nodes.',
+          'Refine step-by-step: entry points -> branches -> fallback/errors.',
+          'Validate manually in Test before release.',
+        ],
+        useCases: [
+          'Draft an MVP bot flow in minutes.',
+          'Troubleshoot why a branch behaves unexpectedly.',
+          'Generate consistent copy for message nodes.',
+        ],
+        storageNotes: [
+          'AI replies are suggestions; they do not auto-rewrite your workflow.',
+          'Only explicit edits in Canvas/System/Settings become persistent after Save.',
+        ],
+        commonMistakes: [
+          'Treating AI output as production-ready without tests.',
+          'Not committing AI-derived changes into actual nodes.',
+        ],
         result: 'Faster workflow design with manual verification.',
       },
       {
@@ -1250,15 +1454,59 @@ const enContent: DocsContent = {
         title: 'System',
         subtitle: 'Variables and system-level bot behavior',
         whenToUse: 'Use for variables, triggers, reply keyboard, reactions, and global behavior.',
-        actions: ['Create variables', 'Review base Telegram variables', 'Configure reply keyboard', 'Set additional features'],
+        actions: [
+          'Create and document custom variables.',
+          'Review base Telegram variables (`user.*`).',
+          'Configure reply keyboard base layout.',
+          'Define reply keyboard variants and rules by condition.',
+          'Configure additional features (reactions and toggles).',
+          'Map triggers to correct event types (text vs callback).',
+        ],
+        useCases: [
+          'Global under-input menu for frequent user actions.',
+          'Shared state for workflow steps (funnel stage, language, flags).',
+          'Global behavior tuning without editing every node.',
+        ],
+        storageNotes: [
+          'Custom variables are part of persistent bot configuration.',
+          'Base `user.*` values come from Telegram runtime and are read-only.',
+          'Runtime session values are different from config variable list.',
+        ],
+        commonMistakes: [
+          'Handling Reply Keyboard presses with Callback Trigger instead of Text Trigger.',
+          'Expecting runtime values to appear immediately in System variable list.',
+          'Creating variables without descriptions, which hurts maintenance.',
+        ],
         result: 'System config used by workflows.',
       },
       {
         id: 'settings',
         title: 'Settings',
         subtitle: 'Bot configuration and Telegram connection',
-        whenToUse: 'Use for token, webhook/polling setup, and bot-level settings.',
-        actions: ['Set Telegram token', 'Configure runtime mode', 'Save settings before test'],
+        whenToUse: 'Use for token, launch parameters, and bot-level settings.',
+        actions: [
+          'Set or update Telegram token.',
+          'Review launch/runtime parameters.',
+          'Check webhook/polling mode before testing.',
+          'Update bot profile fields and sync with Telegram where supported.',
+          'Save settings before test run.',
+          'Verify secrets are stored securely (not plaintext).',
+        ],
+        useCases: [
+          'Initial bot connection to the platform.',
+          'Environment switch (new token/mode for staging vs production).',
+          'Pre-deploy final checklist after successful tests.',
+        ],
+        storageNotes: [
+          'Tokens and sensitive keys are stored as encrypted secrets.',
+          'Launch config and profile fields are persisted in bot settings tables.',
+          'Without Save, settings are not used by test runtime.',
+        ],
+        commonMistakes: [
+          'Changing token and running Test without Save.',
+          'Expecting every profile field to be changeable via Telegram API (some are restricted).',
+          'Mixing network errors with token/config errors.',
+        ],
         result: 'Bot is ready for test/launch.',
       },
     ],
@@ -1287,6 +1535,13 @@ const enContent: DocsContent = {
         location: 'Right side on node selection.',
         purpose: 'Configure selected node behavior.',
         howToUse: ['Select a node on canvas.', 'Edit fields in side panel.', 'Use detailed (modal) mode for complex nodes.', 'Use variable suggestions when typing `{{`.'],
+      },
+      {
+        id: 'inline-help',
+        title: 'Inline `?` Guides',
+        location: 'Near section titles and critical fields in Canvas / System / Settings.',
+        purpose: 'Explain settings quickly without leaving the editor context.',
+        howToUse: ['Click `?` near the field or title.', 'Read short summary and setup steps.', 'Open full docs from the modal when needed.'],
       },
       {
         id: 'logs-panel',
@@ -1334,7 +1589,7 @@ const enContent: DocsContent = {
     rows: [
       { id: 'bots', item: 'Bot base data (name/status/metadata)', where: 'Supabase: `bots`', persistence: 'Persistent', visibility: 'Visible in SB', notes: 'General bot state and metadata.' },
       { id: 'bot-configs', item: 'Canvas (nodes/edges/variables)', where: 'Supabase: `bot_configs` (JSONB)', persistence: 'Persistent', visibility: 'Visible in SB (JSON)', notes: 'Stored as JSON arrays, not separate rows per node.' },
-      { id: 'secrets', item: 'Telegram token / webhook secrets', where: 'Supabase: `bot_secrets` (encrypted)', persistence: 'Persistent', visibility: 'Ciphertext visible, not plaintext', notes: 'Protected server-side storage for secrets.' },
+      { id: 'secrets', item: 'Telegram token / service secrets', where: 'Supabase: `bot_secrets` (encrypted)', persistence: 'Persistent', visibility: 'Ciphertext visible, not plaintext', notes: 'Protected server-side storage for secrets.' },
       { id: 'test-logs', item: 'Runtime test logs', where: 'Supabase `bot_test_logs` + memory fallback', persistence: 'Persistent when DB write succeeds', visibility: 'Visible in SB and UI logs', notes: 'Useful for support and future admin panel.' },
       { id: 'audit', item: 'Audit events (save/start/stop)', where: 'Supabase: `bot_audit_events`', persistence: 'Persistent', visibility: 'Visible in SB', notes: 'Useful for troubleshooting and support.' },
       { id: 'runtime-session', item: 'Runtime variables / waiting states', where: 'Runtime process memory (partially temporary)', persistence: 'Temporary', visibility: 'Usually not directly visible in SB', notes: 'Can reset on process restart until persistent runtime storage is added.' },

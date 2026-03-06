@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Cpu, Zap, Database, Code2, Info, Keyboard, Plus, Trash2, ChevronDown, Users } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { VariablesTable } from './variables-table'
+import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 import { useBotState } from '../providers/bot-state-provider'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
@@ -973,6 +974,10 @@ export function SystemPanel() {
   const t = useTranslations('editor.system')
   const locale = useLocale()
   const { bot, config, updateBotDraft } = useBotState()
+  const docsBasePath = `/${locale}/dashboard/docs`
+  const docsKeyboardTriggers = `${docsBasePath}/keyboards-triggers`
+  const docsNodes = `${docsBasePath}/nodes`
+  const docsDataSecurity = `${docsBasePath}/data-security`
   const [subscribersStats, setSubscribersStats] = useState<SubscribersStats | null>(null)
   const [isSubscribersStatsLoading, setIsSubscribersStatsLoading] = useState(false)
   const [subscribersStatsError, setSubscribersStatsError] = useState<string | null>(null)
@@ -1160,6 +1165,12 @@ export function SystemPanel() {
         <div className="flex items-center gap-3">
           <Cpu className="w-4 h-4 text-[#24A1DE] shrink-0" />
           <h1 className="text-white font-semibold">{t('title')}</h1>
+          <HelpGuideButton
+            title={t('title')}
+            summary={t('subtitle')}
+            steps={[t('nodes'), t('variables'), t('connections')]}
+            docsHref={docsBasePath}
+          />
           <span className="text-zinc-500">|</span>
           <span className="text-sm text-zinc-400">{t('subtitle')}</span>
         </div>
@@ -1197,7 +1208,20 @@ export function SystemPanel() {
           <section className="rounded-xl bg-zinc-900/50 border border-white/10 p-6 backdrop-blur-sm">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-white">{t('autoReactions.title')}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-white">{t('autoReactions.title')}</h3>
+                  <HelpGuideButton
+                    title={t('autoReactions.title')}
+                    summary={t('autoReactions.description')}
+                    steps={[
+                      t('autoReactions.onlyTextHint'),
+                      t('autoReactions.cooldownHint'),
+                      t('autoReactions.footerHint'),
+                    ]}
+                    notes={[t('autoReactions.aiHint')]}
+                    docsHref={docsDataSecurity}
+                  />
+                </div>
                 <p className="text-sm text-zinc-400 mt-1">
                   {t('autoReactions.description')}
                 </p>
@@ -1215,9 +1239,20 @@ export function SystemPanel() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <label className="block text-sm text-zinc-300 mb-2" htmlFor="auto-reactions-cooldown">
-                  {t('autoReactions.cooldownLabel')}
-                </label>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="block text-sm text-zinc-300" htmlFor="auto-reactions-cooldown">
+                    {t('autoReactions.cooldownLabel')}
+                  </label>
+                  <HelpGuideButton
+                    title={t('autoReactions.cooldownLabel')}
+                    summary={t('autoReactions.cooldownHint')}
+                    steps={[
+                      t('autoReactions.cooldownHint'),
+                      t('autoReactions.onlyTextHint'),
+                    ]}
+                    docsHref={docsDataSecurity}
+                  />
+                </div>
                 <Input
                   id="auto-reactions-cooldown"
                   type="number"
@@ -1241,7 +1276,19 @@ export function SystemPanel() {
               <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm text-zinc-300">{t('autoReactions.onlyTextTitle')}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-zinc-300">{t('autoReactions.onlyTextTitle')}</div>
+                      <HelpGuideButton
+                        title={t('autoReactions.onlyTextTitle')}
+                        summary={t('autoReactions.onlyTextHint')}
+                        steps={[
+                          t('autoReactions.onlyTextHint'),
+                          t('autoReactions.ruleQuestion'),
+                          t('autoReactions.ruleError'),
+                        ]}
+                        docsHref={docsDataSecurity}
+                      />
+                    </div>
                     <p className="text-xs text-zinc-500 mt-1">
                       {t('autoReactions.onlyTextHint')}
                     </p>
@@ -1299,9 +1346,24 @@ export function SystemPanel() {
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Keyboard className="w-4 h-4 text-[#24A1DE]" />
                   {t('replyKeyboard.title')}
+                  <HelpGuideButton
+                    title={t('replyKeyboard.title')}
+                    summary={t('replyKeyboard.description')}
+                    steps={[
+                      t('replyKeyboard.howItWorks1'),
+                      t('replyKeyboard.howItWorks2'),
+                      t('replyKeyboard.howItWorks3'),
+                    ]}
+                    notes={[t('replyKeyboard.editor.replyKeyboardTextTriggerHint')]}
+                    docsHref={docsKeyboardTriggers}
+                    className="ml-1"
+                  />
                 </h3>
                 <p className="text-sm text-zinc-400 mt-1">
                   {t('replyKeyboard.description')}
+                </p>
+                <p className="text-xs text-amber-300/80 mt-1.5">
+                  {t('replyKeyboard.starsUnavailableHint')}
                 </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -1319,7 +1381,18 @@ export function SystemPanel() {
               <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm text-zinc-300">{t('replyKeyboard.resizeTitle')}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-zinc-300">{t('replyKeyboard.resizeTitle')}</div>
+                      <HelpGuideButton
+                        title={t('replyKeyboard.resizeTitle')}
+                        summary={t('replyKeyboard.resizeHint')}
+                        steps={[
+                          t('replyKeyboard.resizeHint'),
+                          t('replyKeyboard.howItWorks1'),
+                        ]}
+                        docsHref={docsKeyboardTriggers}
+                      />
+                    </div>
                     <p className="text-xs text-zinc-500 mt-1">{t('replyKeyboard.resizeHint')}</p>
                   </div>
                   <Switch
@@ -1333,7 +1406,18 @@ export function SystemPanel() {
               <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm text-zinc-300">{t('replyKeyboard.persistentTitle')}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-zinc-300">{t('replyKeyboard.persistentTitle')}</div>
+                      <HelpGuideButton
+                        title={t('replyKeyboard.persistentTitle')}
+                        summary={t('replyKeyboard.persistentHint')}
+                        steps={[
+                          t('replyKeyboard.persistentHint'),
+                          t('replyKeyboard.howItWorks1'),
+                        ]}
+                        docsHref={docsKeyboardTriggers}
+                      />
+                    </div>
                     <p className="text-xs text-zinc-500 mt-1">{t('replyKeyboard.persistentHint')}</p>
                   </div>
                   <Switch
@@ -1347,7 +1431,18 @@ export function SystemPanel() {
               <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm text-zinc-300">{t('replyKeyboard.oneTimeTitle')}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-zinc-300">{t('replyKeyboard.oneTimeTitle')}</div>
+                      <HelpGuideButton
+                        title={t('replyKeyboard.oneTimeTitle')}
+                        summary={t('replyKeyboard.oneTimeHint')}
+                        steps={[
+                          t('replyKeyboard.oneTimeHint'),
+                          t('replyKeyboard.howItWorks2'),
+                        ]}
+                        docsHref={docsKeyboardTriggers}
+                      />
+                    </div>
                     <p className="text-xs text-zinc-500 mt-1">{t('replyKeyboard.oneTimeHint')}</p>
                   </div>
                   <Switch
@@ -1360,9 +1455,21 @@ export function SystemPanel() {
             </div>
 
             <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-              <Label htmlFor="reply-keyboard-base-rows" className="text-sm text-zinc-300">
-                {t('replyKeyboard.baseButtonsTitle')}
-              </Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="reply-keyboard-base-rows" className="text-sm text-zinc-300">
+                  {t('replyKeyboard.baseButtonsTitle')}
+                </Label>
+                <HelpGuideButton
+                  title={t('replyKeyboard.baseButtonsTitle')}
+                  summary={t('replyKeyboard.baseButtonsEmpty')}
+                  steps={[
+                    t('replyKeyboard.howItWorks1'),
+                    t('replyKeyboard.howItWorks2'),
+                  ]}
+                  notes={[t('replyKeyboard.editor.replyKeyboardTextTriggerHint')]}
+                  docsHref={docsKeyboardTriggers}
+                />
+              </div>
               <div id="reply-keyboard-base-rows" className="mt-2">
                 <ReplyKeyboardButtonsEditor
                   rowsValue={replyKeyboard.baseRows}
@@ -1377,7 +1484,20 @@ export function SystemPanel() {
             <div className="mt-4 rounded-lg border border-white/10 bg-zinc-950/30 p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
-                  <div className="text-sm font-medium text-white">{t('replyKeyboard.rulesTitle')}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-white">{t('replyKeyboard.rulesTitle')}</div>
+                    <HelpGuideButton
+                      title={t('replyKeyboard.rulesTitle')}
+                      summary={t('replyKeyboard.rulesHint')}
+                      steps={[
+                        t('replyKeyboard.rulesHint'),
+                        t('replyKeyboard.ruleVariableLabel'),
+                        t('replyKeyboard.ruleButtonsLabel'),
+                      ]}
+                      notes={[t('replyKeyboard.editor.replyKeyboardTextTriggerHint')]}
+                      docsHref={docsKeyboardTriggers}
+                    />
+                  </div>
                   <p className="text-xs text-zinc-500 mt-1">
                     {t('replyKeyboard.rulesHint')}
                   </p>
@@ -1440,7 +1560,19 @@ export function SystemPanel() {
 
                     <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.9fr_1fr] gap-3 mb-3">
                       <div>
-                        <Label htmlFor={`replykb-rule-variable-${rule.id}`}>{t('replyKeyboard.ruleVariableLabel')}</Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor={`replykb-rule-variable-${rule.id}`}>{t('replyKeyboard.ruleVariableLabel')}</Label>
+                          <HelpGuideButton
+                            title={t('replyKeyboard.ruleVariableLabel')}
+                            summary={t('replyKeyboard.ruleVariablePlaceholder')}
+                            steps={[
+                              t('replyKeyboard.ruleVariablePlaceholder'),
+                              t('replyKeyboard.ruleOperatorLabel'),
+                              t('replyKeyboard.ruleValueLabel'),
+                            ]}
+                            docsHref={docsKeyboardTriggers}
+                          />
+                        </div>
                         <Input
                           id={`replykb-rule-variable-${rule.id}`}
                           value={rule.variable}
@@ -1453,7 +1585,19 @@ export function SystemPanel() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`replykb-rule-operator-${rule.id}`}>{t('replyKeyboard.ruleOperatorLabel')}</Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor={`replykb-rule-operator-${rule.id}`}>{t('replyKeyboard.ruleOperatorLabel')}</Label>
+                          <HelpGuideButton
+                            title={t('replyKeyboard.ruleOperatorLabel')}
+                            summary={t('replyKeyboard.rulesHint')}
+                            steps={[
+                              t('replyKeyboard.operators.equals'),
+                              t('replyKeyboard.operators.contains'),
+                              t('replyKeyboard.operators.isEmpty'),
+                            ]}
+                            docsHref={docsKeyboardTriggers}
+                          />
+                        </div>
                         <div className={!replyKeyboard.enabled ? 'opacity-60 pointer-events-none' : ''}>
                           <Select
                             value={rule.operator}
@@ -1484,7 +1628,18 @@ export function SystemPanel() {
                         </div>
                       </div>
                       <div>
-                        <Label htmlFor={`replykb-rule-value-${rule.id}`}>{t('replyKeyboard.ruleValueLabel')}</Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor={`replykb-rule-value-${rule.id}`}>{t('replyKeyboard.ruleValueLabel')}</Label>
+                          <HelpGuideButton
+                            title={t('replyKeyboard.ruleValueLabel')}
+                            summary={t('replyKeyboard.ruleValuePlaceholder')}
+                            steps={[
+                              t('replyKeyboard.ruleValuePlaceholder'),
+                              t('replyKeyboard.ruleVariablePlaceholder'),
+                            ]}
+                            docsHref={docsKeyboardTriggers}
+                          />
+                        </div>
                         <Input
                           id={`replykb-rule-value-${rule.id}`}
                           value={rule.value}
@@ -1499,7 +1654,18 @@ export function SystemPanel() {
                     </div>
 
                     <div>
-                      <Label htmlFor={`replykb-rule-rows-${rule.id}`}>{t('replyKeyboard.ruleButtonsLabel')}</Label>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`replykb-rule-rows-${rule.id}`}>{t('replyKeyboard.ruleButtonsLabel')}</Label>
+                        <HelpGuideButton
+                          title={t('replyKeyboard.ruleButtonsLabel')}
+                          summary={t('replyKeyboard.ruleButtonsEmpty')}
+                          steps={[
+                            t('replyKeyboard.ruleButtonsEmpty'),
+                            t('replyKeyboard.howItWorks3'),
+                          ]}
+                          docsHref={docsKeyboardTriggers}
+                        />
+                      </div>
                       <div id={`replykb-rule-rows-${rule.id}`} className="mt-1.5">
                         <ReplyKeyboardButtonsEditor
                           rowsValue={rule.rows}
@@ -1531,6 +1697,17 @@ export function SystemPanel() {
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Users className="w-4 h-4 text-[#24A1DE]" />
                   {t('subscribers.title')}
+                  <HelpGuideButton
+                    title={t('subscribers.title')}
+                    summary={t('subscribers.description')}
+                    steps={[
+                      t('subscribers.privateOnlyHint'),
+                      t('subscribers.trackCallbacksHint'),
+                      t('subscribers.note'),
+                    ]}
+                    docsHref={docsDataSecurity}
+                    className="ml-1"
+                  />
                 </h3>
                 <p className="text-sm text-zinc-400 mt-1">{t('subscribers.description')}</p>
               </div>
@@ -1580,7 +1757,18 @@ export function SystemPanel() {
               <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm text-zinc-300">{t('subscribers.privateOnlyTitle')}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-zinc-300">{t('subscribers.privateOnlyTitle')}</div>
+                      <HelpGuideButton
+                        title={t('subscribers.privateOnlyTitle')}
+                        summary={t('subscribers.privateOnlyHint')}
+                        steps={[
+                          t('subscribers.privateOnlyHint'),
+                          t('subscribers.note'),
+                        ]}
+                        docsHref={docsDataSecurity}
+                      />
+                    </div>
                     <p className="text-xs text-zinc-500 mt-1">{t('subscribers.privateOnlyHint')}</p>
                   </div>
                   <Switch
@@ -1593,7 +1781,18 @@ export function SystemPanel() {
               <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm text-zinc-300">{t('subscribers.trackCallbacksTitle')}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-zinc-300">{t('subscribers.trackCallbacksTitle')}</div>
+                      <HelpGuideButton
+                        title={t('subscribers.trackCallbacksTitle')}
+                        summary={t('subscribers.trackCallbacksHint')}
+                        steps={[
+                          t('subscribers.trackCallbacksHint'),
+                          t('subscribers.note'),
+                        ]}
+                        docsHref={docsDataSecurity}
+                      />
+                    </div>
                     <p className="text-xs text-zinc-500 mt-1">{t('subscribers.trackCallbacksHint')}</p>
                   </div>
                   <Switch
@@ -1643,6 +1842,16 @@ export function SystemPanel() {
                 <Info className="w-4 h-4 text-[#24A1DE]" />
               </div>
               {t('botInformation')}
+              <HelpGuideButton
+                title={t('botInformation')}
+                summary={t('subtitle')}
+                steps={[
+                  t('botId'),
+                  t('status'),
+                  t('lastUpdated'),
+                ]}
+                docsHref={docsNodes}
+              />
             </h3>
 
             <div className="grid grid-cols-2 gap-4 text-sm">

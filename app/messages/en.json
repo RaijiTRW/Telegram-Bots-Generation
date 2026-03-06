@@ -18,6 +18,38 @@
       "noAccount": "Don't have an account?",
       "signUp": "Sign Up",
       "forgotPassword": "Forgot password?",
+      "layout": {
+        "tagline": "No-code Telegram bots for business",
+        "benefitsTitle": "Key points",
+        "benefit1": "No-code workflows",
+        "benefit2": "Telegram testing",
+        "benefit3": "Triggers and timers",
+        "benefit4": "Scaling ready",
+        "valuesTitle": "Value",
+        "value1": "Lower costs",
+        "value2": "Faster launch",
+        "value3": "Simple control",
+        "resultsTitle": "Outcome",
+        "result1": "Quick go-live",
+        "result2": "24/7 lead capture",
+        "result3": "Higher conversion",
+        "reviewsTitle": "User feedback",
+        "review1Text": "We launched in one day and got leads right away.",
+        "review1Name": "Marina K.",
+        "review1Role": "Online school founder",
+        "review2Text": "Our non-technical team built a working flow.",
+        "review2Name": "Artem P.",
+        "review2Role": "Operations manager",
+        "review3Text": "Fast updates, clear interface, immediate results.",
+        "review3Name": "Elena S.",
+        "review3Role": "Marketing lead",
+        "stat1Value": "10K+",
+        "stat1Label": "Workflows created",
+        "stat2Value": "99.9%",
+        "stat2Label": "Test run stability",
+        "stat3Value": "24/7",
+        "stat3Label": "Editor availability"
+      },
       "errors": {
         "invalidCredentials": "Invalid email or password",
         "emailTaken": "Email is already registered",
@@ -41,7 +73,10 @@
     "nav": {
       "home": "Home",
       "bots": "Bots",
+      "crm": "CRM",
       "docs": "Documentation",
+      "cms": "CMS",
+      "admin": "Admin",
       "profile": "Profile",
       "settings": "Settings",
       "logout": "Logout"
@@ -121,6 +156,37 @@
       "loadError": "Failed to load profile",
       "saveSuccess": "Profile saved",
       "saveError": "Failed to save profile"
+    },
+    "admin": {
+      "title": "Admin Panel",
+      "manage": "Manage access to administrative areas",
+      "loading": "Loading admin panel...",
+      "refresh": "Refresh",
+      "loadError": "Failed to load profiles for admin panel.",
+      "accessDeniedTitle": "Access restricted",
+      "accessDeniedDesc": "This page is available to administrators only.",
+      "bootstrapHint": "To assign the first admin, open the `profiles` table in Supabase and set `role = admin` for the required user.",
+      "backHome": "Back to home",
+      "statsTotal": "Total profiles",
+      "statsAdmins": "Admins",
+      "statsUsers": "Users",
+      "statsOnlineNow": "Online now",
+      "statsOnlineHint": "Activity in the last 5 minutes",
+      "statsRegisteredToday": "Registered today",
+      "statsLandingViewsToday": "Landing views today",
+      "profilesTitle": "Profiles",
+      "searchPlaceholder": "Search by email, name, or ID...",
+      "noProfiles": "No profiles found",
+      "emptyName": "No name",
+      "you": "you",
+      "roleAdmin": "Admin",
+      "roleUser": "User",
+      "promote": "Make admin",
+      "demote": "Remove admin",
+      "updating": "Updating...",
+      "saveSuccess": "Role updated: {email}",
+      "saveError": "Failed to update role.",
+      "safetyHint": "You cannot remove the last administrator. The system enforces this automatically."
     },
     "settings": {
       "title": "Settings",
@@ -308,6 +374,80 @@
       "deleteAccountError": "Failed to delete account.",
       "deletingAccount": "Deleting...",
       "deleteAccount": "Delete Account"
+    },
+    "crm": {
+      "title": "CRM and Leads",
+      "subtitle": "Leads and conversations across all your bots",
+      "refresh": "Refresh",
+      "loading": "Loading...",
+      "loadError": "Failed to load CRM data.",
+      "saveError": "Failed to save lead changes.",
+      "kpi": {
+        "totalLeads": "Total leads",
+        "activeDialogs24h": "Active dialogs 24h",
+        "inbound24h": "Inbound 24h",
+        "outbound24h": "Outbound 24h"
+      },
+      "stages": {
+        "new": "New",
+        "contacted": "Contacted",
+        "qualified": "Qualified",
+        "won": "Won",
+        "lost": "Lost"
+      },
+      "filters": {
+        "title": "Filters",
+        "bot": "Bot",
+        "botAll": "All bots",
+        "stage": "Lead stage",
+        "stageAll": "All stages",
+        "period": "Period",
+        "search": "Search",
+        "searchPlaceholder": "username, name or telegram_user_id"
+      },
+      "period": {
+        "24h": "24h",
+        "7d": "7d",
+        "30d": "30d",
+        "all": "All time"
+      },
+      "table": {
+        "title": "Leads",
+        "lead": "Lead",
+        "bot": "Bot",
+        "stage": "Stage",
+        "lastInteraction": "Last interaction",
+        "messages": "In/Out",
+        "empty": "No leads found."
+      },
+      "pagination": {
+        "page": "Page {page} of {total}",
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "leadCard": {
+        "title": "Lead Card",
+        "selectPrompt": "Select a lead from the table.",
+        "openTelegram": "Open in Telegram",
+        "telegramId": "Telegram ID",
+        "copyId": "Copy",
+        "stage": "Stage",
+        "notes": "Notes",
+        "notesPlaceholder": "Lead context and next action",
+        "tags": "Tags",
+        "tagsPlaceholder": "vip, demo, urgent",
+        "save": "Save",
+        "saving": "Saving...",
+        "timeline": "Conversation timeline",
+        "timelineEmpty": "No events yet."
+      },
+      "timeline": {
+        "inbound": "Inbound",
+        "outbound": "Outbound"
+      },
+      "broadcastSoonTitle": "Broadcast Automation — soon",
+      "broadcastSoonDesc": "Audience segmentation, schedules, and auto-campaigns are coming next.",
+      "broadcastSoonCta": "Coming soon"
     }
   },
   "editor": {
@@ -318,13 +458,43 @@
       "aiAssistantDesc": "Chat with AI to build your bot",
       "system": "System",
       "systemDesc": "Bot logic and triggers",
+      "statistics": "Statistics",
+      "statisticsDesc": "Load, errors, and system events",
       "settings": "Settings",
       "settingsDesc": "Configuration and options",
       "botEditor": "Bot Editor",
       "unsavedChanges": "Unsaved changes",
       "toSave": "to save",
       "press": "Press",
-      "saveShortcutTitle": "Cmd+S to save"
+      "saveShortcutTitle": "Cmd/Ctrl+S to save"
+    },
+    "statistics": {
+      "description": "Technical metrics for the selected bot.",
+      "refresh": "Refresh",
+      "loadError": "Failed to load technical stats.",
+      "empty": "Not enough data for the selected range.",
+      "timelineTitle": "Event timeline",
+      "topSourcesTitle": "Top error sources",
+      "noErrorSources": "No error sources in this range.",
+      "auditTitle": "Recent audit events",
+      "noAuditEvents": "No audit events yet.",
+      "kpi": {
+        "totalEvents": "Total events",
+        "errors": "Errors",
+        "errorRate": "Error rate",
+        "eventsPerMinute": "Events / min",
+        "subscribersTotal": "Subscribers",
+        "subscribersActiveRange": "Active in range"
+      }
+    },
+    "help": {
+      "openGuide": "Open mini guide",
+      "close": "Close",
+      "modalTag": "Guide",
+      "stepsTitle": "Step by step",
+      "notesTitle": "Important",
+      "footerHint": "Quick help for this block",
+      "openDocs": "Open docs"
     },
     "canvas": {
       "test": "Test",
@@ -352,6 +522,11 @@
       "copyLogsTitle": "Copy logs",
       "copyLogsText": "Text",
       "copyLogsJson": "JSON",
+      "clearLogsTitle": "Clear logs",
+      "logsClearError": "Failed to clear logs",
+      "contextMenuTitle": "Add node",
+      "contextMenuHint": "Pick a section and node. The node will be placed at the click position.",
+      "contextMenuClose": "Close node add menu",
       "canvasEmpty": "Canvas Empty",
       "startBuilding": "Start building your bot workflow by dragging nodes from the palette or clicking on them.",
       "nodes": "Nodes",
@@ -360,6 +535,10 @@
         "pinned": "pinned",
         "hoverPreviewClickPin": "Hover to preview, click to pin/unpin",
         "nodesCount": "{count} nodes",
+        "nodeHintLabel": "Detailed description",
+        "helpStepAddNode": "Click the node card to add it to the canvas.",
+        "helpStepOpenSettings": "Click the node on canvas to open detailed settings (side panel or fullscreen mode).",
+        "helpStepConnect": "Connect this node output to the next workflow step.",
         "hoverClickPin": "Hover • Click = pin",
         "categories": {
           "trigger": {
@@ -376,11 +555,15 @@
           },
           "data": {
             "label": "Data",
-            "hint": "Variables, actions, HTTP"
+            "hint": "Variables, HTTP"
+          },
+          "payments": {
+            "label": "Payments",
+            "hint": "Payment nodes: YooKassa, Stripe, Robokassa, Telegram Stars"
           },
           "advanced": {
-            "label": "Advanced",
-            "hint": "Advanced nodes (e.g. Script)"
+            "label": "Actions",
+            "hint": "Action, Script and advanced actions"
           },
           "other": {
             "label": "Other",
@@ -404,7 +587,135 @@
         "script": "Run JavaScript or Python transform code",
         "action": "Perform custom actions",
         "input": "Request user input or data",
-        "http": "Make HTTP requests to external APIs"
+        "http": "Make HTTP requests to external APIs",
+        "paymentYookassa": "Create payment link via YooKassa",
+        "paymentStripe": "Create payment link via Stripe",
+        "paymentRobokassa": "Create payment link via Robokassa",
+        "paymentStars": "Create payment link via Telegram Stars"
+      },
+      "nodeTemplateShortDescriptions": {
+        "triggerCommand": "On command",
+        "triggerText": "On text",
+        "triggerCallback": "On callback",
+        "triggerSchedule": "On schedule",
+        "triggerAI": "AI intent",
+        "message": "Send message",
+        "messageAI": "AI reply",
+        "condition": "Check condition",
+        "conditionAI": "AI branch",
+        "router": "Route branch",
+        "scheduler": "Delay step",
+        "replyKeyboard": "Reply keyboard",
+        "script": "JS/Python code",
+        "action": "Set data",
+        "input": "Wait input",
+        "http": "API request",
+        "paymentYookassa": "YooKassa payment",
+        "paymentStripe": "Stripe payment",
+        "paymentRobokassa": "Robokassa payment",
+        "paymentStars": "Telegram Stars payment"
+      },
+      "nodeTemplateHelpSteps": {
+        "triggerCommand": {
+          "step1": "Open trigger settings, choose \"Command\" and set a command (for example, /start).",
+          "step2": "You can provide multiple commands separated by commas for shared entry logic.",
+          "step3": "Connect this trigger to Message or logic nodes to start the flow."
+        },
+        "triggerText": {
+          "step1": "Set text or pattern that should start this workflow.",
+          "step2": "Reply Keyboard clicks arrive as plain text, so handle them with Text Trigger.",
+          "step3": "Connect it to Message or Condition/Router for next-step handling."
+        },
+        "triggerCallback": {
+          "step1": "Set inline button callback_data in a Message node.",
+          "step2": "Use the same callback pattern in Callback Trigger to catch the click.",
+          "step3": "Connect this trigger to the branch that should run after the button press."
+        },
+        "triggerSchedule": {
+          "step1": "Choose schedule mode (daily/hourly) and timezone.",
+          "step2": "Set run time and optional target chat/user for delivery.",
+          "step3": "Connect to nodes that must run automatically on schedule."
+        },
+        "triggerAI": {
+          "step1": "Describe the required intent/semantic pattern in AI Prompt.",
+          "step2": "Keep fallback logic so flow remains stable if AI classification fails.",
+          "step3": "Connect it to the response branch for the detected intent."
+        },
+        "message": {
+          "step1": "Set message text and parse mode if formatting is needed.",
+          "step2": "Add buttons or media when user actions are required.",
+          "step3": "Use variable placeholders in message text (double curly braces) to inject dynamic user/context data."
+        },
+        "messageAI": {
+          "step1": "Fill AI Prompt with the expected response style and output format.",
+          "step2": "Set fallback text for cases when AI is unavailable.",
+          "step3": "Place this node after a trigger where dynamic AI response is needed."
+        },
+        "condition": {
+          "step1": "Pick variable, operator, and value for the condition check.",
+          "step2": "Top output is True branch, bottom output is False branch.",
+          "step3": "Connect both branches so the workflow has a defined path."
+        },
+        "conditionAI": {
+          "step1": "Define True/False classification rules in AI Prompt.",
+          "step2": "Configure fallback condition (variable/operator/value) for reliability.",
+          "step3": "Connect separate actions for True and False branches."
+        },
+        "router": {
+          "step1": "Choose variable used for multi-branch routing.",
+          "step2": "Add cases and match values for each output path.",
+          "step3": "Connect each case and the default output for unmatched values."
+        },
+        "scheduler": {
+          "step1": "Choose mode: delay or exact date/time.",
+          "step2": "Set timezone and optional variable to store scheduler output.",
+          "step3": "Connect to the step that must execute later."
+        },
+        "replyKeyboard": {
+          "step1": "Choose keyboard mode: system, variant, hide, or condition-based.",
+          "step2": "Reply Keyboard presses are handled by Text Trigger, not Callback Trigger.",
+          "step3": "Run Test in Telegram to verify keyboard layout per scenario."
+        },
+        "script": {
+          "step1": "Choose runtime language (JavaScript/Python) and input source.",
+          "step2": "Use input/context/vars in code and assign final value to result.",
+          "step3": "Save result to a variable if next nodes need this value."
+        },
+        "action": {
+          "step1": "Choose action type and configure required parameters.",
+          "step2": "Set target variable when action output should be stored.",
+          "step3": "Connect next nodes that consume updated data."
+        },
+        "input": {
+          "step1": "Set the question prompt sent to the user.",
+          "step2": "Provide variable name to save the user response.",
+          "step3": "Connect to the next node that uses this captured input."
+        },
+        "http": {
+          "step1": "Set request URL, method, and optional headers/body.",
+          "step2": "Configure timeout and variable for storing API response.",
+          "step3": "Add next-step handling (Message, Condition, Router) for response data."
+        },
+        "paymentYookassa": {
+          "step1": "Set shopId/secretKey, amount, and return URL.",
+          "step2": "Enable auto-send link if the user should immediately receive the payment URL.",
+          "step3": "Save payment result to a variable and continue with Message/Condition logic."
+        },
+        "paymentStripe": {
+          "step1": "Set Stripe secret key, amount, currency, and success/cancel URLs.",
+          "step2": "Set product name so Checkout session is clear to the user.",
+          "step3": "Save payment result to a variable and handle the next steps in your flow."
+        },
+        "paymentRobokassa": {
+          "step1": "Set MerchantLogin, Password #1, amount, and currency.",
+          "step2": "Optionally enable test mode and define success/fail URLs.",
+          "step3": "Send generated link to the user and keep payment result in a variable."
+        },
+        "paymentStars": {
+          "step1": "Set invoice title, amount in stars, and optional order payload.",
+          "step2": "The node calls Telegram API (`createInvoiceLink`) and returns an XTR payment URL.",
+          "step3": "Send this URL directly or use a Message inline button with type \"Telegram Stars payment\"."
+        }
       },
       "nodeDescriptions": {
         "defaults": {
@@ -464,13 +775,32 @@
       "statusArchived": "Archived",
       "statusError": "Error",
       "currentStatus": "Current status: {status}",
+      "help": {
+        "basicSummary": "This block defines the base bot card: name, description, and lifecycle status.",
+        "basicStep1": "Fill in name and description so the bot purpose is clear.",
+        "basicStep2": "Use status as a lifecycle marker: draft -> active -> archived.",
+        "basicStep3": "After changes, save editor state in the top header.",
+        "profileSummary": "Telegram bot profile: display name, username, avatar, and descriptions.",
+        "profileStep1": "Enter desired profile values in the form.",
+        "profileStep2": "Username can only be changed via @BotFather.",
+        "profileStep3": "Click Apply to Telegram and review warnings.",
+        "tokenSummary": "Token connects your bot to Telegram. It is stored separately and securely.",
+        "tokenStep1": "Paste a token from @BotFather only when you need to update it.",
+        "tokenStep2": "Empty token field does not erase an already stored token.",
+        "tokenStep3": "After token change, save and restart Test mode.",
+        "webhookSummary": "Use this only when your bot runs on your own server 24/7. Telegram will send updates to this URL.",
+        "webhookStep1": "If you have a server, paste a public HTTPS URL that accepts Telegram updates.",
+        "webhookStep2": "Save settings and verify bot responses after Deploy.",
+        "webhookStep3": "If you use editor Test/polling mode, keep this field empty."
+      },
       "profileStyleTitle": "Telegram Bot Profile",
       "profileStyleDesc": "Manage display name, descriptions, username, and profile photo settings.",
       "profileDisplayName": "Display Name",
       "profileDisplayNamePlaceholder": "Example: Support Assistant",
       "profileUsername": "Desired username",
       "profileUsernamePlaceholder": "my_awesome_helper_bot",
-      "profileUsernameHint": "Changing username/photo in Telegram is handled by @BotFather. You can save and validate values here.",
+      "profileUsernameNotSet": "Username is not set",
+      "profileUsernameHint": "Username cannot be changed in the editor. Change it via @BotFather.",
       "profileUsernameCheck": "Check",
       "profileUsernameChecking": "Checking...",
       "profileUsernameAvailable": "@{username} is available",
@@ -481,8 +811,19 @@
       "profileUsernameCheckError": "Failed to check username",
       "profileAvatarUrl": "Profile Photo URL",
       "profileAvatarUrlPlaceholder": "https://example.com/bot-avatar.png",
+      "profileAvatarUploadTitle": "Profile photo",
+      "profileAvatarDropTitle": "Drag photo here or click to choose a file",
+      "profileAvatarDropHint": "Supported: PNG, JPG, WEBP, GIF up to 10 MB.",
+      "profileAvatarUploading": "Uploading photo...",
+      "profileAvatarRemove": "Remove",
+      "profileAvatarStoredPath": "Stored file",
+      "profileAvatarUploadFailed": "Failed to upload profile photo.",
+      "profileAvatarUploadBotMissing": "Reload bot editor and try again.",
+      "profileAvatarInvalidType": "Unsupported image format.",
+      "profileAvatarTooLarge": "File is too large (max 10 MB).",
+      "profileAvatarEmptyFile": "File is empty.",
       "profileAvatarPreviewAlt": "Profile photo preview",
-      "profileAvatarHint": "Updating Telegram profile photo is handled by @BotFather.",
+      "profileAvatarHint": "After upload, click \"Apply to Telegram\" to update the profile photo.",
       "profileAbout": "About Description",
       "profileAboutPlaceholder": "Shortly describe what this bot does.",
       "profileShortDescription": "Short Description",
@@ -491,8 +832,9 @@
       "profileSyncInProgress": "Applying...",
       "profileSyncHint": "Only fields supported by Telegram Bot API are applied.",
       "profileSyncSuccess": "Profile was synced to Telegram.",
-      "profileSyncDoneWithWarnings": "Partially applied. Remaining changes require @BotFather.",
+      "profileSyncDoneWithWarnings": "Partially applied. Check warnings in the message below.",
       "profileSyncError": "Failed to sync profile with Telegram.",
+      "profileSyncErrorWithReason": "Failed to sync profile with Telegram: {reason}",
       "telegramIntegration": "Telegram Integration",
       "botToken": "Bot Token",
       "botTokenPlaceholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
@@ -502,7 +844,7 @@
       "webhookConfig": "Webhook Configuration",
       "webhookUrl": "Webhook URL",
       "webhookUrlPlaceholder": "https://your-server.com/webhook",
-      "webhookDesc": "Configure an external endpoint to receive bot events",
+      "webhookDesc": "Fill this only for server webhook mode. Leave empty for Test/polling mode.",
       "copy": "Copy",
       "save": "Save",
       "changesSavedBy": "Changes are saved by the {button} button in the top header."
@@ -614,6 +956,7 @@
       "replyKeyboard": {
         "title": "Reply Keyboard (under input)",
         "description": "Persistent Telegram keyboard under the input field. You can define base buttons and conditional variants.",
+        "starsUnavailableHint": "Telegram Stars payment is not supported in Reply Keyboard. Use inline buttons in Message.",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "resizeTitle": "Resize keyboard",
@@ -776,6 +1119,15 @@
       "save": "Save",
       "deploying": "Deploying...",
       "deploy": "Deploy",
+      "downloadingZip": "Preparing ZIP...",
+      "downloadZipError": "Failed to download bot ZIP archive",
+      "deployModalTitle": "Choose deployment option",
+      "deployModalDesc": "You can deploy the bot on our server or download the source code archive.",
+      "deployHostedTitle": "Deploy on our server",
+      "deployHostedDesc": "Start deployment on our managed hosting.",
+      "downloadZipTitle": "Download bot (ZIP)",
+      "downloadZipDesc": "Download bot source code as a ZIP archive.",
+      "cancel": "Cancel",
       "autoOpenTelegram": "Auto-open Telegram",
       "unsavedChanges": "Unsaved changes",
       "resizeSectionsPanel": "Resize sections panel",
@@ -793,6 +1145,13 @@
       "openDetailedMode": "Open detailed settings",
       "collapseDetailedMode": "Collapse detailed mode",
       "detailedModeHint": "Detailed node settings. Background is locked; editing is available only in this window.",
+      "help": {
+        "summary": "This panel configures the selected node and its workflow behavior.",
+        "step1": "Fill fields top-to-bottom: input params, logic conditions, output data.",
+        "step2": "Verify you edit the right node by checking node title and ID.",
+        "step3": "Run Test after changes and inspect execution path in logs.",
+        "note": "Changes appear on the canvas immediately. To keep them permanently, click Save in the top bar."
+      },
       "nodeId": "ID:",
       "message": {
         "textLabel": "Message Text",
@@ -929,6 +1288,66 @@
         "bodyForm": "Form Data",
         "bodyRaw": "Raw"
       },
+      "payment": {
+        "providerHintYookassa": "YooKassa: the node calls the API (shopId + secretKey), creates a payment and returns `confirmation_url` you can send to the user.",
+        "providerHintStripe": "Stripe: creates a Checkout Session and returns a hosted payment URL. Success/Cancel URLs are auto-generated.",
+        "providerHintRobokassa": "Robokassa: builds a payment URL from MerchantLogin and password #1.",
+        "providerHintStars": "Telegram Stars: this node calls Telegram API (`createInvoiceLink`) and returns an XTR payment URL.",
+        "starsTitleLabel": "Invoice title",
+        "starsTitlePlaceholder": "Telegram Stars payment",
+        "starsPayloadLabel": "Order payload (optional)",
+        "starsPayloadPlaceholder": "order_1001",
+        "starsPayloadHint": "Payload helps map payment to your order in external logic/webhooks.",
+        "shopIdLabel": "Shop ID",
+        "shopIdPlaceholder": "123456",
+        "secretKeyLabel": "Secret key",
+        "secretKeyPlaceholder": "live_... / sk_...",
+        "returnUrlLabel": "Return URL",
+        "returnUrlPlaceholder": "https://example.com/payment/success",
+        "returnUrlAutoHint": "URL is generated automatically from your project domain.",
+        "returnUrlCopyLabel": "Copy return URL",
+        "returnUrlCopiedLabel": "URL copied",
+        "returnUrlRegenerate": "Regenerate URL",
+        "captureLabel": "Capture immediately (capture=true)",
+        "successUrlLabel": "Success URL",
+        "successUrlPlaceholder": "https://example.com/payment/success",
+        "successUrlAutoHint": "URL is generated automatically from your project domain.",
+        "successUrlCopyLabel": "Copy success URL",
+        "successUrlCopiedLabel": "Success URL copied",
+        "cancelUrlLabel": "Cancel URL",
+        "cancelUrlPlaceholder": "https://example.com/payment/cancel",
+        "cancelUrlAutoHint": "URL is generated automatically from your project domain.",
+        "cancelUrlCopyLabel": "Copy cancel URL",
+        "cancelUrlCopiedLabel": "Cancel URL copied",
+        "stripeUrlsRegenerate": "Regenerate success/cancel URLs",
+        "productNameLabel": "Product name",
+        "productNamePlaceholder": "Order payment",
+        "merchantLoginLabel": "MerchantLogin",
+        "merchantLoginPlaceholder": "demo",
+        "password1Label": "Password #1",
+        "password1Placeholder": "password_1",
+        "failUrlLabel": "Fail URL",
+        "failUrlPlaceholder": "https://example.com/payment/fail",
+        "invoiceIdLabel": "Invoice ID (optional)",
+        "invoiceIdPlaceholder": "order_1001",
+        "testModeLabel": "Test mode",
+        "starsAmountLabel": "Amount in stars",
+        "starsAmountPlaceholder": "100",
+        "starsAmountHint": "For Telegram Stars use an integer value (1, 10, 100...).",
+        "amountLabel": "Amount",
+        "amountPlaceholder": "100.00",
+        "currencyLabel": "Currency",
+        "currencyPlaceholder": "RUB / USD / EUR",
+        "starsCurrencyHint": "Currency is fixed for Telegram Stars: XTR.",
+        "descriptionLabel": "Payment description",
+        "descriptionPlaceholder": "Order payment #'{{orderId}}'",
+        "autoSendPaymentLinkLabel": "Auto-send payment link to user",
+        "messageTemplateLabel": "Payment link message template",
+        "messageTemplatePlaceholder": "Pay here: '{{payment.url}}'",
+        "messageTemplateHint": "Available variables: '{{payment.url}}', '{{payment.paymentId}}', '{{payment.status}}', '{{payment.amount}}', '{{payment.currency}}'",
+        "saveToVariableLabel": "Save result to variable",
+        "saveToVariablePlaceholder": "payment"
+      },
       "trigger": {
         "typeLabel": "Trigger type",
         "command": "Command",
@@ -991,7 +1410,13 @@
       "keyboard": {
         "row": "Row",
         "button": "Button",
-        "callbackPlaceholder": "Callback data (for Callback Trigger)"
+        "callbackPlaceholder": "Callback data (for Callback Trigger)",
+        "actionCallback": "Callback",
+        "actionUrl": "URL link",
+        "actionStars": "Telegram Stars payment",
+        "urlPlaceholder": "https://example.com",
+        "starsUrlPlaceholder": "'{{payment.url}}'",
+        "starsHint": "Usually use '{{payment.url}}' from the Telegram Stars node."
       },
       "router": {
         "variableLabel": "Variable",
@@ -1058,6 +1483,7 @@
         "modeCondition": "Condition -> choose keyboard",
         "modeClear": "Hide keyboard (remove)",
         "modeHint": "Works with the system Reply Keyboard settings (base keyboard + conditional variants).",
+        "starsUnavailableHint": "Telegram Stars payment is not supported in Reply Keyboard. Use an inline button in Message.",
         "variantLabel": "Variant",
         "variantHint": "`base` = base keyboard from System section. `rule:*` = variant from conditional rules.",
         "variableLabel": "Variable Path",

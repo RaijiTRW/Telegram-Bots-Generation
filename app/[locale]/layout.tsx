@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { locales, type Locale } from '../i18n';
 import type { Metadata } from 'next';
 import { MotionWrapper } from '@/components/motion-wrapper';
+import { DashboardPresenceHeartbeat } from '@/components/dashboard/dashboard-presence-heartbeat';
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -31,6 +32,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages}>
+      <DashboardPresenceHeartbeat />
       <MotionWrapper>{children}</MotionWrapper>
     </NextIntlClientProvider>
   );

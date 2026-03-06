@@ -6,7 +6,7 @@ const withNextIntl = createNextIntlPlugin('./app/i18n.ts');
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: '64mb',
+      bodySizeLimit: '550mb',
     },
   },
 };

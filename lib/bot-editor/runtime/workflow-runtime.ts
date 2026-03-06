@@ -1,11 +1,14 @@
 import { readFile } from 'node:fs/promises'
 import { basename, isAbsolute, resolve as resolvePathFs } from 'node:path'
 import { homedir } from 'node:os'
+import { createHash, randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { createContext as createVmContext, Script as VmScript } from 'node:vm'
 import type { BotConfig, Edge as BotEdge, Node as BotNode } from '@/lib/bot-editor/types/bot.types'
 import { callTelegramApi, callTelegramApiFormData } from '@/lib/bot-editor/runtime/telegram-api'
 import { appendBotTestLog } from '@/lib/bot-editor/runtime/test-log-store'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { appendOutboundContactEvent } from '@/lib/bot-editor/services/bot-crm-service'
 
 interface TelegramUser {
   id: number
@@ -145,6 +148,8 @@ const MAX_SCRIPT_TIMEOUT_MS = 30_000
 const SCRIPT_NODES_ENABLED =
   process.env.TFLOW_ENABLE_UNSAFE_SCRIPT_NODES === '1' || process.env.NODE_ENV !== 'production'
 const PYTHON_RESULT_MARKER = '__TFLOW_SCRIPT_RESULT__:'
+const hasCrmIngestionConfig = () =>
+  Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
 
 const PYTHON_NODE_WRAPPER_CODE = `
 import json, sys
@@ -1286,7 +1291,19 @@ function buildHttpRequestBody(args: {
   return JSON.stringify(interpolatedObject)
 }
 
-function buildInlineKeyboardMarkup(keyboard: unknown): InlineKeyboardMarkup | undefined {
+function normalizeInlineButtonActionType(value: unknown): 'callback' | 'url' | 'stars' {
+  const normalized = normalizeText(value).toLowerCase()
+  if (normalized === 'url' || normalized === 'link') return 'url'
+  if (normalized === 'stars' || normalized === 'starspay' || normalized === 'stars_pay') {
+    return 'stars'
+  }
+  return 'callback'
+}
+
+function buildInlineKeyboardMarkup(
+  keyboard: unknown,
+  templateVariables?: Record<string, unknown>
+): InlineKeyboardMarkup | undefined {
   const rows = normalizeKeyboardRows(keyboard)
   if (rows.length === 0) {
     return undefined
@@ -1304,20 +1321,44 @@ function buildInlineKeyboardMarkup(keyboard: unknown): InlineKeyboardMarkup | un
 
     for (let buttonIndex = 0; buttonIndex < buttons.length; buttonIndex += 1) {
       const buttonRecord = buttons[buttonIndex]
-      const text =
+      const rawText =
         normalizeText(buttonRecord.text) ||
         normalizeText(buttonRecord.label) ||
         normalizeText(buttonRecord.title)
+      const text = templateVariables
+        ? interpolateTemplate(rawText, templateVariables).trim()
+        : rawText
       if (!text) continue
 
-      const callbackDataRaw =
+      const callbackDataRawBase =
         normalizeText(buttonRecord.callbackData) ||
         normalizeText(buttonRecord.callback_data) ||
         normalizeText(buttonRecord.data) ||
         normalizeText(buttonRecord.action) ||
         normalizeText(buttonRecord.value)
-      const url = normalizeText(buttonRecord.url)
-      if (url && isSupportedButtonUrl(url)) {
+      const callbackDataRaw = templateVariables
+        ? interpolateTemplate(callbackDataRawBase, templateVariables).trim()
+        : callbackDataRawBase
+      const actionTypeRaw = normalizeText(
+        buttonRecord.actionType ?? buttonRecord.kind ?? buttonRecord.type
+      )
+      const actionType = normalizeInlineButtonActionType(actionTypeRaw)
+      const isStarsPayButton = actionType === 'stars' || normalizeBoolean(buttonRecord.payStars)
+      const rawUrl =
+        normalizeText(buttonRecord.url) ||
+        (isStarsPayButton
+          ? normalizeText(buttonRecord.starsUrl || buttonRecord.paymentUrl || buttonRecord.payment_url)
+          : '')
+      const url = templateVariables
+        ? interpolateTemplate(rawUrl, templateVariables).trim()
+        : rawUrl
+
+      const shouldUseUrlButton =
+        isStarsPayButton ||
+        actionType === 'url' ||
+        (!actionTypeRaw && rawUrl.length > 0)
+
+      if (shouldUseUrlButton && url && isSupportedButtonUrl(url)) {
         normalizedRow.push({
           text,
           url,
@@ -1814,6 +1855,42 @@ export async function handleScheduledWorkflowTriggersTick(args: {
   }
 }
 
+async function appendOutboundCrmEventSafe(input: {
+  botId: string
+  telegramUserId?: number | null
+  telegramChatId?: number | null
+  eventKind: 'message_text' | 'media' | 'service'
+  messageText?: string
+  payload?: Record<string, unknown>
+}) {
+  const telegramUserId = Number(input.telegramUserId)
+  if (!Number.isFinite(telegramUserId) || telegramUserId <= 0) {
+    return
+  }
+  if (!hasCrmIngestionConfig()) {
+    return
+  }
+
+  try {
+    const supabase = createAdminClient()
+    await appendOutboundContactEvent(
+      supabase as unknown as Parameters<typeof appendOutboundContactEvent>[0],
+      {
+        botId: input.botId,
+        telegramUserId,
+        telegramChatId: Number.isFinite(Number(input.telegramChatId))
+          ? Number(input.telegramChatId)
+          : null,
+        eventKind: input.eventKind,
+        messageText: input.messageText,
+        payload: input.payload,
+      }
+    )
+  } catch (error) {
+    appendBotTestLog(input.botId, 'workflow', `CRM outbound log failed: ${String(error)}`, 'warn')
+  }
+}
+
 async function sendMessage(
   token: string,
   botId: string,
@@ -1827,7 +1904,9 @@ async function sendMessage(
     inputPlaceholder?: string
     disableWebPagePreview?: boolean
     disableNotification?: boolean
-  }
+  },
+  telegramUserId?: number | null,
+  templateVariables?: Record<string, unknown>
 ): Promise<void> {
   const payload: Record<string, unknown> = {
     chat_id: chatId,
@@ -1865,12 +1944,28 @@ async function sendMessage(
     }
     payload.reply_markup = forceReply
   } else {
-    const inlineReplyMarkup = buildInlineKeyboardMarkup(keyboard)
+    const inlineReplyMarkup = buildInlineKeyboardMarkup(keyboard, templateVariables)
     if (inlineReplyMarkup) {
       payload.reply_markup = inlineReplyMarkup
     } else if (systemReplyMarkup) {
       payload.reply_markup = systemReplyMarkup
     }
+  }
+
+  const trackSuccess = async (actualText?: string) => {
+    await appendOutboundCrmEventSafe({
+      botId,
+      telegramUserId,
+      telegramChatId: chatId,
+      eventKind: 'message_text',
+      messageText: typeof actualText === 'string' ? actualText : text,
+      payload: {
+        parseMode: normalizedParseMode || null,
+        hasReplyMarkup: Boolean(payload.reply_markup),
+        forceReply: Boolean(options?.forceReply),
+        disableNotification: Boolean(options?.disableNotification),
+      },
+    })
   }
 
   try {
@@ -1880,6 +1975,7 @@ async function sendMessage(
       'telegram',
       `sendMessage ok (${normalizedParseMode || 'plain'}): ${String(text || '').replace(/\s+/g, ' ').slice(0, 140)}`
     )
+    await trackSuccess(typeof payload.text === 'string' ? payload.text : text)
   } catch (error) {
     appendBotTestLog(botId, 'telegram', `sendMessage error: ${String(error)}`, 'error')
     if (normalizedParseMode === 'MarkdownV2' && typeof payload.text === 'string') {
@@ -1899,6 +1995,7 @@ async function sendMessage(
 
           await callTelegramApi(token, 'sendMessage', retryPayload)
           appendBotTestLog(botId, 'telegram', 'sendMessage retry ok (MarkdownV2 escaped)', 'warn')
+          await trackSuccess(typeof retryPayload.text === 'string' ? retryPayload.text : text)
           return
         } catch {
           // Last resort: send plain text without parse mode so the bot still responds.
@@ -1913,6 +2010,7 @@ async function sendMessage(
 
             await callTelegramApi(token, 'sendMessage', plainPayload)
             appendBotTestLog(botId, 'telegram', 'sendMessage fallback ok (plain text)', 'warn')
+            await trackSuccess(typeof plainPayload.text === 'string' ? plainPayload.text : text)
             return
           } catch {
             // continue to HTML fallback / original error
@@ -1944,6 +2042,7 @@ async function sendMessage(
             ...retryPayload,
           })
           appendBotTestLog(botId, 'telegram', 'sendMessage retry ok (HTML sanitized)', 'warn')
+          await trackSuccess(typeof retryPayload.text === 'string' ? retryPayload.text : text)
           return
         } catch {
           // fall through to original error below
@@ -1966,7 +2065,9 @@ async function sendMediaMessage(
   systemReplyMarkup?: AnyReplyMarkup,
   options?: {
     disableNotification?: boolean
-  }
+  },
+  telegramUserId?: number | null,
+  templateVariables?: Record<string, unknown>
 ): Promise<void> {
   const methodMap: Record<SupportedMediaAttachmentType, { apiMethod: string; payloadField: string }> = {
     photo: { apiMethod: 'sendPhoto', payloadField: 'photo' },
@@ -2001,7 +2102,7 @@ async function sendMediaMessage(
     payload.disable_notification = true
   }
 
-  const inlineReplyMarkup = buildInlineKeyboardMarkup(keyboard)
+  const inlineReplyMarkup = buildInlineKeyboardMarkup(keyboard, templateVariables)
   if (inlineReplyMarkup) {
     payload.reply_markup = inlineReplyMarkup
   } else if (systemReplyMarkup) {
@@ -2026,6 +2127,13 @@ async function sendMediaMessage(
     }
 
     const fileBuffer = await ensureLocalFileBuffer()
+    const fileArrayBuffer =
+      fileBuffer && fileBuffer.byteLength > 0
+        ? (fileBuffer.buffer.slice(
+            fileBuffer.byteOffset,
+            fileBuffer.byteOffset + fileBuffer.byteLength
+          ) as ArrayBuffer)
+        : new ArrayBuffer(0)
     const formData = new FormData()
 
     for (const [key, value] of Object.entries(currentPayload)) {
@@ -2047,11 +2155,28 @@ async function sendMediaMessage(
 
     formData.append(
       mapped.payloadField,
-      new Blob([fileBuffer ?? new Uint8Array()]),
+      new Blob([fileArrayBuffer]),
       localFileName || `${attachment.type}.bin`
     )
 
     await callTelegramApiFormData(token, mapped.apiMethod, formData)
+  }
+
+  const trackSuccess = async (actualCaption?: string) => {
+    await appendOutboundCrmEventSafe({
+      botId,
+      telegramUserId,
+      telegramChatId: chatId,
+      eventKind: 'media',
+      messageText: actualCaption ?? normalizedCaption,
+      payload: {
+        apiMethod: mapped.apiMethod,
+        mediaType: attachment.type,
+        parseMode: normalizedParseMode || null,
+        hasReplyMarkup: Boolean(payload.reply_markup),
+        disableNotification: Boolean(options?.disableNotification),
+      },
+    })
   }
 
   try {
@@ -2061,6 +2186,7 @@ async function sendMediaMessage(
       'telegram',
       `${mapped.apiMethod} ok (${normalizedParseMode || 'plain'}): ${attachment.source.slice(0, 96)}${normalizedCaption ? ` | ${normalizedCaption.replace(/\s+/g, ' ').slice(0, 80)}` : ''}`
     )
+    await trackSuccess(typeof payload.caption === 'string' ? payload.caption : normalizedCaption)
   } catch (error) {
     appendBotTestLog(botId, 'telegram', `${mapped.apiMethod} error: ${String(error)}`, 'error')
 
@@ -2075,6 +2201,7 @@ async function sendMediaMessage(
 
           await sendPayload(retryPayload)
           appendBotTestLog(botId, 'telegram', `${mapped.apiMethod} retry ok (MarkdownV2 escaped)`, 'warn')
+          await trackSuccess(typeof retryPayload.caption === 'string' ? retryPayload.caption : normalizedCaption)
           return
         } catch {
           try {
@@ -2084,6 +2211,7 @@ async function sendMediaMessage(
             delete plainPayload.parse_mode
             await sendPayload(plainPayload)
             appendBotTestLog(botId, 'telegram', `${mapped.apiMethod} fallback ok (plain caption)`, 'warn')
+            await trackSuccess(typeof plainPayload.caption === 'string' ? plainPayload.caption : normalizedCaption)
             return
           } catch {
             // continue to HTML fallback / original error
@@ -2102,6 +2230,7 @@ async function sendMediaMessage(
           }
           await sendPayload(retryPayload)
           appendBotTestLog(botId, 'telegram', `${mapped.apiMethod} retry ok (HTML sanitized)`, 'warn')
+          await trackSuccess(typeof retryPayload.caption === 'string' ? retryPayload.caption : normalizedCaption)
           return
         } catch {
           // fall through
@@ -2254,6 +2383,517 @@ async function executeHttpNode(
 ): Promise<void> {
   const data = (node.data || {}) as Record<string, unknown>
   await executeHttpRequestData(data, session, contextVariables)
+}
+
+type PaymentProvider = 'yookassa' | 'stripe' | 'robokassa' | 'telegram_stars'
+
+type PaymentNodeExecutionResult = {
+  provider: PaymentProvider
+  paymentId: string
+  status: string
+  url: string
+  amount: string
+  currency: string
+  invoiceId?: string
+  raw?: Record<string, unknown> | null
+}
+
+function safeParseJsonObject(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null
+    }
+    return parsed as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+function normalizeMoneyAmount(value: unknown, fallback = '100.00'): string {
+  const raw = String(value ?? '').trim().replace(',', '.')
+  const amount = Number(raw)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return fallback
+  }
+  return amount.toFixed(2)
+}
+
+function normalizeStarsAmount(value: unknown, fallback = 1): number {
+  const raw = String(value ?? '').trim().replace(',', '.')
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback
+  }
+  return Math.max(1, Math.round(parsed))
+}
+
+function toMinorUnits(amount: string): number {
+  const parsed = Number(amount)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 100
+  }
+  return Math.max(1, Math.round(parsed * 100))
+}
+
+function normalizeCurrencyCode(
+  value: unknown,
+  fallback: string,
+  mode: 'upper' | 'lower' = 'upper'
+): string {
+  const raw = String(value ?? '').trim()
+  const match = raw.match(/[a-zA-Z]{3}/)
+  const base = (match?.[0] || fallback).slice(0, 3)
+  return mode === 'lower' ? base.toLowerCase() : base.toUpperCase()
+}
+
+function resolvePaymentTextField(
+  source: unknown,
+  contextVariables: Record<string, unknown>
+): string {
+  return interpolateTemplate(String(source ?? ''), contextVariables).trim()
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, '')
+}
+
+function normalizeAbsoluteHttpUrl(value: string): string | null {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+
+  const withProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
+  try {
+    const parsed = new URL(withProtocol)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+    return trimTrailingSlash(parsed.toString())
+  } catch {
+    return null
+  }
+}
+
+function resolveRuntimeBaseUrlForPayments(): string | null {
+  const fromEnv =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL
+
+  const normalizedEnvUrl = normalizeAbsoluteHttpUrl(fromEnv || '')
+  if (normalizedEnvUrl) {
+    return normalizedEnvUrl
+  }
+
+  if (process.env.VERCEL_URL) {
+    const vercelUrl = normalizeAbsoluteHttpUrl(process.env.VERCEL_URL)
+    if (vercelUrl) return vercelUrl
+  }
+
+  return null
+}
+
+function resolvePreferredLocaleFromContext(contextVariables: Record<string, unknown>): 'ru' | 'en' {
+  const languageCode = String(resolvePath(contextVariables, 'user.languageCode') || '')
+    .trim()
+    .toLowerCase()
+  return languageCode.startsWith('en') ? 'en' : 'ru'
+}
+
+function resolveYookassaReturnUrl(args: {
+  configuredReturnUrl: string
+  contextVariables: Record<string, unknown>
+  botId: string
+}): string {
+  const configured = normalizeAbsoluteHttpUrl(args.configuredReturnUrl)
+  if (configured) {
+    return configured
+  }
+
+  const baseUrl = resolveRuntimeBaseUrlForPayments()
+  if (baseUrl) {
+    const locale = resolvePreferredLocaleFromContext(args.contextVariables)
+    const botId = encodeURIComponent(String(args.botId || '').trim())
+    const query = botId ? `?botId=${botId}` : ''
+    return `${baseUrl}/${locale}/payment/return${query}`
+  }
+
+  return 'https://t.me'
+}
+
+function resolveStripeReturnUrl(args: {
+  configuredUrl: string
+  contextVariables: Record<string, unknown>
+  botId: string
+  state: 'success' | 'cancel'
+}): string {
+  const configured = normalizeAbsoluteHttpUrl(args.configuredUrl)
+  if (configured) {
+    return configured
+  }
+
+  const baseUrl = resolveRuntimeBaseUrlForPayments()
+  if (baseUrl) {
+    const locale = resolvePreferredLocaleFromContext(args.contextVariables)
+    const params = new URLSearchParams()
+    const botId = String(args.botId || '').trim()
+    if (botId) {
+      params.set('botId', botId)
+    }
+    params.set('provider', 'stripe')
+    params.set('state', args.state)
+    const query = params.size > 0 ? `?${params.toString()}` : ''
+    return `${baseUrl}/${locale}/payment/return${query}`
+  }
+
+  return 'https://t.me'
+}
+
+async function createYookassaPayment(input: {
+  data: Record<string, unknown>
+  contextVariables: Record<string, unknown>
+  botId: string
+}): Promise<PaymentNodeExecutionResult> {
+  const { data, contextVariables, botId } = input
+  const shopId = resolvePaymentTextField(data.shopId, contextVariables).replace(/\s+/g, '')
+  const secretKey = resolvePaymentTextField(data.secretKey, contextVariables).replace(/\s+/g, '')
+  const returnUrl = resolveYookassaReturnUrl({
+    configuredReturnUrl: resolvePaymentTextField(data.returnUrl, contextVariables),
+    contextVariables,
+    botId,
+  })
+  const description = resolvePaymentTextField(data.description, contextVariables)
+  const amount = normalizeMoneyAmount(resolvePaymentTextField(data.amount, contextVariables), '100.00')
+  const currency = normalizeCurrencyCode(
+    resolvePaymentTextField(data.currency || 'RUB', contextVariables),
+    'RUB',
+    'upper'
+  )
+  const capture = data.capture !== false
+
+  if (!shopId || !secretKey) {
+    throw new Error('YooKassa: shopId или secretKey не заполнены')
+  }
+
+  const payload = {
+    amount: {
+      value: amount,
+      currency,
+    },
+    capture,
+    confirmation: {
+      type: 'redirect',
+      return_url: returnUrl,
+    },
+    ...(description ? { description } : {}),
+  }
+
+  const response = await fetch('https://api.yookassa.ru/v3/payments', {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${shopId}:${secretKey}`).toString('base64')}`,
+      'Content-Type': 'application/json',
+      'Idempotence-Key': randomUUID(),
+    },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  })
+
+  const responseText = await response.text()
+  const body = safeParseJsonObject(responseText)
+
+  if (!response.ok) {
+    const errorCode = normalizeText(body?.code).toLowerCase()
+    const errorDescription = normalizeText(body?.description)
+
+    if (response.status === 401 || errorCode === 'invalid_credentials') {
+      throw new Error(
+        'YooKassa: неверные shopId/secretKey. Проверьте API-ключ в кабинете YooKassa и вставьте значения без пробелов/переносов.'
+      )
+    }
+
+    if (errorCode || errorDescription) {
+      throw new Error(
+        `YooKassa ${response.status}: ${errorCode || 'request_failed'}${errorDescription ? ` (${errorDescription})` : ''}`
+      )
+    }
+
+    throw new Error(`YooKassa HTTP ${response.status}: ${responseText.slice(0, 260)}`)
+  }
+
+  const confirmation = body?.confirmation && typeof body.confirmation === 'object'
+    ? (body.confirmation as Record<string, unknown>)
+    : null
+  const url = normalizeText(confirmation?.confirmation_url)
+  if (!url) {
+    throw new Error('YooKassa: confirmation_url отсутствует в ответе')
+  }
+
+  return {
+    provider: 'yookassa',
+    paymentId: normalizeText(body?.id) || 'unknown',
+    status: normalizeText(body?.status) || 'pending',
+    url,
+    amount,
+    currency,
+    raw: body,
+  }
+}
+
+async function createStripePayment(input: {
+  data: Record<string, unknown>
+  contextVariables: Record<string, unknown>
+  botId: string
+}): Promise<PaymentNodeExecutionResult> {
+  const { data, contextVariables, botId } = input
+  const secretKey = resolvePaymentTextField(data.secretKey, contextVariables)
+  const successUrl = resolveStripeReturnUrl({
+    configuredUrl: resolvePaymentTextField(data.successUrl, contextVariables),
+    contextVariables,
+    botId,
+    state: 'success',
+  })
+  const cancelUrl = resolveStripeReturnUrl({
+    configuredUrl: resolvePaymentTextField(data.cancelUrl, contextVariables),
+    contextVariables,
+    botId,
+    state: 'cancel',
+  })
+  const productName = resolvePaymentTextField(data.productName, contextVariables) || 'Order payment'
+  const description = resolvePaymentTextField(data.description, contextVariables)
+  const amount = normalizeMoneyAmount(resolvePaymentTextField(data.amount, contextVariables), '1.00')
+  const currency = normalizeCurrencyCode(
+    resolvePaymentTextField(data.currency || 'usd', contextVariables),
+    'usd',
+    'lower'
+  )
+
+  if (!secretKey) {
+    throw new Error('Stripe: secretKey не заполнен')
+  }
+
+  const form = new URLSearchParams()
+  form.set('mode', 'payment')
+  form.set('success_url', successUrl)
+  form.set('cancel_url', cancelUrl)
+  form.set('line_items[0][price_data][currency]', currency)
+  form.set('line_items[0][price_data][unit_amount]', String(toMinorUnits(amount)))
+  form.set('line_items[0][price_data][product_data][name]', productName)
+  form.set('line_items[0][quantity]', '1')
+  if (description) {
+    form.set('payment_intent_data[description]', description.slice(0, 500))
+  }
+
+  const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: form.toString(),
+    cache: 'no-store',
+  })
+
+  const responseText = await response.text()
+  const body = safeParseJsonObject(responseText)
+
+  if (!response.ok) {
+    throw new Error(`Stripe HTTP ${response.status}: ${responseText.slice(0, 260)}`)
+  }
+
+  const url = normalizeText(body?.url)
+  if (!url) {
+    throw new Error('Stripe: checkout URL отсутствует в ответе')
+  }
+
+  return {
+    provider: 'stripe',
+    paymentId: normalizeText(body?.id) || 'unknown',
+    status: normalizeText(body?.status) || 'open',
+    url,
+    amount,
+    currency: currency.toUpperCase(),
+    raw: body,
+  }
+}
+
+function createRobokassaPayment(input: {
+  data: Record<string, unknown>
+  contextVariables: Record<string, unknown>
+}): PaymentNodeExecutionResult {
+  const { data, contextVariables } = input
+  const merchantLogin = resolvePaymentTextField(data.merchantLogin, contextVariables)
+  const password1 = resolvePaymentTextField(data.password1, contextVariables)
+  const amount = normalizeMoneyAmount(resolvePaymentTextField(data.amount, contextVariables), '100.00')
+  const description = resolvePaymentTextField(data.description, contextVariables)
+  const invoiceId = resolvePaymentTextField(data.invoiceId, contextVariables) || String(Date.now())
+  const successUrl = resolvePaymentTextField(data.successUrl, contextVariables)
+  const failUrl = resolvePaymentTextField(data.failUrl, contextVariables)
+  const isTest = Boolean(data.isTest)
+  const currency = normalizeCurrencyCode(
+    resolvePaymentTextField(data.currency || 'RUB', contextVariables),
+    'RUB',
+    'upper'
+  )
+
+  if (!merchantLogin || !password1) {
+    throw new Error('Robokassa: merchantLogin или password1 не заполнены')
+  }
+
+  const signatureValue = createHash('md5')
+    .update(`${merchantLogin}:${amount}:${invoiceId}:${password1}`)
+    .digest('hex')
+
+  const params = new URLSearchParams()
+  params.set('MerchantLogin', merchantLogin)
+  params.set('OutSum', amount)
+  params.set('InvId', invoiceId)
+  params.set('SignatureValue', signatureValue)
+  params.set('Culture', 'ru')
+  if (description) params.set('Description', description.slice(0, 100))
+  if (successUrl) params.set('SuccessURL', successUrl)
+  if (failUrl) params.set('FailURL', failUrl)
+  if (isTest) params.set('IsTest', '1')
+
+  const url = `https://auth.robokassa.ru/Merchant/Index.aspx?${params.toString()}`
+
+  return {
+    provider: 'robokassa',
+    paymentId: invoiceId,
+    status: 'pending',
+    url,
+    amount,
+    currency,
+    invoiceId,
+    raw: {
+      merchantLogin,
+      outSum: amount,
+      invId: invoiceId,
+      isTest,
+    },
+  }
+}
+
+async function createTelegramStarsPayment(input: {
+  data: Record<string, unknown>
+  contextVariables: Record<string, unknown>
+  botToken: string
+}): Promise<PaymentNodeExecutionResult> {
+  const { data, contextVariables, botToken } = input
+  const title = resolvePaymentTextField(data.title, contextVariables) || 'Telegram Stars payment'
+  const description =
+    resolvePaymentTextField(data.description, contextVariables) ||
+    'Payment via Telegram Stars'
+  const payload =
+    resolvePaymentTextField(data.payload, contextVariables) ||
+    `stars_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  const amountStars = normalizeStarsAmount(
+    resolvePaymentTextField(data.amount, contextVariables),
+    1
+  )
+  const label = title.slice(0, 32) || 'Payment'
+  const prices = [{ label, amount: amountStars }]
+
+  const url = await callTelegramApi<string>(botToken, 'createInvoiceLink', {
+    title: title.slice(0, 32),
+    description: description.slice(0, 255),
+    payload: payload.slice(0, 128),
+    currency: 'XTR',
+    provider_token: '',
+    prices,
+  })
+
+  const normalizedUrl = normalizeText(url)
+  if (!normalizedUrl || !isSupportedButtonUrl(normalizedUrl)) {
+    throw new Error('Telegram Stars: createInvoiceLink вернул пустой или некорректный URL')
+  }
+
+  return {
+    provider: 'telegram_stars',
+    paymentId: payload,
+    status: 'pending',
+    url: normalizedUrl,
+    amount: String(amountStars),
+    currency: 'XTR',
+    raw: {
+      payload,
+      title,
+      description,
+      prices,
+    },
+  }
+}
+
+async function executePaymentNode(args: {
+  node: BotNode
+  session: RuntimeSession
+  contextVariables: Record<string, unknown>
+  botToken: string
+  botId: string
+  chatId: number
+  telegramUserId?: number | null
+}): Promise<void> {
+  const { node, session, contextVariables, botToken, botId, chatId, telegramUserId } = args
+  const data = (node.data || {}) as Record<string, unknown>
+
+  let result: PaymentNodeExecutionResult
+  if (node.type === 'paymentYookassa') {
+    result = await createYookassaPayment({ data, contextVariables, botId })
+  } else if (node.type === 'paymentStripe') {
+    result = await createStripePayment({ data, contextVariables, botId })
+  } else if (node.type === 'paymentRobokassa') {
+    result = createRobokassaPayment({ data, contextVariables })
+  } else if (node.type === 'paymentStars') {
+    result = await createTelegramStarsPayment({ data, contextVariables, botToken })
+  } else {
+    throw new Error(`Unsupported payment node type: ${node.type}`)
+  }
+
+  const saveToVariable = normalizeText(data.saveToVariable || '')
+  if (saveToVariable) {
+    session.variables[saveToVariable] = result
+  }
+
+  if (data.autoSendPaymentLink !== false) {
+    const defaultTemplate =
+      node.type === 'paymentStars'
+        ? 'Оплатите заказ в Telegram Stars: {{payment.url}}'
+        : 'Оплатите заказ по ссылке: {{payment.url}}'
+    const template = String(data.messageTemplate || '').trim() || defaultTemplate
+    const messageText = interpolateTemplate(template, {
+      ...contextVariables,
+      payment: result,
+      paymentUrl: result.url,
+      paymentId: result.paymentId,
+      paymentStatus: result.status,
+    })
+
+    await sendMessage(
+      botToken,
+      botId,
+      chatId,
+      messageText,
+      undefined,
+      undefined,
+      undefined,
+      { disableWebPagePreview: false },
+      telegramUserId,
+      {
+        ...contextVariables,
+        payment: result,
+        paymentUrl: result.url,
+        paymentId: result.paymentId,
+        paymentStatus: result.status,
+      }
+    )
+  }
+
+  appendBotTestLog(
+    botId,
+    'workflow',
+    `Payment ${result.provider} -> ${node.id} (${result.amount} ${result.currency})${saveToVariable ? ` saved to ${saveToVariable}` : ''}`,
+    'info'
+  )
 }
 
 function normalizeScriptTimeoutMs(value: unknown): number {
@@ -2774,7 +3414,9 @@ async function executeFromNode(args: {
             systemReplyMarkup,
             {
               disableNotification: normalizeBoolean(data.disableNotification),
-            }
+            },
+            user?.id,
+            contextVariables
           )
         } else {
           await sendMessage(
@@ -2788,7 +3430,9 @@ async function executeFromNode(args: {
             {
               disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
               disableNotification: normalizeBoolean(data.disableNotification),
-            }
+            },
+            user?.id,
+            contextVariables
           )
         }
       } else {
@@ -2803,7 +3447,9 @@ async function executeFromNode(args: {
           {
             disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
             disableNotification: normalizeBoolean(data.disableNotification),
-          }
+          },
+          user?.id,
+          contextVariables
         )
       }
       currentNodeId = getDefaultNextNodeId(config, node.id)
@@ -2835,15 +3481,15 @@ async function executeFromNode(args: {
             forceReply: true,
             inputPlaceholder: placeholder,
             ...messageOptions,
-          })
+          }, user?.id, contextVariables)
         } catch (error) {
           console.error('Failed to send input with force-reply, fallback to plain message:', error)
           appendBotTestLog(botId, 'workflow', `Input forceReply fallback: ${String(error)}`, 'warn')
-          await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, systemReplyMarkup, messageOptions)
+          await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, systemReplyMarkup, messageOptions, user?.id, contextVariables)
         }
       } else {
         appendBotTestLog(botId, 'workflow', `Node input -> ${node.id}`, 'debug')
-        await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, systemReplyMarkup, messageOptions)
+        await sendMessage(botToken, botId, chatId, question, parseMode, keyboard, systemReplyMarkup, messageOptions, user?.id, contextVariables)
       }
 
       session.waitingForNodeId = node.id
@@ -3053,6 +3699,26 @@ async function executeFromNode(args: {
     if (node.type === 'http' || node.type === 'webhook') {
       appendBotTestLog(botId, 'workflow', `Node ${node.type} -> ${node.id}`, 'debug')
       await executeHttpNode(node, session, contextVariables)
+      currentNodeId = getDefaultNextNodeId(config, node.id)
+      continue
+    }
+
+    if (
+      node.type === 'paymentYookassa' ||
+      node.type === 'paymentStripe' ||
+      node.type === 'paymentRobokassa' ||
+      node.type === 'paymentStars'
+    ) {
+      appendBotTestLog(botId, 'workflow', `Node ${node.type} -> ${node.id}`, 'debug')
+      await executePaymentNode({
+        node,
+        session,
+        contextVariables,
+        botToken,
+        botId,
+        chatId,
+        telegramUserId: user?.id,
+      })
       currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
     }

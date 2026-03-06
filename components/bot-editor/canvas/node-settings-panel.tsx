@@ -10,6 +10,7 @@ import {
   Zap,
   Webhook,
   Globe,
+  CreditCard,
   Play,
   Clock,
   MessageCircle,
@@ -21,9 +22,12 @@ import {
   Trash2,
   Settings,
   Save,
+  Copy,
+  Check,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,6 +51,10 @@ import type {
   ScriptNodeData,
   HttpNodeData,
   WebhookNodeData,
+  PaymentYookassaNodeData,
+  PaymentStripeNodeData,
+  PaymentRobokassaNodeData,
+  PaymentStarsNodeData,
   TriggerNodeData,
   WaitNodeData,
   SchedulerNodeData,
@@ -66,6 +74,7 @@ import {
   TemplateVariableTextarea,
   VariableAutocompleteInput,
 } from './variable-field-assist'
+import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 
 interface NodeSettingsPanelProps {
   node: Node | null
@@ -84,12 +93,44 @@ const ICONS: Record<string, LucideIcon> = {
   action: Zap,
   http: Globe,
   webhook: Webhook,
+  paymentYookassa: CreditCard,
+  paymentStripe: CreditCard,
+  paymentRobokassa: CreditCard,
+  paymentStars: CreditCard,
   trigger: Play,
   wait: Clock,
   scheduler: Clock,
   replyKeyboard: Keyboard,
   script: Code2,
   comment: MessageCircle,
+}
+
+function getNodeHelpDocsHref(args: { locale: string; nodeType: NodeType }): string {
+  const { locale, nodeType } = args
+  const docsBasePath = `/${locale}/dashboard/docs`
+
+  const anchorByNodeType: Partial<Record<NodeType, string>> = {
+    trigger: 'node-trigger-command',
+    message: 'node-message',
+    input: 'node-input',
+    condition: 'node-condition',
+    router: 'node-router',
+    scheduler: 'node-date-scheduler',
+    replyKeyboard: 'node-reply-keyboard-node',
+    action: 'node-action',
+    http: 'node-http',
+    webhook: 'node-http',
+    paymentYookassa: 'node-payment-yookassa',
+    paymentStripe: 'node-payment-stripe',
+    paymentRobokassa: 'node-payment-robokassa',
+    paymentStars: 'node-payment-stars',
+    script: 'node-script',
+    wait: 'nodes-reference',
+    comment: 'nodes-reference',
+  }
+
+  const anchor = anchorByNodeType[nodeType] || 'nodes-reference'
+  return `${docsBasePath}/nodes#${anchor}`
 }
 
 type ReplyKeyboardVariantOption = {
@@ -132,8 +173,61 @@ function getReplyKeyboardVariantOptionsFromMetadata(
   return options
 }
 
+type PaymentReturnProvider = 'yookassa' | 'stripe'
+type PaymentReturnState = 'success' | 'cancel'
+
+function buildPaymentAutoReturnUrl(input: {
+  locale: string
+  botId?: string | null
+  provider?: PaymentReturnProvider
+  state?: PaymentReturnState
+}): string {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const origin = String(window.location.origin || '').trim()
+  if (!origin) {
+    return ''
+  }
+
+  const localeSegment = input.locale === 'en' ? 'en' : 'ru'
+  const botId = String(input.botId || '').trim()
+  const params = new URLSearchParams()
+  if (botId) {
+    params.set('botId', botId)
+  }
+  if (input.provider) {
+    params.set('provider', input.provider)
+  }
+  if (input.state) {
+    params.set('state', input.state)
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : ''
+
+  return `${origin}/${localeSegment}/payment/return${query}`
+}
+
+function buildYookassaAutoReturnUrl(input: { locale: string; botId?: string | null }): string {
+  return buildPaymentAutoReturnUrl(input)
+}
+
+function buildStripeAutoReturnUrl(input: {
+  locale: string
+  botId?: string | null
+  state: PaymentReturnState
+}): string {
+  return buildPaymentAutoReturnUrl({
+    locale: input.locale,
+    botId: input.botId,
+    provider: 'stripe',
+    state: input.state,
+  })
+}
+
 export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables = [] }: NodeSettingsPanelProps) {
   const t = useTranslations('editor.nodeSettings')
+  const locale = useLocale()
   const { isDirty, bot } = useBotState()
   const [data, setData] = useState<Partial<NodeData>>({})
   const [hasChanges, setHasChanges] = useState(false)
@@ -170,6 +264,19 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
     }
   }, [isDetailedMode])
 
+  const yookassaAutoReturnUrl = useMemo(
+    () => buildYookassaAutoReturnUrl({ locale, botId: bot?.id }),
+    [locale, bot?.id]
+  )
+  const stripeAutoSuccessUrl = useMemo(
+    () => buildStripeAutoReturnUrl({ locale, botId: bot?.id, state: 'success' }),
+    [locale, bot?.id]
+  )
+  const stripeAutoCancelUrl = useMemo(
+    () => buildStripeAutoReturnUrl({ locale, botId: bot?.id, state: 'cancel' }),
+    [locale, bot?.id]
+  )
+
   if (!node) {
     return (
       <div className="w-80 bg-zinc-900/95 backdrop-blur-xl border-l border-white/10 p-6">
@@ -188,6 +295,8 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
     (bot?.metadata || null) as Record<string, unknown> | null,
     t as any
   )
+  const nodeHelpDocsHref = getNodeHelpDocsHref({ locale, nodeType })
+  const nodeHelpSteps = [t('help.step1'), t('help.step2'), t('help.step3')]
   const panelTitle =
     typeof (data as Record<string, unknown> | null)?.__label === 'string' &&
       String((data as Record<string, unknown>).__label || '').trim()
@@ -201,7 +310,8 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
     } as Partial<NodeData>
     setData(updatedData)
     setHasChanges(true)
-    onUpdate(node.id, updatedData)
+    // Persist only the patch to avoid leaking stale fields from previously selected nodes.
+    onUpdate(node.id, newData)
   }
 
   const handleSave = async () => {
@@ -238,7 +348,16 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
               <Icon className="w-4 h-4" style={{ color: config.color }} />
             </div>
             <div>
-              <h3 className={`text-white font-semibold ${isDetailedMode ? 'text-base' : ''}`}>{panelTitle}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className={`text-white font-semibold ${isDetailedMode ? 'text-base' : ''}`}>{panelTitle}</h3>
+                <HelpGuideButton
+                  title={panelTitle}
+                  summary={t('help.summary')}
+                  steps={nodeHelpSteps}
+                  notes={[t('help.note')]}
+                  docsHref={nodeHelpDocsHref}
+                />
+              </div>
               <p className="text-xs text-zinc-500">{t('nodeId')} {node.id}</p>
             </div>
           </div>
@@ -338,6 +457,21 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             t={t as any}
           />
         )}
+        {(nodeType === 'paymentYookassa' ||
+          nodeType === 'paymentStripe' ||
+          nodeType === 'paymentRobokassa' ||
+          nodeType === 'paymentStars') && (
+          <PaymentSettings
+            nodeType={nodeType}
+            data={data as PaymentYookassaNodeData | PaymentStripeNodeData | PaymentRobokassaNodeData | PaymentStarsNodeData}
+            onUpdate={handleUpdate}
+            variables={variables}
+            defaultYookassaReturnUrl={yookassaAutoReturnUrl}
+            defaultStripeSuccessUrl={stripeAutoSuccessUrl}
+            defaultStripeCancelUrl={stripeAutoCancelUrl}
+            t={t as any}
+          />
+        )}
         {nodeType === 'trigger' && (
           <TriggerSettings
             data={data as TriggerNodeData}
@@ -403,12 +537,22 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
     <div className="fixed inset-0 z-[3000]">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => setIsDetailedMode(false)}
+        onMouseDown={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+        }}
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          setIsDetailedMode(false)
+        }}
         aria-hidden="true"
       />
       <div className="absolute inset-0 p-4 md:p-6 flex items-center justify-center pointer-events-none">
-        <div className="w-full flex items-center justify-center pointer-events-auto">
-          {panelSurface}
+        <div className="w-full flex items-center justify-center">
+          <div className="pointer-events-auto">
+            {panelSurface}
+          </div>
         </div>
       </div>
     </div>,
@@ -1180,21 +1324,14 @@ function ConditionSettings({
 
       <div>
         <Label htmlFor="cond-var">{tc('variableLabel')}</Label>
-        <Select
+        <VariableAutocompleteInput
+          id="cond-var"
           value={data.variable || ''}
           onValueChange={(value) => onUpdate({ variable: value })}
-        >
-          <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
-            <SelectValue placeholder={tc('selectVariable')} />
-          </SelectTrigger>
-          <SelectContent>
-            {conditionVariableOptions.map((v) => (
-              <SelectItem key={v} value={v}>
-                {v}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder={tc('selectVariable')}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={conditionVariableOptions}
+        />
       </div>
 
       <div>
@@ -2380,6 +2517,548 @@ function HttpSettings({
   )
 }
 
+type PaymentNodeData =
+  | PaymentYookassaNodeData
+  | PaymentStripeNodeData
+  | PaymentRobokassaNodeData
+  | PaymentStarsNodeData
+
+function PaymentSettings({
+  nodeType,
+  data,
+  onUpdate,
+  variables,
+  defaultYookassaReturnUrl,
+  defaultStripeSuccessUrl,
+  defaultStripeCancelUrl,
+  t,
+}: {
+  nodeType: 'paymentYookassa' | 'paymentStripe' | 'paymentRobokassa' | 'paymentStars'
+  data: PaymentNodeData
+  onUpdate: (data: Partial<PaymentNodeData>) => void
+  variables: string[]
+  defaultYookassaReturnUrl?: string
+  defaultStripeSuccessUrl?: string
+  defaultStripeCancelUrl?: string
+  t: (key: string) => string
+}) {
+  const tp = (key: string) => t(`payment.${key}`)
+  const isYookassa = nodeType === 'paymentYookassa'
+  const isStripe = nodeType === 'paymentStripe'
+  const isRobokassa = nodeType === 'paymentRobokassa'
+  const isStars = nodeType === 'paymentStars'
+  const yookassaReturnUrl = String((data as PaymentYookassaNodeData).returnUrl || '').trim()
+  const stripeSuccessUrl = String((data as PaymentStripeNodeData).successUrl || '').trim()
+  const stripeCancelUrl = String((data as PaymentStripeNodeData).cancelUrl || '').trim()
+  const [isReturnUrlCopied, setIsReturnUrlCopied] = useState(false)
+  const [isStripeSuccessUrlCopied, setIsStripeSuccessUrlCopied] = useState(false)
+  const [isStripeCancelUrlCopied, setIsStripeCancelUrlCopied] = useState(false)
+  const returnUrlCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stripeSuccessCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stripeCancelCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!isYookassa) return
+
+    const currentReturnUrl = yookassaReturnUrl
+    if (currentReturnUrl) return
+
+    const fallbackReturnUrl = String(defaultYookassaReturnUrl || '').trim()
+    if (!fallbackReturnUrl) return
+
+    onUpdate({ returnUrl: fallbackReturnUrl } as Partial<PaymentYookassaNodeData>)
+  }, [isYookassa, yookassaReturnUrl, defaultYookassaReturnUrl, onUpdate])
+
+  useEffect(() => {
+    if (!isStripe) return
+
+    const patch: Partial<PaymentStripeNodeData> = {}
+    const fallbackSuccessUrl = String(defaultStripeSuccessUrl || '').trim()
+    const fallbackCancelUrl = String(defaultStripeCancelUrl || '').trim()
+
+    if (!stripeSuccessUrl && fallbackSuccessUrl) {
+      patch.successUrl = fallbackSuccessUrl
+    }
+    if (!stripeCancelUrl && fallbackCancelUrl) {
+      patch.cancelUrl = fallbackCancelUrl
+    }
+
+    if (Object.keys(patch).length > 0) {
+      onUpdate(patch as Partial<PaymentStripeNodeData>)
+    }
+  }, [
+    isStripe,
+    stripeSuccessUrl,
+    stripeCancelUrl,
+    defaultStripeSuccessUrl,
+    defaultStripeCancelUrl,
+    onUpdate,
+  ])
+
+  useEffect(() => {
+    if (!isStars) return
+    if (String(data.currency || '').trim().toUpperCase() === 'XTR') return
+    onUpdate({ currency: 'XTR' } as Partial<PaymentStarsNodeData>)
+  }, [isStars, data.currency, onUpdate])
+
+  useEffect(() => {
+    return () => {
+      if (returnUrlCopyResetTimerRef.current) {
+        clearTimeout(returnUrlCopyResetTimerRef.current)
+      }
+      if (stripeSuccessCopyResetTimerRef.current) {
+        clearTimeout(stripeSuccessCopyResetTimerRef.current)
+      }
+      if (stripeCancelCopyResetTimerRef.current) {
+        clearTimeout(stripeCancelCopyResetTimerRef.current)
+      }
+    }
+  }, [])
+
+  const copyTextToClipboard = useCallback(async (value: string) => {
+    if (!value) return
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      return
+    }
+
+    if (typeof document !== 'undefined') {
+      const fallbackTextarea = document.createElement('textarea')
+      fallbackTextarea.value = value
+      fallbackTextarea.setAttribute('readonly', 'true')
+      fallbackTextarea.style.position = 'absolute'
+      fallbackTextarea.style.left = '-9999px'
+      document.body.appendChild(fallbackTextarea)
+      fallbackTextarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(fallbackTextarea)
+    }
+  }, [])
+
+  const handleRegenerateYookassaReturnUrl = useCallback(() => {
+    const nextReturnUrl = String(defaultYookassaReturnUrl || '').trim()
+    if (!nextReturnUrl) return
+    onUpdate({ returnUrl: nextReturnUrl } as Partial<PaymentYookassaNodeData>)
+  }, [defaultYookassaReturnUrl, onUpdate])
+
+  const handleCopyYookassaReturnUrl = useCallback(async () => {
+    if (!yookassaReturnUrl) return
+
+    try {
+      await copyTextToClipboard(yookassaReturnUrl)
+
+      setIsReturnUrlCopied(true)
+      if (returnUrlCopyResetTimerRef.current) {
+        clearTimeout(returnUrlCopyResetTimerRef.current)
+      }
+      returnUrlCopyResetTimerRef.current = setTimeout(() => {
+        setIsReturnUrlCopied(false)
+      }, 1400)
+    } catch {
+      // no-op
+    }
+  }, [copyTextToClipboard, yookassaReturnUrl])
+
+  const handleRegenerateStripeUrls = useCallback(() => {
+    const nextSuccessUrl = String(defaultStripeSuccessUrl || '').trim()
+    const nextCancelUrl = String(defaultStripeCancelUrl || '').trim()
+    const patch: Partial<PaymentStripeNodeData> = {}
+    if (nextSuccessUrl) {
+      patch.successUrl = nextSuccessUrl
+    }
+    if (nextCancelUrl) {
+      patch.cancelUrl = nextCancelUrl
+    }
+    if (Object.keys(patch).length > 0) {
+      onUpdate(patch as Partial<PaymentStripeNodeData>)
+    }
+  }, [defaultStripeSuccessUrl, defaultStripeCancelUrl, onUpdate])
+
+  const handleCopyStripeSuccessUrl = useCallback(async () => {
+    if (!stripeSuccessUrl) return
+
+    try {
+      await copyTextToClipboard(stripeSuccessUrl)
+      setIsStripeSuccessUrlCopied(true)
+      if (stripeSuccessCopyResetTimerRef.current) {
+        clearTimeout(stripeSuccessCopyResetTimerRef.current)
+      }
+      stripeSuccessCopyResetTimerRef.current = setTimeout(() => {
+        setIsStripeSuccessUrlCopied(false)
+      }, 1400)
+    } catch {
+      // no-op
+    }
+  }, [copyTextToClipboard, stripeSuccessUrl])
+
+  const handleCopyStripeCancelUrl = useCallback(async () => {
+    if (!stripeCancelUrl) return
+
+    try {
+      await copyTextToClipboard(stripeCancelUrl)
+      setIsStripeCancelUrlCopied(true)
+      if (stripeCancelCopyResetTimerRef.current) {
+        clearTimeout(stripeCancelCopyResetTimerRef.current)
+      }
+      stripeCancelCopyResetTimerRef.current = setTimeout(() => {
+        setIsStripeCancelUrlCopied(false)
+      }, 1400)
+    } catch {
+      // no-op
+    }
+  }, [copyTextToClipboard, stripeCancelUrl])
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-white/10 bg-zinc-800/20 p-3 text-xs text-zinc-400">
+        {isYookassa && tp('providerHintYookassa')}
+        {isStripe && tp('providerHintStripe')}
+        {isRobokassa && tp('providerHintRobokassa')}
+        {isStars && tp('providerHintStars')}
+      </div>
+
+      {isYookassa && (
+        <>
+          <div>
+            <Label htmlFor="payment-yookassa-shop-id">{tp('shopIdLabel')}</Label>
+            <Input
+              id="payment-yookassa-shop-id"
+              value={String((data as PaymentYookassaNodeData).shopId || '')}
+              onChange={(event) => onUpdate({ shopId: event.target.value } as Partial<PaymentYookassaNodeData>)}
+              placeholder={tp('shopIdPlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div>
+            <Label htmlFor="payment-yookassa-secret">{tp('secretKeyLabel')}</Label>
+            <Input
+              id="payment-yookassa-secret"
+              type="password"
+              value={String((data as PaymentYookassaNodeData).secretKey || '')}
+              onChange={(event) => onUpdate({ secretKey: event.target.value } as Partial<PaymentYookassaNodeData>)}
+              placeholder={tp('secretKeyPlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div>
+            <Label htmlFor="payment-yookassa-return-url">{tp('returnUrlLabel')}</Label>
+            <div className="relative mt-1.5">
+              <Input
+                id="payment-yookassa-return-url"
+                value={yookassaReturnUrl}
+                readOnly
+                placeholder={tp('returnUrlPlaceholder')}
+                className="pr-11 bg-zinc-800/50 border-white/10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-white"
+                onClick={() => void handleCopyYookassaReturnUrl()}
+                disabled={!yookassaReturnUrl}
+                aria-label={isReturnUrlCopied ? tp('returnUrlCopiedLabel') : tp('returnUrlCopyLabel')}
+                title={isReturnUrlCopied ? tp('returnUrlCopiedLabel') : tp('returnUrlCopyLabel')}
+              >
+                {isReturnUrlCopied ? (
+                  <Check className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">{tp('returnUrlAutoHint')}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={handleRegenerateYookassaReturnUrl}
+              disabled={!defaultYookassaReturnUrl}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {tp('returnUrlRegenerate')}
+            </Button>
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="payment-yookassa-capture">{tp('captureLabel')}</Label>
+            <Switch
+              id="payment-yookassa-capture"
+              checked={(data as PaymentYookassaNodeData).capture !== false}
+              onCheckedChange={(checked) => onUpdate({ capture: checked } as Partial<PaymentYookassaNodeData>)}
+            />
+          </div>
+        </>
+      )}
+
+      {isStripe && (
+        <>
+          <div>
+            <Label htmlFor="payment-stripe-secret">{tp('secretKeyLabel')}</Label>
+            <Input
+              id="payment-stripe-secret"
+              type="password"
+              value={String((data as PaymentStripeNodeData).secretKey || '')}
+              onChange={(event) => onUpdate({ secretKey: event.target.value } as Partial<PaymentStripeNodeData>)}
+              placeholder={tp('secretKeyPlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div>
+            <Label htmlFor="payment-stripe-success-url">{tp('successUrlLabel')}</Label>
+            <div className="relative mt-1.5">
+              <Input
+                id="payment-stripe-success-url"
+                value={stripeSuccessUrl}
+                readOnly
+                placeholder={tp('successUrlPlaceholder')}
+                className="pr-11 bg-zinc-800/50 border-white/10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-white"
+                onClick={() => void handleCopyStripeSuccessUrl()}
+                disabled={!stripeSuccessUrl}
+                aria-label={isStripeSuccessUrlCopied ? tp('successUrlCopiedLabel') : tp('successUrlCopyLabel')}
+                title={isStripeSuccessUrlCopied ? tp('successUrlCopiedLabel') : tp('successUrlCopyLabel')}
+              >
+                {isStripeSuccessUrlCopied ? (
+                  <Check className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">{tp('successUrlAutoHint')}</p>
+          </div>
+          <div>
+            <Label htmlFor="payment-stripe-cancel-url">{tp('cancelUrlLabel')}</Label>
+            <div className="relative mt-1.5">
+              <Input
+                id="payment-stripe-cancel-url"
+                value={stripeCancelUrl}
+                readOnly
+                placeholder={tp('cancelUrlPlaceholder')}
+                className="pr-11 bg-zinc-800/50 border-white/10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-white"
+                onClick={() => void handleCopyStripeCancelUrl()}
+                disabled={!stripeCancelUrl}
+                aria-label={isStripeCancelUrlCopied ? tp('cancelUrlCopiedLabel') : tp('cancelUrlCopyLabel')}
+                title={isStripeCancelUrlCopied ? tp('cancelUrlCopiedLabel') : tp('cancelUrlCopyLabel')}
+              >
+                {isStripeCancelUrlCopied ? (
+                  <Check className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">{tp('cancelUrlAutoHint')}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={handleRegenerateStripeUrls}
+              disabled={!defaultStripeSuccessUrl && !defaultStripeCancelUrl}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {tp('stripeUrlsRegenerate')}
+            </Button>
+          </div>
+          <div>
+            <Label htmlFor="payment-stripe-product">{tp('productNameLabel')}</Label>
+            <Input
+              id="payment-stripe-product"
+              value={String((data as PaymentStripeNodeData).productName || '')}
+              onChange={(event) => onUpdate({ productName: event.target.value } as Partial<PaymentStripeNodeData>)}
+              placeholder={tp('productNamePlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+        </>
+      )}
+
+      {isRobokassa && (
+        <>
+          <div>
+            <Label htmlFor="payment-robo-login">{tp('merchantLoginLabel')}</Label>
+            <Input
+              id="payment-robo-login"
+              value={String((data as PaymentRobokassaNodeData).merchantLogin || '')}
+              onChange={(event) => onUpdate({ merchantLogin: event.target.value } as Partial<PaymentRobokassaNodeData>)}
+              placeholder={tp('merchantLoginPlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div>
+            <Label htmlFor="payment-robo-password1">{tp('password1Label')}</Label>
+            <Input
+              id="payment-robo-password1"
+              type="password"
+              value={String((data as PaymentRobokassaNodeData).password1 || '')}
+              onChange={(event) => onUpdate({ password1: event.target.value } as Partial<PaymentRobokassaNodeData>)}
+              placeholder={tp('password1Placeholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div>
+            <Label htmlFor="payment-robo-success">{tp('successUrlLabel')}</Label>
+            <Input
+              id="payment-robo-success"
+              value={String((data as PaymentRobokassaNodeData).successUrl || '')}
+              onChange={(event) => onUpdate({ successUrl: event.target.value } as Partial<PaymentRobokassaNodeData>)}
+              placeholder={tp('successUrlPlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div>
+            <Label htmlFor="payment-robo-fail">{tp('failUrlLabel')}</Label>
+            <Input
+              id="payment-robo-fail"
+              value={String((data as PaymentRobokassaNodeData).failUrl || '')}
+              onChange={(event) => onUpdate({ failUrl: event.target.value } as Partial<PaymentRobokassaNodeData>)}
+              placeholder={tp('failUrlPlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div>
+            <Label htmlFor="payment-robo-invoice-id">{tp('invoiceIdLabel')}</Label>
+            <Input
+              id="payment-robo-invoice-id"
+              value={String((data as PaymentRobokassaNodeData).invoiceId || '')}
+              onChange={(event) => onUpdate({ invoiceId: event.target.value } as Partial<PaymentRobokassaNodeData>)}
+              placeholder={tp('invoiceIdPlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="payment-robo-test">{tp('testModeLabel')}</Label>
+            <Switch
+              id="payment-robo-test"
+              checked={Boolean((data as PaymentRobokassaNodeData).isTest)}
+              onCheckedChange={(checked) => onUpdate({ isTest: checked } as Partial<PaymentRobokassaNodeData>)}
+            />
+          </div>
+        </>
+      )}
+
+      {isStars && (
+        <>
+          <div>
+            <Label htmlFor="payment-stars-title">{tp('starsTitleLabel')}</Label>
+            <Input
+              id="payment-stars-title"
+              value={String((data as PaymentStarsNodeData).title || '')}
+              onChange={(event) => onUpdate({ title: event.target.value } as Partial<PaymentStarsNodeData>)}
+              placeholder={tp('starsTitlePlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+          </div>
+          <div>
+            <Label htmlFor="payment-stars-payload">{tp('starsPayloadLabel')}</Label>
+            <Input
+              id="payment-stars-payload"
+              value={String((data as PaymentStarsNodeData).payload || '')}
+              onChange={(event) => onUpdate({ payload: event.target.value } as Partial<PaymentStarsNodeData>)}
+              placeholder={tp('starsPayloadPlaceholder')}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+            />
+            <p className="text-xs text-zinc-500 mt-1">{tp('starsPayloadHint')}</p>
+          </div>
+        </>
+      )}
+
+      <div>
+        <Label htmlFor="payment-amount">{isStars ? tp('starsAmountLabel') : tp('amountLabel')}</Label>
+        <Input
+          id="payment-amount"
+          value={String(data.amount || '')}
+          onChange={(event) => onUpdate({ amount: event.target.value })}
+          placeholder={isStars ? tp('starsAmountPlaceholder') : tp('amountPlaceholder')}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+        />
+        {isStars ? (
+          <p className="text-xs text-zinc-500 mt-1">{tp('starsAmountHint')}</p>
+        ) : null}
+      </div>
+
+      <div>
+        <Label htmlFor="payment-currency">{tp('currencyLabel')}</Label>
+        <Input
+          id="payment-currency"
+          value={isStars ? 'XTR' : String(data.currency || '')}
+          onChange={(event) => onUpdate({ currency: event.target.value })}
+          placeholder={tp('currencyPlaceholder')}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          readOnly={isStars}
+        />
+        {isStars ? (
+          <p className="text-xs text-zinc-500 mt-1">{tp('starsCurrencyHint')}</p>
+        ) : null}
+      </div>
+
+      <div>
+        <Label htmlFor="payment-description">{tp('descriptionLabel')}</Label>
+        <TemplateVariableTextarea
+          id="payment-description"
+          value={String(data.description || '')}
+          onValueChange={(value) => onUpdate({ description: value })}
+          placeholder={tp('descriptionPlaceholder')}
+          rows={2}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label htmlFor="payment-auto-send">{tp('autoSendPaymentLinkLabel')}</Label>
+        <Switch
+          id="payment-auto-send"
+          checked={data.autoSendPaymentLink !== false}
+          onCheckedChange={(checked) => onUpdate({ autoSendPaymentLink: checked })}
+        />
+      </div>
+
+      {data.autoSendPaymentLink !== false && (
+        <div>
+          <Label htmlFor="payment-message-template">{tp('messageTemplateLabel')}</Label>
+          <TemplateVariableTextarea
+            id="payment-message-template"
+            value={String(data.messageTemplate || '')}
+            onValueChange={(value) => onUpdate({ messageTemplate: value })}
+            placeholder={tp('messageTemplatePlaceholder')}
+            rows={3}
+            className="mt-1.5 bg-zinc-800/50 border-white/10"
+            variables={variables}
+          />
+          <p className="text-xs text-zinc-500 mt-1">{tp('messageTemplateHint')}</p>
+        </div>
+      )}
+
+      <div>
+        <Label htmlFor="payment-save-var">{tp('saveToVariableLabel')}</Label>
+        <VariableAutocompleteInput
+          id="payment-save-var"
+          value={String(data.saveToVariable || '')}
+          onValueChange={(value) => onUpdate({ saveToVariable: value })}
+          placeholder={tp('saveToVariablePlaceholder')}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+      </div>
+    </div>
+  )
+}
+
 // ============================================================================
 // TRIGGER NODE SETTINGS
 // ============================================================================
@@ -2802,6 +3481,9 @@ function ReplyKeyboardSettings({
         <p className="text-xs text-zinc-500 mt-1">
           {trk('modeHint')}
         </p>
+        <p className="text-xs text-amber-300/80 mt-1">
+          {trk('starsUnavailableHint')}
+        </p>
       </div>
 
       {mode === 'variant' && (
@@ -3069,9 +3751,12 @@ interface InlineKeyboardEditorProps {
       buttons: Array<{
         id: string
         text: string
+        actionType?: string
         callbackData?: string
         callback_data?: string
         url?: string
+        starsUrl?: string
+        payStars?: boolean
       }>
     }>
   }
@@ -3087,9 +3772,14 @@ function InlineKeyboardEditor({ keyboard, onChange, t }: InlineKeyboardEditorPro
     keyboard?.rows?.map((row) => ({
       buttons: (row.buttons || []).map((button) => ({
         ...button,
+        actionType:
+          String(button.actionType || '').trim() ||
+          (button.payStars ? 'stars' : String(button.url || '').trim() ? 'url' : 'callback'),
         callbackData: button.callbackData || button.callback_data || '',
+        starsUrl: button.starsUrl || (button.payStars ? button.url || '{{payment.url}}' : ''),
       })),
     })) || []
+
   const buildDefaultCallbackData = (value: string) =>
     `btn:${value
       .toLowerCase()
@@ -3116,7 +3806,9 @@ function InlineKeyboardEditor({ keyboard, onChange, t }: InlineKeyboardEditorPro
     newRows[rowIndex].buttons.push({
       id,
       text: tk('button'),
+      actionType: 'callback',
       callbackData: buildDefaultCallbackData(id),
+      starsUrl: '',
     })
     onChange({ rows: newRows })
   }
@@ -3124,12 +3816,41 @@ function InlineKeyboardEditor({ keyboard, onChange, t }: InlineKeyboardEditorPro
   const updateButton = (
     rowIndex: number,
     buttonIndex: number,
-    field: 'text' | 'callbackData' | 'url',
+    field: 'text' | 'callbackData' | 'url' | 'starsUrl' | 'actionType',
     value: string
   ) => {
     const newRows = [...rows]
     const current = newRows[rowIndex].buttons[buttonIndex]
-    current[field] = value
+
+    if (field === 'actionType') {
+      const actionType = String(value || 'callback').trim() || 'callback'
+      current.actionType = actionType
+      if (actionType === 'callback') {
+        current.url = ''
+        current.starsUrl = ''
+        current.payStars = false
+        if (!current.callbackData) {
+          current.callbackData = buildDefaultCallbackData(current.id || `btn-${rowIndex}-${buttonIndex + 1}`)
+        }
+      } else if (actionType === 'url') {
+        current.payStars = false
+        current.starsUrl = ''
+        if (!current.url) {
+          current.url = 'https://'
+        }
+      } else if (actionType === 'stars') {
+        current.payStars = true
+        current.callbackData = ''
+        current.url = ''
+        current.starsUrl = current.starsUrl || '{{payment.url}}'
+      }
+    } else {
+      current[field] = value
+      if (field === 'starsUrl') {
+        current.actionType = 'stars'
+        current.payStars = true
+      }
+    }
 
     onChange({ rows: newRows })
   }
@@ -3173,12 +3894,46 @@ function InlineKeyboardEditor({ keyboard, onChange, t }: InlineKeyboardEditorPro
                     <X className="w-3 h-3" />
                   </button>
                 </div>
-                <Input
-                  value={button.callbackData || ''}
-                  onChange={(e) => updateButton(rowIndex, buttonIndex, 'callbackData', e.target.value)}
-                  placeholder={tk('callbackPlaceholder')}
-                  className="h-8 bg-zinc-900/40 border-white/10 text-xs font-mono"
-                />
+                <Select
+                  value={String(button.actionType || 'callback')}
+                  onValueChange={(value) => updateButton(rowIndex, buttonIndex, 'actionType', value)}
+                >
+                  <SelectTrigger className="h-8 bg-zinc-900/40 border-white/10 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="callback">{tk('actionCallback')}</SelectItem>
+                    <SelectItem value="url">{tk('actionUrl')}</SelectItem>
+                    <SelectItem value="stars">{tk('actionStars')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {String(button.actionType || 'callback') === 'callback' && (
+                  <Input
+                    value={button.callbackData || ''}
+                    onChange={(e) => updateButton(rowIndex, buttonIndex, 'callbackData', e.target.value)}
+                    placeholder={tk('callbackPlaceholder')}
+                    className="h-8 bg-zinc-900/40 border-white/10 text-xs font-mono"
+                  />
+                )}
+                {String(button.actionType || '') === 'url' && (
+                  <Input
+                    value={button.url || ''}
+                    onChange={(e) => updateButton(rowIndex, buttonIndex, 'url', e.target.value)}
+                    placeholder={tk('urlPlaceholder')}
+                    className="h-8 bg-zinc-900/40 border-white/10 text-xs"
+                  />
+                )}
+                {String(button.actionType || '') === 'stars' && (
+                  <>
+                    <Input
+                      value={button.starsUrl || ''}
+                      onChange={(e) => updateButton(rowIndex, buttonIndex, 'starsUrl', e.target.value)}
+                      placeholder={tk('starsUrlPlaceholder')}
+                      className="h-8 bg-zinc-900/40 border-white/10 text-xs"
+                    />
+                    <p className="text-[11px] text-zinc-500">{tk('starsHint')}</p>
+                  </>
+                )}
               </div>
             ))}
             <button

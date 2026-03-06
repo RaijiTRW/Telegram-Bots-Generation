@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
-import { ArrowLeft, Bot, Save, Rocket, PanelLeftClose } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { ArrowLeft, Bot, Save, Rocket, PanelLeftClose, Download, Server } from 'lucide-react'
 import { EditorNav } from './editor-nav'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import { Button } from '@/components/ui/button'
 import { useBotActivityFavicon } from './use-bot-activity-favicon'
+import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 import {
   saveCanvasAction,
   saveBotSettingsAction,
+  exportBotZipAction,
 } from '@/lib/bot-editor/actions/editor-actions'
 import {
   serializeWorkflowNodes,
@@ -57,6 +59,7 @@ const NAV_PANEL_HIDDEN_THRESHOLD = 72
 const NAV_PANEL_HIDDEN_STRIP_WIDTH = 14
 const NAV_PANEL_STORAGE_KEY = 'tflow.editor.sectionsPanelWidth'
 const NAV_PANEL_STORAGE_KEY_PREFIX = 'tflow.editor.sectionsPanelWidthByBot'
+const AUTO_STOP_TEST_ENDPOINT = '/api/bot-tests/stop-on-exit'
 
 const clampNavPanelWidth = (width: number) =>
   Math.min(NAV_PANEL_MAX_WIDTH, Math.max(NAV_PANEL_MIN_WIDTH, Math.round(width)))
@@ -66,6 +69,7 @@ const getBotSpecificNavPanelStorageKey = (botId: string) => `${NAV_PANEL_STORAGE
 export function EditorShell({ botId, children }: EditorShellProps) {
   const t = useTranslations('editor.shell')
   const tNav = useTranslations('editor.nav')
+  const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
   const {
@@ -80,6 +84,8 @@ export function EditorShell({ botId, children }: EditorShellProps) {
   } = useBotState()
   const [isSaving, setIsSaving] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false)
+  const [showDeployModal, setShowDeployModal] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [sectionsPanelWidth, setSectionsPanelWidth] = useState(NAV_PANEL_DEFAULT_WIDTH)
@@ -88,12 +94,15 @@ export function EditorShell({ botId, children }: EditorShellProps) {
   const hasLoadedSectionsPanelWidthRef = useRef(false)
   const pendingRestoreSectionsPanelWidthRef = useRef<number | null>(null)
   const isBotActive = Boolean(bot?.metadata?.testActive)
+  const latestBotIdRef = useRef(botId)
+  const hasSentAutoStopSignalRef = useRef(false)
+  const allowUnmountAutoStopRef = useRef(false)
 
   useBotActivityFavicon(isBotActive)
 
   // Extract active section from pathname
-  const getCurrentSection = (): 'ai-chat' | 'canvas' | 'settings' | 'system' => {
-    const sections = ['ai-chat', 'canvas', 'settings', 'system'] as const
+  const getCurrentSection = (): 'ai-chat' | 'canvas' | 'settings' | 'system' | 'statistics' => {
+    const sections = ['ai-chat', 'canvas', 'settings', 'system', 'statistics'] as const
     for (const section of sections) {
       if (pathname?.endsWith(`/${section}`)) {
         return section
@@ -104,10 +113,45 @@ export function EditorShell({ botId, children }: EditorShellProps) {
 
   const currentSection = getCurrentSection()
 
+  const sendAutoStopTestSignal = useCallback((reason: 'editor_exit' | 'route_leave' | 'pagehide' | 'beforeunload') => {
+    const currentBotId = String(latestBotIdRef.current || '').trim()
+    if (!currentBotId || hasSentAutoStopSignalRef.current) {
+      return
+    }
+
+    hasSentAutoStopSignalRef.current = true
+    const payload = JSON.stringify({ botId: currentBotId, reason })
+
+    if (
+      (reason === 'beforeunload' || reason === 'pagehide') &&
+      typeof navigator !== 'undefined' &&
+      typeof navigator.sendBeacon === 'function'
+    ) {
+      const beaconPayload = new Blob([payload], { type: 'application/json' })
+      const sent = navigator.sendBeacon(AUTO_STOP_TEST_ENDPOINT, beaconPayload)
+      if (sent) {
+        return
+      }
+    }
+
+    void fetch(AUTO_STOP_TEST_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'same-origin',
+      cache: 'no-store',
+      keepalive: true,
+      body: payload,
+    }).catch(() => {
+      hasSentAutoStopSignalRef.current = false
+    })
+  }, [])
+
   const exitEditor = useCallback(() => {
-    const locale = pathname.split('/')[1] || 'ru'
+    sendAutoStopTestSignal('editor_exit')
     router.push(`/${locale}/dashboard/bots`)
-  }, [pathname, router])
+  }, [locale, router, sendAutoStopTestSignal])
 
   const handleBack = () => {
     if (isDirty) {
@@ -150,7 +194,7 @@ export function EditorShell({ botId, children }: EditorShellProps) {
         description: bot.description || '',
         status: bot.status,
         telegramToken: String(bot.metadata?.telegramToken || ''),
-        webhookUrl: String(bot.metadata?.webhookUrl || ''),
+        webhookUrl: '',
         metadataPatch: {
           features:
             bot.metadata?.features && typeof bot.metadata.features === 'object'
@@ -188,7 +232,7 @@ export function EditorShell({ botId, children }: EditorShellProps) {
     }
   }, [bot, config, setBot, setIsDirty, t])
 
-  const handleDeploy = async () => {
+  const handleDeployHosted = async () => {
     if (!bot?.id) return
 
     setIsDeploying(true)
@@ -201,14 +245,98 @@ export function EditorShell({ botId, children }: EditorShellProps) {
     }
 
     // TODO: Replace with real deployment action
-    console.log('Deploying bot:', bot.id)
+    console.log('Deploying bot on hosted server:', bot.id)
     setIsDirty(false)
+    setShowDeployModal(false)
     setIsDeploying(false)
   }
 
+  const handleDownloadZip = async () => {
+    if (!bot?.id) return
+
+    setIsDownloadingZip(true)
+    setActionError(null)
+
+    try {
+      const saved = await saveAllChanges()
+      if (!saved) {
+        return
+      }
+
+      const result = await exportBotZipAction(bot.id)
+      if (!result.success || !result.zipBase64 || !result.fileName) {
+        setActionError(result.error || t('downloadZipError'))
+        return
+      }
+
+      const binary = window.atob(result.zipBase64)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+
+      const blob = new Blob([bytes], { type: 'application/zip' })
+      const url = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = result.fileName
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      window.URL.revokeObjectURL(url)
+      setShowDeployModal(false)
+    } catch (error) {
+      setActionError(String(error))
+    } finally {
+      setIsDownloadingZip(false)
+    }
+  }
+
+  useEffect(() => {
+    latestBotIdRef.current = botId
+    hasSentAutoStopSignalRef.current = false
+  }, [botId])
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sendAutoStopTestSignal('beforeunload')
+    }
+    const handlePageHide = () => {
+      sendAutoStopTestSignal('pagehide')
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('pagehide', handlePageHide)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [sendAutoStopTestSignal])
+
+  useEffect(() => {
+    allowUnmountAutoStopRef.current = false
+    const activateTimer = window.setTimeout(() => {
+      allowUnmountAutoStopRef.current = true
+    }, 0)
+
+    return () => {
+      window.clearTimeout(activateTimer)
+      if (!allowUnmountAutoStopRef.current) {
+        // Ignore React StrictMode development test-unmount cycle.
+        return
+      }
+      sendAutoStopTestSignal('route_leave')
+    }
+  }, [sendAutoStopTestSignal])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      const isSaveShortcut =
+        (event.metaKey || event.ctrlKey) &&
+        (event.code === 'KeyS' || event.key.toLowerCase() === 's')
+
+      if (isSaveShortcut) {
         event.preventDefault()
         void saveAllChanges()
       }
@@ -334,7 +462,15 @@ export function EditorShell({ botId, children }: EditorShellProps) {
               <Bot className="w-4 h-4 text-[#24A1DE]" />
             </div>
             <div>
-              <h1 className="text-white font-semibold">{tNav('botEditor')}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-white font-semibold">{tNav('botEditor')}</h1>
+                <HelpGuideButton
+                  title={tNav('botEditor')}
+                  summary={tNav('canvasDesc')}
+                  steps={[tNav('canvasDesc'), tNav('systemDesc'), tNav('settingsDesc')]}
+                  docsHref={`/${locale}/dashboard/docs/getting-started`}
+                />
+              </div>
               <p className="text-xs text-zinc-500">ID: {botId}</p>
             </div>
           </div>
@@ -369,11 +505,14 @@ export function EditorShell({ botId, children }: EditorShellProps) {
           <Button
             size="sm"
             className="gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80"
-            onClick={() => void handleDeploy()}
-            disabled={isSaving || isDeploying}
+            onClick={() => {
+              setActionError(null)
+              setShowDeployModal(true)
+            }}
+            disabled={isSaving || isDeploying || isDownloadingZip}
           >
             <Rocket className="w-4 h-4" />
-            {isDeploying ? t('deploying') : t('deploy')}
+            {isDeploying ? t('deploying') : isDownloadingZip ? t('downloadingZip') : t('deploy')}
           </Button>
           {isDirty && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
@@ -453,6 +592,63 @@ export function EditorShell({ botId, children }: EditorShellProps) {
                 }}
               >
                 {t('exit')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeployModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl border border-white/10 bg-zinc-900/95 p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">{t('deployModalTitle')}</h3>
+            <p className="mt-2 text-sm text-zinc-400">
+              {t('deployModalDesc')}
+            </p>
+
+            <div className="mt-6 grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => void handleDeployHosted()}
+                disabled={isSaving || isDeploying || isDownloadingZip}
+                className="w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-3 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-2 rounded-lg bg-[#24A1DE]/15 border border-[#24A1DE]/30">
+                    <Server className="w-4 h-4 text-[#24A1DE]" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white">{t('deployHostedTitle')}</div>
+                    <div className="text-xs text-zinc-400 mt-1">{t('deployHostedDesc')}</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleDownloadZip()}
+                disabled={isSaving || isDeploying || isDownloadingZip}
+                className="w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-3 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30">
+                    <Download className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white">{t('downloadZipTitle')}</div>
+                    <div className="text-xs text-zinc-400 mt-1">{t('downloadZipDesc')}</div>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeployModal(false)}
+                disabled={isSaving || isDeploying || isDownloadingZip}
+              >
+                {t('cancel')}
               </Button>
             </div>
           </div>

@@ -348,4 +348,7 @@ export function mergeBotTestLogs(
 
 export function clearBotTestLogs(botId: string) {
   logStore.delete(botId)
+  if (persistenceState.queue.length > 0) {
+    persistenceState.queue = persistenceState.queue.filter((item) => item.botId !== botId)
+  }
 }

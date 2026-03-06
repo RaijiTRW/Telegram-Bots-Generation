@@ -2,11 +2,12 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { MessageSquare, Workflow, Settings, Cpu } from 'lucide-react'
+import { MessageSquare, Workflow, Settings, Cpu, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMemo } from 'react'
+import type { EditorSection as EditorSectionType } from '@/lib/bot-editor/types/bot.types'
 
-export type EditorSection = 'ai-chat' | 'canvas' | 'settings' | 'system'
+export type EditorSection = EditorSectionType
 
 interface EditorNavProps {
   botId: string
@@ -36,6 +37,10 @@ const staticNavItems: Omit<NavItem, 'labelKey' | 'descKey'>[] = [
   {
     id: 'system',
     icon: Cpu,
+  },
+  {
+    id: 'statistics',
+    icon: BarChart3,
   },
   {
     id: 'settings',
@@ -74,6 +79,10 @@ export function EditorNav({
         case 'system':
           labelKey = 'system'
           descKey = 'systemDesc'
+          break
+        case 'statistics':
+          labelKey = 'statistics'
+          descKey = 'statisticsDesc'
           break
         case 'settings':
           labelKey = 'settings'
@@ -142,14 +151,19 @@ export function EditorNav({
                 'w-full text-left rounded-xl transition-all duration-200 group border relative',
                 isCompact ? 'px-2 py-2.5' : 'px-4 py-3',
                 isActive
-                  ? 'bg-gradient-to-r from-[#24A1DE]/20 to-[#8B5CF6]/10 border-[#24A1DE]/30 text-white'
+                  ? 'bg-gradient-to-r from-[#24A1DE]/28 via-[#24A1DE]/12 to-[#8B5CF6]/18 border-[#24A1DE]/45 text-white shadow-[inset_0_0_0_1px_rgba(36,161,222,0.14),0_8px_20px_rgba(36,161,222,0.10)]'
                   : 'text-zinc-400 hover:text-white hover:bg-white/5 border-transparent'
               )}
             >
+              {isActive && !isCompact && (
+                <div className="absolute left-1.5 top-1/2 -translate-y-1/2 h-8 w-[3px] rounded-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6] opacity-80" />
+              )}
               <div className={cn('flex items-center', isCompact ? 'justify-center' : 'gap-3')}>
                 <div className={cn(
                   'p-2 rounded-lg transition-colors',
-                  isActive ? 'bg-[#24A1DE]/20' : 'bg-white/5 group-hover:bg-white/10'
+                  isActive
+                    ? 'bg-[#24A1DE]/24 ring-1 ring-[#24A1DE]/35 shadow-[0_0_12px_rgba(36,161,222,0.18)]'
+                    : 'bg-white/5 group-hover:bg-white/10'
                 )}>
                   <Icon className={cn(
                     'w-4 h-4',
@@ -159,7 +173,12 @@ export function EditorNav({
                 {!isCompact && (
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{label}</div>
-                    <div className="text-xs text-zinc-500 group-hover:text-zinc-400 mt-0.5">
+                    <div
+                      className={cn(
+                        'text-xs mt-0.5',
+                        isActive ? 'text-zinc-300/90' : 'text-zinc-500 group-hover:text-zinc-400'
+                      )}
+                    >
                       {description}
                     </div>
                   </div>
@@ -182,7 +201,7 @@ export function EditorNav({
       {!isCompact ? (
         <div className="pt-4 border-t border-white/10 px-2">
           <div className="text-xs text-zinc-500 text-center">
-            {t('press')} <kbd className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">Cmd+S</kbd> {t('toSave')}
+            {t('press')} <kbd className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">Cmd/Ctrl+S</kbd> {t('toSave')}
           </div>
         </div>
       ) : (
@@ -191,7 +210,7 @@ export function EditorNav({
             className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 text-[10px]"
             title={t('saveShortcutTitle')}
           >
-            ⌘S
+            Cmd/Ctrl+S
           </kbd>
         </div>
       )}

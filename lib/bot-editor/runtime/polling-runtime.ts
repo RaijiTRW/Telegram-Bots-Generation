@@ -9,18 +9,22 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
 import { createBotSecretsService } from '@/lib/bot-editor/services/bot-secrets-service'
 import { trackBotSubscriber } from '@/lib/bot-editor/services/bot-subscriber-service'
+import { appendInboundContactEvent } from '@/lib/bot-editor/services/bot-crm-service'
 import { appendBotTestLog } from '@/lib/bot-editor/runtime/test-log-store'
 
 interface PollerState {
   active: boolean
   timer: ReturnType<typeof setTimeout> | null
   botToken: string
+  tokenKey: string
   config: BotConfig
   metadata: Record<string, unknown> | null
   offset: number
   runId: string
   expectedTestRunId: string
   lastControlCheckAt: number
+  consecutiveConflictCount: number
+  lastConflictLogAt: number
 }
 
 function readSubscriberModeRuntimeConfig(metadata: Record<string, unknown> | null | undefined) {
@@ -43,6 +47,80 @@ function readSubscriberModeRuntimeConfig(metadata: Record<string, unknown> | nul
     privateChatsOnly: mode.privateChatsOnly === undefined ? true : Boolean(mode.privateChatsOnly),
     trackCallbacks: mode.trackCallbacks === undefined ? true : Boolean(mode.trackCallbacks),
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function resolveInboundEventKind(update: TelegramUpdate): 'message_text' | 'callback' | 'media' | 'service' {
+  if (update.callback_query) {
+    return 'callback'
+  }
+
+  const message = update.message as unknown
+  if (!isRecord(message)) {
+    return 'service'
+  }
+
+  if (typeof message.text === 'string' || typeof message.caption === 'string') {
+    return 'message_text'
+  }
+
+  if (
+    Array.isArray(message.photo) ||
+    Boolean(message.video) ||
+    Boolean(message.document) ||
+    Boolean(message.audio) ||
+    Boolean(message.voice) ||
+    Boolean(message.animation) ||
+    Boolean(message.video_note) ||
+    Boolean(message.sticker)
+  ) {
+    return 'media'
+  }
+
+  return 'service'
+}
+
+async function appendInboundCrmEvent(args: {
+  supabase: ReturnType<typeof createAdminClient>
+  botId: string
+  update: TelegramUpdate
+}) {
+  const { supabase, botId, update } = args
+  const message = update.message
+  const callback = update.callback_query
+  const user = message?.from || callback?.from
+  const chat = message?.chat || callback?.message?.chat
+  if (!user?.id) return
+
+  const eventKind = resolveInboundEventKind(update)
+  const messageText =
+    (typeof message?.text === 'string' && message.text) ||
+    (typeof message?.caption === 'string' && message.caption) ||
+    (typeof callback?.data === 'string' && callback.data) ||
+    ''
+
+  await appendInboundContactEvent(
+    supabase as unknown as Parameters<typeof appendInboundContactEvent>[0],
+    {
+      botId,
+      telegramUserId: user.id,
+      telegramChatId: Number.isFinite(Number(chat?.id)) ? Number(chat?.id) : null,
+      username: user.username,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      languageCode: user.language_code,
+      eventKind,
+      messageText,
+      payload: {
+        updateId: update.update_id,
+        callbackId: callback?.id || null,
+        messageId: message?.message_id ?? callback?.message?.message_id ?? null,
+      },
+    }
+  )
 }
 
 async function trackSubscriberFromUpdate(args: {
@@ -86,6 +164,7 @@ async function trackSubscriberFromUpdate(args: {
 declare global {
   // Shared polling registry across Next.js module reloads (dev HMR).
   var __tflowPollers: Map<string, PollerState> | undefined
+  var __tflowPollerOwnersByToken: Map<string, string> | undefined
 }
 
 const pollers: Map<string, PollerState> =
@@ -94,13 +173,33 @@ if (!globalThis.__tflowPollers) {
   globalThis.__tflowPollers = pollers
 }
 
+const pollerOwnersByToken: Map<string, string> =
+  globalThis.__tflowPollerOwnersByToken || new Map<string, string>()
+if (!globalThis.__tflowPollerOwnersByToken) {
+  globalThis.__tflowPollerOwnersByToken = pollerOwnersByToken
+}
+
 function createRunId(): string {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 }
 
 const CONTROL_CHECK_INTERVAL_MS = 4000
+const CONFLICT_LOG_THROTTLE_MS = 8_000
+const MAX_CONFLICT_RETRIES = 8
 const hasPollingControlStoreConfig = () =>
   Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+
+function normalizePollingTokenKey(token: string): string {
+  return String(token || '').trim()
+}
+
+function isGetUpdatesConflictError(error: unknown): boolean {
+  const message = String(error || '').toLowerCase()
+  return (
+    message.includes('terminated by other getupdates request') ||
+    (message.includes('conflict') && message.includes('getupdates'))
+  )
+}
 
 async function refreshPollerControlState(botId: string, state: PollerState): Promise<boolean> {
   const now = Date.now()
@@ -206,6 +305,16 @@ async function runPollingCycle(botId: string, runId: string): Promise<void> {
         } catch (error) {
           appendBotTestLog(botId, 'polling', `Не удалось обновить список подписчиков: ${String(error)}`, 'warn')
         }
+
+        try {
+          await appendInboundCrmEvent({
+            supabase,
+            botId,
+            update,
+          })
+        } catch (error) {
+          appendBotTestLog(botId, 'polling', `Не удалось записать CRM-событие: ${String(error)}`, 'warn')
+        }
       }
 
       await handleTelegramWorkflowUpdate({
@@ -217,8 +326,41 @@ async function runPollingCycle(botId: string, runId: string): Promise<void> {
       })
     }
 
+    state.consecutiveConflictCount = 0
     schedulePoll(botId, 0, runId)
   } catch (error) {
+    if (isGetUpdatesConflictError(error)) {
+      state.consecutiveConflictCount += 1
+      const attempt = state.consecutiveConflictCount
+      const now = Date.now()
+      const delayMs = Math.min(15_000, 1_200 * attempt)
+
+      if (now - state.lastConflictLogAt > CONFLICT_LOG_THROTTLE_MS) {
+        state.lastConflictLogAt = now
+        appendBotTestLog(
+          botId,
+          'polling',
+          `Конфликт getUpdates: обнаружен второй polling-инстанс. Попытка восстановления ${attempt}/${MAX_CONFLICT_RETRIES}.`,
+          'warn'
+        )
+      }
+
+      if (attempt >= MAX_CONFLICT_RETRIES) {
+        appendBotTestLog(
+          botId,
+          'polling',
+          'Polling остановлен из-за постоянного конфликта getUpdates. Убедитесь, что запущен только один инстанс теста.',
+          'error'
+        )
+        stopTelegramPolling(botId)
+        return
+      }
+
+      schedulePoll(botId, delayMs, runId)
+      return
+    }
+
+    state.consecutiveConflictCount = 0
     console.error('Polling cycle failed:', error)
     appendBotTestLog(botId, 'polling', `Ошибка polling-цикла: ${String(error)}`, 'error')
     schedulePoll(botId, 1500, runId)
@@ -234,6 +376,10 @@ export function stopTelegramPolling(botId: string) {
     clearTimeout(state.timer)
   }
 
+  if (state.tokenKey && pollerOwnersByToken.get(state.tokenKey) === botId) {
+    pollerOwnersByToken.delete(state.tokenKey)
+  }
+
   pollers.delete(botId)
   appendBotTestLog(botId, 'polling', 'Polling остановлен')
 }
@@ -245,6 +391,18 @@ export function startTelegramPolling(args: {
   metadata?: Record<string, unknown> | null
   testRunId?: string
 }) {
+  const tokenKey = normalizePollingTokenKey(args.botToken)
+  const ownerBotId = pollerOwnersByToken.get(tokenKey)
+  if (ownerBotId && ownerBotId !== args.botId) {
+    appendBotTestLog(
+      ownerBotId,
+      'polling',
+      `Polling остановлен: Telegram token перехвачен другим тестом (${args.botId}).`,
+      'warn'
+    )
+    stopTelegramPolling(ownerBotId)
+  }
+
   stopTelegramPolling(args.botId)
   const runId = createRunId()
   const expectedTestRunId = String(args.testRunId || '').trim() || runId
@@ -253,6 +411,7 @@ export function startTelegramPolling(args: {
     active: true,
     timer: null,
     botToken: args.botToken,
+    tokenKey,
     config: args.config,
     metadata: (args.metadata as Record<string, unknown> | null) || null,
     offset: 0,
@@ -261,7 +420,10 @@ export function startTelegramPolling(args: {
     // Skip the very first remote control check to avoid race with metadata persistence
     // right after test-start action updates bot.testActive/testRunId.
     lastControlCheckAt: Date.now(),
+    consecutiveConflictCount: 0,
+    lastConflictLogAt: 0,
   })
+  pollerOwnersByToken.set(tokenKey, args.botId)
 
   appendBotTestLog(args.botId, 'polling', 'Polling запущен')
 

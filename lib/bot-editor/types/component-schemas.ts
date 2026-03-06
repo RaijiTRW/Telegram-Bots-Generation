@@ -138,6 +138,62 @@ export interface WebhookNodeData extends BaseNodeData {
   maxRetries?: number
 }
 
+export interface PaymentYookassaNodeData extends BaseNodeData {
+  type: 'paymentYookassa'
+  shopId: string
+  secretKey: string
+  amount: string
+  currency: string
+  description?: string
+  returnUrl?: string
+  capture?: boolean
+  saveToVariable?: string
+  autoSendPaymentLink?: boolean
+  messageTemplate?: string
+}
+
+export interface PaymentStripeNodeData extends BaseNodeData {
+  type: 'paymentStripe'
+  secretKey: string
+  amount: string
+  currency: string
+  productName?: string
+  description?: string
+  successUrl?: string
+  cancelUrl?: string
+  saveToVariable?: string
+  autoSendPaymentLink?: boolean
+  messageTemplate?: string
+}
+
+export interface PaymentRobokassaNodeData extends BaseNodeData {
+  type: 'paymentRobokassa'
+  merchantLogin: string
+  password1: string
+  amount: string
+  currency: string
+  description?: string
+  invoiceId?: string
+  successUrl?: string
+  failUrl?: string
+  isTest?: boolean
+  saveToVariable?: string
+  autoSendPaymentLink?: boolean
+  messageTemplate?: string
+}
+
+export interface PaymentStarsNodeData extends BaseNodeData {
+  type: 'paymentStars'
+  title?: string
+  amount: string
+  currency: string
+  description?: string
+  payload?: string
+  saveToVariable?: string
+  autoSendPaymentLink?: boolean
+  messageTemplate?: string
+}
+
 export interface TriggerNodeData extends BaseNodeData {
   type: 'trigger'
   trigger: TriggerType
@@ -199,6 +255,10 @@ export type NodeData =
   | ScriptNodeData
   | HttpNodeData
   | WebhookNodeData
+  | PaymentYookassaNodeData
+  | PaymentStripeNodeData
+  | PaymentRobokassaNodeData
+  | PaymentStarsNodeData
   | TriggerNodeData
   | WaitNodeData
   | SchedulerNodeData
@@ -215,7 +275,7 @@ export interface NodeConfig {
   description: string
   color: string
   icon: string
-  category: 'trigger' | 'logic' | 'messaging' | 'data' | 'advanced'
+  category: 'trigger' | 'logic' | 'messaging' | 'data' | 'payments' | 'advanced'
   editable: boolean
   hasMultipleOutputs?: boolean
   outputLabels?: string[]
@@ -267,7 +327,7 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
     description: 'Выполнить действие (переменные, задержки, удаление сообщений)',
     color: '#8B5CF6',
     icon: 'Zap',
-    category: 'data',
+    category: 'advanced',
     editable: true,
   },
   script: {
@@ -295,6 +355,42 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
     color: '#EF4444',
     icon: 'Webhook',
     category: 'data',
+    editable: true,
+  },
+  paymentYookassa: {
+    type: 'paymentYookassa',
+    label: 'YooKassa',
+    description: 'Создать ссылку на оплату через YooKassa',
+    color: '#60A5FA',
+    icon: 'CreditCard',
+    category: 'payments',
+    editable: true,
+  },
+  paymentStripe: {
+    type: 'paymentStripe',
+    label: 'Stripe',
+    description: 'Создать Checkout ссылку через Stripe',
+    color: '#6366F1',
+    icon: 'CreditCard',
+    category: 'payments',
+    editable: true,
+  },
+  paymentRobokassa: {
+    type: 'paymentRobokassa',
+    label: 'Robokassa',
+    description: 'Создать ссылку на оплату через Robokassa',
+    color: '#F97316',
+    icon: 'CreditCard',
+    category: 'payments',
+    editable: true,
+  },
+  paymentStars: {
+    type: 'paymentStars',
+    label: 'Telegram Stars',
+    description: 'Создать ссылку на оплату в Telegram Stars',
+    color: '#FACC15',
+    icon: 'CreditCard',
+    category: 'payments',
     editable: true,
   },
   trigger: {
@@ -397,6 +493,54 @@ export const DEFAULT_NODE_DATA: Record<string, any> = {
   webhook: {
     url: '',
     method: 'GET',
+  },
+  paymentYookassa: {
+    shopId: '',
+    secretKey: '',
+    amount: '100.00',
+    currency: 'RUB',
+    description: '',
+    returnUrl: '',
+    capture: true,
+    saveToVariable: 'payment',
+    autoSendPaymentLink: true,
+    messageTemplate: 'Оплатите заказ по ссылке: {{payment.url}}',
+  },
+  paymentStripe: {
+    secretKey: '',
+    amount: '100.00',
+    currency: 'usd',
+    productName: 'Order payment',
+    description: '',
+    successUrl: '',
+    cancelUrl: '',
+    saveToVariable: 'payment',
+    autoSendPaymentLink: true,
+    messageTemplate: 'Complete payment here: {{payment.url}}',
+  },
+  paymentRobokassa: {
+    merchantLogin: '',
+    password1: '',
+    amount: '100.00',
+    currency: 'RUB',
+    description: '',
+    invoiceId: '',
+    successUrl: '',
+    failUrl: '',
+    isTest: true,
+    saveToVariable: 'payment',
+    autoSendPaymentLink: true,
+    messageTemplate: 'Оплатите заказ по ссылке: {{payment.url}}',
+  },
+  paymentStars: {
+    title: 'Оплата в Telegram Stars',
+    amount: '100',
+    currency: 'XTR',
+    description: 'Оплата заказа в Telegram Stars',
+    payload: '',
+    saveToVariable: 'payment',
+    autoSendPaymentLink: true,
+    messageTemplate: 'Оплатите заказ в Telegram Stars: {{payment.url}}',
   },
   trigger: {
     trigger: 'command',

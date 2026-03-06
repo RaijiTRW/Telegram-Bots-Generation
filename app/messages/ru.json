@@ -18,6 +18,38 @@
       "noAccount": "Нет аккаунта?",
       "signUp": "Зарегистрироваться",
       "forgotPassword": "Забыли пароль?",
+      "layout": {
+        "tagline": "Telegram-боты без кода для бизнеса",
+        "benefitsTitle": "Главное",
+        "benefit1": "Сценарии без кода",
+        "benefit2": "Тест в Telegram",
+        "benefit3": "Триггеры и таймеры",
+        "benefit4": "Масштабирование",
+        "valuesTitle": "Ценности",
+        "value1": "Меньше затрат",
+        "value2": "Быстрый запуск",
+        "value3": "Простое управление",
+        "resultsTitle": "Результат",
+        "result1": "Быстрый старт",
+        "result2": "Заявки 24/7",
+        "result3": "Рост конверсии",
+        "reviewsTitle": "Отзывы пользователей",
+        "review1Text": "Запустили бота за день и сразу получили заявки.",
+        "review1Name": "Марина К.",
+        "review1Role": "Руководитель онлайн-школы",
+        "review2Text": "Собрали рабочий сценарий без разработчиков.",
+        "review2Name": "Артем П.",
+        "review2Role": "Операционный менеджер",
+        "review3Text": "Изменения вносятся быстро, результат виден сразу.",
+        "review3Name": "Елена С.",
+        "review3Role": "Маркетолог",
+        "stat1Value": "10K+",
+        "stat1Label": "Созданных сценариев",
+        "stat2Value": "99.9%",
+        "stat2Label": "Стабильность тест-ранов",
+        "stat3Value": "24/7",
+        "stat3Label": "Доступность панели"
+      },
       "errors": {
         "invalidCredentials": "Неверный email или пароль",
         "emailTaken": "Email уже зарегистрирован",
@@ -41,7 +73,10 @@
     "nav": {
       "home": "Главная",
       "bots": "Боты",
+      "crm": "CRM",
       "docs": "Документация",
+      "cms": "CMS",
+      "admin": "Админ",
       "profile": "Профиль",
       "settings": "Настройки",
       "logout": "Выйти"
@@ -121,6 +156,37 @@
       "loadError": "Не удалось загрузить профиль",
       "saveSuccess": "Профиль сохранен",
       "saveError": "Не удалось сохранить профиль"
+    },
+    "admin": {
+      "title": "Админ-панель",
+      "manage": "Управление доступом к административным разделам",
+      "loading": "Загрузка админ-панели...",
+      "refresh": "Обновить",
+      "loadError": "Не удалось загрузить профили для админ-панели.",
+      "accessDeniedTitle": "Доступ ограничен",
+      "accessDeniedDesc": "Эта страница доступна только администраторам.",
+      "bootstrapHint": "Чтобы назначить первого администратора, откройте таблицу `profiles` в Supabase и установите `role = admin` нужному пользователю.",
+      "backHome": "Вернуться на главную",
+      "statsTotal": "Всего профилей",
+      "statsAdmins": "Администраторов",
+      "statsUsers": "Пользователей",
+      "statsOnlineNow": "Онлайн сейчас",
+      "statsOnlineHint": "Активность за последние 5 минут",
+      "statsRegisteredToday": "Регистраций сегодня",
+      "statsLandingViewsToday": "Просмотров лендинга сегодня",
+      "profilesTitle": "Профили",
+      "searchPlaceholder": "Поиск по email, имени или ID...",
+      "noProfiles": "Профили не найдены",
+      "emptyName": "Без имени",
+      "you": "вы",
+      "roleAdmin": "Админ",
+      "roleUser": "Пользователь",
+      "promote": "Сделать админом",
+      "demote": "Снять админа",
+      "updating": "Обновление...",
+      "saveSuccess": "Роль обновлена: {email}",
+      "saveError": "Не удалось обновить роль.",
+      "safetyHint": "Нельзя снять права у последнего администратора. Система защитит от этого автоматически."
     },
     "settings": {
       "title": "Настройки",
@@ -308,6 +374,80 @@
       "deleteAccountError": "Не удалось удалить аккаунт.",
       "deletingAccount": "Удаление...",
       "deleteAccount": "Удалить аккаунт"
+    },
+    "crm": {
+      "title": "CRM и лиды",
+      "subtitle": "Лиды и диалоги по всем вашим ботам в одном месте",
+      "refresh": "Обновить",
+      "loading": "Загрузка...",
+      "loadError": "Не удалось загрузить CRM-данные.",
+      "saveError": "Не удалось сохранить изменения лида.",
+      "kpi": {
+        "totalLeads": "Всего лидов",
+        "activeDialogs24h": "Активные диалоги 24ч",
+        "inbound24h": "Входящие 24ч",
+        "outbound24h": "Исходящие 24ч"
+      },
+      "stages": {
+        "new": "Новый",
+        "contacted": "Связались",
+        "qualified": "Квалифицирован",
+        "won": "Сделка",
+        "lost": "Потерян"
+      },
+      "filters": {
+        "title": "Фильтры",
+        "bot": "Бот",
+        "botAll": "Все боты",
+        "stage": "Стадия",
+        "stageAll": "Все стадии",
+        "period": "Период",
+        "search": "Поиск",
+        "searchPlaceholder": "username, имя или telegram_user_id"
+      },
+      "period": {
+        "24h": "24ч",
+        "7d": "7д",
+        "30d": "30д",
+        "all": "Всё время"
+      },
+      "table": {
+        "title": "Лиды",
+        "lead": "Лид",
+        "bot": "Бот",
+        "stage": "Стадия",
+        "lastInteraction": "Последний контакт",
+        "messages": "In/Out",
+        "empty": "Лиды не найдены."
+      },
+      "pagination": {
+        "page": "Страница {page} из {total}",
+        "prev": "Назад",
+        "next": "Вперед"
+      },
+      "leadCard": {
+        "title": "Карточка лида",
+        "selectPrompt": "Выберите лида в таблице слева.",
+        "openTelegram": "Открыть в Telegram",
+        "telegramId": "Telegram ID",
+        "copyId": "Копировать",
+        "stage": "Стадия",
+        "notes": "Заметки",
+        "notesPlaceholder": "Ключевая информация по лиду и следующий шаг",
+        "tags": "Теги",
+        "tagsPlaceholder": "vip, demo, urgent",
+        "save": "Сохранить",
+        "saving": "Сохранение...",
+        "timeline": "Таймлайн общения",
+        "timelineEmpty": "Событий пока нет."
+      },
+      "timeline": {
+        "inbound": "Входящее",
+        "outbound": "Исходящее"
+      },
+      "broadcastSoonTitle": "Автоматизация рассылок — скоро",
+      "broadcastSoonDesc": "Сегментация базы, расписания и авто-цепочки появятся в следующем релизе.",
+      "broadcastSoonCta": "Скоро"
     }
   },
   "editor": {
@@ -318,13 +458,43 @@
       "aiAssistantDesc": "Общайтесь с AI для создания бота",
       "system": "Система",
       "systemDesc": "Логика бота и триггеры",
+      "statistics": "Статистика",
+      "statisticsDesc": "Нагрузка, ошибки и системные события",
       "settings": "Настройки",
       "settingsDesc": "Конфигурация и опции",
       "botEditor": "Редактор бота",
       "unsavedChanges": "Несохранённые изменения",
       "toSave": "для сохранения",
       "press": "Нажми",
-      "saveShortcutTitle": "Cmd+S для сохранения"
+      "saveShortcutTitle": "Cmd/Ctrl+S для сохранения"
+    },
+    "statistics": {
+      "description": "Технические метрики по выбранному боту.",
+      "refresh": "Обновить",
+      "loadError": "Не удалось загрузить техническую статистику.",
+      "empty": "Недостаточно данных за выбранный период.",
+      "timelineTitle": "Серия событий по времени",
+      "topSourcesTitle": "Топ источников ошибок",
+      "noErrorSources": "Ошибок по источникам нет.",
+      "auditTitle": "Последние системные события",
+      "noAuditEvents": "Системных событий пока нет.",
+      "kpi": {
+        "totalEvents": "Всего событий",
+        "errors": "Ошибки",
+        "errorRate": "Error rate",
+        "eventsPerMinute": "Событий / мин",
+        "subscribersTotal": "Подписчиков",
+        "subscribersActiveRange": "Активных в периоде"
+      }
+    },
+    "help": {
+      "openGuide": "Открыть мини-гайд",
+      "close": "Закрыть",
+      "modalTag": "Подсказка",
+      "stepsTitle": "Пошагово",
+      "notesTitle": "Важно",
+      "footerHint": "Быстрая подсказка для текущего блока",
+      "openDocs": "Открыть документацию"
     },
     "canvas": {
       "test": "Тест",
@@ -352,6 +522,11 @@
       "copyLogsTitle": "Копировать логи",
       "copyLogsText": "Текст",
       "copyLogsJson": "JSON",
+      "clearLogsTitle": "Очистить логи",
+      "logsClearError": "Не удалось очистить логи",
+      "contextMenuTitle": "Добавить ноду",
+      "contextMenuHint": "Выберите раздел и ноду. Узел появится в месте клика.",
+      "contextMenuClose": "Закрыть меню добавления нод",
       "nodes": "Узлы",
       "connections": "Связи",
       "canvasEmpty": "Холст пуст",
@@ -360,6 +535,10 @@
         "pinned": "закреплено",
         "hoverPreviewClickPin": "Наведи для просмотра, клик для закрепления",
         "nodesCount": "{count} узлов",
+        "nodeHintLabel": "Подробное описание",
+        "helpStepAddNode": "Нажмите на карточку ноды, чтобы добавить ее на холст.",
+        "helpStepOpenSettings": "Кликните по ноде на холсте, чтобы открыть детальные настройки справа или в полноэкранном режиме.",
+        "helpStepConnect": "Соедините выход этой ноды со следующим шагом сценария.",
         "hoverClickPin": "Наведи • Клик = pin",
         "categories": {
           "trigger": {
@@ -376,11 +555,15 @@
           },
           "data": {
             "label": "Данные",
-            "hint": "Переменные, действия, HTTP"
+            "hint": "Переменные, HTTP"
+          },
+          "payments": {
+            "label": "Оплата",
+            "hint": "Платежные узлы: YooKassa, Stripe, Robokassa, Telegram Stars"
           },
           "advanced": {
-            "label": "Доп.",
-            "hint": "Расширенные ноды (например Script)"
+            "label": "Действия",
+            "hint": "Action, Script и продвинутые действия"
           },
           "other": {
             "label": "Другое",
@@ -404,7 +587,135 @@
         "script": "Запуск transform-кода на JavaScript или Python",
         "action": "Выполнение пользовательских действий",
         "input": "Запрос ввода пользователя или данных",
-        "http": "HTTP-запросы к внешним API"
+        "http": "HTTP-запросы к внешним API",
+        "paymentYookassa": "Создание ссылки на оплату через YooKassa",
+        "paymentStripe": "Создание ссылки на оплату через Stripe",
+        "paymentRobokassa": "Создание ссылки на оплату через Robokassa",
+        "paymentStars": "Создание ссылки на оплату через Telegram Stars"
+      },
+      "nodeTemplateShortDescriptions": {
+        "triggerCommand": "По команде",
+        "triggerText": "По тексту",
+        "triggerCallback": "По callback",
+        "triggerSchedule": "По расписанию",
+        "triggerAI": "По AI intent",
+        "message": "Отправка сообщения",
+        "messageAI": "AI-ответ",
+        "condition": "Проверка условия",
+        "conditionAI": "AI-ветвление",
+        "router": "Выбор ветки",
+        "scheduler": "Отложить шаг",
+        "replyKeyboard": "Клавиатура reply",
+        "script": "Код JS/Python",
+        "action": "Запись данных",
+        "input": "Ожидание ввода",
+        "http": "Запрос к API",
+        "paymentYookassa": "Оплата YooKassa",
+        "paymentStripe": "Оплата Stripe",
+        "paymentRobokassa": "Оплата Robokassa",
+        "paymentStars": "Оплата Telegram Stars"
+      },
+      "nodeTemplateHelpSteps": {
+        "triggerCommand": {
+          "step1": "Откройте настройки триггера, выберите тип «Команда» и укажите команду (например, /start).",
+          "step2": "Можно указать несколько команд через запятую, если один старт нужен для разных входов.",
+          "step3": "Соедините триггер с Message или веткой логики, чтобы команда запускала сценарий."
+        },
+        "triggerText": {
+          "step1": "Укажите текст или шаблон, по которому должен срабатывать сценарий.",
+          "step2": "Для Reply Keyboard нажатия приходят как обычный текст, поэтому используйте именно Text Trigger.",
+          "step3": "Подключите триггер к ответу или к Condition/Router для дальнейшей обработки."
+        },
+        "triggerCallback": {
+          "step1": "В Message-ноде задайте inline-кнопку с callback_data.",
+          "step2": "В Callback Trigger укажите такой же паттерн callback, чтобы поймать нажатие.",
+          "step3": "Соедините триггер с нужной веткой, которая должна выполняться после клика."
+        },
+        "triggerSchedule": {
+          "step1": "Выберите режим расписания (daily/hourly) и часовой пояс.",
+          "step2": "Укажите время запуска и при необходимости target chat/user для отправки.",
+          "step3": "Подключите к нодам, которые должны запускаться по расписанию."
+        },
+        "triggerAI": {
+          "step1": "Опишите в AI Prompt, какой интент или смысловой запрос должен запускать сценарий.",
+          "step2": "Оставьте fallback-логику, чтобы сценарий не ломался, если AI-классификация не сработает.",
+          "step3": "Подключите узел к ветке ответа, которая обрабатывает распознанный интент."
+        },
+        "message": {
+          "step1": "Заполните текст сообщения и при необходимости выберите parse mode.",
+          "step2": "Добавьте кнопки или вложения, если нужно дать действия пользователю.",
+          "step3": "Используйте вставку переменных в тексте (двойные фигурные скобки), чтобы подставлять персональные данные."
+        },
+        "messageAI": {
+          "step1": "Заполните AI Prompt, который описывает формат и смысл ответа.",
+          "step2": "Укажите fallback-текст на случай, если AI недоступен или не дал ответ.",
+          "step3": "Подключите эту ноду после триггера, где нужен динамический AI-ответ."
+        },
+        "condition": {
+          "step1": "Выберите переменную, оператор и значение для проверки условия.",
+          "step2": "Верхний выход — ветка True, нижний выход — ветка False.",
+          "step3": "Подключите обе ветки, чтобы сценарий всегда имел понятный путь."
+        },
+        "conditionAI": {
+          "step1": "Опишите в AI Prompt, как определять True/False для входящего текста.",
+          "step2": "Задайте fallback-условие (variable/operator/value), чтобы сохранить стабильность.",
+          "step3": "Подключите отдельные действия для веток True и False."
+        },
+        "router": {
+          "step1": "Укажите переменную, по значению которой нужно разветвлять сценарий.",
+          "step2": "Добавьте кейсы и значения для каждого выхода (Case 1, Case 2 и т.д.).",
+          "step3": "Подключите каждую ветку и default-выход на случай, если нет совпадений."
+        },
+        "scheduler": {
+          "step1": "Выберите режим: задержка (delay) или точная дата/время (date/time).",
+          "step2": "Укажите timezone и, при необходимости, переменную для сохранения результата.",
+          "step3": "Соедините со следующим шагом, который должен выполниться позже."
+        },
+        "replyKeyboard": {
+          "step1": "Выберите режим клавиатуры: system, variant, hide или условный режим.",
+          "step2": "Нажатия Reply Keyboard обрабатываются через Text Trigger, а не Callback Trigger.",
+          "step3": "Проверьте в Test, что нужная раскладка показывается в нужном сценарии."
+        },
+        "script": {
+          "step1": "Выберите язык (JavaScript/Python) и источник входных данных.",
+          "step2": "Используйте input/context/vars в коде и запишите итог в result.",
+          "step3": "Сохраните result в переменную, если это значение нужно следующим нодам."
+        },
+        "action": {
+          "step1": "Выберите тип действия и заполните его параметры.",
+          "step2": "Если действие должно сохранить результат, укажите имя переменной.",
+          "step3": "Подключите дальнейшие ноды, которые используют обновлённые данные."
+        },
+        "input": {
+          "step1": "Заполните вопрос пользователю, который бот должен отправить.",
+          "step2": "Укажите имя переменной, куда будет сохранён ответ пользователя.",
+          "step3": "Подключите следующую ноду, которая использует этот введённый ответ."
+        },
+        "http": {
+          "step1": "Укажите URL, метод и при необходимости заголовки/тело запроса.",
+          "step2": "Настройте timeout и переменную, куда нужно сохранить ответ API.",
+          "step3": "Добавьте последующую обработку ответа (Message, Condition, Router)."
+        },
+        "paymentYookassa": {
+          "step1": "Введите shopId/secretKey, сумму и return URL.",
+          "step2": "Включите «авто-отправку ссылки», чтобы пользователь сразу получил URL оплаты.",
+          "step3": "Сохраните результат в переменную и обработайте его дальше через Message/Condition."
+        },
+        "paymentStripe": {
+          "step1": "Введите secret key Stripe, сумму, валюту и success/cancel URL.",
+          "step2": "Укажите название товара, чтобы ссылка открывала понятный Checkout.",
+          "step3": "Сохраните данные платежа в переменную и добавьте ветку обработки после оплаты."
+        },
+        "paymentRobokassa": {
+          "step1": "Введите MerchantLogin, Password#1, сумму и валюту.",
+          "step2": "При необходимости включите тестовый режим и задайте success/fail URL.",
+          "step3": "Отправьте пользователю сгенерированную ссылку и сохраните данные платежа в переменную."
+        },
+        "paymentStars": {
+          "step1": "Укажите заголовок инвойса, сумму в звёздах и (опционально) payload заказа.",
+          "step2": "Нода создаёт invoice-link через Telegram API (createInvoiceLink) в валюте XTR.",
+          "step3": "Отправьте ссылку пользователю или используйте кнопку Message с типом «Оплата Telegram Stars»."
+        }
       },
       "nodeDescriptions": {
         "defaults": {
@@ -464,13 +775,32 @@
       "statusArchived": "Архивирован",
       "statusError": "Ошибка",
       "currentStatus": "Текущий статус: {status}",
+      "help": {
+        "basicSummary": "Здесь задаётся базовая карточка бота: имя, описание и рабочий статус.",
+        "basicStep1": "Заполните имя и краткое описание так, чтобы было понятно назначение бота.",
+        "basicStep2": "Статус используйте как маркер жизненного цикла: draft -> active -> archived.",
+        "basicStep3": "После изменений сохраните редактор в верхнем хедере.",
+        "profileSummary": "Профиль бота в Telegram: отображаемое имя, username, фото и описания.",
+        "profileStep1": "Сначала введите желаемые значения в форму.",
+        "profileStep2": "Username меняется только через @BotFather.",
+        "profileStep3": "Нажмите «Применить в Telegram» и проверьте предупреждения.",
+        "tokenSummary": "Токен подключает бота к Telegram. Хранится отдельно и безопасно.",
+        "tokenStep1": "Вставьте токен от @BotFather только если нужно обновить текущий.",
+        "tokenStep2": "Пустое поле не стирает уже сохранённый токен.",
+        "tokenStep3": "После изменения токена обязательно сохраните и перезапустите Test.",
+        "webhookSummary": "Это нужно только для постоянного бота на вашем сервере (24/7). Telegram будет отправлять события на указанный URL.",
+        "webhookStep1": "Если у вас есть сервер, вставьте публичный HTTPS URL, который принимает обновления Telegram.",
+        "webhookStep2": "Сохраните настройки и проверьте, что бот отвечает после Deploy.",
+        "webhookStep3": "Если работаете через Test/polling в редакторе, оставьте поле пустым — это правильный режим."
+      },
       "profileStyleTitle": "Профиль бота в Telegram",
       "profileStyleDesc": "Управление отображаемым именем, описаниями, username и фото-профилем.",
       "profileDisplayName": "Отображаемое имя",
       "profileDisplayNamePlaceholder": "Например: Support Assistant",
       "profileUsername": "Желаемый username",
       "profileUsernamePlaceholder": "my_awesome_helper_bot",
-      "profileUsernameHint": "Изменение username/фото в Telegram выполняется через @BotFather. Здесь можно сохранить и проверить значение.",
+      "profileUsernameNotSet": "Username не задан",
+      "profileUsernameHint": "Изменение username доступно только в @BotFather.",
       "profileUsernameCheck": "Проверить",
       "profileUsernameChecking": "Проверка...",
       "profileUsernameAvailable": "@{username} свободен",
@@ -481,8 +811,19 @@
       "profileUsernameCheckError": "Не удалось проверить username",
       "profileAvatarUrl": "URL фото профиля",
       "profileAvatarUrlPlaceholder": "https://example.com/bot-avatar.png",
+      "profileAvatarUploadTitle": "Фото профиля",
+      "profileAvatarDropTitle": "Перетащите фото сюда или нажмите для выбора",
+      "profileAvatarDropHint": "Поддерживаются PNG, JPG, WEBP, GIF до 10 МБ.",
+      "profileAvatarUploading": "Загрузка фото...",
+      "profileAvatarRemove": "Удалить",
+      "profileAvatarStoredPath": "Сохранённый файл",
+      "profileAvatarUploadFailed": "Не удалось загрузить фото профиля.",
+      "profileAvatarUploadBotMissing": "Сначала откройте бота в редакторе заново.",
+      "profileAvatarInvalidType": "Неподдерживаемый формат изображения.",
+      "profileAvatarTooLarge": "Файл слишком большой (максимум 10 МБ).",
+      "profileAvatarEmptyFile": "Файл пустой.",
       "profileAvatarPreviewAlt": "Превью фото профиля",
-      "profileAvatarHint": "Обновление фото профиля в Telegram выполняется через @BotFather.",
+      "profileAvatarHint": "После загрузки нажмите «Применить в Telegram», чтобы обновить фото профиля.",
       "profileAbout": "Описание (About)",
       "profileAboutPlaceholder": "Коротко: чем занимается бот.",
       "profileShortDescription": "Краткое описание",
@@ -491,8 +832,9 @@
       "profileSyncInProgress": "Применяем...",
       "profileSyncHint": "Применяются только поля, доступные через Telegram Bot API.",
       "profileSyncSuccess": "Профиль успешно синхронизирован с Telegram.",
-      "profileSyncDoneWithWarnings": "Часть параметров применена. Остальные доступны через @BotFather.",
+      "profileSyncDoneWithWarnings": "Часть параметров применена. Проверьте предупреждения в сообщении ниже.",
       "profileSyncError": "Не удалось синхронизировать профиль с Telegram.",
+      "profileSyncErrorWithReason": "Не удалось синхронизировать профиль с Telegram: {reason}",
       "telegramIntegration": "Интеграция с Telegram",
       "botToken": "Токен бота",
       "botTokenPlaceholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
@@ -502,7 +844,7 @@
       "webhookConfig": "Конфигурация Webhook",
       "webhookUrl": "URL Webhook",
       "webhookUrlPlaceholder": "https://ваш-сервер.com/webhook",
-      "webhookDesc": "Настройте внешнюю конечную точку для получения событий бота",
+      "webhookDesc": "Заполняйте только если бот работает на вашем сервере через webhook. Для режима Test/polling поле должно быть пустым.",
       "copy": "Копировать",
       "save": "Сохранить",
       "changesSavedBy": "Изменения сохраняются кнопкой {button} в верхнем хедере."
@@ -614,6 +956,7 @@
       "replyKeyboard": {
         "title": "Reply Keyboard (под input)",
         "description": "Постоянная клавиатура Telegram под полем ввода. Можно задать базовые кнопки и условные варианты.",
+        "starsUnavailableHint": "Оплата Telegram Stars не поддерживается в Reply Keyboard. Используйте inline-кнопки в Message.",
         "enabled": "Включено",
         "disabled": "Выключено",
         "resizeTitle": "Resize keyboard",
@@ -776,6 +1119,15 @@
       "save": "Сохранить",
       "deploying": "Деплоим...",
       "deploy": "Развернуть",
+      "downloadingZip": "Готовим ZIP...",
+      "downloadZipError": "Не удалось скачать ZIP-архив бота",
+      "deployModalTitle": "Выберите способ развертывания",
+      "deployModalDesc": "Можно развернуть бота на нашем сервере или скачать архив с кодом.",
+      "deployHostedTitle": "Развернуть на нашем сервере",
+      "deployHostedDesc": "Запустить развертывание на нашем хостинге.",
+      "downloadZipTitle": "Скачать бота (ZIP)",
+      "downloadZipDesc": "Скачать исходный код бота в ZIP-архиве.",
+      "cancel": "Отмена",
       "autoOpenTelegram": "Авто-переход в Telegram",
       "unsavedChanges": "Несохранённые изменения",
       "resizeSectionsPanel": "Изменить ширину панели разделов",
@@ -793,6 +1145,13 @@
       "openDetailedMode": "Открыть детальные настройки",
       "collapseDetailedMode": "Свернуть детальный режим",
       "detailedModeHint": "Детальные настройки ноды. Фон заблокирован, редактирование доступно только в этом окне.",
+      "help": {
+        "summary": "Эта панель настраивает выбранную ноду и её поведение в workflow.",
+        "step1": "Заполняйте поля сверху вниз: входные параметры, условия, выходные данные.",
+        "step2": "Сверяйте, что редактируете нужную ноду по ID и названию в шапке.",
+        "step3": "После правок запустите Test и проверьте путь выполнения в логах.",
+        "note": "Изменения сразу видны на холсте. Чтобы они сохранились навсегда, нажмите «Сохранить» в верхней панели."
+      },
       "nodeId": "ID:",
       "message": {
         "textLabel": "Текст сообщения",
@@ -929,6 +1288,66 @@
         "bodyForm": "Form Data",
         "bodyRaw": "Raw"
       },
+      "payment": {
+        "providerHintYookassa": "YooKassa: нода использует API (shopId + secretKey), создаёт платёж и получает `confirmation_url` для отправки пользователю.",
+        "providerHintStripe": "Stripe: создаёт Checkout Session и возвращает hosted URL оплаты. Success/Cancel URL генерируются автоматически.",
+        "providerHintRobokassa": "Robokassa: формирует платёжную ссылку по MerchantLogin/паролю #1.",
+        "providerHintStars": "Telegram Stars: нода вызывает Telegram API (`createInvoiceLink`) и возвращает ссылку на оплату в звёздах (XTR).",
+        "starsTitleLabel": "Название счёта",
+        "starsTitlePlaceholder": "Оплата в Telegram Stars",
+        "starsPayloadLabel": "Payload заказа (опционально)",
+        "starsPayloadPlaceholder": "order_1001",
+        "starsPayloadHint": "Payload поможет связать оплату с заказом во внешней логике/вебхуках.",
+        "shopIdLabel": "Shop ID",
+        "shopIdPlaceholder": "123456",
+        "secretKeyLabel": "Секретный ключ",
+        "secretKeyPlaceholder": "live_... / sk_...",
+        "returnUrlLabel": "Return URL",
+        "returnUrlPlaceholder": "https://example.com/payment/success",
+        "returnUrlAutoHint": "URL формируется автоматически на основе домена проекта.",
+        "returnUrlCopyLabel": "Скопировать Return URL",
+        "returnUrlCopiedLabel": "URL скопирован",
+        "returnUrlRegenerate": "Перегенерировать URL",
+        "captureLabel": "Списывать сразу (capture=true)",
+        "successUrlLabel": "Success URL",
+        "successUrlPlaceholder": "https://example.com/payment/success",
+        "successUrlAutoHint": "URL формируется автоматически на основе домена проекта.",
+        "successUrlCopyLabel": "Скопировать Success URL",
+        "successUrlCopiedLabel": "Success URL скопирован",
+        "cancelUrlLabel": "Cancel URL",
+        "cancelUrlPlaceholder": "https://example.com/payment/cancel",
+        "cancelUrlAutoHint": "URL формируется автоматически на основе домена проекта.",
+        "cancelUrlCopyLabel": "Скопировать Cancel URL",
+        "cancelUrlCopiedLabel": "Cancel URL скопирован",
+        "stripeUrlsRegenerate": "Перегенерировать Success/Cancel URL",
+        "productNameLabel": "Название товара",
+        "productNamePlaceholder": "Оплата заказа",
+        "merchantLoginLabel": "MerchantLogin",
+        "merchantLoginPlaceholder": "demo",
+        "password1Label": "Пароль #1",
+        "password1Placeholder": "password_1",
+        "failUrlLabel": "Fail URL",
+        "failUrlPlaceholder": "https://example.com/payment/fail",
+        "invoiceIdLabel": "Invoice ID (опционально)",
+        "invoiceIdPlaceholder": "order_1001",
+        "testModeLabel": "Тестовый режим",
+        "starsAmountLabel": "Сумма в звёздах",
+        "starsAmountPlaceholder": "100",
+        "starsAmountHint": "Для Telegram Stars используйте целое число (1, 10, 100...).",
+        "amountLabel": "Сумма",
+        "amountPlaceholder": "100.00",
+        "currencyLabel": "Валюта",
+        "currencyPlaceholder": "RUB / USD / EUR",
+        "starsCurrencyHint": "Для Telegram Stars валюта фиксирована: XTR.",
+        "descriptionLabel": "Описание платежа",
+        "descriptionPlaceholder": "Оплата заказа №'{{orderId}}'",
+        "autoSendPaymentLinkLabel": "Авто-отправить ссылку пользователю",
+        "messageTemplateLabel": "Шаблон сообщения с ссылкой",
+        "messageTemplatePlaceholder": "Оплатите заказ: '{{payment.url}}'",
+        "messageTemplateHint": "Доступны переменные: '{{payment.url}}', '{{payment.paymentId}}', '{{payment.status}}', '{{payment.amount}}', '{{payment.currency}}'",
+        "saveToVariableLabel": "Сохранить результат в переменную",
+        "saveToVariablePlaceholder": "payment"
+      },
       "trigger": {
         "typeLabel": "Тип триггера",
         "command": "Команда",
@@ -991,7 +1410,13 @@
       "keyboard": {
         "row": "Ряд",
         "button": "Кнопка",
-        "callbackPlaceholder": "Callback data (для Callback Trigger)"
+        "callbackPlaceholder": "Callback data (для Callback Trigger)",
+        "actionCallback": "Callback",
+        "actionUrl": "URL ссылка",
+        "actionStars": "Оплата Telegram Stars",
+        "urlPlaceholder": "https://example.com",
+        "starsUrlPlaceholder": "'{{payment.url}}'",
+        "starsHint": "Обычно используется '{{payment.url}}' из ноды Telegram Stars."
       },
       "router": {
         "variableLabel": "Переменная",
@@ -1058,6 +1483,7 @@
         "modeCondition": "Условие -> выбрать клавиатуру",
         "modeClear": "Скрыть клавиатуру (remove)",
         "modeHint": "Работает с системными настройками Reply Keyboard (базовая клавиатура + условные варианты).",
+        "starsUnavailableHint": "Telegram не поддерживает оплату Stars через Reply Keyboard. Используйте inline-кнопку в Message.",
         "variantLabel": "Вариант",
         "variantHint": "`base` = базовая клавиатура из раздела Система. `rule:*` = вариант из условного списка.",
         "variableLabel": "Путь к переменной",

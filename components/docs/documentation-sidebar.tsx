@@ -138,11 +138,18 @@ export function DocumentationSidebar({
     const areasPage = pageBySection.get('editor-areas')
     if (areasPage) {
       for (const area of content.editorAreas.cards) {
+        const details = [
+          ...area.actions.slice(0, 3),
+          ...(area.useCases || []).slice(0, 2),
+          ...(area.storageNotes || []).slice(0, 2),
+          ...(area.commonMistakes || []).slice(0, 2),
+        ].join(' ')
+
         pushEntry({
           id: `area-${area.id}`,
           href: `${baseDocsPath}/${areasPage.slug}#editor-areas`,
           title: area.title,
-          snippet: `${area.subtitle}. ${area.whenToUse}`,
+          snippet: `${area.subtitle}. ${area.whenToUse} ${details}`.trim(),
           kind: 'area',
         })
       }
@@ -212,20 +219,20 @@ export function DocumentationSidebar({
     : { page: 'Page', section: 'Section', step: 'Step', node: 'Node', issue: 'Issue', ui: 'UI', area: 'Area' }
 
   return (
-    <aside className="lg:sticky lg:top-24 space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-xl p-3 sm:p-4 overflow-hidden shadow-md">
-        <div className="text-sm sm:text-base font-semibold text-white mb-1.5">{content.tocTitle}</div>
-        <p className="text-xs text-zinc-400 leading-relaxed mb-3 hidden 2xl:block line-clamp-3">
+    <aside className="lg:sticky lg:top-24 lg:max-w-[280px] space-y-3">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-xl p-2.5 sm:p-3 overflow-hidden shadow-md">
+        <div className="text-sm font-semibold text-white mb-1">{content.tocTitle}</div>
+        <p className="text-[11px] text-zinc-400 leading-relaxed mb-2.5 hidden 2xl:block line-clamp-2">
           <DocsInlineText text={content.tocHint} />
         </p>
 
-        <div className="relative mb-3">
+        <div className="relative mb-2.5">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={isRu ? 'Поиск по docs…' : 'Search docs…'}
-            className="pl-9 pr-9 py-4 bg-zinc-950/60 border-white/10 text-white placeholder:text-zinc-500 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-[#24A1DE]/40"
+            className="pl-9 pr-9 h-9 bg-zinc-950/60 border-white/10 text-white placeholder:text-zinc-500 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-[#24A1DE]/40"
           />
           {query && (
             <button
@@ -239,18 +246,18 @@ export function DocumentationSidebar({
           )}
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-zinc-950/40 p-2">
+        <div className="rounded-xl border border-white/10 bg-zinc-950/40 p-1.5">
           {!normalizedQuery ? (
-            <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-1">
+            <nav className="grid grid-cols-1 gap-1">
               <a
                 href={baseDocsPath}
-                className={`group flex items-center gap-2.5 rounded-lg px-2 py-1.5 border transition-all duration-200 ${currentPageSlug === null ? 'bg-white/10 border-white/20 shadow-sm' : 'border-transparent hover:bg-white/5 hover:border-white/10'
+                className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 border transition-all duration-200 ${currentPageSlug === null ? 'bg-white/10 border-white/20 shadow-sm' : 'border-transparent hover:bg-white/5 hover:border-white/10'
                   }`}
               >
                 <div className="rounded-md border border-white/10 bg-white/5 p-1.5 shrink-0">
-                  <BookOpen className="w-3.5 h-3.5 text-zinc-300 group-hover:text-white" />
+                  <BookOpen className="w-3 h-3 text-zinc-300 group-hover:text-white" />
                 </div>
-                <span className={`text-xs sm:text-sm tracking-wide min-w-0 line-clamp-1 ${currentPageSlug === null ? 'text-white font-medium' : 'text-zinc-300 group-hover:text-white'}`}>
+                <span className={`text-xs sm:text-[13px] tracking-wide min-w-0 line-clamp-1 ${currentPageSlug === null ? 'text-white font-medium' : 'text-zinc-300 group-hover:text-white'}`}>
                   {isRu ? 'Обзор документации' : 'Documentation Overview'}
                 </span>
               </a>
@@ -264,14 +271,14 @@ export function DocumentationSidebar({
                     key={page.slug}
                     href={`${baseDocsPath}/${page.slug}`}
                     title={page.description}
-                    className={`group flex items-center gap-2.5 rounded-lg px-2 py-1.5 border transition-all duration-200 ${isActive ? 'bg-white/10 border-white/20 shadow-sm' : 'border-transparent hover:bg-white/5 hover:border-white/10'
+                    className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 border transition-all duration-200 ${isActive ? 'bg-white/10 border-white/20 shadow-sm' : 'border-transparent hover:bg-white/5 hover:border-white/10'
                       }`}
                   >
                     <div className="rounded-md border border-white/10 bg-white/5 p-1.5 shrink-0">
-                      <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#24A1DE]' : 'text-zinc-300 group-hover:text-white'}`} />
+                      <Icon className={`w-3 h-3 ${isActive ? 'text-[#24A1DE]' : 'text-zinc-300 group-hover:text-white'}`} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className={`text-xs sm:text-sm tracking-wide line-clamp-1 ${isActive ? 'text-white font-medium' : 'text-zinc-300 group-hover:text-white'}`}>{page.title}</div>
+                      <div className={`text-xs sm:text-[13px] tracking-wide line-clamp-1 ${isActive ? 'text-white font-medium' : 'text-zinc-300 group-hover:text-white'}`}>{page.title}</div>
                     </div>
                     <div className="shrink-0 text-[10px] text-zinc-500 tabular-nums hidden xl:block">
                       {page.sections.length}
@@ -281,15 +288,15 @@ export function DocumentationSidebar({
               })}
             </nav>
           ) : results.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {results.map((result) => (
                 <a
                   key={result.id}
                   href={result.href}
-                  className="block rounded-lg border border-transparent hover:border-white/10 hover:bg-white/5 px-3 py-2.5 transition-colors"
+                  className="block rounded-lg border border-transparent hover:border-white/10 hover:bg-white/5 px-2.5 py-2 transition-colors"
                   title={result.snippet}
                 >
-                  <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs px-2 py-0.5 rounded-md border border-white/10 bg-white/5 text-zinc-400 shrink-0 uppercase tracking-wider">
                       {kindLabels[result.kind]}
                     </span>

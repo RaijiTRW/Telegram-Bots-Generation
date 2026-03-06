@@ -234,10 +234,15 @@ function buildKeyboard(keyboardData) {
           const callbackRaw = String(
             btn.callbackData || btn.callback_data || btn.data || btn.action || btn.value || ''
           ).trim();
-          const urlRaw = String(btn.url || '').trim();
+          const actionType = String(btn.actionType || btn.kind || btn.type || '').trim().toLowerCase();
+          const payStars = Boolean(btn.payStars) || actionType === 'stars' || actionType === 'starspay' || actionType === 'stars_pay';
+          const urlRaw = String(
+            btn.url || (payStars ? (btn.starsUrl || btn.paymentUrl || btn.payment_url || '') : '')
+          ).trim();
           const fallbackNoop = NOOP_PREFIX + (toSlug(btn.id) || ('r' + (rowIndex + 1) + 'b' + (buttonIndex + 1)));
 
-          if (urlRaw && isUrl(urlRaw)) {
+          const shouldUseUrl = payStars || actionType === 'url' || (!actionType && urlRaw);
+          if (shouldUseUrl && urlRaw && isUrl(urlRaw)) {
             return { text, url: urlRaw };
           }
 

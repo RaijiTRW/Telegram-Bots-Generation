@@ -1,6 +1,5 @@
 @import "tailwindcss";
-
-/* Fix white background on nodes */
+@plugin "@tailwindcss/typography";/* Fix white background on nodes */
 * [class*="react-flow"] {
   --react-flow-handle-background: transparent;
 }
@@ -72,6 +71,20 @@
 .react-flow .react-flow__nodesselection-rect {
   background: transparent !important;
   border: none !important;
+}
+
+/* Canvas cursor behavior:
+   default cursor on pane/nodes; grabbing only while node is actively dragged. */
+.react-flow .react-flow__pane,
+.react-flow .react-flow__pane.draggable,
+.react-flow .react-flow__node,
+.react-flow .react-flow__node.selectable {
+  cursor: default !important;
+}
+
+.react-flow .react-flow__node.dragging,
+.react-flow .react-flow__node.dragging * {
+  cursor: grabbing !important;
 }
 
 /* Edge selection / hover UX */
@@ -652,4 +665,49 @@ svg {
   background: #22c55e;
   border-radius: 50%;
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* CMS Custom Media Placeholders */
+custom-image:not([src]),
+custom-image[src=""] {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 200px;
+  background-color: rgba(9, 9, 11, 0.5);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 0.75rem;
+  margin: 1.5rem 0;
+  text-align: center;
+  padding: 2rem;
+  color: rgba(161, 161, 170, 1);
+  font-size: 0.875rem;
+}
+
+custom-image:not([src])::before,
+custom-image[src=""]::before {
+  content: "Изображение скоро появится";
+}
+
+custom-video:not([src]),
+custom-video[src=""] {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 200px;
+  background-color: rgba(9, 9, 11, 0.5);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 0.75rem;
+  margin: 1.5rem 0;
+  text-align: center;
+  padding: 2rem;
+  color: rgba(161, 161, 170, 1);
+  font-size: 0.875rem;
+}
+
+custom-video:not([src])::before,
+custom-video[src=""]::before {
+  content: "Видео скоро появится";
 }
