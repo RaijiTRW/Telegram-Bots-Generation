@@ -24,6 +24,7 @@ import {
   getLeadTimelineAction,
   updateLeadStageAction,
 } from '@/lib/bot-editor/actions/editor-actions'
+import { getCurrentSubscriptionAction } from '@/lib/billing/actions'
 import type {
   CrmLeadRecord,
   CrmLeadTimelineEvent,
@@ -31,7 +32,7 @@ import type {
   CrmPeriod,
   LeadStage,
 } from '@/lib/bot-editor/types/analytics.types'
-import { Copy, ExternalLink, Megaphone, RefreshCcw, X } from 'lucide-react'
+import { Copy, ExternalLink, Lock, Megaphone, RefreshCcw, ShieldAlert, X } from 'lucide-react'
 import { AnimatePresence, motion } from '@/components/motion-wrapper'
 
 type StageFilter = LeadStage | 'all'
@@ -51,6 +52,8 @@ export default function DashboardCrmPage() {
   const t = useTranslations('dashboard.crm')
   const locale = useLocale()
   const pathname = usePathname()
+  const isRu = locale !== 'en'
+  const [accessState, setAccessState] = useState<'checking' | 'granted' | 'locked' | 'denied'>('checking')
   const [overview, setOverview] = useState<CrmOverview | null>(null)
   const [leads, setLeads] = useState<CrmLeadRecord[]>([])
   const [selectedLead, setSelectedLead] = useState<CrmLeadRecord | null>(null)
@@ -77,9 +80,17 @@ export default function DashboardCrmPage() {
   const loadBots = useCallback(async () => {
     try {
       const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        setBots([])
+        return
+      }
       const { data, error: botsError } = await supabase
         .from('bots')
         .select('id, name')
+        .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
 
       if (botsError) return
@@ -161,8 +172,37 @@ export default function DashboardCrmPage() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    const checkAccess = async () => {
+      try {
+        const result = await getCurrentSubscriptionAction()
+        if (!result.success || !result.subscription) {
+          if (!cancelled) setAccessState('denied')
+          return
+        }
+        if (!cancelled) {
+          setAccessState(
+            result.subscription.isAdmin
+              ? 'granted'
+              : 'locked'
+          )
+        }
+      } catch {
+        if (!cancelled) setAccessState('denied')
+      }
+    }
+
+    void checkAccess()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (accessState !== 'granted') return
     void loadBots()
-  }, [loadBots])
+  }, [accessState, loadBots])
 
   useEffect(() => {
     setIsPortalMounted(true)
@@ -175,8 +215,9 @@ export default function DashboardCrmPage() {
   }, [pathname])
 
   useEffect(() => {
+    if (accessState !== 'granted') return
     void loadCrm()
-  }, [loadCrm])
+  }, [accessState, loadCrm])
 
   useEffect(() => {
     if (!selectedLead) return
@@ -249,6 +290,71 @@ export default function DashboardCrmPage() {
       // ignore
     }
   }, [selectedLead])
+
+  if (accessState === 'checking') {
+    return (
+      <div className="p-6">
+        <Card className="bg-zinc-900/60 border-zinc-800 overflow-hidden">
+          <CardHeader>
+            <CardTitle className="text-white">
+              {isRu ? 'Проверка доступа...' : 'Checking access...'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-zinc-300">{isRu ? 'Загружаем раздел CRM.' : 'Loading CRM section.'}</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (accessState === 'locked') {
+    return (
+      <div className="p-6">
+        <Card className="bg-zinc-900/60 border-amber-500/25 overflow-hidden">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Lock className="h-5 w-5 text-amber-300" />
+              {isRu ? 'CRM скоро для пользователей' : 'CRM is coming soon for users'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-zinc-300">
+            <p>
+              {isRu
+                ? 'Сейчас раздел CRM доступен только администраторам. Для обычных аккаунтов он временно закрыт и появится позже.'
+                : 'CRM is currently available only for admins. For regular accounts this section is temporarily locked and will be available later.'}
+            </p>
+            <Button asChild>
+              <Link href={`/${locale}/dashboard`}>
+                {isRu ? 'Назад в дэшборд' : 'Back to dashboard'}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (accessState === 'denied') {
+    return (
+      <div className="p-6">
+        <Card className="bg-zinc-900/60 border-zinc-800 overflow-hidden">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <ShieldAlert className="h-5 w-5 text-amber-400" />
+              {isRu ? 'Доступ запрещен' : 'Access denied'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-zinc-300">
+            <p>{isRu ? 'Не удалось подтвердить доступ к разделу CRM.' : 'Unable to confirm access to CRM.'}</p>
+            <Button asChild variant="outline" className="border-white/10 hover:bg-white/5 text-zinc-200">
+              <Link href={`/${locale}/dashboard`}>{isRu ? 'Назад в дэшборд' : 'Back to dashboard'}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

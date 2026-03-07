@@ -106,7 +106,9 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children 
       triggerRef,
       contentRef,
     }}>
-      {children}
+      <div className="relative w-full">
+        {children}
+      </div>
     </SelectContext.Provider>
   )
 }
@@ -147,11 +149,14 @@ const SelectContent = ({ children, className }: SelectContentProps) => {
   if (!open) return null
 
   return (
-    <div ref={contentRef} className={cn(
-      "absolute z-50 max-h-60 min-w-[8rem] overflow-auto rounded-md border border-white/10 bg-zinc-950 text-zinc-100 shadow-md",
-      "mt-1",
-      className
-    )}>
+    <div
+      ref={contentRef}
+      className={cn(
+        "absolute left-0 top-full z-50 max-h-60 w-full min-w-[8rem] overflow-auto rounded-md border border-white/10 bg-zinc-950 text-zinc-100 shadow-md",
+        "mt-1",
+        className
+      )}
+    >
       <div className="p-1">
         {children}
       </div>

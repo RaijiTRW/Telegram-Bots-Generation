@@ -27,7 +27,9 @@ import {
   Play,
   Zap,
   Trash2,
+  Lock,
   MessageSquare,
+  Sparkles,
   GitBranch,
   Database,
   CreditCard,
@@ -54,6 +56,7 @@ interface FlowCanvasProps {
   onSave?: (nodes: Node[], edges: Edge[]) => Promise<boolean> | boolean
   testButtonLabel?: string
   isTestActive?: boolean
+  isAdmin?: boolean
 }
 
 type CanvasHistorySnapshot = {
@@ -129,6 +132,13 @@ const applyNodeWrapperStyle = (node: Node): Node => {
 const CANVAS_MIN_ZOOM = 0.2
 const CANVAS_MAX_ZOOM = 2
 const CANVAS_WHEEL_ZOOM_STEP = 0.12
+const AI_NODE_TEMPLATE_IDS = new Set(['trigger-ai', 'message-ai', 'condition-ai'])
+
+function isAiTemplateCandidate(template: { id?: string; data?: Record<string, unknown> } | null | undefined): boolean {
+  if (!template) return false
+  if (template.id && AI_NODE_TEMPLATE_IDS.has(String(template.id))) return true
+  return Boolean(template.data?.aiEnabled)
+}
 
 function isMouseWheelEvent(event: WheelEvent): boolean {
   if (event.deltaMode === WheelEvent.DOM_DELTA_LINE || event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
@@ -251,7 +261,7 @@ const extractVariableNames = (nodes: Node[]): string[] => {
   return [...new Set(variables)]
 }
 
-type PaletteCategoryId = 'trigger' | 'messaging' | 'logic' | 'data' | 'payments' | 'advanced' | 'other'
+type PaletteCategoryId = 'trigger' | 'messaging' | 'ai' | 'logic' | 'data' | 'payments' | 'advanced' | 'other'
 
 type PaletteCategoryMeta = {
   id: PaletteCategoryId
@@ -264,6 +274,7 @@ type PaletteCategoryMeta = {
 const PALETTE_CATEGORY_ORDER: PaletteCategoryId[] = [
   'trigger',
   'messaging',
+  'ai',
   'logic',
   'data',
   'payments',
@@ -285,6 +296,13 @@ const PALETTE_CATEGORY_META: Record<PaletteCategoryId, PaletteCategoryMeta> = {
     shortLabel: 'Сообщ',
     hint: 'Отправка сообщений и запрос данных',
     icon: MessageSquare,
+  },
+  ai: {
+    id: 'ai',
+    label: 'AI',
+    shortLabel: 'AI',
+    hint: 'AI-ноды: intent, AI message, AI logic',
+    icon: Sparkles,
   },
   logic: {
     id: 'logic',
@@ -330,6 +348,7 @@ function getPaletteCategoryLabel(
   const keyMap: Record<PaletteCategoryId, string> = {
     trigger: 'palette.categories.trigger.label',
     messaging: 'palette.categories.messaging.label',
+    ai: 'palette.categories.ai.label',
     logic: 'palette.categories.logic.label',
     data: 'palette.categories.data.label',
     payments: 'palette.categories.payments.label',
@@ -347,6 +366,7 @@ function getPaletteCategoryHint(
   const keyMap: Record<PaletteCategoryId, string> = {
     trigger: 'palette.categories.trigger.hint',
     messaging: 'palette.categories.messaging.hint',
+    ai: 'palette.categories.ai.hint',
     logic: 'palette.categories.logic.hint',
     data: 'palette.categories.data.hint',
     payments: 'palette.categories.payments.hint',
@@ -385,7 +405,12 @@ function getNodeTemplateDescription(
   }
 
   const key = keyMap[template.id]
-  return key ? t(key) : template.description
+  if (!key) return template.description
+  try {
+    return t(key)
+  } catch {
+    return template.description
+  }
 }
 
 function getNodeTemplateShortDescription(
@@ -416,7 +441,12 @@ function getNodeTemplateShortDescription(
   }
 
   const key = keyMap[template.id]
-  return key ? t(key) : template.label
+  if (!key) return template.label
+  try {
+    return t(key)
+  } catch {
+    return template.label
+  }
 }
 
 function getNodeTemplateHelpSteps(
@@ -447,19 +477,23 @@ function getNodeTemplateHelpSteps(
   }
 
   const baseKey = keyMap[template.id]
+  const defaultSteps = [
+    t('palette.helpStepAddNode'),
+    t('palette.helpStepOpenSettings'),
+    t('palette.helpStepConnect'),
+  ]
+
   if (!baseKey) {
-    return [
-      t('palette.helpStepAddNode'),
-      t('palette.helpStepOpenSettings'),
-      t('palette.helpStepConnect'),
-    ]
+    return defaultSteps
   }
 
-  return [
-    t(`${baseKey}.step1`),
-    t(`${baseKey}.step2`),
-    t(`${baseKey}.step3`),
-  ]
+  return [1, 2, 3].map((index) => {
+    try {
+      return t(`${baseKey}.step${index}`)
+    } catch {
+      return defaultSteps[index - 1] || ''
+    }
+  })
 }
 
 function getNodeTemplateDocsHref(docsBasePath: string, template: NodeTemplate): string {
@@ -492,6 +526,8 @@ function getNodeTemplateDocsHref(docsBasePath: string, template: NodeTemplate): 
 }
 
 function getTemplatePaletteCategory(template: NodeTemplate): PaletteCategoryId {
+  if (isAiTemplateCandidate(template)) return 'ai'
+
   const rawCategory = NODE_CONFIGS[template.type]?.category
   if (rawCategory === 'trigger') return 'trigger'
   if (rawCategory === 'messaging') return 'messaging'
@@ -521,6 +557,7 @@ function FlowCanvasInner({
   onSave,
   testButtonLabel = 'Тест',
   isTestActive = false,
+  isAdmin = false,
 }: FlowCanvasProps) {
   const t = useTranslations('editor.canvas')
   const translateCanvas = t as unknown as (key: string, values?: Record<string, unknown>) => string
@@ -650,13 +687,17 @@ function FlowCanvasInner({
       event.preventDefault()
 
       const templatePayload = event.dataTransfer.getData('application/reactflow-template')
-      let template: { type?: string; data?: Record<string, unknown> } | null = null
+      let template: { id?: string; type?: string; data?: Record<string, unknown> } | null = null
       if (templatePayload) {
         try {
-          template = JSON.parse(templatePayload) as { type?: string; data?: Record<string, unknown> }
+          template = JSON.parse(templatePayload) as { id?: string; type?: string; data?: Record<string, unknown> }
         } catch {
           template = null
         }
+      }
+
+      if (!isAdmin && isAiTemplateCandidate(template)) {
+        return
       }
 
       const type = template?.type || event.dataTransfer.getData('application/reactflow')
@@ -683,10 +724,14 @@ function FlowCanvasInner({
         return [...nds, applyNodeWrapperStyle(newNode)]
       })
     },
-    [setNodes, handleDeleteNode, screenToFlowPosition]
+    [setNodes, handleDeleteNode, screenToFlowPosition, isAdmin]
   )
 
   const handleAddNode = useCallback((template: NodeTemplate, targetPosition?: { x: number; y: number }) => {
+    if (!isAdmin && isAiTemplateCandidate(template)) {
+      return
+    }
+
     const defaultData = mergeTemplateData(template.type, template.data)
 
     setNodes((nds) => {
@@ -710,7 +755,7 @@ function FlowCanvasInner({
 
       return [...nds, applyNodeWrapperStyle(newNode)]
     })
-  }, [setNodes, handleDeleteNode, getVisibleCanvasCenterPosition])
+  }, [setNodes, handleDeleteNode, getVisibleCanvasCenterPosition, isAdmin])
 
   const handleClearCanvas = useCallback(() => {
     if (confirm(t('clearConfirm'))) {
@@ -1029,19 +1074,28 @@ function FlowCanvasInner({
       .map((categoryId) => {
         const templates = grouped.get(categoryId) || []
         if (templates.length === 0) return null
+        const isLocked = categoryId === 'ai' && !isAdmin
         return {
           ...PALETTE_CATEGORY_META[categoryId],
           label: getPaletteCategoryLabel(translateCanvas, categoryId),
           hint: getPaletteCategoryHint(translateCanvas, categoryId),
           templates,
+          disabled: isLocked,
+          badge: isLocked ? t('palette.aiSoonBadge') : null,
         }
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
-  }, [translateCanvas])
+  }, [translateCanvas, isAdmin, t])
+
+  const firstEnabledPaletteCategory =
+    paletteCategories.find((category) => !category.disabled) ||
+    paletteCategories[0] ||
+    null
 
   const activeContextMenuCategory =
-    (contextMenuCategory && paletteCategories.find((category) => category.id === contextMenuCategory)) ||
-    paletteCategories[0] ||
+    (contextMenuCategory &&
+      paletteCategories.find((category) => category.id === contextMenuCategory && !category.disabled)) ||
+    firstEnabledPaletteCategory ||
     null
 
   const closeContextMenu = useCallback(() => {
@@ -1069,29 +1123,30 @@ function FlowCanvasInner({
       }),
     })
     setContextMenuCategory((current) => {
-      if (current && paletteCategories.some((category) => category.id === current)) {
+      if (current && paletteCategories.some((category) => category.id === current && !category.disabled)) {
         return current
       }
-      return paletteCategories[0]?.id ?? null
+      return firstEnabledPaletteCategory?.id ?? null
     })
-  }, [paletteCategories, screenToFlowPosition])
+  }, [paletteCategories, firstEnabledPaletteCategory, screenToFlowPosition])
 
   const handleContextMenuAddNode = useCallback((template: NodeTemplate) => {
     if (!contextMenu) return
+    if (!isAdmin && isAiTemplateCandidate(template)) return
 
     handleAddNode(template, contextMenu.flowPosition)
     closeContextMenu()
-  }, [closeContextMenu, contextMenu, handleAddNode])
+  }, [closeContextMenu, contextMenu, handleAddNode, isAdmin])
 
   const validPinnedPaletteCategory =
     pinnedPaletteCategory &&
-      paletteCategories.some((category) => category.id === pinnedPaletteCategory)
+      paletteCategories.some((category) => category.id === pinnedPaletteCategory && !category.disabled)
       ? pinnedPaletteCategory
       : null
 
   const validHoveredPaletteCategory =
     hoveredPaletteCategory &&
-      paletteCategories.some((category) => category.id === hoveredPaletteCategory)
+      paletteCategories.some((category) => category.id === hoveredPaletteCategory && !category.disabled)
       ? hoveredPaletteCategory
       : null
 
@@ -1129,17 +1184,23 @@ function FlowCanvasInner({
 
   const handleTemplateDragStart = useCallback(
     (event: React.DragEvent<HTMLDivElement>, template: NodeTemplate) => {
+      if (!isAdmin && isAiTemplateCandidate(template)) {
+        event.preventDefault()
+        return
+      }
+
       event.dataTransfer.setData('application/reactflow', template.type)
       event.dataTransfer.setData(
         'application/reactflow-template',
         JSON.stringify({
+          id: template.id,
           type: template.type,
           data: template.data || {},
         })
       )
       event.dataTransfer.effectAllowed = 'move'
     },
-    []
+    [isAdmin]
   )
 
   return (
@@ -1209,8 +1270,9 @@ function FlowCanvasInner({
             <div className="flex items-center gap-2">
               <HelpGuideButton
                 title={t('nodes')}
-                summary={t('startBuilding')}
-                steps={[t('test'), t('logsTitle'), t('clearCanvas')]}
+                summary={t('helpSummary')}
+                steps={[t('helpStep1'), t('helpStep2'), t('helpStep3')]}
+                notes={[t('helpNote')]}
                 docsHref={`${docsBasePath}/getting-started#quick-start`}
                 compact={false}
                 className="h-8 w-8 bg-zinc-900/80 backdrop-blur-xl"
@@ -1257,20 +1319,30 @@ function FlowCanvasInner({
 
                     const isPinned = validPinnedPaletteCategory === category.id
                     const isActive = activePaletteCategoryId === category.id
+                    const isLocked = Boolean(category.disabled)
                     const CategoryIcon = category.icon
 
                     return (
                       <button
                         key={category.id}
                         type="button"
-                        onMouseEnter={() => setHoveredPaletteCategory(category.id)}
-                        onFocus={() => setHoveredPaletteCategory(category.id)}
-                        onClick={() =>
+                        onMouseEnter={() => {
+                          if (isLocked) return
+                          setHoveredPaletteCategory(category.id)
+                        }}
+                        onFocus={() => {
+                          if (isLocked) return
+                          setHoveredPaletteCategory(category.id)
+                        }}
+                        onClick={() => {
+                          if (isLocked) return
                           setPinnedPaletteCategory((prev) => (prev === category.id ? null : category.id))
-                        }
-                        aria-label={`${category.label}${isPinned ? ` (${t('palette.pinned')})` : ''}`}
-                        title={`${category.label}${category.hint ? ` • ${category.hint}` : ''}${isPinned ? ` • ${t('palette.pinned')}` : ''}`}
-                        className={`w-full text-left rounded-lg px-1.5 py-1.5 transition-colors border ${isActive
+                        }}
+                        aria-label={`${category.label}${isPinned ? ` (${t('palette.pinned')})` : ''}${isLocked ? ` (${t('palette.aiLockedHint')})` : ''}`}
+                        title={`${category.label}${category.hint ? ` • ${category.hint}` : ''}${isLocked ? ` • ${t('palette.aiLockedHint')}` : ''}${isPinned ? ` • ${t('palette.pinned')}` : ''}`}
+                        className={`w-full text-left rounded-lg px-1.5 py-1.5 transition-colors border ${isLocked
+                          ? 'cursor-not-allowed bg-transparent border-transparent text-zinc-500'
+                          : isActive
                           ? 'bg-white/10 border-white/20 text-white'
                           : 'bg-transparent border-transparent text-zinc-300 hover:bg-white/5 hover:text-white'
                           }`}
@@ -1278,17 +1350,22 @@ function FlowCanvasInner({
                         <div className="flex items-center justify-center gap-1.5">
                           <div className="relative shrink-0">
                             <CategoryIcon className="w-3.5 h-3.5" />
+                            {isLocked && (
+                              <Lock className="absolute -top-1 -right-1 h-2.5 w-2.5 text-zinc-500" />
+                            )}
                             {isPinned && (
                               <span className="absolute -top-1 -right-1 block h-1.5 w-1.5 rounded-full bg-[#24A1DE] ring-1 ring-zinc-900" />
                             )}
                           </div>
                           <span
-                            className={`shrink-0 rounded-md px-1 py-0.5 text-[9px] leading-none border ${isActive
+                            className={`shrink-0 rounded-md px-1 py-0.5 text-[8px] leading-none border ${isLocked
+                              ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                              : isActive
                               ? 'border-white/20 bg-white/10 text-zinc-200'
                               : 'border-white/10 bg-zinc-900/40 text-zinc-400'
                               }`}
                           >
-                            {category.templates.length}
+                            {isLocked ? (category.badge || t('palette.aiSoonBadge')) : category.templates.length}
                           </span>
                         </div>
                       </button>
@@ -1298,71 +1375,85 @@ function FlowCanvasInner({
 
                 {activePaletteCategory && (
                   <div className="min-w-0 rounded-lg border border-white/10 bg-zinc-800/20 p-2">
-                    <>
-                      <div className="flex items-center justify-between gap-2 px-1 pb-2 border-b border-white/10">
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium text-white truncate">
-                            {activePaletteCategory.label}
+                    {activePaletteCategory.disabled ? (
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+                        <div className="flex items-center gap-2">
+                          <Lock className="h-3.5 w-3.5 text-amber-300" />
+                          <div className="text-xs font-medium text-amber-200">
+                            {activePaletteCategory.badge || t('palette.aiSoonBadge')}
                           </div>
-                          <div className="text-[10px] text-zinc-500">{t('palette.hoverPreviewClickPin')}</div>
                         </div>
-                        <div className="text-[10px] text-zinc-400 shrink-0">
-                          {t('palette.nodesCount', { count: activePaletteCategory.templates.length })}
+                        <div className="mt-1 text-[11px] text-amber-100/80">
+                          {t('palette.aiLockedHint')}
                         </div>
                       </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between gap-2 px-1 pb-2 border-b border-white/10">
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium text-white truncate">
+                              {activePaletteCategory.label}
+                            </div>
+                            <div className="text-[10px] text-zinc-500">{t('palette.hoverPreviewClickPin')}</div>
+                          </div>
+                          <div className="text-[10px] text-zinc-400 shrink-0">
+                            {t('palette.nodesCount', { count: activePaletteCategory.templates.length })}
+                          </div>
+                        </div>
 
-                      <div className="mt-2 space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
-                        {activePaletteCategory.templates.map((node) => {
-                          const fullDescription = getNodeTemplateDescription(translateCanvas, node)
-                          const shortDescription = getNodeTemplateShortDescription(translateCanvas, node)
-                          const helpSteps = getNodeTemplateHelpSteps(translateCanvas, node)
+                        <div className="mt-2 space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                          {activePaletteCategory.templates.map((node) => {
+                            const fullDescription = getNodeTemplateDescription(translateCanvas, node)
+                            const shortDescription = getNodeTemplateShortDescription(translateCanvas, node)
+                            const helpSteps = getNodeTemplateHelpSteps(translateCanvas, node)
 
-                          return (
-                            <div
-                              key={node.id}
-                              draggable
-                              onDragStart={(event) => handleTemplateDragStart(event, node)}
-                              onClick={() => handleAddNode(node)}
-                              className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <div
-                                  className="p-1 rounded mt-0.5"
-                                  style={{ background: `${node.color}20` }}
-                                >
-                                  <node.icon className="w-3.5 h-3.5" style={{ color: node.color }} />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <div className="text-xs font-medium text-white truncate">{node.label}</div>
-                                    <span
-                                      className="shrink-0 inline-flex items-center justify-center"
-                                      onClick={(event) => event.stopPropagation()}
-                                      onMouseDown={(event) => event.stopPropagation()}
-                                      onPointerDown={(event) => event.stopPropagation()}
-                                      onDragStart={(event) => event.preventDefault()}
-                                    >
-                                      <HelpGuideButton
-                                        title={node.label}
-                                        summary={fullDescription}
-                                        steps={helpSteps}
-                                        docsHref={getNodeTemplateDocsHref(docsBasePath, node)}
-                                        compact
-                                        className="h-4 w-4 border-white/25 text-zinc-400 hover:text-zinc-100 hover:border-white/45"
-                                        iconClassName="h-3 w-3"
-                                      />
-                                    </span>
+                            return (
+                              <div
+                                key={node.id}
+                                draggable
+                                onDragStart={(event) => handleTemplateDragStart(event, node)}
+                                onClick={() => handleAddNode(node)}
+                                className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
+                              >
+                                <div className="flex items-start gap-2">
+                                  <div
+                                    className="p-1 rounded mt-0.5"
+                                    style={{ background: `${node.color}20` }}
+                                  >
+                                    <node.icon className="w-3.5 h-3.5" style={{ color: node.color }} />
                                   </div>
-                                  <div className="text-[10px] text-zinc-300/90 line-clamp-1">
-                                    {shortDescription}
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <div className="text-xs font-medium text-white truncate">{node.label}</div>
+                                      <span
+                                        className="shrink-0 inline-flex items-center justify-center"
+                                        onClick={(event) => event.stopPropagation()}
+                                        onMouseDown={(event) => event.stopPropagation()}
+                                        onPointerDown={(event) => event.stopPropagation()}
+                                        onDragStart={(event) => event.preventDefault()}
+                                      >
+                                        <HelpGuideButton
+                                          title={node.label}
+                                          summary={fullDescription}
+                                          steps={helpSteps}
+                                          docsHref={getNodeTemplateDocsHref(docsBasePath, node)}
+                                          compact
+                                          className="h-4 w-4 border-white/25 text-zinc-400 hover:text-zinc-100 hover:border-white/45"
+                                          iconClassName="h-3 w-3"
+                                        />
+                                      </span>
+                                    </div>
+                                    <div className="text-[10px] text-zinc-300/90 line-clamp-1">
+                                      {shortDescription}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -1421,14 +1512,20 @@ function FlowCanvasInner({
                   <div className="border-r border-white/10 bg-zinc-950/45 p-1.5 space-y-1 overflow-y-auto">
                     {paletteCategories.map((category) => {
                       const isActive = category.id === activeContextMenuCategory.id
+                      const isLocked = Boolean(category.disabled)
                       const CategoryIcon = category.icon
                       return (
                         <button
                           key={category.id}
                           type="button"
-                          onClick={() => setContextMenuCategory(category.id)}
+                          onClick={() => {
+                            if (isLocked) return
+                            setContextMenuCategory(category.id)
+                          }}
                           className={`w-full rounded-md px-2 py-1.5 text-left transition-colors border ${
-                            isActive
+                            isLocked
+                              ? 'cursor-not-allowed bg-transparent border-transparent text-zinc-500'
+                              : isActive
                               ? 'bg-white/10 border-white/20 text-white'
                               : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-white/5'
                           }`}
@@ -1438,7 +1535,13 @@ function FlowCanvasInner({
                               <CategoryIcon className="w-3 h-3 shrink-0" />
                               <span className="truncate text-[11px]">{category.label}</span>
                             </div>
-                            <span className="shrink-0 text-[9px] text-zinc-400">{category.templates.length}</span>
+                            {isLocked ? (
+                              <span className="shrink-0 rounded border border-amber-500/30 bg-amber-500/10 px-1 py-0.5 text-[8px] text-amber-300">
+                                {category.badge || t('palette.aiSoonBadge')}
+                              </span>
+                            ) : (
+                              <span className="shrink-0 text-[9px] text-zinc-400">{category.templates.length}</span>
+                            )}
                           </div>
                         </button>
                       )

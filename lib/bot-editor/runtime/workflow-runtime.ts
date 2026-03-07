@@ -9,6 +9,7 @@ import { callTelegramApi, callTelegramApiFormData } from '@/lib/bot-editor/runti
 import { appendBotTestLog } from '@/lib/bot-editor/runtime/test-log-store'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { appendOutboundContactEvent } from '@/lib/bot-editor/services/bot-crm-service'
+import { appendBotAuditEventSafe } from '@/lib/bot-editor/services/bot-audit-service'
 
 interface TelegramUser {
   id: number
@@ -1891,6 +1892,49 @@ async function appendOutboundCrmEventSafe(input: {
   }
 }
 
+async function appendPaymentAuditEventSafe(input: {
+  botId: string
+  nodeId: string
+  provider: string
+  paymentId: string
+  status: string
+  amount: string
+  currency: string
+  chatId: number
+  telegramUserId?: number | null
+  username?: string
+  firstName?: string
+  lastName?: string
+}) {
+  try {
+    const supabase = createAdminClient()
+    await appendBotAuditEventSafe(
+      supabase as unknown as Parameters<typeof appendBotAuditEventSafe>[0],
+      {
+        botId: input.botId,
+        source: 'runtime',
+        eventType: 'payment.created',
+        payload: {
+          nodeId: input.nodeId,
+          provider: input.provider,
+          method: input.provider,
+          paymentId: input.paymentId,
+          status: input.status,
+          amount: input.amount,
+          currency: input.currency,
+          chatId: input.chatId,
+          telegramUserId: input.telegramUserId || null,
+          username: input.username || '',
+          firstName: input.firstName || '',
+          lastName: input.lastName || '',
+        },
+      }
+    )
+  } catch (error) {
+    appendBotTestLog(input.botId, 'workflow', `Payment audit write failed: ${String(error)}`, 'warn')
+  }
+}
+
 async function sendMessage(
   token: string,
   botId: string,
@@ -2549,6 +2593,34 @@ function resolveStripeReturnUrl(args: {
   return 'https://t.me'
 }
 
+function resolveRobokassaReturnUrl(args: {
+  configuredUrl: string
+  contextVariables: Record<string, unknown>
+  botId: string
+  state: 'success' | 'fail'
+}): string {
+  const configured = normalizeAbsoluteHttpUrl(args.configuredUrl)
+  if (configured) {
+    return configured
+  }
+
+  const baseUrl = resolveRuntimeBaseUrlForPayments()
+  if (baseUrl) {
+    const locale = resolvePreferredLocaleFromContext(args.contextVariables)
+    const params = new URLSearchParams()
+    const botId = String(args.botId || '').trim()
+    if (botId) {
+      params.set('botId', botId)
+    }
+    params.set('provider', 'robokassa')
+    params.set('state', args.state)
+    const query = params.size > 0 ? `?${params.toString()}` : ''
+    return `${baseUrl}/${locale}/payment/return${query}`
+  }
+
+  return 'https://t.me'
+}
+
 async function createYookassaPayment(input: {
   data: Record<string, unknown>
   contextVariables: Record<string, unknown>
@@ -2720,15 +2792,26 @@ async function createStripePayment(input: {
 function createRobokassaPayment(input: {
   data: Record<string, unknown>
   contextVariables: Record<string, unknown>
+  botId: string
 }): PaymentNodeExecutionResult {
-  const { data, contextVariables } = input
+  const { data, contextVariables, botId } = input
   const merchantLogin = resolvePaymentTextField(data.merchantLogin, contextVariables)
   const password1 = resolvePaymentTextField(data.password1, contextVariables)
   const amount = normalizeMoneyAmount(resolvePaymentTextField(data.amount, contextVariables), '100.00')
   const description = resolvePaymentTextField(data.description, contextVariables)
   const invoiceId = resolvePaymentTextField(data.invoiceId, contextVariables) || String(Date.now())
-  const successUrl = resolvePaymentTextField(data.successUrl, contextVariables)
-  const failUrl = resolvePaymentTextField(data.failUrl, contextVariables)
+  const successUrl = resolveRobokassaReturnUrl({
+    configuredUrl: resolvePaymentTextField(data.successUrl, contextVariables),
+    contextVariables,
+    botId,
+    state: 'success',
+  })
+  const failUrl = resolveRobokassaReturnUrl({
+    configuredUrl: resolvePaymentTextField(data.failUrl, contextVariables),
+    contextVariables,
+    botId,
+    state: 'fail',
+  })
   const isTest = Boolean(data.isTest)
   const currency = normalizeCurrencyCode(
     resolvePaymentTextField(data.currency || 'RUB', contextVariables),
@@ -2832,8 +2915,18 @@ async function executePaymentNode(args: {
   botId: string
   chatId: number
   telegramUserId?: number | null
+  telegramUser?: TelegramUser | null
 }): Promise<void> {
-  const { node, session, contextVariables, botToken, botId, chatId, telegramUserId } = args
+  const {
+    node,
+    session,
+    contextVariables,
+    botToken,
+    botId,
+    chatId,
+    telegramUserId,
+    telegramUser,
+  } = args
   const data = (node.data || {}) as Record<string, unknown>
 
   let result: PaymentNodeExecutionResult
@@ -2842,7 +2935,7 @@ async function executePaymentNode(args: {
   } else if (node.type === 'paymentStripe') {
     result = await createStripePayment({ data, contextVariables, botId })
   } else if (node.type === 'paymentRobokassa') {
-    result = createRobokassaPayment({ data, contextVariables })
+    result = createRobokassaPayment({ data, contextVariables, botId })
   } else if (node.type === 'paymentStars') {
     result = await createTelegramStarsPayment({ data, contextVariables, botToken })
   } else {
@@ -2853,6 +2946,21 @@ async function executePaymentNode(args: {
   if (saveToVariable) {
     session.variables[saveToVariable] = result
   }
+
+  await appendPaymentAuditEventSafe({
+    botId,
+    nodeId: node.id,
+    provider: result.provider,
+    paymentId: result.paymentId,
+    status: result.status,
+    amount: result.amount,
+    currency: result.currency,
+    chatId,
+    telegramUserId,
+    username: telegramUser?.username,
+    firstName: telegramUser?.first_name,
+    lastName: telegramUser?.last_name,
+  })
 
   if (data.autoSendPaymentLink !== false) {
     const defaultTemplate =
@@ -2891,7 +2999,7 @@ async function executePaymentNode(args: {
   appendBotTestLog(
     botId,
     'workflow',
-    `Payment ${result.provider} -> ${node.id} (${result.amount} ${result.currency})${saveToVariable ? ` saved to ${saveToVariable}` : ''}`,
+    `Payment ${result.provider} -> ${node.id} (${result.amount} ${result.currency}) status=${result.status} id=${result.paymentId}${saveToVariable ? ` saved to ${saveToVariable}` : ''}`,
     'info'
   )
 }
@@ -3718,6 +3826,7 @@ async function executeFromNode(args: {
         botId,
         chatId,
         telegramUserId: user?.id,
+        telegramUser: user || null,
       })
       currentNodeId = getDefaultNextNodeId(config, node.id)
       continue

@@ -2,15 +2,17 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { MessageSquare, Workflow, Settings, Cpu, BarChart3 } from 'lucide-react'
+import { MessageSquare, Workflow, Settings, Cpu, BarChart3, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMemo } from 'react'
 import type { EditorSection as EditorSectionType } from '@/lib/bot-editor/types/bot.types'
+import type { ViewerAccess } from '@/lib/billing/types'
 
 export type EditorSection = EditorSectionType
 
 interface EditorNavProps {
   botId: string
+  viewerAccess: ViewerAccess
   activeSection: EditorSection
   onSectionChange: (section: EditorSection) => void
   isDirty?: boolean
@@ -23,6 +25,8 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
   labelKey: string
   descKey: string
+  disabled?: boolean
+  badgeKey?: string
 }
 
 const staticNavItems: Omit<NavItem, 'labelKey' | 'descKey'>[] = [
@@ -50,6 +54,7 @@ const staticNavItems: Omit<NavItem, 'labelKey' | 'descKey'>[] = [
 
 export function EditorNav({
   botId,
+  viewerAccess,
   activeSection,
   onSectionChange,
   isDirty = false,
@@ -60,6 +65,7 @@ export function EditorNav({
   const router = useRouter()
   const pathname = usePathname()
   const isCompact = mode === 'compact'
+  const canUseAiChat = viewerAccess.isAdmin || viewerAccess.entitlements.aiChat
   type NavTranslationKey = Parameters<typeof t>[0]
 
   const navItems = useMemo(() => {
@@ -94,11 +100,16 @@ export function EditorNav({
         ...item,
         labelKey,
         descKey,
+        disabled: item.id === 'ai-chat' && !canUseAiChat,
+        badgeKey: item.id === 'ai-chat' && !canUseAiChat ? 'subscriptionBadge' : undefined,
       }
     })
-  }, [])
+  }, [canUseAiChat])
 
   const handleSectionChange = (section: EditorSection) => {
+    if (section === 'ai-chat' && !canUseAiChat) {
+      return
+    }
     onSectionChange(section)
     // Extract locale from pathname (e.g., /ru/dashboard/bots/123/editor -> /ru)
     const locale = pathname.split('/')[1] || 'ru'
@@ -139,18 +150,23 @@ export function EditorNav({
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = activeSection === item.id
+          const isDisabled = Boolean(item.disabled)
           const label = t(item.labelKey as NavTranslationKey)
           const description = t(item.descKey as NavTranslationKey)
+          const disabledHint = isDisabled ? t('subscriptionRequired') : undefined
 
           return (
             <button
               key={item.id}
+              disabled={isDisabled}
               onClick={() => handleSectionChange(item.id)}
-              title={isCompact ? label : undefined}
+              title={isCompact ? (disabledHint ? `${label}: ${disabledHint}` : label) : disabledHint}
               className={cn(
                 'w-full text-left rounded-xl transition-all duration-200 group border relative',
                 isCompact ? 'px-2 py-2.5' : 'px-4 py-3',
-                isActive
+                isDisabled
+                  ? 'cursor-not-allowed text-zinc-500 border-transparent opacity-75'
+                  : isActive
                   ? 'bg-gradient-to-r from-[#24A1DE]/28 via-[#24A1DE]/12 to-[#8B5CF6]/18 border-[#24A1DE]/45 text-white shadow-[inset_0_0_0_1px_rgba(36,161,222,0.14),0_8px_20px_rgba(36,161,222,0.10)]'
                   : 'text-zinc-400 hover:text-white hover:bg-white/5 border-transparent'
               )}
@@ -161,13 +177,19 @@ export function EditorNav({
               <div className={cn('flex items-center', isCompact ? 'justify-center' : 'gap-3')}>
                 <div className={cn(
                   'p-2 rounded-lg transition-colors',
-                  isActive
+                  isDisabled
+                    ? 'bg-white/5'
+                    : isActive
                     ? 'bg-[#24A1DE]/24 ring-1 ring-[#24A1DE]/35 shadow-[0_0_12px_rgba(36,161,222,0.18)]'
                     : 'bg-white/5 group-hover:bg-white/10'
                 )}>
                   <Icon className={cn(
                     'w-4 h-4',
-                    isActive ? 'text-[#24A1DE]' : 'text-zinc-400 group-hover:text-white'
+                    isDisabled
+                      ? 'text-zinc-500'
+                      : isActive
+                      ? 'text-[#24A1DE]'
+                      : 'text-zinc-400 group-hover:text-white'
                   )} />
                 </div>
                 {!isCompact && (
@@ -181,6 +203,16 @@ export function EditorNav({
                     >
                       {description}
                     </div>
+                  </div>
+                )}
+                {isDisabled && (
+                  <div className="flex items-center gap-1.5 ml-2">
+                    <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                    {!isCompact && item.badgeKey && (
+                      <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">
+                        {t(item.badgeKey as NavTranslationKey)}
+                      </span>
+                    )}
                   </div>
                 )}
                 {isActive && (

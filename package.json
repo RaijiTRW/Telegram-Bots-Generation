@@ -1,6 +1,6 @@
 {
   "name": "cbtooll",
-  "version": "0.9.3",
+  "version": "0.9.6",
   "private": true,
   "scripts": {
     "dev": "next dev",

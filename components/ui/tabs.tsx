@@ -64,7 +64,7 @@ const Tabs = ({ defaultValue, value: controlledValue, onValueChange, children, c
 }
 
 const TabsList = ({ children, className }: TabsListProps) => (
-  <div className="inline-flex h-10 items-center justify-center rounded-md bg-zinc-900/50 p-1 text-zinc-400">
+  <div className={cn("inline-flex h-10 items-center justify-center rounded-md bg-zinc-900/50 p-1 text-zinc-400", className)}>
     {children}
   </div>
 )

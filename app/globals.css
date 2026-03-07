@@ -254,6 +254,67 @@ svg {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Lite mode: automatically enabled for mobile / coarse pointer / reduced-motion / low-end devices */
+html[data-performance='lite'] {
+  scroll-behavior: auto !important;
+}
+
+html[data-performance='lite'] .glass,
+html[data-performance='lite'] .glass-strong,
+html[data-performance='lite'] .glass-cyber,
+html[data-performance='lite'] .glass-cyber-strong,
+html[data-performance='lite'] .glass-panel,
+html[data-performance='lite'] .backdrop-blur-sm,
+html[data-performance='lite'] .backdrop-blur,
+html[data-performance='lite'] .backdrop-blur-md,
+html[data-performance='lite'] .backdrop-blur-lg,
+html[data-performance='lite'] .backdrop-blur-xl,
+html[data-performance='lite'] .backdrop-blur-2xl,
+html[data-performance='lite'] .backdrop-blur-3xl {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Decorative blur layers are very expensive on mobile GPUs. */
+html[data-performance='lite'] .blur-2xl,
+html[data-performance='lite'] .blur-3xl,
+html[data-performance='lite'] .blur-xl {
+  filter: none !important;
+  opacity: 0.45 !important;
+}
+
+/* Keep loaders/critical state animations, disable decorative animations. */
+html[data-performance='lite'] .animate-radar,
+html[data-performance='lite'] .animate-cursor-blink,
+html[data-performance='lite'] .animate-status-pulse,
+html[data-performance='lite'] .animate-fade-in-up,
+html[data-performance='lite'] .animate-fade-in-scale,
+html[data-performance='lite'] .animate-shimmer,
+html[data-performance='lite'] .animate-float,
+html[data-performance='lite'] .animate-pulse-glow,
+html[data-performance='lite'] .animate-gradient-bg,
+html[data-performance='lite'] .animate-glow-pulse {
+  animation: none !important;
+}
+
+html[data-performance='lite'] .status-online::before {
+  animation: none !important;
+}
+
+/* ReactFlow edge glow filters are costly with many edges. */
+html[data-performance='lite'] .react-flow__edge:hover .react-flow__edge-path,
+html[data-performance='lite'] .react-flow__edge.selected .react-flow__edge-path,
+html[data-performance='lite'] .react-flow__edge:focus .react-flow__edge-path,
+html[data-performance='lite'] .react-flow__edge:focus-visible .react-flow__edge-path {
+  filter: none !important;
+}
+
 /* Glassmorphism utility */
 .glass {
   background: rgba(255, 255, 255, 0.08);

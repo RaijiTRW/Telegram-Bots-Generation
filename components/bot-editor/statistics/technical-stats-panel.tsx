@@ -114,30 +114,37 @@ export function TechnicalStatsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {RANGE_OPTIONS.map((option) => (
+      <Card className="border-white/10 bg-zinc-950/40">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-white text-base">{t('tabs.technical')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {RANGE_OPTIONS.map((option) => (
+                <Button
+                  key={option}
+                  variant={option === range ? 'secondary' : 'outline'}
+                  className={option === range ? 'bg-[#24A1DE]/20 text-white border-[#24A1DE]/30' : 'border-white/10 text-zinc-300'}
+                  onClick={() => setRange(option)}
+                  disabled={isLoading}
+                >
+                  {option}
+                </Button>
+              ))}
+            </div>
             <Button
-              key={option}
-              variant={option === range ? 'secondary' : 'outline'}
-              className={option === range ? 'bg-[#24A1DE]/20 text-white border-[#24A1DE]/30' : 'border-white/10 text-zinc-300'}
-              onClick={() => setRange(option)}
+              variant="outline"
+              className="border-white/10 text-zinc-300"
+              onClick={() => void loadStats(range)}
               disabled={isLoading}
             >
-              {option}
+              <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              {t('refresh')}
             </Button>
-          ))}
-        </div>
-        <Button
-          variant="outline"
-          className="border-white/10 text-zinc-300"
-          onClick={() => void loadStats(range)}
-          disabled={isLoading}
-        >
-          <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          {t('refresh')}
-        </Button>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {error ? (
         <Card className="border-red-500/30 bg-red-500/10">

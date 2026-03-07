@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { CircleHelp, ExternalLink, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { DocsInlineText } from '@/components/docs/docs-inline-text'
 
 type HelpGuideButtonProps = {
   title: string
@@ -147,7 +148,9 @@ export function HelpGuideButton({
 
                 <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
                   {safeSummary ? (
-                    <p className="text-sm text-zinc-300 leading-relaxed">{safeSummary}</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed">
+                      <DocsInlineText text={safeSummary} />
+                    </p>
                   ) : null}
 
                   {safeSteps.length > 0 ? (
@@ -161,7 +164,9 @@ export function HelpGuideButton({
                             <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#24A1DE]/15 text-[#7dd3fc] text-[11px] font-semibold">
                               {index + 1}
                             </span>
-                            <span className="leading-relaxed">{step}</span>
+                            <span className="leading-relaxed">
+                              <DocsInlineText text={step} />
+                            </span>
                           </li>
                         ))}
                       </ol>
@@ -176,7 +181,7 @@ export function HelpGuideButton({
                       <div className="space-y-1.5">
                         {safeNotes.map((note, index) => (
                           <p key={`${note}-${index}`} className="text-xs text-amber-100/90 leading-relaxed">
-                            {note}
+                            <DocsInlineText text={note} />
                           </p>
                         ))}
                       </div>

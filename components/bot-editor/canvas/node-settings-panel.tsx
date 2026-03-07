@@ -20,6 +20,7 @@ import {
   X,
   Plus,
   Trash2,
+  CircleHelp,
   Settings,
   Save,
   Copy,
@@ -133,6 +134,120 @@ function getNodeHelpDocsHref(args: { locale: string; nodeType: NodeType }): stri
   return `${docsBasePath}/nodes#${anchor}`
 }
 
+type TranslationFn = (key: string, values?: Record<string, unknown>) => string
+
+const TEMPLATE_ID_TO_CANVAS_TRANSLATION_KEY: Record<string, string> = {
+  'trigger-command': 'triggerCommand',
+  'trigger-text': 'triggerText',
+  'trigger-callback': 'triggerCallback',
+  'trigger-schedule': 'triggerSchedule',
+  'trigger-ai': 'triggerAI',
+  message: 'message',
+  'message-ai': 'messageAI',
+  input: 'input',
+  condition: 'condition',
+  'condition-ai': 'conditionAI',
+  router: 'router',
+  scheduler: 'scheduler',
+  'reply-keyboard': 'replyKeyboard',
+  action: 'action',
+  script: 'script',
+  http: 'http',
+  webhook: 'http',
+  'payment-yookassa': 'paymentYookassa',
+  'payment-stripe': 'paymentStripe',
+  'payment-robokassa': 'paymentRobokassa',
+  'payment-stars': 'paymentStars',
+}
+
+function tryTranslate(t: TranslationFn, key: string): string | null {
+  try {
+    return t(key)
+  } catch {
+    return null
+  }
+}
+
+function resolveHelpTemplateId(nodeType: NodeType, data: Partial<NodeData>): string | null {
+  if (nodeType === 'trigger') {
+    const raw = data as Partial<TriggerNodeData> & {
+      trigger?: string
+      triggerType?: string
+      aiEnabled?: boolean
+    }
+
+    if (Boolean(raw.aiEnabled)) {
+      return 'trigger-ai'
+    }
+
+    const triggerType = String(raw.trigger || raw.triggerType || 'command')
+    if (triggerType === 'text') return 'trigger-text'
+    if (triggerType === 'callbackQuery') return 'trigger-callback'
+    if (triggerType === 'schedule') return 'trigger-schedule'
+    return 'trigger-command'
+  }
+
+  if (nodeType === 'message') {
+    const raw = data as Partial<MessageNodeData> & { aiEnabled?: boolean }
+    return raw.aiEnabled ? 'message-ai' : 'message'
+  }
+
+  if (nodeType === 'condition') {
+    const raw = data as Partial<ConditionNodeData> & { aiEnabled?: boolean }
+    return raw.aiEnabled ? 'condition-ai' : 'condition'
+  }
+
+  if (nodeType === 'replyKeyboard') return 'reply-keyboard'
+  if (nodeType === 'paymentYookassa') return 'payment-yookassa'
+  if (nodeType === 'paymentStripe') return 'payment-stripe'
+  if (nodeType === 'paymentRobokassa') return 'payment-robokassa'
+  if (nodeType === 'paymentStars') return 'payment-stars'
+  if (nodeType === 'wait') return 'scheduler'
+  if (nodeType === 'webhook') return 'webhook'
+
+  return nodeType
+}
+
+function getNodeHelpContent(args: {
+  nodeType: NodeType
+  data: Partial<NodeData>
+  tNode: TranslationFn
+  tCanvas: TranslationFn
+}) {
+  const { nodeType, data, tNode, tCanvas } = args
+  const templateId = resolveHelpTemplateId(nodeType, data)
+  const translationSuffix = templateId ? TEMPLATE_ID_TO_CANVAS_TRANSLATION_KEY[templateId] : null
+
+  const fallbackSummary = tNode('help.summary')
+  const fallbackSteps = [tNode('help.step1'), tNode('help.step2'), tNode('help.step3')]
+  const fallbackNote = tNode('help.note')
+
+  if (!translationSuffix) {
+    return { summary: fallbackSummary, steps: fallbackSteps, note: fallbackNote }
+  }
+
+  const summary =
+    tryTranslate(tCanvas, `nodeTemplateDescriptions.${translationSuffix}`) || fallbackSummary
+
+  const steps = [1, 2, 3].map((index) => {
+    return (
+      tryTranslate(tCanvas, `nodeTemplateHelpSteps.${translationSuffix}.step${index}`) ||
+      fallbackSteps[index - 1]
+    )
+  })
+
+  const typeSpecificNote =
+    tryTranslate(tNode, `help.notes.${templateId}`) ||
+    tryTranslate(tNode, `help.notes.${nodeType}`) ||
+    fallbackNote
+
+  return {
+    summary,
+    steps,
+    note: typeSpecificNote,
+  }
+}
+
 type ReplyKeyboardVariantOption = {
   value: string
   label: string
@@ -173,8 +288,8 @@ function getReplyKeyboardVariantOptionsFromMetadata(
   return options
 }
 
-type PaymentReturnProvider = 'yookassa' | 'stripe'
-type PaymentReturnState = 'success' | 'cancel'
+type PaymentReturnProvider = 'yookassa' | 'stripe' | 'robokassa'
+type PaymentReturnState = 'success' | 'cancel' | 'fail'
 
 function buildPaymentAutoReturnUrl(input: {
   locale: string
@@ -215,7 +330,7 @@ function buildYookassaAutoReturnUrl(input: { locale: string; botId?: string | nu
 function buildStripeAutoReturnUrl(input: {
   locale: string
   botId?: string | null
-  state: PaymentReturnState
+  state: 'success' | 'cancel'
 }): string {
   return buildPaymentAutoReturnUrl({
     locale: input.locale,
@@ -225,8 +340,22 @@ function buildStripeAutoReturnUrl(input: {
   })
 }
 
+function buildRobokassaAutoReturnUrl(input: {
+  locale: string
+  botId?: string | null
+  state: 'success' | 'fail'
+}): string {
+  return buildPaymentAutoReturnUrl({
+    locale: input.locale,
+    botId: input.botId,
+    provider: 'robokassa',
+    state: input.state,
+  })
+}
+
 export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables = [] }: NodeSettingsPanelProps) {
   const t = useTranslations('editor.nodeSettings')
+  const tCanvas = useTranslations('editor.canvas')
   const locale = useLocale()
   const { isDirty, bot } = useBotState()
   const [data, setData] = useState<Partial<NodeData>>({})
@@ -276,6 +405,14 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
     () => buildStripeAutoReturnUrl({ locale, botId: bot?.id, state: 'cancel' }),
     [locale, bot?.id]
   )
+  const robokassaAutoSuccessUrl = useMemo(
+    () => buildRobokassaAutoReturnUrl({ locale, botId: bot?.id, state: 'success' }),
+    [locale, bot?.id]
+  )
+  const robokassaAutoFailUrl = useMemo(
+    () => buildRobokassaAutoReturnUrl({ locale, botId: bot?.id, state: 'fail' }),
+    [locale, bot?.id]
+  )
 
   if (!node) {
     return (
@@ -296,7 +433,12 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
     t as any
   )
   const nodeHelpDocsHref = getNodeHelpDocsHref({ locale, nodeType })
-  const nodeHelpSteps = [t('help.step1'), t('help.step2'), t('help.step3')]
+  const nodeHelp = getNodeHelpContent({
+    nodeType,
+    data: data as Partial<NodeData>,
+    tNode: t as unknown as TranslationFn,
+    tCanvas: tCanvas as unknown as TranslationFn,
+  })
   const panelTitle =
     typeof (data as Record<string, unknown> | null)?.__label === 'string' &&
       String((data as Record<string, unknown>).__label || '').trim()
@@ -352,9 +494,9 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
                 <h3 className={`text-white font-semibold ${isDetailedMode ? 'text-base' : ''}`}>{panelTitle}</h3>
                 <HelpGuideButton
                   title={panelTitle}
-                  summary={t('help.summary')}
-                  steps={nodeHelpSteps}
-                  notes={[t('help.note')]}
+                  summary={nodeHelp.summary}
+                  steps={nodeHelp.steps}
+                  notes={[nodeHelp.note]}
                   docsHref={nodeHelpDocsHref}
                 />
               </div>
@@ -469,6 +611,8 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             defaultYookassaReturnUrl={yookassaAutoReturnUrl}
             defaultStripeSuccessUrl={stripeAutoSuccessUrl}
             defaultStripeCancelUrl={stripeAutoCancelUrl}
+            defaultRobokassaSuccessUrl={robokassaAutoSuccessUrl}
+            defaultRobokassaFailUrl={robokassaAutoFailUrl}
             t={t as any}
           />
         )}
@@ -697,8 +841,11 @@ function MessageSettings({
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const formatHintButtonRef = useRef<HTMLButtonElement | null>(null)
   const lastSelectionRef = useRef<{ start: number; end: number } | null>(null)
   const [formatMenu, setFormatMenu] = useState<MessageFormatMenuState | null>(null)
+  const [formatHintPosition, setFormatHintPosition] = useState<{ left: number; top: number } | null>(null)
+  const [isFormatHintVisible, setIsFormatHintVisible] = useState(false)
   const [isAttachmentDragActive, setIsAttachmentDragActive] = useState(false)
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
   const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null)
@@ -739,6 +886,27 @@ function MessageSettings({
     }
   }, [formatMenu])
 
+  useEffect(() => {
+    if (!isFormatHintVisible) return
+
+    const closeHint = () => setIsFormatHintVisible(false)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeHint()
+      }
+    }
+
+    window.addEventListener('scroll', closeHint, true)
+    window.addEventListener('resize', closeHint)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('scroll', closeHint, true)
+      window.removeEventListener('resize', closeHint)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isFormatHintVisible])
+
   const rememberSelection = (textarea: HTMLTextAreaElement) => {
     const start = textarea.selectionStart ?? 0
     const end = textarea.selectionEnd ?? 0
@@ -769,6 +937,23 @@ function MessageSettings({
       selectionEnd,
       hasSelection: selectionStart !== selectionEnd,
     })
+  }
+
+  const openFormatHint = () => {
+    const trigger = formatHintButtonRef.current
+    if (!trigger || typeof window === 'undefined') return
+
+    const rect = trigger.getBoundingClientRect()
+    const tooltipWidth = Math.min(320, Math.max(220, window.innerWidth - 32))
+    const viewportPadding = 12
+    const left = Math.min(
+      window.innerWidth - tooltipWidth - viewportPadding,
+      Math.max(viewportPadding, rect.right - tooltipWidth)
+    )
+    const top = Math.min(rect.bottom + 8, window.innerHeight - 120)
+
+    setFormatHintPosition({ left, top })
+    setIsFormatHintVisible(true)
   }
 
   const applyFormatting = (formatter: (selectedText: string) => string) => {
@@ -932,7 +1117,23 @@ function MessageSettings({
       </div>
 
       <div>
-        <Label htmlFor="msg-parsemode">{tm('formatting')}</Label>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="msg-parsemode">{tm('formatting')}</Label>
+          <div className="relative">
+            <button
+              ref={formatHintButtonRef}
+              type="button"
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/25 text-zinc-400 hover:text-white hover:border-white/40 transition-colors"
+              aria-label={tm('formattingHelpLabel')}
+              onMouseEnter={openFormatHint}
+              onMouseLeave={() => setIsFormatHintVisible(false)}
+              onFocus={openFormatHint}
+              onBlur={() => setIsFormatHintVisible(false)}
+            >
+              <CircleHelp className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
         <Select
           value={data.parseMode || 'None'}
           onValueChange={(value) => onUpdate({ parseMode: value as ParseMode })}
@@ -956,14 +1157,6 @@ function MessageSettings({
             id="msg-preview"
             checked={data.disableWebPagePreview || false}
             onCheckedChange={(checked) => onUpdate({ disableWebPagePreview: checked })}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <Label htmlFor="msg-silent">{tm('silentMode')}</Label>
-          <Switch
-            id="msg-silent"
-            checked={data.disableNotification || false}
-            onCheckedChange={(checked) => onUpdate({ disableNotification: checked })}
           />
         </div>
       </div>
@@ -1107,6 +1300,19 @@ function MessageSettings({
               ))}
             </div>
           )}
+        </div>,
+        document.body
+      )}
+
+      {isFormatHintVisible && formatHintPosition && typeof document !== 'undefined' && createPortal(
+        <div
+          className="pointer-events-none fixed z-[10050] w-80 max-w-[calc(100vw-2rem)] rounded-md border border-white/15 bg-zinc-950/95 px-3 py-2 text-xs text-zinc-300 break-words shadow-xl shadow-black/40"
+          style={{
+            left: formatHintPosition.left,
+            top: formatHintPosition.top,
+          }}
+        >
+          {tm('formattingHelpHint')}
         </div>,
         document.body
       )}
@@ -2531,6 +2737,8 @@ function PaymentSettings({
   defaultYookassaReturnUrl,
   defaultStripeSuccessUrl,
   defaultStripeCancelUrl,
+  defaultRobokassaSuccessUrl,
+  defaultRobokassaFailUrl,
   t,
 }: {
   nodeType: 'paymentYookassa' | 'paymentStripe' | 'paymentRobokassa' | 'paymentStars'
@@ -2540,6 +2748,8 @@ function PaymentSettings({
   defaultYookassaReturnUrl?: string
   defaultStripeSuccessUrl?: string
   defaultStripeCancelUrl?: string
+  defaultRobokassaSuccessUrl?: string
+  defaultRobokassaFailUrl?: string
   t: (key: string) => string
 }) {
   const tp = (key: string) => t(`payment.${key}`)
@@ -2550,12 +2760,18 @@ function PaymentSettings({
   const yookassaReturnUrl = String((data as PaymentYookassaNodeData).returnUrl || '').trim()
   const stripeSuccessUrl = String((data as PaymentStripeNodeData).successUrl || '').trim()
   const stripeCancelUrl = String((data as PaymentStripeNodeData).cancelUrl || '').trim()
+  const robokassaSuccessUrl = String((data as PaymentRobokassaNodeData).successUrl || '').trim()
+  const robokassaFailUrl = String((data as PaymentRobokassaNodeData).failUrl || '').trim()
   const [isReturnUrlCopied, setIsReturnUrlCopied] = useState(false)
   const [isStripeSuccessUrlCopied, setIsStripeSuccessUrlCopied] = useState(false)
   const [isStripeCancelUrlCopied, setIsStripeCancelUrlCopied] = useState(false)
+  const [isRobokassaSuccessUrlCopied, setIsRobokassaSuccessUrlCopied] = useState(false)
+  const [isRobokassaFailUrlCopied, setIsRobokassaFailUrlCopied] = useState(false)
   const returnUrlCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stripeSuccessCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stripeCancelCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const robokassaSuccessCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const robokassaFailCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!isYookassa) return
@@ -2596,6 +2812,32 @@ function PaymentSettings({
   ])
 
   useEffect(() => {
+    if (!isRobokassa) return
+
+    const patch: Partial<PaymentRobokassaNodeData> = {}
+    const fallbackSuccessUrl = String(defaultRobokassaSuccessUrl || '').trim()
+    const fallbackFailUrl = String(defaultRobokassaFailUrl || '').trim()
+
+    if (!robokassaSuccessUrl && fallbackSuccessUrl) {
+      patch.successUrl = fallbackSuccessUrl
+    }
+    if (!robokassaFailUrl && fallbackFailUrl) {
+      patch.failUrl = fallbackFailUrl
+    }
+
+    if (Object.keys(patch).length > 0) {
+      onUpdate(patch as Partial<PaymentRobokassaNodeData>)
+    }
+  }, [
+    isRobokassa,
+    robokassaSuccessUrl,
+    robokassaFailUrl,
+    defaultRobokassaSuccessUrl,
+    defaultRobokassaFailUrl,
+    onUpdate,
+  ])
+
+  useEffect(() => {
     if (!isStars) return
     if (String(data.currency || '').trim().toUpperCase() === 'XTR') return
     onUpdate({ currency: 'XTR' } as Partial<PaymentStarsNodeData>)
@@ -2611,6 +2853,12 @@ function PaymentSettings({
       }
       if (stripeCancelCopyResetTimerRef.current) {
         clearTimeout(stripeCancelCopyResetTimerRef.current)
+      }
+      if (robokassaSuccessCopyResetTimerRef.current) {
+        clearTimeout(robokassaSuccessCopyResetTimerRef.current)
+      }
+      if (robokassaFailCopyResetTimerRef.current) {
+        clearTimeout(robokassaFailCopyResetTimerRef.current)
       }
     }
   }, [])
@@ -2708,6 +2956,55 @@ function PaymentSettings({
       // no-op
     }
   }, [copyTextToClipboard, stripeCancelUrl])
+
+  const handleRegenerateRobokassaUrls = useCallback(() => {
+    const nextSuccessUrl = String(defaultRobokassaSuccessUrl || '').trim()
+    const nextFailUrl = String(defaultRobokassaFailUrl || '').trim()
+    const patch: Partial<PaymentRobokassaNodeData> = {}
+    if (nextSuccessUrl) {
+      patch.successUrl = nextSuccessUrl
+    }
+    if (nextFailUrl) {
+      patch.failUrl = nextFailUrl
+    }
+    if (Object.keys(patch).length > 0) {
+      onUpdate(patch as Partial<PaymentRobokassaNodeData>)
+    }
+  }, [defaultRobokassaSuccessUrl, defaultRobokassaFailUrl, onUpdate])
+
+  const handleCopyRobokassaSuccessUrl = useCallback(async () => {
+    if (!robokassaSuccessUrl) return
+
+    try {
+      await copyTextToClipboard(robokassaSuccessUrl)
+      setIsRobokassaSuccessUrlCopied(true)
+      if (robokassaSuccessCopyResetTimerRef.current) {
+        clearTimeout(robokassaSuccessCopyResetTimerRef.current)
+      }
+      robokassaSuccessCopyResetTimerRef.current = setTimeout(() => {
+        setIsRobokassaSuccessUrlCopied(false)
+      }, 1400)
+    } catch {
+      // no-op
+    }
+  }, [copyTextToClipboard, robokassaSuccessUrl])
+
+  const handleCopyRobokassaFailUrl = useCallback(async () => {
+    if (!robokassaFailUrl) return
+
+    try {
+      await copyTextToClipboard(robokassaFailUrl)
+      setIsRobokassaFailUrlCopied(true)
+      if (robokassaFailCopyResetTimerRef.current) {
+        clearTimeout(robokassaFailCopyResetTimerRef.current)
+      }
+      robokassaFailCopyResetTimerRef.current = setTimeout(() => {
+        setIsRobokassaFailUrlCopied(false)
+      }, 1400)
+    } catch {
+      // no-op
+    }
+  }, [copyTextToClipboard, robokassaFailUrl])
 
   return (
     <div className="space-y-4">
@@ -2912,23 +3209,72 @@ function PaymentSettings({
           </div>
           <div>
             <Label htmlFor="payment-robo-success">{tp('successUrlLabel')}</Label>
-            <Input
-              id="payment-robo-success"
-              value={String((data as PaymentRobokassaNodeData).successUrl || '')}
-              onChange={(event) => onUpdate({ successUrl: event.target.value } as Partial<PaymentRobokassaNodeData>)}
-              placeholder={tp('successUrlPlaceholder')}
-              className="mt-1.5 bg-zinc-800/50 border-white/10"
-            />
+            <div className="relative mt-1.5">
+              <Input
+                id="payment-robo-success"
+                value={robokassaSuccessUrl}
+                readOnly
+                placeholder={tp('successUrlPlaceholder')}
+                className="pr-11 bg-zinc-800/50 border-white/10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-white"
+                onClick={() => void handleCopyRobokassaSuccessUrl()}
+                disabled={!robokassaSuccessUrl}
+                aria-label={isRobokassaSuccessUrlCopied ? tp('successUrlCopiedLabel') : tp('successUrlCopyLabel')}
+                title={isRobokassaSuccessUrlCopied ? tp('successUrlCopiedLabel') : tp('successUrlCopyLabel')}
+              >
+                {isRobokassaSuccessUrlCopied ? (
+                  <Check className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">{tp('successUrlAutoHint')}</p>
           </div>
           <div>
             <Label htmlFor="payment-robo-fail">{tp('failUrlLabel')}</Label>
-            <Input
-              id="payment-robo-fail"
-              value={String((data as PaymentRobokassaNodeData).failUrl || '')}
-              onChange={(event) => onUpdate({ failUrl: event.target.value } as Partial<PaymentRobokassaNodeData>)}
-              placeholder={tp('failUrlPlaceholder')}
-              className="mt-1.5 bg-zinc-800/50 border-white/10"
-            />
+            <div className="relative mt-1.5">
+              <Input
+                id="payment-robo-fail"
+                value={robokassaFailUrl}
+                readOnly
+                placeholder={tp('failUrlPlaceholder')}
+                className="pr-11 bg-zinc-800/50 border-white/10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-white"
+                onClick={() => void handleCopyRobokassaFailUrl()}
+                disabled={!robokassaFailUrl}
+                aria-label={isRobokassaFailUrlCopied ? tp('failUrlCopiedLabel') : tp('failUrlCopyLabel')}
+                title={isRobokassaFailUrlCopied ? tp('failUrlCopiedLabel') : tp('failUrlCopyLabel')}
+              >
+                {isRobokassaFailUrlCopied ? (
+                  <Check className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">{tp('failUrlAutoHint')}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={handleRegenerateRobokassaUrls}
+              disabled={!defaultRobokassaSuccessUrl && !defaultRobokassaFailUrl}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {tp('robokassaUrlsRegenerate')}
+            </Button>
           </div>
           <div>
             <Label htmlFor="payment-robo-invoice-id">{tp('invoiceIdLabel')}</Label>

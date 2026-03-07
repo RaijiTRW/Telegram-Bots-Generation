@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { DocsInlineText } from '@/components/docs/docs-inline-text'
 import { RenderDocsSections } from '@/components/docs/docs-section-renderers'
 import type { DocsContent } from '@/lib/docs/docs-content'
 import type { DocsPageDefinition } from '@/lib/docs/docs-pages'
@@ -36,7 +37,9 @@ export function DocsSectionPage({
         </div>
 
         <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-white leading-tight">{page.title}</h1>
-        <p className="mt-4 text-[15px] md:text-base text-zinc-300 leading-7 max-w-[72ch]">{page.description}</p>
+        <p className="mt-4 text-[15px] md:text-base text-zinc-300 leading-7 max-w-[72ch]">
+          <DocsInlineText text={page.description} />
+        </p>
 
         <div className="mt-6 flex flex-wrap gap-2.5">
           {page.sections.map((sectionId) => {

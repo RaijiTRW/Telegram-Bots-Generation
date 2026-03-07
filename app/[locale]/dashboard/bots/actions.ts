@@ -2,7 +2,7 @@
 
 import { getServerUser, createServerClientWrapper } from '@/lib/supabase/server'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
-import { cookies } from 'next/headers'
+import { getViewerAccess } from '@/lib/billing/server'
 
 export async function getUserBots() {
   const user = await getServerUser()
@@ -30,6 +30,14 @@ export async function createBotAction(data: { name: string; description: string 
   }
 
   try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!viewerAccess.isAdmin && viewerAccess.usage.bots >= viewerAccess.entitlements.maxBots) {
+      return {
+        success: false,
+        error: `Bot limit reached for the current plan (${viewerAccess.entitlements.maxBots}). Upgrade subscription or remove an existing bot.`,
+      }
+    }
+
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
     const newBot = await botService.createBot({

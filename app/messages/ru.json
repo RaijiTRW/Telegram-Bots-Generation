@@ -74,6 +74,9 @@
       "home": "Главная",
       "bots": "Боты",
       "crm": "CRM",
+      "statistics": "Статистика",
+      "subscription": "Подписка",
+      "soon": "скоро",
       "docs": "Документация",
       "cms": "CMS",
       "admin": "Админ",
@@ -95,6 +98,112 @@
       "quickActionsDesc": "Начните с создания своего первого бота",
       "createBot": "Создать нового бота",
       "viewDocs": "Просмотреть документацию"
+    },
+    "globalStatistics": {
+      "title": "Глобальная статистика",
+      "subtitle": "Аналитика по всем ботам: бизнес-метрики, платежи и активность аудитории.",
+      "refresh": "Обновить",
+      "loadError": "Не удалось загрузить глобальную статистику.",
+      "empty": "Недостаточно данных для выбранных фильтров.",
+      "note": "Это общая аналитика по аккаунту. Для детальной диагностики конкретного сценария используйте «Статистика» внутри редактора бота.",
+      "tabs": {
+        "basic": "Базовая",
+        "pro": "Профессиональная"
+      },
+      "proLocked": "Профессиональная аналитика доступна только на соответствующем тарифе.",
+      "filters": {
+        "title": "Фильтры",
+        "period": "Период",
+        "bot": "Бот",
+        "allBots": "Все боты"
+      },
+      "period": {
+        "24h": "За 24 часа",
+        "7d": "За 7 дней",
+        "30d": "За 30 дней",
+        "all": "За всё время"
+      },
+      "currency": {
+        "mixed": "Смешанные валюты (mixed)",
+        "single": "Основная валюта: {currency}",
+        "none": "Валюта не определена"
+      },
+      "kpi": {
+        "revenue": "Выручка",
+        "profit": "Прибыль",
+        "successfulPayments": "Успешные платежи",
+        "pendingFailed": "Ожидание / ошибки",
+        "totalSubscribers": "Всего подписчиков",
+        "activeSubscribers": "Активные в периоде",
+        "newSubscribers": "Новые в периоде",
+        "avgActivity": "Средняя активность пользователя"
+      },
+      "trend": {
+        "title": "Тренд выручки и активности",
+        "revenue": "Выручка",
+        "activity": "Активность"
+      },
+      "topBots": {
+        "title": "Топ ботов по выручке",
+        "columns": {
+          "bot": "Бот",
+          "revenue": "Выручка",
+          "conversion": "Конверсия",
+          "payments": "Успешные платежи"
+        }
+      },
+      "payments": {
+        "title": "Платежи (все боты)",
+        "searchPlaceholder": "Поиск: бот, payer, payment ID, username",
+        "method": "Метод",
+        "status": "Статус",
+        "allMethods": "Все методы",
+        "allStatuses": "Все статусы",
+        "empty": "Платежи по текущим фильтрам не найдены.",
+        "columns": {
+          "bot": "Бот",
+          "payer": "Плательщик",
+          "id": "Payment ID",
+          "amount": "Сумма",
+          "method": "Метод",
+          "status": "Статус",
+          "time": "Время"
+        }
+      },
+      "subscribers": {
+        "title": "Подписчики (все боты)",
+        "searchPlaceholder": "Поиск: имя, username, user ID",
+        "source": "Источник",
+        "allSources": "Все источники",
+        "sourceMessage": "Сообщения",
+        "sourceCallback": "Callback",
+        "sourceUnknown": "Неизвестно",
+        "summary": "Всего: {total} · Активные: {active} · Новые: {newValue}",
+        "empty": "Подписчики по текущим фильтрам не найдены.",
+        "columns": {
+          "bot": "Бот",
+          "user": "Пользователь",
+          "userId": "User ID",
+          "language": "Язык",
+          "source": "Источник",
+          "firstSeen": "Первый контакт",
+          "lastSeen": "Последний контакт"
+        }
+      },
+      "pro": {
+        "averageCheck": "Средний чек",
+        "conversion": "Конверсия в оплату",
+        "repeatPayerRate": "Доля повторных плательщиков",
+        "methodSlice": "Срез по методам",
+        "statusSlice": "Срез по статусам",
+        "topConversion": "Топ ботов по конверсии",
+        "uniquePayers": "Уникальные плательщики"
+      },
+      "pagination": {
+        "pageOf": "Страница {page} из {totalPages} · всего {total}",
+        "prev": "Назад",
+        "next": "Вперёд"
+      }
     },
     "bots": {
       "title": "Боты",
@@ -165,7 +274,7 @@
       "loadError": "Не удалось загрузить профили для админ-панели.",
       "accessDeniedTitle": "Доступ ограничен",
       "accessDeniedDesc": "Эта страница доступна только администраторам.",
-      "bootstrapHint": "Чтобы назначить первого администратора, откройте таблицу `profiles` в Supabase и установите `role = admin` нужному пользователю.",
+      "bootstrapHint": "Чтобы назначить первого администратора, откройте внутренний раздел профилей проекта и установите `role = admin` нужному пользователю.",
       "backHome": "Вернуться на главную",
       "statsTotal": "Всего профилей",
       "statsAdmins": "Администраторов",
@@ -463,10 +572,18 @@
       "settings": "Настройки",
       "settingsDesc": "Конфигурация и опции",
       "botEditor": "Редактор бота",
+      "helpSummary": "Главный экран сборки бота: сначала проектируете логику на Canvas, затем проверяете System и Settings, после этого запускаете Test.",
+      "helpStep1": "Canvas: соберите цепочку нод и проверьте, что у каждой ветки есть продолжение.",
+      "helpStep2": "System: настройте переменные, reply-клавиатуру и системные правила.",
+      "helpStep3": "Settings: проверьте токен/режим запуска, нажмите «Сохранить», затем запускайте Test.",
       "unsavedChanges": "Несохранённые изменения",
       "toSave": "для сохранения",
       "press": "Нажми",
-      "saveShortcutTitle": "Cmd/Ctrl+S для сохранения"
+      "saveShortcutTitle": "Cmd/Ctrl+S для сохранения",
+      "subscriptionRequired": "Требуется тариф с доступом к разделу",
+      "subscriptionBadge": "План",
+      "adminOnly": "Только для администраторов",
+      "adminOnlyBadge": "Admin"
     },
     "statistics": {
       "description": "Технические метрики по выбранному боту.",
@@ -485,6 +602,106 @@
         "eventsPerMinute": "Событий / мин",
         "subscribersTotal": "Подписчиков",
         "subscribersActiveRange": "Активных в периоде"
+      },
+      "tabs": {
+        "technical": "Техническая",
+        "payments": "Оплата",
+        "subscribers": "Подписчики"
+      },
+      "payment": {
+        "loadError": "Не удалось загрузить историю оплат.",
+        "filtersTitle": "Фильтры платежей",
+        "filters": {
+          "searchPlaceholder": "Поиск: кто оплатил, ID, username",
+          "period": "Период",
+          "method": "Метод",
+          "status": "Статус",
+          "allMethods": "Все методы",
+          "allStatuses": "Все статусы"
+        },
+        "period": {
+          "24h": "За 24 часа",
+          "7d": "За 7 дней",
+          "30d": "За 30 дней",
+          "all": "За всё время"
+        },
+        "methods": {
+          "yookassa": "YooKassa",
+          "stripe": "Stripe",
+          "robokassa": "Robokassa",
+          "telegram_stars": "Telegram Stars",
+          "unknown": "Неизвестно"
+        },
+        "statusLabels": {
+          "success": "Успешно",
+          "pending": "В ожидании",
+          "failed": "Неуспешно",
+          "unknown": "Неизвестно"
+        },
+        "summary": {
+          "total": "Всего платежей",
+          "amount": "Сумма",
+          "success": "Успешные",
+          "pendingOrFailed": "Ожидание / ошибки"
+        },
+        "tableTitle": "История платежей",
+        "columns": {
+          "payer": "Кто оплатил",
+          "id": "ID",
+          "amount": "Сумма",
+          "method": "Способ",
+          "status": "Статус",
+          "time": "Время"
+        },
+        "mixedCurrencies": "разные валюты",
+        "empty": "Платежей по текущим фильтрам нет."
+      },
+      "subscribers": {
+        "loadError": "Не удалось загрузить данные по подписчикам.",
+        "filtersTitle": "Фильтры подписчиков",
+        "filters": {
+          "searchPlaceholder": "Поиск: имя, username, ID",
+          "period": "Период",
+          "source": "Источник",
+          "allSources": "Все источники"
+        },
+        "period": {
+          "24h": "За 24 часа",
+          "7d": "За 7 дней",
+          "30d": "За 30 дней",
+          "all": "За всё время"
+        },
+        "source": {
+          "message": "Сообщения",
+          "callbackQuery": "Callback",
+          "unknown": "Неизвестно"
+        },
+        "summary": {
+          "total": "Всего подписчиков",
+          "active": "Активны в периоде",
+          "new": "Новые в периоде",
+          "lastSeen": "Последняя активность"
+        },
+        "analytics": {
+          "sourceTitle": "Распределение по источнику",
+          "languagesTitle": "Топ языков",
+          "languagesEmpty": "Нет данных по языкам."
+        },
+        "tableTitle": "Таблица подписчиков",
+        "columns": {
+          "user": "Пользователь",
+          "userId": "User ID",
+          "language": "Язык",
+          "source": "Источник",
+          "firstSeen": "Первый контакт",
+          "lastSeen": "Последний контакт"
+        },
+        "empty": "Подписчиков по текущим фильтрам нет.",
+        "pagination": {
+          "pageOf": "Страница {page} из {totalPages} · всего {total}",
+          "prev": "Назад",
+          "next": "Вперёд"
+        }
       }
     },
     "help": {
@@ -531,6 +748,11 @@
       "connections": "Связи",
       "canvasEmpty": "Холст пуст",
       "startBuilding": "Начните создавать рабочего бота, перетаскивая узлы из палитры или нажимая на них.",
+      "helpSummary": "Canvas — это сборка сценария: входной триггер, обработка, ветвления и итоговые ответы бота.",
+      "helpStep1": "Соберите сначала короткий рабочий путь (trigger -> message), затем добавляйте ветвления.",
+      "helpStep2": "После каждой структурной правки нажимайте «Сохранить», и только потом запускайте Test.",
+      "helpStep3": "По логам проверяйте фактический путь выполнения и исправляйте по одной проблеме за цикл.",
+      "helpNote": "Рабочий цикл: `правка -> Сохранить -> Test -> логи -> правка`.",
       "palette": {
         "pinned": "закреплено",
         "hoverPreviewClickPin": "Наведи для просмотра, клик для закрепления",
@@ -548,6 +770,10 @@
           "messaging": {
             "label": "Сообщения",
             "hint": "Отправка сообщений и управление клавиатурой"
+          },
+          "ai": {
+            "label": "AI",
+            "hint": "AI-ноды: intent, AI message, AI logic"
           },
           "logic": {
             "label": "Логика",
@@ -569,7 +795,9 @@
             "label": "Другое",
             "hint": "Служебные и прочие ноды"
           }
-        }
+        },
+        "aiSoonBadge": "скоро",
+        "aiLockedHint": "Раздел AI пока недоступен для пользователей."
       },
       "nodeTemplateDescriptions": {
         "triggerCommand": "Запуск workflow по команде пользователя",
@@ -776,6 +1004,11 @@
       "statusError": "Ошибка",
       "currentStatus": "Текущий статус: {status}",
       "help": {
+        "overviewSummary": "Settings управляет подключением бота и режимом запуска. Здесь определяется, как сценарий реально исполняется.",
+        "overviewStep1": "Проверьте, что редактируете нужного бота, и убедитесь в состоянии Telegram токена.",
+        "overviewStep2": "Перед тестом проверьте режим webhook/polling и параметры запуска.",
+        "overviewStep3": "После правок нажмите «Сохранить» в верхнем хедере и только потом запускайте Test.",
+        "overviewNote": "Если логика изменилась, а поведение нет — сначала проверьте Save и режим запуска.",
         "basicSummary": "Здесь задаётся базовая карточка бота: имя, описание и рабочий статус.",
         "basicStep1": "Заполните имя и краткое описание так, чтобы было понятно назначение бота.",
         "basicStep2": "Статус используйте как маркер жизненного цикла: draft -> active -> archived.",
@@ -852,6 +1085,16 @@
     "system": {
       "title": "Система",
       "subtitle": "Логика бота и конфигурация",
+      "help": {
+        "overviewSummary": "Раздел System управляет глобальным поведением бота: переменные, клавиатура, реакции и режим сбора подписчиков.",
+        "overviewStep1": "Сначала создайте и опишите переменные, которые используются в нодах Message/Condition/Router.",
+        "overviewStep2": "Далее настройте Reply Keyboard и правила переключения по условию (если нужны разные меню).",
+        "overviewStep3": "После изменений сохраните редактор и проверьте поведение в Test + логах.",
+        "botInfoSummary": "Карточка ниже показывает техническое состояние бота и помогает быстро проверить, что вы редактируете нужный бот.",
+        "botInfoStep1": "Сверьте Bot ID перед внесением критичных изменений.",
+        "botInfoStep2": "Проверьте статус бота и дату последнего обновления после сохранения.",
+        "botInfoStep3": "Если данные не обновляются, сначала проверьте Save, затем перезапустите Test."
+      },
       "nodes": "Узлы",
       "variables": "Переменные",
       "connections": "Связи",
@@ -875,14 +1118,13 @@
       "booleanTrue": "Да",
       "booleanFalse": "Нет",
       "eventTriggers": "Триггеры событий",
-      "active": "активно",
+      "active": "Активен",
       "tip": "Совет:",
       "tipText": "Включите триггеры, чтобы определить, когда бот должен отвечать на события. Используйте Настроить для добавления фильтров и пользовательского поведения для каждого типа триггера.",
       "configureTrigger": "Настроить триггер",
       "save": "Сохранить",
       "cancel": "Отмена",
       "configure": "Настроить",
-      "active": "Активен",
       "inactive": "Неактивен",
       "onBotStart": "При запуске бота",
       "onBotStartDesc": "Срабатывает, когда пользователь запускает бота или отправляет команду /start",
@@ -912,7 +1154,7 @@
       "separateCommands": "Разделяйте несколько команд запятыми",
       "commandsPlaceholder": "/help, /start, /about",
       "regexPlaceholder": "regex шаблон",
-      "inlineQueryTemplatePlaceholder": "@{bot} {query}",
+      "inlineQueryTemplatePlaceholder": "@bot query",
       "notAvailable": "N/A",
       "autoReactions": {
         "title": "Доп. функция: Реакции Telegram",
@@ -941,6 +1183,7 @@
         "description": "Собирает базу пользователей, которые пишут боту (это не подписчики канала Telegram).",
         "enabled": "Включено",
         "disabled": "Выключено",
+        "analyticsInStatistics": "Подробная таблица и аналитика доступны в разделе «Статистика → Подписчики».",
         "totalLabel": "Всего подписчиков",
         "active7dLabel": "Активны за 7 дней",
         "lastSeenLabel": "Последний визит",
@@ -1044,6 +1287,11 @@
       "quickActions": "Быстрые действия:",
       "enterToSend": "Нажмите Enter для отправки, Shift+Enter для новой строки",
       "panelSubtitle": "Создавайте бота с помощью AI",
+      "helpSummary": "AI Assistant ускоряет проектирование, но прод-логика определяется только реальными нодами на Canvas.",
+      "helpStep1": "Опишите задачу по-бизнесовому: вход пользователя, ожидаемый ответ и fallback.",
+      "helpStep2": "Используйте AI-ответ как черновик и переносите логику в ноды вручную.",
+      "helpStep3": "Проверяйте результат через Test и логи до статуса «готово».",
+      "helpNote": "AI-подсказки ускоряют работу, но проверка и финальное решение всегда вручную.",
       "poweredByAI": "Работает на AI",
       "suggestionsPrefix": "Подсказки",
       "errorFallback": "Извините, произошла ошибка. Попробуйте ещё раз.",
@@ -1125,8 +1373,13 @@
       "deployModalDesc": "Можно развернуть бота на нашем сервере или скачать архив с кодом.",
       "deployHostedTitle": "Развернуть на нашем сервере",
       "deployHostedDesc": "Запустить развертывание на нашем хостинге.",
+      "deployHostedLockedDesc": "Managed hosting доступен начиная с тарифа Business.",
       "downloadZipTitle": "Скачать бота (ZIP)",
-      "downloadZipDesc": "Скачать исходный код бота в ZIP-архиве.",
+      "downloadZipDesc": "Скачать готового Python-бота в ZIP (main.py, requirements.txt, workflow.json).",
+      "zipRunGuideTitle": "Как запустить бота из скачанного ZIP",
+      "zipRunGuideDesc": "Выполните команды ниже в терминале внутри папки проекта.",
+      "zipRunEnvComment": "создать .env с BOT_TOKEN=...",
+      "zipRunGuideClose": "Понятно",
       "cancel": "Отмена",
       "autoOpenTelegram": "Авто-переход в Telegram",
       "unsavedChanges": "Несохранённые изменения",
@@ -1150,7 +1403,32 @@
         "step1": "Заполняйте поля сверху вниз: входные параметры, условия, выходные данные.",
         "step2": "Сверяйте, что редактируете нужную ноду по ID и названию в шапке.",
         "step3": "После правок запустите Test и проверьте путь выполнения в логах.",
-        "note": "Изменения сразу видны на холсте. Чтобы они сохранились навсегда, нажмите «Сохранить» в верхней панели."
+        "note": "Изменения сразу видны на холсте. Чтобы они сохранились навсегда, нажмите «Сохранить» в верхней панели.",
+        "notes": {
+          "trigger-command": "Запуск по команде — лучший вход для сценариев `/start`, `/menu`, `/help`.",
+          "trigger-text": "Text Trigger используйте для reply-кнопок и текстовых команд пользователя.",
+          "trigger-callback": "Callback Trigger работает только с inline-кнопками из Message.",
+          "trigger-schedule": "Проверьте timezone и target chat/user, иначе запуск по расписанию уйдёт не туда.",
+          "trigger-ai": "AI Trigger держите с fallback-веткой, чтобы сценарий не зависел от одной классификации.",
+          "message": "Для персонализации используйте двойные фигурные скобки с именем переменной.",
+          "message-ai": "AI Message всегда настраивайте вместе с fallback-текстом на случай сбоя AI.",
+          "input": "Давайте переменным осмысленные имена (`name`, `phone`, `budget`) для поддержки сценария.",
+          "condition": "Подключайте обе ветки (true/false), чтобы не оставлять тупиковых путей.",
+          "condition-ai": "AI Logic проверяйте на 5-10 реальных примерах перед боевым запуском.",
+          "router": "Router удобнее цепочки Condition, когда вариантов ветвления больше двух.",
+          "scheduler": "Для задержек и даты всегда сверяйте timezone, особенно для международных ботов.",
+          "reply-keyboard": "Reply Keyboard отправляет обычный текст. Ловите нажатия через Text Trigger.",
+          "action": "После Action проверяйте результат следующей нодой Message или через логи.",
+          "script": "Script держите коротким и предсказуемым: вход `input/context/vars`, выход `result`.",
+          "http": "Для HTTP заранее задавайте timeout и обработку ошибок, чтобы сценарий не зависал.",
+          "webhook": "Webhook/HTTP требуют стабильный endpoint и валидацию ответа перед следующими шагами.",
+          "payment-yookassa": "Платёжные ключи храните только как секреты и тестируйте отдельно test/live окружения.",
+          "payment-stripe": "Для Stripe проверьте success/cancel URL и корректность валюты/суммы.",
+          "payment-robokassa": "Robokassa требует корректные MerchantLogin/пароли и проверку callback-потока.",
+          "payment-stars": "Telegram Stars используйте через inline-кнопки или ссылку, не через Reply Keyboard.",
+          "wait": "Wait/Scheduler влияет на runtime-сессию, учитывайте рестарт процесса при тестах.",
+          "comment": "Comment-нода не влияет на выполнение, используйте её как документацию сценария."
+        }
       },
       "nodeId": "ID:",
       "message": {
@@ -1159,6 +1437,8 @@
         "variableHint": "Используйте переменную для вставки значений",
         "formatContextHint": "Подсказка: выделите текст и нажмите правую кнопку мыши для быстрого форматирования",
         "formatting": "Форматирование",
+        "formattingHelpLabel": "Подсказка по форматированию",
+        "formattingHelpHint": "Без форматирования — обычный текст. Markdown/MarkdownV2/HTML включают стили (жирный, курсив, ссылки). Для MarkdownV2 спецсимволы нужно экранировать.",
         "none": "Без форматирования",
         "markdown": "Markdown",
         "markdownV2": "MarkdownV2",
@@ -1328,6 +1608,10 @@
         "password1Placeholder": "password_1",
         "failUrlLabel": "Fail URL",
         "failUrlPlaceholder": "https://example.com/payment/fail",
+        "failUrlAutoHint": "URL формируется автоматически на основе домена проекта.",
+        "failUrlCopyLabel": "Скопировать Fail URL",
+        "failUrlCopiedLabel": "Fail URL скопирован",
+        "robokassaUrlsRegenerate": "Перегенерировать Success/Fail URL",
         "invoiceIdLabel": "Invoice ID (опционально)",
         "invoiceIdPlaceholder": "order_1001",
         "testModeLabel": "Тестовый режим",
@@ -1340,11 +1624,11 @@
         "currencyPlaceholder": "RUB / USD / EUR",
         "starsCurrencyHint": "Для Telegram Stars валюта фиксирована: XTR.",
         "descriptionLabel": "Описание платежа",
-        "descriptionPlaceholder": "Оплата заказа №'{{orderId}}'",
+        "descriptionPlaceholder": "Оплата заказа №orderId",
         "autoSendPaymentLinkLabel": "Авто-отправить ссылку пользователю",
         "messageTemplateLabel": "Шаблон сообщения с ссылкой",
-        "messageTemplatePlaceholder": "Оплатите заказ: '{{payment.url}}'",
-        "messageTemplateHint": "Доступны переменные: '{{payment.url}}', '{{payment.paymentId}}', '{{payment.status}}', '{{payment.amount}}', '{{payment.currency}}'",
+        "messageTemplatePlaceholder": "Оплатите заказ: payment.url",
+        "messageTemplateHint": "Доступные переменные: payment.url, payment.paymentId, payment.status, payment.amount, payment.currency",
         "saveToVariableLabel": "Сохранить результат в переменную",
         "saveToVariablePlaceholder": "payment"
       },
@@ -1415,8 +1699,8 @@
         "actionUrl": "URL ссылка",
         "actionStars": "Оплата Telegram Stars",
         "urlPlaceholder": "https://example.com",
-        "starsUrlPlaceholder": "'{{payment.url}}'",
-        "starsHint": "Обычно используется '{{payment.url}}' из ноды Telegram Stars."
+        "starsUrlPlaceholder": "payment.url",
+        "starsHint": "Обычно используется переменная payment.url из ноды Telegram Stars."
       },
       "router": {
         "variableLabel": "Переменная",
@@ -1695,28 +1979,64 @@
       "product": {
         "title": "Продукт",
         "links": [
-          { "label": "Возможности", "href": "#features" },
-          { "label": "Шаблоны", "href": "#templates" },
-          { "label": "Цены", "href": "#pricing" },
-          { "label": "Документация", "href": "#docs" }
+          {
+            "label": "Возможности",
+            "href": "#features"
+          },
+          {
+            "label": "Шаблоны",
+            "href": "#templates"
+          },
+          {
+            "label": "Цены",
+            "href": "/pricing"
+          },
+          {
+            "label": "Документация",
+            "href": "#docs"
+          }
         ]
       },
       "resources": {
         "title": "Ресурсы",
         "links": [
-          { "label": "Блог", "href": "#blog" },
-          { "label": "API", "href": "#api" },
-          { "label": "Сообщество", "href": "#community" },
-          { "label": "Помощь", "href": "#help" }
+          {
+            "label": "Блог",
+            "href": "#blog"
+          },
+          {
+            "label": "API",
+            "href": "#api"
+          },
+          {
+            "label": "Сообщество",
+            "href": "#community"
+          },
+          {
+            "label": "Помощь",
+            "href": "#help"
+          }
         ]
       },
       "company": {
         "title": "Компания",
         "links": [
-          { "label": "О нас", "href": "#about" },
-          { "label": "Карьера", "href": "#careers" },
-          { "label": "Конфиденциальность", "href": "#privacy" },
-          { "label": "Условия", "href": "#terms" }
+          {
+            "label": "О нас",
+            "href": "#about"
+          },
+          {
+            "label": "Карьера",
+            "href": "#careers"
+          },
+          {
+            "label": "Конфиденциальность",
+            "href": "#privacy"
+          },
+          {
+            "label": "Условия",
+            "href": "#terms"
+          }
         ]
       }
     },

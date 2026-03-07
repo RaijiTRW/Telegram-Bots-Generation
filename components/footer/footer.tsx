@@ -1,21 +1,30 @@
 'use client';
 
-import { useTranslations, useLocale } from 'next-intl';
+import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { motion } from '@/components/motion-wrapper';
 import { TFlowLogo } from '@/components/logo';
-import { CheckCircle2, Github, Twitter } from 'lucide-react';
+import { Github, Twitter } from 'lucide-react';
 
 export function Footer() {
-  const t = useTranslations('footer');
   const locale = useLocale();
   const currentYear = new Date().getFullYear();
 
   const isRu = locale === 'ru';
 
   const productLinks = isRu
-    ? ['Возможности', 'Цены', 'Документация', 'API']
-    : ['Features', 'Pricing', 'Documentation', 'API'];
+    ? [
+        { label: 'Возможности', href: `/${locale}#features` },
+        { label: 'Цены', href: `/${locale}/pricing` },
+        { label: 'Документация', href: `/${locale}/docs` },
+        { label: 'API', href: `/${locale}/docs` },
+      ]
+    : [
+        { label: 'Features', href: `/${locale}#features` },
+        { label: 'Pricing', href: `/${locale}/pricing` },
+        { label: 'Documentation', href: `/${locale}/docs` },
+        { label: 'API', href: `/${locale}/docs` },
+      ];
 
   const companyLinks = isRu
     ? ['О нас', 'Блог', 'Карьера', 'Контакты']
@@ -155,7 +164,7 @@ export function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            <Link href="/" className="flex items-center gap-2 mb-4 group">
+            <Link href={`/${locale}`} className="flex items-center gap-2 mb-4 group">
               <TFlowLogo className="w-32 h-10" showText={false} />
             </Link>
             <p className="text-sm text-white/60 leading-relaxed">
@@ -173,13 +182,13 @@ export function Footer() {
             <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Продукт' : 'Product'}</h4>
             <ul className="space-y-2">
               {productLinks.map((link) => (
-                <li key={link}>
+                <li key={link.label}>
                   <motion.a
-                    href="#"
+                    href={link.href}
                     className="text-sm text-white/60 hover:text-white transition-colors inline-block"
                     whileHover={{ x: 3 }}
                   >
-                    {link}
+                    {link.label}
                   </motion.a>
                 </li>
               ))}

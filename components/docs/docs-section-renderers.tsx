@@ -51,7 +51,9 @@ export function InfoList({ items }: { items: string[] }) {
       {items.map((item) => (
         <li key={item} className="flex items-start gap-3 text-sm md:text-[15px] text-zinc-300 leading-7">
           <CheckCircle2 className="w-5 h-5 text-[#24A1DE] mt-0.5 shrink-0 opacity-80" />
-          <span><DocsInlineText text={item} /></span>
+          <span className="min-w-0 break-words">
+            <DocsInlineText text={item} />
+          </span>
         </li>
       ))}
     </ul>
@@ -127,7 +129,9 @@ function NodeGroupCard({ group, isRu }: { group: DocsNodeGroup; isRu: boolean })
     <div className="rounded-3xl border border-white/10 bg-zinc-900/40 backdrop-blur-xl p-6 md:p-8 shadow-sm">
       <div className="mb-6">
         <h3 className="text-2xl font-bold text-white tracking-wide">{group.title}</h3>
-        <p className="mt-3 text-base text-zinc-400 leading-relaxed max-w-3xl">{group.description}</p>
+        <p className="mt-3 text-base text-zinc-400 leading-relaxed max-w-3xl">
+          <DocsInlineText text={group.description} />
+        </p>
       </div>
 
       <div className="space-y-4">
@@ -151,9 +155,12 @@ function NodeGroupCard({ group, isRu }: { group: DocsNodeGroup; isRu: boolean })
                       {item.kind}
                     </span>
                   </div>
-                  <p className="mt-3 text-base text-zinc-300 leading-relaxed line-clamp-2">{item.purpose}</p>
+                  <p className="mt-3 text-base text-zinc-300 leading-relaxed line-clamp-2">
+                    <DocsInlineText text={item.purpose} />
+                  </p>
                   <p className="mt-2 text-sm text-zinc-500 flex items-center gap-1.5">
-                    <span className="font-medium text-zinc-400">{isRu ? 'Когда использовать:' : 'When to use:'}</span> {item.whenToUse}
+                    <span className="font-medium text-zinc-400">{isRu ? 'Когда использовать:' : 'When to use:'}</span>{' '}
+                    <DocsInlineText text={item.whenToUse} />
                   </p>
                 </div>
                 <div className="shrink-0 rounded-lg border border-white/10 bg-white/5 p-2 text-zinc-400 group-hover:bg-white/10 group-hover:text-white transition-colors">
@@ -167,7 +174,9 @@ function NodeGroupCard({ group, isRu }: { group: DocsNodeGroup; isRu: boolean })
                 <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-2.5">
                   {isRu ? 'Когда использовать' : 'When to use'}
                 </div>
-                <p className="text-base text-zinc-300 leading-relaxed">{item.whenToUse}</p>
+                <p className="text-base text-zinc-300 leading-relaxed">
+                  <DocsInlineText text={item.whenToUse} />
+                </p>
               </div>
 
               <div className="rounded-xl border border-white/10 bg-white/5 p-5 xl:col-span-2">
@@ -182,7 +191,9 @@ function NodeGroupCard({ group, isRu }: { group: DocsNodeGroup; isRu: boolean })
               <div className="text-sm font-semibold tracking-wide text-emerald-400 mb-2">
                 {isRu ? 'Результат / Выход' : 'Result / Output'}
               </div>
-              <p className="text-base text-zinc-200 leading-relaxed">{item.output}</p>
+              <p className="text-base text-zinc-200 leading-relaxed">
+                <DocsInlineText text={item.output} />
+              </p>
             </div>
 
             {item.notes && item.notes.length > 0 && (
@@ -193,7 +204,7 @@ function NodeGroupCard({ group, isRu }: { group: DocsNodeGroup; isRu: boolean })
                 <ul className="space-y-2">
                   {item.notes.map((note) => (
                     <li key={note} className="text-base text-zinc-300 leading-relaxed flex items-start gap-2">
-                      <span className="text-amber-400/50 mt-1">•</span> {note}
+                      <span className="text-amber-400/50 mt-1">•</span> <DocsInlineText text={note} />
                     </li>
                   ))}
                 </ul>
@@ -215,6 +226,14 @@ function QuickStartStepCard({
   index: number
   isRu: boolean
 }) {
+  const quickVideoTitle =
+    step.quickVideoSlotTitle || (isRu ? `Подробнее по шагу: ${step.title}` : `Step detail: ${step.title}`)
+  const quickVideoDescription =
+    step.quickVideoSlotDescription ||
+    (isRu
+      ? 'Короткое видео (без звука): движение курсора и клики только для этого шага.'
+      : 'Short silent clip: cursor movement and clicks for this specific step.')
+
   return (
     <div
       id={`quickstart-${step.id}`}
@@ -226,7 +245,9 @@ function QuickStartStepCard({
         </div>
         <div className="min-w-0 flex-1 pt-1">
           <h3 className="text-2xl font-semibold text-white tracking-wide">{step.title}</h3>
-          <p className="mt-2 text-base text-zinc-400 leading-relaxed">{step.goal}</p>
+          <p className="mt-2 text-base text-zinc-400 leading-relaxed">
+            <DocsInlineText text={step.goal} />
+          </p>
         </div>
       </div>
 
@@ -245,6 +266,10 @@ function QuickStartStepCard({
         </div>
       </div>
 
+      <div className="mt-5">
+        <VideoPlaceholder title={quickVideoTitle} description={quickVideoDescription} />
+      </div>
+
       <details className="mt-5 rounded-xl border border-white/10 bg-zinc-900/40 p-5 group transition-all duration-300">
         <summary className="list-none cursor-pointer flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
           <div className="text-base font-medium text-zinc-300 group-hover:text-white transition-colors">
@@ -252,14 +277,16 @@ function QuickStartStepCard({
           </div>
           <ChevronDown className="w-5 h-5 text-zinc-400 transition-transform group-open:rotate-180" />
         </summary>
-        <div className="mt-5 pt-5 border-t border-white/10 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-5">
-            <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-4">
-              {isRu ? 'Что делает система' : 'System behavior'}
+        <div className="mt-5 pt-5 border-t border-white/10">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+              <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-4">
+                {isRu ? 'Что делает система' : 'System behavior'}
+              </div>
+              <CollapsibleList items={step.systemBehavior} isRu={isRu} visibleCount={2} />
             </div>
-            <CollapsibleList items={step.systemBehavior} isRu={isRu} visibleCount={2} />
+            <VideoPlaceholder title={step.videoSlotTitle} />
           </div>
-          <VideoPlaceholder title={step.videoSlotTitle} />
         </div>
       </details>
     </div>
@@ -278,10 +305,11 @@ function TestDeployStepCard({ step, index, isRu }: { step: DocsSupportStep; inde
           <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-5">
             <CollapsibleList items={step.actions} isRu={isRu} visibleCount={2} />
           </div>
-          <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-5 text-base text-zinc-200 leading-relaxed shadow-sm">
-            <span className="font-semibold text-emerald-400 mr-2">{isRu ? 'Результат:' : 'Outcome:'}</span> {step.outcome}
-          </div>
+        <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-5 text-base text-zinc-200 leading-relaxed shadow-sm">
+          <span className="font-semibold text-emerald-400 mr-2">{isRu ? 'Результат:' : 'Outcome:'}</span>{' '}
+          <DocsInlineText text={step.outcome} />
         </div>
+      </div>
       </div>
       <div className="mt-5 pl-14">
         <VideoPlaceholder title={step.videoSlotTitle} />
@@ -331,12 +359,16 @@ export function ServiceFlowSection({ content }: { content: DocsContent }) {
               className="w-[300px] sm:w-[330px] shrink-0 snap-start rounded-2xl border border-white/10 bg-zinc-950/55 p-5 flex flex-col hover:bg-zinc-950/75 transition-colors duration-300"
             >
               <h3 className="text-lg font-semibold text-white leading-7">{stage.title}</h3>
-              <p className="mt-2 text-sm text-zinc-400 leading-7 flex-1">{stage.description}</p>
+              <p className="mt-2 text-sm text-zinc-400 leading-7 flex-1">
+                <DocsInlineText text={stage.description} />
+              </p>
               <div className="mt-4 rounded-xl border border-[#24A1DE]/20 bg-[#24A1DE]/5 p-3.5">
                 <div className="text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">
                   {isRu ? 'Результат этапа' : 'Stage output'}
                 </div>
-                <div className="text-sm font-medium text-zinc-200 leading-7">{stage.output}</div>
+                <div className="text-sm font-medium text-zinc-200 leading-7">
+                  <DocsInlineText text={stage.output} />
+                </div>
               </div>
             </article>
           ))}
@@ -351,23 +383,24 @@ export function EditorAreasSection({ content }: { content: DocsContent }) {
   return (
     <section id="editor-areas" className="scroll-mt-28 rounded-3xl border border-white/10 bg-zinc-900/40 backdrop-blur-xl p-6 md:p-8 shadow-sm">
       <SectionHeader title={content.editorAreas.title} description={content.editorAreas.description} />
-      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 gap-5">
         {content.editorAreas.cards.map((card) => (
-          <div key={card.id} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-5 md:p-6">
+          <div key={card.id} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-5 md:p-6 min-w-0">
             <h3 className="text-xl font-bold text-white tracking-wide">{card.title}</h3>
             <div className="mt-1.5 text-sm md:text-base text-zinc-400">{card.subtitle}</div>
             <div className="mt-4 text-sm md:text-base text-zinc-300 leading-7">
-              <span className="text-zinc-500">{isRu ? 'Когда использовать:' : 'When to use:'}</span> {card.whenToUse}
+              <span className="text-zinc-500">{isRu ? 'Когда использовать:' : 'When to use:'}</span>{' '}
+              <DocsInlineText text={card.whenToUse} />
             </div>
-            <div className="mt-5 grid grid-cols-1 gap-4">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="mt-5 flex flex-col gap-4 min-w-0">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 min-w-0">
                 <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-3">
                   {isRu ? 'Основные действия' : 'Main actions'}
                 </div>
                 <InfoList items={card.actions} />
               </div>
               {card.useCases && card.useCases.length > 0 ? (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 min-w-0">
                   <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-3">
                     {isRu ? 'Типовые задачи' : 'Typical tasks'}
                   </div>
@@ -375,7 +408,7 @@ export function EditorAreasSection({ content }: { content: DocsContent }) {
                 </div>
               ) : null}
               {card.storageNotes && card.storageNotes.length > 0 ? (
-                <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/5 p-4 xl:col-span-2">
+                <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/5 p-4 min-w-0">
                   <div className="text-xs uppercase tracking-wider font-semibold text-cyan-300 mb-3">
                     {isRu ? 'Где это хранится' : 'Where this is stored'}
                   </div>
@@ -383,7 +416,7 @@ export function EditorAreasSection({ content }: { content: DocsContent }) {
                 </div>
               ) : null}
               {card.commonMistakes && card.commonMistakes.length > 0 ? (
-                <div className="rounded-xl border border-amber-300/20 bg-amber-400/5 p-4 xl:col-span-2">
+                <div className="rounded-xl border border-amber-300/20 bg-amber-400/5 p-4 min-w-0">
                   <div className="text-xs uppercase tracking-wider font-semibold text-amber-300 mb-3">
                     {isRu ? 'Частые ошибки' : 'Common mistakes'}
                   </div>
@@ -392,7 +425,8 @@ export function EditorAreasSection({ content }: { content: DocsContent }) {
               ) : null}
             </div>
             <div className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-base text-zinc-200 shadow-sm">
-              <span className="font-semibold text-emerald-400 mr-2">{isRu ? 'Результат:' : 'Result:'}</span> {card.result}
+              <span className="font-semibold text-emerald-400 mr-2">{isRu ? 'Результат:' : 'Result:'}</span>{' '}
+              <DocsInlineText text={card.result} />
             </div>
           </div>
         ))}
@@ -462,6 +496,20 @@ export function KeyboardsAndTriggersSection({ content }: { content: DocsContent 
       <div className="rounded-2xl border border-amber-300/20 bg-amber-400/5 p-5 text-base text-zinc-200 leading-relaxed mb-6 shadow-sm">
         <DocsInlineText text={content.keyboardsAndTriggers.note} />
       </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+        <div className="rounded-xl border border-cyan-300/20 bg-cyan-500/5 p-4 shadow-sm">
+          <div className="text-xs uppercase tracking-wider font-semibold text-cyan-300 mb-3">
+            {isRu ? 'Быстрые правила' : 'Quick rules'}
+          </div>
+          <CollapsibleList items={content.keyboardsAndTriggers.quickRules} isRu={isRu} visibleCount={4} />
+        </div>
+        <div className="rounded-xl border border-emerald-300/20 bg-emerald-500/5 p-4 shadow-sm">
+          <div className="text-xs uppercase tracking-wider font-semibold text-emerald-300 mb-3">
+            {isRu ? 'Чек-лист диагностики' : 'Debug checklist'}
+          </div>
+          <CollapsibleList items={content.keyboardsAndTriggers.debugChecklist} isRu={isRu} visibleCount={4} />
+        </div>
+      </div>
       <details className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4 group transition-all duration-300">
         <summary className="list-none cursor-pointer flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
           <div className="text-base font-semibold text-zinc-200 group-hover:text-white transition-colors">
@@ -482,14 +530,150 @@ export function KeyboardsAndTriggersSection({ content }: { content: DocsContent 
               {content.keyboardsAndTriggers.rows.map((row) => (
                 <tr key={row.topic} className="border-b border-white/5 last:border-b-0">
                   <td className="px-5 py-4 text-zinc-200 font-medium align-top">{row.topic}</td>
-                  <td className="px-5 py-4 text-zinc-300 align-top leading-relaxed">{row.replyKeyboard}</td>
-                  <td className="px-5 py-4 text-zinc-300 align-top leading-relaxed">{row.inlineKeyboard}</td>
+                  <td className="px-5 py-4 text-zinc-300 align-top leading-relaxed">
+                    <DocsInlineText text={row.replyKeyboard} />
+                  </td>
+                  <td className="px-5 py-4 text-zinc-300 align-top leading-relaxed">
+                    <DocsInlineText text={row.inlineKeyboard} />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </details>
+      <details className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4 group transition-all duration-300 mt-4">
+        <summary className="list-none cursor-pointer flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
+          <div className="text-base font-semibold text-zinc-200 group-hover:text-white transition-colors">
+            {isRu ? 'Практические сценарии настройки' : 'Practical setup scenarios'}
+          </div>
+          <ChevronDown className="w-5 h-5 text-zinc-400 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-4 space-y-4">
+          {content.keyboardsAndTriggers.scenarios.map((scenario, index) => (
+            <div key={scenario.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h4 className="text-lg font-semibold text-white">
+                {index + 1}. {scenario.title}
+              </h4>
+              <p className="mt-2 text-sm text-zinc-300 leading-relaxed">
+                <span className="text-zinc-400">{isRu ? 'Когда использовать:' : 'When to use:'} </span>
+                <DocsInlineText text={scenario.whenToUse} />
+              </p>
+              <div className="mt-3">
+                <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-2">
+                  {isRu ? 'Шаги' : 'Steps'}
+                </div>
+                <CollapsibleList items={scenario.steps} isRu={isRu} visibleCount={3} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/5 p-3">
+                  <div className="text-xs uppercase tracking-wider font-semibold text-emerald-300 mb-1">
+                    {isRu ? 'Ожидаемый результат' : 'Expected result'}
+                  </div>
+                  <p className="text-sm text-zinc-200 leading-relaxed">
+                    <DocsInlineText text={scenario.result} />
+                  </p>
+                </div>
+                <div className="rounded-lg border border-sky-300/20 bg-sky-500/5 p-3">
+                  <div className="text-xs uppercase tracking-wider font-semibold text-sky-300 mb-1">
+                    {isRu ? 'Сигнал в логах' : 'Runtime signal'}
+                  </div>
+                  <p className="text-sm text-zinc-200 leading-relaxed">
+                    <DocsInlineText text={scenario.runtimeSignal} />
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-lg border border-amber-300/20 bg-amber-500/5 p-3">
+                <div className="text-xs uppercase tracking-wider font-semibold text-amber-300 mb-2">
+                  {isRu ? 'Частые ошибки' : 'Common mistakes'}
+                </div>
+                <CollapsibleList items={scenario.commonMistakes} isRu={isRu} visibleCount={2} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
+      <details className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4 group transition-all duration-300 mt-4">
+        <summary className="list-none cursor-pointer flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
+          <div className="text-base font-semibold text-zinc-200 group-hover:text-white transition-colors">
+            {isRu ? 'Анти-паттерны (что не делать)' : 'Anti-patterns (what to avoid)'}
+          </div>
+          <ChevronDown className="w-5 h-5 text-zinc-400 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-4 rounded-xl border border-rose-300/20 bg-rose-500/5 p-4">
+          <CollapsibleList items={content.keyboardsAndTriggers.antiPatterns} isRu={isRu} visibleCount={4} />
+        </div>
+      </details>
+    </section>
+  )
+}
+
+export function StatisticsSection({ content }: { content: DocsContent }) {
+  const isRu = content.locale === 'ru'
+  return (
+    <section id="statistics" className="scroll-mt-28 rounded-3xl border border-white/10 bg-zinc-900/40 backdrop-blur-xl p-6 md:p-8 shadow-sm">
+      <SectionHeader title={content.statistics.title} description={content.statistics.description} />
+      <div className="rounded-2xl border border-sky-300/20 bg-sky-500/5 p-5 text-base text-zinc-200 leading-relaxed mb-6 shadow-sm">
+        <DocsInlineText text={content.statistics.note} />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+        <div className="rounded-xl border border-cyan-300/20 bg-cyan-500/5 p-4 shadow-sm">
+          <div className="text-xs uppercase tracking-wider font-semibold text-cyan-300 mb-3">
+            {isRu ? 'Рабочий цикл' : 'Operational cycle'}
+          </div>
+          <CollapsibleList items={content.statistics.workflow} isRu={isRu} visibleCount={4} />
+        </div>
+        <div className="rounded-xl border border-amber-300/20 bg-amber-500/5 p-4 shadow-sm">
+          <div className="text-xs uppercase tracking-wider font-semibold text-amber-300 mb-3">
+            {isRu ? 'Диагностика' : 'Diagnostics'}
+          </div>
+          <CollapsibleList items={content.statistics.diagnostics} isRu={isRu} visibleCount={4} />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {content.statistics.tabs.map((tab, index) => (
+          <CompactDetails
+            key={tab.id}
+            title={`${index + 1}. ${tab.title}`}
+            subtitle={tab.description}
+            defaultOpen={index === 0}
+          >
+            <div className="space-y-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-2">
+                  {isRu ? 'Когда использовать' : 'When to use'}
+                </div>
+                <p className="text-base text-zinc-300 leading-relaxed">
+                  <DocsInlineText text={tab.whenToUse} />
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wider font-semibold text-zinc-400 mb-3">
+                    {isRu ? 'Фильтры и диапазоны' : 'Filters and ranges'}
+                  </div>
+                  <CollapsibleList items={tab.filters} isRu={isRu} visibleCount={3} />
+                </div>
+                <div className="rounded-xl border border-emerald-300/20 bg-emerald-500/5 p-4">
+                  <div className="text-xs uppercase tracking-wider font-semibold text-emerald-300 mb-3">
+                    {isRu ? 'KPI и ключевые метрики' : 'KPI and key metrics'}
+                  </div>
+                  <CollapsibleList items={tab.kpis} isRu={isRu} visibleCount={3} />
+                </div>
+                <div className="rounded-xl border border-violet-300/20 bg-violet-500/5 p-4">
+                  <div className="text-xs uppercase tracking-wider font-semibold text-violet-300 mb-3">
+                    {isRu ? 'Что смотреть глубже' : 'Deep-dive checks'}
+                  </div>
+                  <CollapsibleList items={tab.details} isRu={isRu} visibleCount={3} />
+                </div>
+              </div>
+            </div>
+          </CompactDetails>
+        ))}
+      </div>
     </section>
   )
 }
@@ -502,11 +686,18 @@ export function DataAndSecuritySection({ content }: { content: DocsContent }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {content.dataAndSecurity.rows.slice(0, 4).map((row) => (
           <div key={row.id} className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors">
-            <div className="text-base font-semibold text-white">{row.item}</div>
-            <div className="mt-2 text-sm text-zinc-400">
-              {isRu ? 'Где:' : 'Where:'} <span className="text-zinc-300">{row.where}</span>
+            <div className="text-base font-semibold text-white">
+              <DocsInlineText text={row.item} />
             </div>
-            <div className="mt-2 text-sm text-zinc-500 line-clamp-2 leading-relaxed">{row.notes}</div>
+            <div className="mt-2 text-sm text-zinc-400">
+              {isRu ? 'Где:' : 'Where:'}{' '}
+              <span className="text-zinc-300">
+                <DocsInlineText text={row.where} />
+              </span>
+            </div>
+            <div className="mt-2 text-sm text-zinc-500 line-clamp-2 leading-relaxed">
+              <DocsInlineText text={row.notes} />
+            </div>
           </div>
         ))}
       </div>
@@ -532,10 +723,18 @@ export function DataAndSecuritySection({ content }: { content: DocsContent }) {
               {content.dataAndSecurity.rows.map((row) => (
                 <tr key={row.id} className="border-b border-white/5 last:border-b-0 align-top">
                   <td className="px-5 py-4 text-zinc-200 font-medium">{row.item}</td>
-                  <td className="px-5 py-4 text-zinc-300">{row.where}</td>
-                  <td className="px-5 py-4 text-zinc-300">{row.persistence}</td>
-                  <td className="px-5 py-4 text-zinc-300">{row.visibility}</td>
-                  <td className="px-5 py-4 text-zinc-300 leading-relaxed">{row.notes}</td>
+                  <td className="px-5 py-4 text-zinc-300">
+                    <DocsInlineText text={row.where} />
+                  </td>
+                  <td className="px-5 py-4 text-zinc-300">
+                    <DocsInlineText text={row.persistence} />
+                  </td>
+                  <td className="px-5 py-4 text-zinc-300">
+                    <DocsInlineText text={row.visibility} />
+                  </td>
+                  <td className="px-5 py-4 text-zinc-300 leading-relaxed">
+                    <DocsInlineText text={row.notes} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -575,7 +774,9 @@ export function TroubleshootingSection({ content }: { content: DocsContent }) {
             <summary className="list-none cursor-pointer flex items-start justify-between gap-4 [&::-webkit-details-marker]:hidden">
               <div className="min-w-0">
                 <h3 className="text-lg font-semibold text-white group-hover:text-zinc-200 transition-colors">{item.question}</h3>
-                <p className="mt-2 text-base text-zinc-400 line-clamp-2 leading-relaxed">{item.answer[0]}</p>
+                <p className="mt-2 text-base text-zinc-400 line-clamp-2 leading-relaxed">
+                  <DocsInlineText text={item.answer[0]} />
+                </p>
               </div>
               <div className="shrink-0 rounded-lg border border-white/10 bg-white/5 p-2 text-zinc-400 group-hover:bg-white/10 group-hover:text-white transition-colors mt-0.5">
                 <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180" />
@@ -612,6 +813,7 @@ const SECTION_RENDERERS: Record<DocsPageSectionId, (content: DocsContent) => Rea
   'ui-components': (content) => <UiComponentsSection content={content} />,
   'nodes-reference': (content) => <NodesReferenceSection content={content} />,
   'keyboards-triggers': (content) => <KeyboardsAndTriggersSection content={content} />,
+  statistics: (content) => <StatisticsSection content={content} />,
   'data-security': (content) => <DataAndSecuritySection content={content} />,
   'test-deploy': (content) => <TestDeploySection content={content} />,
   troubleshooting: (content) => <TroubleshootingSection content={content} />,

@@ -2,7 +2,10 @@
 
 import { BarChart3 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TechnicalStatsPanel } from '@/components/bot-editor/statistics/technical-stats-panel'
+import { PaymentStatsPanel } from '@/components/bot-editor/statistics/payment-stats-panel'
+import { SubscribersStatsPanel } from '@/components/bot-editor/statistics/subscribers-stats-panel'
 
 export default function StatisticsPage() {
   const tNav = useTranslations('editor.nav')
@@ -22,10 +25,24 @@ export default function StatisticsPage() {
       <div className="flex-1 p-6">
         <div className="max-w-6xl mx-auto">
           <p className="text-zinc-400 text-sm mb-4">{t('description')}</p>
-          <TechnicalStatsPanel />
+          <Tabs defaultValue="technical" className="space-y-4">
+            <TabsList className="grid w-full max-w-[620px] grid-cols-3 bg-zinc-900/60 border border-white/10">
+              <TabsTrigger value="technical" className="w-full">{t('tabs.technical')}</TabsTrigger>
+              <TabsTrigger value="payments" className="w-full">{t('tabs.payments')}</TabsTrigger>
+              <TabsTrigger value="subscribers" className="w-full">{t('tabs.subscribers')}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="technical">
+              <TechnicalStatsPanel />
+            </TabsContent>
+            <TabsContent value="payments">
+              <PaymentStatsPanel />
+            </TabsContent>
+            <TabsContent value="subscribers">
+              <SubscribersStatsPanel />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
   )
 }
-

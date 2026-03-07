@@ -1,5 +1,6 @@
 const TELEGRAM_API_BASE_URL = 'https://api.telegram.org'
 const TELEGRAM_REQUEST_TIMEOUT_MS = 15_000
+const TELEGRAM_GET_UPDATES_GRACE_MS = 10_000
 const TELEGRAM_MAX_ATTEMPTS = 3
 
 async function sleep(ms: number): Promise<void> {
@@ -49,14 +50,15 @@ function formatNetworkError(method: string, error: unknown): Error {
 async function requestTelegramApi(
   token: string,
   method: string,
-  init: Omit<RequestInit, 'cache'> & { cache?: RequestCache }
+  init: Omit<RequestInit, 'cache'> & { cache?: RequestCache },
+  timeoutMs: number = TELEGRAM_REQUEST_TIMEOUT_MS
 ): Promise<Response> {
   const url = `${TELEGRAM_API_BASE_URL}/bot${token}/${method}`
   let lastNetworkError: Error | null = null
 
   for (let attempt = 0; attempt < TELEGRAM_MAX_ATTEMPTS; attempt += 1) {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), TELEGRAM_REQUEST_TIMEOUT_MS)
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
     try {
       const response = await fetch(url, {
@@ -116,13 +118,22 @@ export async function callTelegramApi<T = unknown>(
   method: string,
   payload: Record<string, unknown> = {}
 ): Promise<T> {
+  const requestTimeoutMs =
+    method === 'getUpdates'
+      ? Math.max(
+          TELEGRAM_REQUEST_TIMEOUT_MS,
+          (Number(payload.timeout || 0) > 0 ? Number(payload.timeout || 0) * 1000 : 0) +
+            TELEGRAM_GET_UPDATES_GRACE_MS
+        )
+      : TELEGRAM_REQUEST_TIMEOUT_MS
+
   const response = await requestTelegramApi(token, method, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
-  })
+  }, requestTimeoutMs)
 
   return parseTelegramApiResponse<T>(response, method)
 }

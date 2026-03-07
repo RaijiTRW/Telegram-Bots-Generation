@@ -7,6 +7,8 @@ export type DocsQuickStartStep = {
   actions: string[]
   systemBehavior: string[]
   check: string[]
+  quickVideoSlotTitle?: string
+  quickVideoSlotDescription?: string
   videoSlotTitle: string
 }
 
@@ -53,6 +55,26 @@ export type DocsCompareRow = {
   topic: string
   replyKeyboard: string
   inlineKeyboard: string
+}
+
+export type DocsKeyboardScenario = {
+  id: string
+  title: string
+  whenToUse: string
+  steps: string[]
+  result: string
+  runtimeSignal: string
+  commonMistakes: string[]
+}
+
+export type DocsStatisticsTab = {
+  id: string
+  title: string
+  description: string
+  whenToUse: string
+  filters: string[]
+  kpis: string[]
+  details: string[]
 }
 
 export type DocsStorageRow = {
@@ -138,6 +160,18 @@ export type DocsContent = {
     description: string
     note: string
     rows: DocsCompareRow[]
+    quickRules: string[]
+    scenarios: DocsKeyboardScenario[]
+    debugChecklist: string[]
+    antiPatterns: string[]
+  }
+  statistics: {
+    title: string
+    description: string
+    note: string
+    workflow: string[]
+    tabs: DocsStatisticsTab[]
+    diagnostics: string[]
   }
   dataAndSecurity: {
     title: string
@@ -172,7 +206,7 @@ const ruContent: DocsContent = {
     notes: [
       'Имена нод в редакторе оставлены на английском (как в продукте), чтобы не было расхождения между документацией и интерфейсом.',
       'Для большинства действий сначала используйте режим Test, а уже потом переходите к Deploy.',
-      'Если действие влияет на данные бота, в разделе указано где это сохраняется: Supabase, localStorage или runtime (временная память процесса).',
+      'Если действие влияет на данные бота, в разделе указано где это сохраняется: внутреннее хранилище проекта, localStorage или runtime (временная память процесса).',
     ],
     actions: {
       quickStart: 'Перейти к быстрому старту',
@@ -185,11 +219,12 @@ const ruContent: DocsContent = {
   sections: [
     { id: 'learning-flow', title: 'Как читать документацию', description: 'Порядок изучения и формат разделов' },
     { id: 'quick-start', title: 'Быстрый старт', description: 'Создать бота, собрать workflow, протестировать' },
-    { id: 'service-flow', title: 'Как работает сервис', description: 'Путь от идеи до работающего бота' },
+    { id: 'service-flow', title: 'Работа по разделам', description: 'Пошаговый маршрут: Canvas -> System -> Settings -> Test' },
     { id: 'editor-areas', title: 'Разделы редактора', description: 'Canvas, AI, System, Settings' },
     { id: 'ui-components', title: 'Компоненты интерфейса', description: 'Ключевые панели и как с ними работать' },
     { id: 'nodes-reference', title: 'Ноды и пресеты', description: 'Что делает каждая нода и как настраивать' },
     { id: 'keyboards-triggers', title: 'Клавиатуры и триггеры', description: 'Reply vs Inline, Text Trigger vs Callback' },
+    { id: 'statistics', title: 'Статистика', description: 'Технические метрики, оплаты и подписчики' },
     { id: 'data-security', title: 'Данные и безопасность', description: 'Что и где хранится' },
     { id: 'test-deploy', title: 'Тест, логи, деплой', description: 'Рабочий процесс запуска и проверки' },
     { id: 'troubleshooting', title: 'Частые проблемы', description: 'Что проверить, если что-то не работает' },
@@ -227,14 +262,17 @@ const ruContent: DocsContent = {
           'После создания перейдите в редактор (`/editor/canvas`).',
         ],
         systemBehavior: [
-          'Создаётся запись бота в Supabase (таблица `bots`).',
-          'Создаётся/инициализируется конфиг workflow (таблица `bot_configs`).',
+          'Создаётся карточка бота во внутреннем хранилище проекта.',
+          'Создаётся/инициализируется конфиг workflow.',
           'Редактор открывается с пустым canvas и базовыми настройками.',
         ],
         check: [
           'Вы видите экран редактора с холстом, левой навигацией и панелью нод.',
           'Верхний хедер показывает название бота и кнопки `Сохранить` / `Тест`.',
         ],
+        quickVideoSlotTitle: 'Подробнее по шагу: создать бота и открыть редактор',
+        quickVideoSlotDescription:
+          'Короткое видео (без звука): куда переместить курсор и куда нажимать, чтобы создать бота и перейти в редактор.',
         videoSlotTitle: 'Видео: создание первого бота и вход в редактор',
       },
       {
@@ -255,6 +293,9 @@ const ruContent: DocsContent = {
           'На холсте отображается соединение между trigger и message.',
           'При выборе ноды справа (или в модальном режиме) видны её настройки.',
         ],
+        quickVideoSlotTitle: 'Подробнее по шагу: собрать Trigger -> Message',
+        quickVideoSlotDescription:
+          'Короткое видео (без звука): добавление нод на Canvas, соединение и базовая настройка триггера и сообщения.',
         videoSlotTitle: 'Видео: сборка первого сценария на холсте',
       },
       {
@@ -275,19 +316,22 @@ const ruContent: DocsContent = {
           'В `System -> Переменные` видна созданная пользовательская переменная.',
           'В поле текста `Message` подсказка переменных появляется при вводе `{{`.',
         ],
+        quickVideoSlotTitle: 'Подробнее по шагу: System -> переменная `welcomeText`',
+        quickVideoSlotDescription:
+          'Короткое видео (без звука): откройте `Система`, создайте `welcomeText`, затем вставьте `{{welcomeText}}` в `Message`.',
         videoSlotTitle: 'Видео: переменные (System) и вставка в Message',
       },
       {
         id: 'qs-4',
         title: 'Сохраните конфиг бота',
-        goal: 'Зафиксировать текущий canvas и настройки в БД.',
+        goal: 'Зафиксировать текущий canvas и настройки проекта.',
         actions: [
           'Нажмите `Сохранить` в верхнем хедере редактора.',
           'Дождитесь завершения сохранения.',
           'Если есть ошибки, проверьте настройки бота (токен/секреты) отдельно в `Настройки`.',
         ],
         systemBehavior: [
-          'Canvas (`nodes`, `edges`) и системные настройки конфигурации сохраняются в Supabase.',
+          'Canvas (`nodes`, `edges`) и системные настройки конфигурации сохраняются во внутреннем хранилище проекта.',
           'Секреты Telegram (если меняли) сохраняются отдельно и шифруются на сервере.',
           'UI снимает флаг несохранённых изменений.',
         ],
@@ -295,6 +339,9 @@ const ruContent: DocsContent = {
           'Индикатор “Несохранённые изменения” исчезает.',
           'После перезагрузки страницы ноды остаются на месте.',
         ],
+        quickVideoSlotTitle: 'Подробнее по шагу: сохранить изменения',
+        quickVideoSlotDescription:
+          'Короткое видео (без звука): где находится кнопка `Сохранить` и как понять, что изменения успешно зафиксированы.',
         videoSlotTitle: 'Видео: сохранение canvas и настроек',
       },
       {
@@ -310,12 +357,15 @@ const ruContent: DocsContent = {
         systemBehavior: [
           'Перед тестом текущий canvas сохраняется.',
           'Runtime запускает тестовый режим (polling).',
-          'Логи пишутся в память и в Supabase (`bot_test_logs`) при доступности БД.',
+          'Логи пишутся в панель логов и во внутреннее хранилище событий.',
         ],
         check: [
           'В логах видно запуск теста, входящее событие и выбранный путь по нодам.',
           'В Telegram приходит ответное сообщение от бота.',
         ],
+        quickVideoSlotTitle: 'Подробнее по шагу: запуск Test и проверка логов',
+        quickVideoSlotDescription:
+          'Короткое видео (без звука): запуск `Тест`, отправка команды в Telegram и чтение результата в панели логов.',
         videoSlotTitle: 'Видео: запуск теста и чтение логов',
       },
       {
@@ -336,39 +386,42 @@ const ruContent: DocsContent = {
           'Кнопка возвращается в состояние `Тест`.',
           'Новые логи не появляются без новых действий.',
         ],
+        quickVideoSlotTitle: 'Подробнее по шагу: остановка теста',
+        quickVideoSlotDescription:
+          'Короткое видео (без звука): корректная остановка тестового режима и проверка, что runtime завершён.',
         videoSlotTitle: 'Видео: корректная остановка теста',
       },
     ],
   },
   serviceFlow: {
-    title: 'Как работает сервис (путь данных и логики)',
+    title: 'Работа по разделам',
     description:
-      'Ниже упрощённая схема движения данных в продукте. Это важно, чтобы понимать, что сохраняется сразу, что хранится временно и почему некоторые значения видны только во время теста.',
+      'Практический маршрут: сначала собираете сценарий в Canvas, затем настраиваете правила в System, проверяете параметры в Settings и подтверждаете результат через Test.',
     stages: [
       {
-        title: '1. Идея / описание задачи',
-        description: 'Вы формулируете сценарий вручную на Canvas или через AI-помощник (AI-узлы/AI-чат).',
-        output: 'Набор нод, связей и системных настроек бота.',
+        title: '1. Canvas: соберите логику',
+        description: 'Добавьте ноды, соедините ветки и задайте базовые ответы/переходы.',
+        output: 'Черновая схема сценария на холсте.',
       },
       {
-        title: '2. Редактор (Canvas + System + Settings)',
-        description: 'Изменения сначала живут в состоянии интерфейса и считаются черновиком до сохранения.',
-        output: 'Черновой workflow в браузере + статус “несохранённые изменения”.',
+        title: '2. System: задайте общие правила',
+        description: 'Настройте переменные, клавиатуру, триггеры и системные переключатели.',
+        output: 'Глобальные правила поведения бота.',
       },
       {
-        title: '3. Сохранение',
-        description: 'Canvas, переменные и конфигурация сохраняются в Supabase. Секреты Telegram сохраняются отдельно и шифруются.',
-        output: 'Актуальная версия конфигурации бота в БД.',
+        title: '3. Settings: проверьте подключение',
+        description: 'Проверьте токен, режим запуска и параметры бота, затем сохраните изменения.',
+        output: 'Готовая конфигурация для запуска теста.',
       },
       {
-        title: '4. Test runtime',
-        description: 'Временный рантайм исполняет workflow по входящим событиям Telegram и пишет логи.',
-        output: 'Ответы бота, runtime-переменные (в сессии), тестовые логи.',
+        title: '4. Test и логи: проверка в реальном потоке',
+        description: 'Запустите тест, отправьте сообщения в Telegram и проверьте путь выполнения по логам.',
+        output: 'Подтверждённая рабочая ветка сценария.',
       },
       {
-        title: '5. Анализ и поддержка',
-        description: 'Вы проверяете логи, поведение нод и данные. При необходимости правите workflow и повторяете тест.',
-        output: 'Рабочая версия сценария + понятная история действий/логов для поддержки.',
+        title: '5. Итерация: точечные правки',
+        description: 'Исправьте конкретные узлы по логам и повторите цикл Save -> Test.',
+        output: 'Стабильный сценарий для дальнейшего развития.',
       },
     ],
   },
@@ -398,7 +451,7 @@ const ruContent: DocsContent = {
         ],
         storageNotes: [
           'До сохранения изменения существуют только в интерфейсе (черновик в браузере).',
-          'После сохранения nodes/edges пишутся в Supabase (`bot_configs`).',
+          'После сохранения nodes/edges фиксируются во внутренней конфигурации бота.',
           'Тест запускается только с последней сохранённой конфигурацией.',
         ],
         commonMistakes: [
@@ -948,7 +1001,7 @@ const ruContent: DocsContent = {
     description:
       'Это один из самых частых источников ошибок. Важно различать reply keyboard (под input) и inline keyboard (под сообщением).',
     note:
-      'Главное правило: Reply Keyboard отправляет обычный текст пользователя. Inline Keyboard может отправлять `callback_data` и ловится через `Callback Trigger`.',
+      '**Коротко:** Reply Keyboard отправляет **текст**. Inline Keyboard отправляет **callback_data** (если кнопка callback-типа). Поэтому связь всегда такая: **Reply -> Text Trigger**, **Inline -> Callback Trigger**.',
     rows: [
       {
         topic: 'Где находится кнопка',
@@ -975,51 +1028,263 @@ const ruContent: DocsContent = {
         replyKeyboard: 'Постоянная навигация, меню, быстрые команды',
         inlineKeyboard: 'Действия внутри конкретного шага/сообщения',
       },
+      {
+        topic: 'Срок жизни кнопки',
+        replyKeyboard: 'Часто живет долго (пока не скрыли/заменили клавиатуру)',
+        inlineKeyboard: 'Живет вместе с конкретным сообщением',
+      },
+      {
+        topic: 'Как выглядит событие в runtime',
+        replyKeyboard: '`update.message.text = "..."`',
+        inlineKeyboard: '`update.callback_query.data = "..."`',
+      },
+      {
+        topic: 'Типичная ошибка',
+        replyKeyboard: 'Пытаются поймать через `Callback Trigger`',
+        inlineKeyboard: 'Забывают заполнить `callback_data` и ждут callback-событие',
+      },
+      {
+        topic: 'Что проверять в логах',
+        replyKeyboard: 'Ищите запись о `message` и проверяйте текст',
+        inlineKeyboard: 'Ищите `callback` и точное совпадение callback_data',
+      },
+    ],
+    quickRules: [
+      '1) Если кнопка под полем ввода телефона пользователя -> это **Reply**.',
+      '2) Если кнопка прикреплена к сообщению бота -> это **Inline**.',
+      '3) Reply-кнопка отправляет текст как будто пользователь сам написал сообщение.',
+      '4) Inline callback-кнопка не отправляет текст в чат, она шлет callback-событие.',
+      '5) Для Reply используйте `Text Trigger` или ветвление через `Condition/Router` по тексту.',
+      '6) Для Inline callback используйте `Callback Trigger` и фильтр по `callback_data`.',
+      '7) Если callback_data у кнопки пустая или неверная, нужная ветка не сработает.',
+      '8) Если Reply/Inline смешаны в одном сценарии, разделяйте ветки явно и проверяйте в логах тип события.',
+    ],
+    scenarios: [
+      {
+        id: 'kb-scenario-reply-menu',
+        title: 'Сценарий 1: Постоянное меню через Reply Keyboard',
+        whenToUse: 'Когда нужно постоянное меню внизу экрана: «Каталог», «Помощь», «Контакты».',
+        steps: [
+          'В `System -> Reply Keyboard` создайте базовые кнопки меню.',
+          'Добавьте `Text Trigger` (или несколько) с шаблонами текста кнопок.',
+          'Соедините каждый `Text Trigger` с нужной веткой (`Message`, `Router`, `Condition`).',
+          'Запустите `Test` и нажмите кнопки именно в Telegram, а не только в UI.',
+        ],
+        result: 'Нажатие каждой reply-кнопки запускает свою текстовую ветку.',
+        runtimeSignal: 'В логах видно `update message`, а затем `Trigger matched: text`.',
+        commonMistakes: [
+          'Используют `Callback Trigger` вместо `Text Trigger`.',
+          'Ожидают callback_data от reply-кнопки (ее там нет).',
+        ],
+      },
+      {
+        id: 'kb-scenario-inline-actions',
+        title: 'Сценарий 2: Действия по inline-кнопкам в сообщении',
+        whenToUse: 'Когда действие относится к конкретному сообщению: «Подтвердить», «Отменить», «Подробнее».',
+        steps: [
+          'В `Message` добавьте inline-кнопки и укажите `callback_data` для каждой.',
+          'Создайте `Callback Trigger` с нужным `callback_data` (или общий trigger для группы).',
+          'Подключите trigger к ветке, которая должна выполняться после клика.',
+          'Проверьте повторные нажатия и разные кнопки подряд.',
+        ],
+        result: 'Каждая inline-кнопка стабильно ведет в свою callback-ветку.',
+        runtimeSignal: 'В логах видно `update callback` и `Trigger matched: callbackQuery`.',
+        commonMistakes: [
+          'Одинаковая callback_data у разных кнопок без намерения.',
+          'Кнопка создана как URL-кнопка, но ожидают callback-событие.',
+        ],
+      },
+      {
+        id: 'kb-scenario-mixed-flow',
+        title: 'Сценарий 3: Смешанный поток (Reply + Inline)',
+        whenToUse: 'Когда в боте есть и постоянное меню, и действия под конкретными сообщениями.',
+        steps: [
+          'Reply-ветки ведите через `Text Trigger`.',
+          'Inline-ветки ведите через `Callback Trigger`.',
+          'Не объединяйте reply-текст и callback_data в один и тот же trigger-фильтр.',
+          'Добавьте логические узлы (`Router/Condition`) после trigger, а не вместо trigger.',
+        ],
+        result: 'Система предсказуемо различает типы нажатий даже в сложных сценариях.',
+        runtimeSignal: 'В логах тип обновления всегда соответствует выбранной ветке: message или callback.',
+        commonMistakes: [
+          'Одна ветка случайно ловит оба типа событий и дает нестабильный результат.',
+          'Нет fallback-ветки для неожиданного текста от пользователя.',
+        ],
+      },
+      {
+        id: 'kb-scenario-fallback',
+        title: 'Сценарий 4: Страховочный fallback, если нажали не то',
+        whenToUse: 'Когда пользователь вводит произвольный текст, а бот должен оставаться управляемым.',
+        steps: [
+          'Сделайте явные `Text Trigger` для ключевых команд меню.',
+          'Добавьте fallback `Text Trigger` без строгого шаблона или ветку через `Router`.',
+          'В fallback-сообщении возвращайте пользователя в меню и подсказывайте доступные кнопки.',
+          'При необходимости очищайте/включайте reply-клавиатуру нодой `Reply Keyboard`.',
+        ],
+        result: 'Даже при неверном вводе пользователь не теряется и возвращается в рабочий путь.',
+        runtimeSignal: 'В логах видно срабатывание fallback-ветки на непредусмотренный текст.',
+        commonMistakes: [
+          'Оставляют только точечные триггеры без fallback.',
+          'Fallback отправляет сообщение, но не возвращает понятную клавиатуру.',
+        ],
+      },
+    ],
+    debugChecklist: [
+      'Проверьте, какой тип update реально приходит: `message` или `callback_query`.',
+      'Сверьте тип кнопки в UI: reply-кнопка или inline-кнопка.',
+      'Проверьте точное значение `callback_data` и фильтр у `Callback Trigger`.',
+      'Проверьте, что изменения сохранены (`Сохранить`) до запуска `Test`.',
+      'Убедитесь, что нет дублирующих триггеров с пересекающимися условиями.',
+      'Проверьте, что у триггера есть исходящее соединение в следующую ноду.',
+      'Если неясно, временно упростите сценарий до 1 кнопки и 1 trigger, затем расширяйте.',
+      'После каждого исправления повторяйте цикл: `Save -> Test -> логи`.',
+    ],
+    antiPatterns: [
+      'Ловить Reply Keyboard через `Callback Trigger`.',
+      'Использовать одинаковую `callback_data` у разных смысловых кнопок.',
+      'Запускать `Test` без сохранения и ожидать поведение нового сценария.',
+      'Оставлять кнопки без явной ветки обработки.',
+      'Смешивать в одной ветке логику `message.text` и `callback_query.data` без разделения.',
+      'Игнорировать логи и пытаться угадывать, что сработало.',
+    ],
+  },
+  statistics: {
+    title: 'Статистика редактора: как читать и применять',
+    description:
+      'Раздел `Статистика` показывает фактическое поведение бота по данным runtime и аудита. Это рабочий инструмент диагностики: что реально происходило, где ошибки и как меняется база платежей/подписчиков.',
+    note:
+      '**Важно:** статистика ничего не “чинит” сама. Она нужна для принятия решений: какие ноды править, где добавлять fallback, какие ветки перегружены ошибками.',
+    workflow: [
+      '1) Выберите вкладку (`Техническая`, `Оплата`, `Подписчики`) под текущую задачу.',
+      '2) Сузьте период/фильтры, чтобы убрать шум.',
+      '3) Найдите аномалию: резкий рост ошибок, пустые события, неожиданный источник.',
+      '4) Вернитесь в Canvas/System, внесите правку и повторите `Save -> Test`.',
+      '5) Снова откройте статистику и проверьте, что метрики изменились в правильную сторону.',
+    ],
+    tabs: [
+      {
+        id: 'stats-technical',
+        title: 'Вкладка: Техническая',
+        description: 'Показывает нагрузку, ошибки и системные события выбранного бота.',
+        whenToUse: 'Когда бот “ведет себя странно”, часть сообщений не проходит или растет error rate.',
+        filters: [
+          'Диапазон: `1h / 24h / 7d`.',
+          'Кнопка `Обновить` для принудительной перезагрузки данных.',
+          'Используйте короткий период (`1h`), когда ищете свежий сбой.',
+        ],
+        kpis: [
+          '`Всего событий` — количество за выбранный диапазон.',
+          '`Ошибки` — число событий уровня error.',
+          '`Error rate` — доля ошибок от всех событий.',
+          '`Событий / мин` — интенсивность потока.',
+          '`Подписчиков` и `Активных в периоде` — аудитория на том же диапазоне.',
+        ],
+        details: [
+          'Блок `Серия событий по времени` помогает увидеть провалы/пики активности.',
+          'Блок `Топ источников ошибок` показывает, где чаще всего ломается (runtime, telegram, editor и т.д.).',
+          'Блок `Последние системные события` полезен для корреляции: `settings.saved`, `test.started`, `test.stopped`.',
+          'Если событий ноль — сначала проверьте, был ли реально запущен тест и приходили ли update из Telegram.',
+        ],
+      },
+      {
+        id: 'stats-payments',
+        title: 'Вкладка: Оплата',
+        description: 'История платежей по боту с фильтрами и сводными метриками.',
+        whenToUse: 'Когда нужно проверить успешность оплаты, застрявшие pending-платежи и корректность провайдера.',
+        filters: [
+          'Поиск по payer/id/username.',
+          'Период: `24h / 7d / 30d / all`.',
+          'Фильтр по методу и статусу.',
+        ],
+        kpis: [
+          '`Всего платежей` — число транзакций за период.',
+          '`Сумма` — агрегат по суммам (с учетом валютных ограничений интерфейса).',
+          '`Успешные` — число подтвержденных оплат.',
+          '`Ожидание / ошибки` — pending и failed в одном KPI.',
+        ],
+        details: [
+          'Таблица показывает: кто оплатил, id платежа, сумму, способ, статус, время.',
+          'Если pending растет и не падает — проверьте callback/webhook провайдера и таймаут авто-отмены.',
+          'Если статус “failed” массовый — проверьте секреты/ключи платежного провайдера и payload.',
+          'Для ручной проверки спорной транзакции сверяйте запись в статистике с логами runtime.',
+        ],
+      },
+      {
+        id: 'stats-subscribers',
+        title: 'Вкладка: Подписчики',
+        description: 'База пользователей, которые взаимодействовали с ботом, плюс аналитика по источникам.',
+        whenToUse: 'Когда нужно понять рост аудитории, активность и качество входящего трафика (message vs callback).',
+        filters: [
+          'Поиск по имени/username/user id.',
+          'Период: `24h / 7d / 30d / all`.',
+          'Источник: `message / callback_query / unknown / all`.',
+        ],
+        kpis: [
+          '`Всего подписчиков` — общий размер базы.',
+          '`Активны в периоде` — пользователи с активностью в выбранном окне.',
+          '`Новые в периоде` — новые пользователи по first_seen.',
+          '`Последняя активность` — последний зафиксированный контакт.',
+        ],
+        details: [
+          'Отдельные карточки показывают распределение по источникам (`message`, `callback_query`, `unknown`).',
+          'Блок языков показывает top language_code — полезно для приоритезации локализаций.',
+          'Таблица подписчиков: пользователь, id, язык, источник, first/last seen.',
+          'Если подписчики “не растут”, проверьте включен ли режим сбора подписчиков в разделе `System`.',
+        ],
+      },
+    ],
+    diagnostics: [
+      'Сначала определите тип проблемы: техническая, платежная или аудитория.',
+      'Для общего среза по всем ботам используйте Dashboard -> Статистика; раздел Статистика в редакторе показывает данные только по текущему боту.',
+      'Не анализируйте “за всё время” при оперативной отладке — начинайте с узкого периода.',
+      'Сверяйте метрики со временем последнего деплоя/сохранения, чтобы не анализировать старую версию.',
+      'Если цифры выглядят неверно, нажмите `Обновить` и проверьте логи теста за тот же период.',
+      'Для сложных кейсов фиксируйте: период, фильтры, ключевые KPI до/после правки.',
     ],
   },
   dataAndSecurity: {
     title: 'Где хранятся данные и что важно для безопасности',
     description:
-      'Этот раздел нужен для поддержки пользователей и для понимания, что можно увидеть в Supabase, а что является временным runtime-состоянием.',
+      'Этот раздел помогает понять, какие данные доступны в интерфейсе редактора, а какие существуют только во время выполнения теста.',
     rows: [
       {
         id: 'bots',
         item: 'Основные данные бота (имя, статус, metadata)',
-        where: 'Supabase: `bots`',
+        where: 'Внутреннее хранилище проекта',
         persistence: 'Постоянно',
-        visibility: 'Видно в SB',
+        visibility: 'Видно в разделе Bots и в шапке редактора',
         notes: 'Используется для карточек ботов, статуса, общих настроек и части метаданных.',
       },
       {
         id: 'bot-configs',
         item: 'Canvas (nodes, edges, variables)',
-        where: 'Supabase: `bot_configs` (JSONB)',
+        where: 'Конфигурация проекта',
         persistence: 'Постоянно',
-        visibility: 'Видно в SB (как JSON)',
+        visibility: 'Видно в Canvas и System после сохранения',
         notes: 'Ноды не лежат отдельными строками; это JSON-массивы в одной записи конфигурации.',
       },
       {
         id: 'secrets',
         item: 'Telegram token / service secrets',
-        where: 'Supabase: `bot_secrets` (шифрованно)',
+        where: 'Защищённое секрет-хранилище',
         persistence: 'Постоянно',
-        visibility: 'В SB виден ciphertext, не plaintext',
+        visibility: 'В интерфейсе доступен только факт наличия секрета',
         notes: 'UI может показывать только факт наличия секрета, а не его открытое значение.',
       },
       {
         id: 'test-logs',
         item: 'Тестовые логи runtime',
-        where: 'Supabase: `bot_test_logs` + runtime memory fallback',
-        persistence: 'Постоянно (если запись в SB успешна)',
-        visibility: 'Видно в SB и в панели логов',
+        where: 'Панель логов + сервисное хранилище событий',
+        persistence: 'Постоянно (если запись лога успешна)',
+        visibility: 'Видно в панели логов',
         notes: 'Удобно для поддержки и будущей админ-панели.',
       },
       {
         id: 'audit',
         item: 'История действий (save/start/stop и др.)',
-        where: 'Supabase: `bot_audit_events`',
+        where: 'Сервисное хранилище событий',
         persistence: 'Постоянно',
-        visibility: 'Видно в SB',
+        visibility: 'Используется системными разделами и поддержкой',
         notes: 'Полезно для расследования проблем и поддержки пользователя.',
       },
       {
@@ -1027,7 +1292,7 @@ const ruContent: DocsContent = {
         item: 'Текущие runtime-переменные/ожидания во время теста',
         where: 'Runtime процесса (часть состояния может быть временной)',
         persistence: 'Временно',
-        visibility: 'Обычно не видно напрямую в SB',
+        visibility: 'Обычно не видно напрямую в UI',
         notes: 'Может сбрасываться при рестарте dev-сервера/процесса. Для прод-уровня нужен персистентный runtime store.',
       },
       {
@@ -1035,7 +1300,7 @@ const ruContent: DocsContent = {
         item: 'Локальные UI-настройки (например чекбоксы/размеры панелей)',
         where: 'localStorage в браузере',
         persistence: 'Локально у пользователя',
-        visibility: 'Не в SB',
+        visibility: 'Локально в текущем браузере',
         notes: 'Нормально для не-секретных UI-предпочтений.',
       },
     ],
@@ -1120,7 +1385,7 @@ const ruContent: DocsContent = {
         question: 'Нажимаю Save/Test, а изменения ведут себя нестабильно',
         answer: [
           'Проверьте, нет ли ошибок auth/rate limit в терминале dev-сервера.',
-          'Убедитесь, что сессия Supabase не в rate limit и middleware корректно обновляет cookies.',
+          'Убедитесь, что сессия авторизации активна и middleware корректно обновляет cookies.',
           'После серии auth ошибок перезапустите dev-сервер и повторите `Save`.',
         ],
       },
@@ -1131,7 +1396,7 @@ const ruContent: DocsContent = {
           'Проверьте, запущен ли `Test` прямо сейчас.',
           'Проверьте, дошло ли сообщение до бота в Telegram и правильный ли token/config.',
           'Если был рестарт dev-сервера, часть временного runtime-состояния могла быть потеряна.',
-          'Проверьте `bot_test_logs` в Supabase — возможно, логи сохранились туда, но UI polling временно отстаёт.',
+          'Сделайте перезапуск Test и сверяйте события через панель логов: иногда UI polling может кратко отставать.',
         ],
       },
       {
@@ -1209,7 +1474,7 @@ const enContent: DocsContent = {
     notes: [
       'Node names stay in English (same as product UI) to avoid mismatch between docs and interface.',
       'Use Test first for most scenarios, then move to Deploy / production setup.',
-      'Each section clarifies where data is stored: Supabase, localStorage, or temporary runtime memory.',
+      'Each section clarifies where data is stored: internal project storage, localStorage, or temporary runtime memory.',
     ],
     actions: {
       quickStart: 'Go to Quick Start',
@@ -1222,11 +1487,12 @@ const enContent: DocsContent = {
   sections: [
     { id: 'learning-flow', title: 'How to use this docs', description: 'Reading order and format' },
     { id: 'quick-start', title: 'Quick Start', description: 'Create bot, build workflow, test' },
-    { id: 'service-flow', title: 'How the service works', description: 'From idea to running bot' },
+    { id: 'service-flow', title: 'Editor workflow', description: 'Practical route: Canvas -> System -> Settings -> Test' },
     { id: 'editor-areas', title: 'Editor areas', description: 'Canvas, AI, System, Settings' },
     { id: 'ui-components', title: 'UI components', description: 'Main panels and usage' },
     { id: 'nodes-reference', title: 'Nodes and presets', description: 'What each node does and how to set it up' },
     { id: 'keyboards-triggers', title: 'Keyboards and triggers', description: 'Reply vs Inline, Text vs Callback' },
+    { id: 'statistics', title: 'Statistics', description: 'Technical metrics, payments, and subscribers' },
     { id: 'data-security', title: 'Data and security', description: 'Where data is stored' },
     { id: 'test-deploy', title: 'Test, logs, deploy', description: 'Execution and verification flow' },
     { id: 'troubleshooting', title: 'Troubleshooting', description: 'Common issues and checks' },
@@ -1263,14 +1529,17 @@ const enContent: DocsContent = {
           'Open the editor (`/editor/canvas`).',
         ],
         systemBehavior: [
-          'Bot base record is created in Supabase (`bots`).',
-          'Workflow config is initialized in `bot_configs`.',
+          'Bot base record is created in internal project storage.',
+          'Workflow config is initialized for this bot.',
           'Editor opens with an empty canvas.',
         ],
         check: [
           'You see the canvas, section navigation, and node palette.',
           'Top header shows bot name and action buttons.',
         ],
+        quickVideoSlotTitle: 'Step detail: create bot and open editor',
+        quickVideoSlotDescription:
+          'Short silent clip: where to move the cursor and what to click to create a bot and open the editor.',
         videoSlotTitle: 'Video: create first bot and open editor',
       },
       {
@@ -1291,6 +1560,9 @@ const enContent: DocsContent = {
           'Connected nodes are visible on canvas.',
           'Node settings panel opens when selecting a node.',
         ],
+        quickVideoSlotTitle: 'Step detail: build Trigger -> Message',
+        quickVideoSlotDescription:
+          'Short silent clip: add nodes on canvas, connect them, and set basic trigger/message values.',
         videoSlotTitle: 'Video: first workflow on canvas',
       },
       {
@@ -1311,6 +1583,9 @@ const enContent: DocsContent = {
           'Variable appears in `System -> Variables`.',
           'Variable suggestions appear in message text input.',
         ],
+        quickVideoSlotTitle: 'Step detail: System -> create `welcomeText`',
+        quickVideoSlotDescription:
+          'Short silent clip: open `System`, create `welcomeText`, then insert `{{welcomeText}}` in `Message`.',
         videoSlotTitle: 'Video: variables and template insertion',
       },
       {
@@ -1323,7 +1598,7 @@ const enContent: DocsContent = {
           'If there is an error, check bot settings/token separately.',
         ],
         systemBehavior: [
-          'Canvas and config are saved to Supabase.',
+          'Canvas and config are saved to internal project storage.',
           'Secrets (if changed) are stored separately and encrypted.',
           'Unsaved state indicator resets.',
         ],
@@ -1331,6 +1606,9 @@ const enContent: DocsContent = {
           'Unsaved changes indicator disappears.',
           'Canvas remains after page reload.',
         ],
+        quickVideoSlotTitle: 'Step detail: save changes',
+        quickVideoSlotDescription:
+          'Short silent clip: where `Save` is located and how to confirm your changes are persisted.',
         videoSlotTitle: 'Video: saving canvas and settings',
       },
       {
@@ -1346,12 +1624,15 @@ const enContent: DocsContent = {
         systemBehavior: [
           'Current canvas is saved before test start.',
           'Runtime starts test execution mode.',
-          'Logs are written to runtime memory and Supabase test logs when available.',
+          'Logs are written to runtime memory and the service log store when available.',
         ],
         check: [
           'Logs show test start and incoming event processing.',
           'Telegram bot sends the expected reply.',
         ],
+        quickVideoSlotTitle: 'Step detail: run Test and inspect logs',
+        quickVideoSlotDescription:
+          'Short silent clip: start test mode, send input in Telegram, and verify execution path in logs.',
         videoSlotTitle: 'Video: run test and read logs',
       },
       {
@@ -1372,19 +1653,22 @@ const enContent: DocsContent = {
           'Button returns to `Test` state.',
           'No new log events appear without actions.',
         ],
+        quickVideoSlotTitle: 'Step detail: stop test runtime',
+        quickVideoSlotDescription:
+          'Short silent clip: stop test mode correctly and confirm runtime is no longer active.',
         videoSlotTitle: 'Video: stopping test properly',
       },
     ],
   },
   serviceFlow: {
-    title: 'How the service works (data & execution flow)',
-    description: 'A simplified model of how ideas become a running bot inside the product.',
+    title: 'Editor workflow',
+    description: 'Practical route: build logic on Canvas, configure global behavior in System, verify connection in Settings, then validate in Test.',
     stages: [
-      { title: '1. Idea / prompt', description: 'You define the bot logic manually on canvas or via AI-assisted flow design.', output: 'Draft workflow structure.' },
-      { title: '2. Editor state', description: 'Changes live in UI state until Save/Test.', output: 'Editable draft + unsaved indicator.' },
-      { title: '3. Save', description: 'Canvas/config are stored in Supabase; secrets are stored separately and encrypted.', output: 'Persistent bot version in DB.' },
-      { title: '4. Test runtime', description: 'Runtime executes workflow on Telegram events and writes logs.', output: 'Bot responses + logs + runtime variables.' },
-      { title: '5. Support & iteration', description: 'You inspect logs, adjust nodes, and repeat the cycle.', output: 'Stable version of workflow.' },
+      { title: '1. Canvas: build the flow', description: 'Add nodes, connect branches, and define response paths.', output: 'A draft workflow on canvas.' },
+      { title: '2. System: configure global rules', description: 'Set variables, keyboard behavior, trigger mapping, and system-level options.', output: 'Global bot behavior settings.' },
+      { title: '3. Settings: verify connection', description: 'Check token/runtime mode and bot-level parameters, then save.', output: 'Ready configuration for test run.' },
+      { title: '4. Test and logs: validate behavior', description: 'Run Test, send Telegram events, and confirm execution path in logs.', output: 'Verified working branch.' },
+      { title: '5. Iterate with focused fixes', description: 'Adjust specific nodes and repeat Save -> Test until stable.', output: 'Stable workflow version ready for scale.' },
     ],
   },
   editorAreas: {
@@ -1412,7 +1696,7 @@ const enContent: DocsContent = {
         ],
         storageNotes: [
           'Before save, changes exist only in UI draft state.',
-          'After save, nodes/edges are persisted in Supabase (`bot_configs`).',
+          'After save, nodes/edges are persisted in the bot configuration store.',
           'Test runtime uses only the latest saved configuration.',
         ],
         commonMistakes: [
@@ -1574,26 +1858,222 @@ const enContent: DocsContent = {
   keyboardsAndTriggers: {
     title: 'Keyboards and Triggers',
     description: 'Avoid the most common mistake: confusing Reply Keyboard with Inline Keyboard.',
-    note: 'Reply Keyboard sends plain text. Inline Keyboard can send callback_data and is handled by Callback Trigger.',
+    note: '**In short:** Reply Keyboard sends **text**. Inline Keyboard sends **callback_data** (for callback buttons). So the mapping is strict: **Reply -> Text Trigger**, **Inline -> Callback Trigger**.',
     rows: [
       { topic: 'Location', replyKeyboard: 'Under input (global Telegram keyboard)', inlineKeyboard: 'Under a specific bot message' },
       { topic: 'Press result', replyKeyboard: 'Regular user text message', inlineKeyboard: 'callback_data / URL / web_app action' },
       { topic: 'Trigger to handle it', replyKeyboard: 'Text Trigger (or Condition/Router by message.text)', inlineKeyboard: 'Callback Trigger' },
       { topic: 'Configured in', replyKeyboard: 'System -> Reply Keyboard or Reply Keyboard node', inlineKeyboard: 'Message node (inline buttons)' },
       { topic: 'Best use case', replyKeyboard: 'Persistent menus/navigation', inlineKeyboard: 'Context actions inside a message step' },
+      { topic: 'Button lifetime', replyKeyboard: 'Usually persistent until hidden or replaced', inlineKeyboard: 'Bound to a specific message' },
+      { topic: 'Runtime event shape', replyKeyboard: '`update.message.text = "..."`', inlineKeyboard: '`update.callback_query.data = "..."`' },
+      { topic: 'Typical mistake', replyKeyboard: 'Trying to catch with Callback Trigger', inlineKeyboard: 'Missing callback_data but expecting callback event' },
+      { topic: 'What to inspect in logs', replyKeyboard: 'Look for `message` event and text', inlineKeyboard: 'Look for `callback` event and exact callback_data match' },
+    ],
+    quickRules: [
+      '1) If the button is below the user input field, it is **Reply**.',
+      '2) If the button is attached under a bot message, it is **Inline**.',
+      '3) Reply button sends text as if user typed it manually.',
+      '4) Inline callback button does not post text to chat, it sends callback event.',
+      '5) For Reply, use `Text Trigger` or branch with `Condition/Router` by text.',
+      '6) For Inline callback, use `Callback Trigger` with callback_data filter.',
+      '7) If callback_data is empty or wrong, expected branch will not run.',
+      '8) For mixed Reply/Inline flows, keep branches explicit and verify event type in logs.',
+    ],
+    scenarios: [
+      {
+        id: 'kb-scenario-reply-menu',
+        title: 'Scenario 1: Persistent menu via Reply Keyboard',
+        whenToUse: 'When you need always-visible menu buttons like Catalog, Help, Contacts.',
+        steps: [
+          'In `System -> Reply Keyboard`, create base menu buttons.',
+          'Add `Text Trigger` nodes with patterns matching button text.',
+          'Connect each `Text Trigger` to the required branch (`Message`, `Router`, `Condition`).',
+          'Run `Test` and click buttons in real Telegram chat.',
+        ],
+        result: 'Each reply button press runs the correct text-based branch.',
+        runtimeSignal: 'Logs show `update message` followed by `Trigger matched: text`.',
+        commonMistakes: [
+          'Using `Callback Trigger` instead of `Text Trigger`.',
+          'Expecting callback_data from reply buttons.',
+        ],
+      },
+      {
+        id: 'kb-scenario-inline-actions',
+        title: 'Scenario 2: Inline actions under a message',
+        whenToUse: 'When action must belong to a specific message: Confirm, Cancel, Details.',
+        steps: [
+          'In `Message`, add inline buttons and set callback_data for each.',
+          'Create `Callback Trigger` with matching callback_data (or one general callback trigger).',
+          'Connect trigger to branch that must run after click.',
+          'Test repeated clicks and click order across different buttons.',
+        ],
+        result: 'Each inline button consistently triggers its callback branch.',
+        runtimeSignal: 'Logs show `update callback` and `Trigger matched: callbackQuery`.',
+        commonMistakes: [
+          'Different buttons share the same callback_data unintentionally.',
+          'Button is URL type but callback behavior is expected.',
+        ],
+      },
+      {
+        id: 'kb-scenario-mixed-flow',
+        title: 'Scenario 3: Mixed flow (Reply + Inline)',
+        whenToUse: 'When bot has both persistent menu and per-message inline actions.',
+        steps: [
+          'Handle Reply paths through `Text Trigger`.',
+          'Handle Inline paths through `Callback Trigger`.',
+          'Do not merge reply text and callback_data matching into one trigger filter.',
+          'Use `Router/Condition` after trigger, not instead of trigger separation.',
+        ],
+        result: 'System keeps event handling stable even in complex mixed scenarios.',
+        runtimeSignal: 'Logs always show correct event type for each branch: message or callback.',
+        commonMistakes: [
+          'One branch accidentally catches both event types and becomes unstable.',
+          'No fallback branch for unexpected user text.',
+        ],
+      },
+      {
+        id: 'kb-scenario-fallback',
+        title: 'Scenario 4: Safety fallback for unexpected input',
+        whenToUse: 'When user can type arbitrary text and bot must stay controlled.',
+        steps: [
+          'Keep explicit `Text Trigger` nodes for main menu commands.',
+          'Add fallback `Text Trigger` without strict pattern or fallback branch via `Router`.',
+          'Fallback message should return user to menu and show available options.',
+          'If needed, switch or clear keyboard via `Reply Keyboard` node.',
+        ],
+        result: 'Unexpected text no longer breaks flow; user returns to a valid path.',
+        runtimeSignal: 'Logs show fallback branch execution for unmatched text.',
+        commonMistakes: [
+          'Only exact triggers exist with no fallback branch.',
+          'Fallback sends text but does not restore a clear keyboard state.',
+        ],
+      },
+    ],
+    debugChecklist: [
+      'Check actual update type in logs: `message` or `callback_query`.',
+      'Confirm button type in UI: reply button or inline button.',
+      'Verify exact callback_data value and `Callback Trigger` filter.',
+      'Make sure changes are saved before `Test` run.',
+      'Check duplicate triggers with overlapping conditions.',
+      'Check that trigger has outgoing edge to next node.',
+      'If unclear, reduce flow to one button + one trigger, then scale back up.',
+      'After each fix, repeat: `Save -> Test -> logs`.',
+    ],
+    antiPatterns: [
+      'Catching Reply Keyboard presses via `Callback Trigger`.',
+      'Using same callback_data for unrelated actions.',
+      'Running `Test` without saving and expecting latest behavior.',
+      'Leaving buttons without explicit handling branch.',
+      'Mixing `message.text` and `callback_query.data` logic in one ambiguous branch.',
+      'Ignoring logs and trying to debug by guesswork only.',
+    ],
+  },
+  statistics: {
+    title: 'Editor Statistics: how to read and use',
+    description:
+      'The `Statistics` section shows actual bot behavior from runtime and audit data. Use it as an operational diagnostic tool: what really happened, where errors grow, and how payments/subscribers change.',
+    note:
+      '**Important:** statistics does not fix anything by itself. It helps you decide what to change in Canvas/System, where to add fallback, and which branches are error-prone.',
+    workflow: [
+      '1) Choose the tab (`Technical`, `Payments`, `Subscribers`) based on your current problem.',
+      '2) Narrow period/filters to remove noise.',
+      '3) Find anomaly: error spike, empty activity, unexpected source.',
+      '4) Return to Canvas/System, apply a focused fix, run `Save -> Test`.',
+      '5) Re-open statistics and confirm metrics move in the expected direction.',
+    ],
+    tabs: [
+      {
+        id: 'stats-technical',
+        title: 'Tab: Technical',
+        description: 'Shows load, errors, and system events for the selected bot.',
+        whenToUse: 'Use when bot behavior is unstable, responses are missing, or error rate grows.',
+        filters: [
+          'Range: `1h / 24h / 7d`.',
+          '`Refresh` button for forced data reload.',
+          'Use short range (`1h`) for fresh incident debugging.',
+        ],
+        kpis: [
+          '`Total events` — all events in selected range.',
+          '`Errors` — number of error-level events.',
+          '`Error rate` — error share across all events.',
+          '`Events / min` — throughput intensity.',
+          '`Subscribers` and `Active in range` — audience health in same window.',
+        ],
+        details: [
+          '`Event timeline` reveals drops/spikes in activity.',
+          '`Top error sources` shows where failures happen most often (runtime, telegram, editor, etc.).',
+          '`Recent audit events` helps correlate with actions like `settings.saved`, `test.started`, `test.stopped`.',
+          'If all metrics are zero, first verify test was actually running and Telegram updates were received.',
+        ],
+      },
+      {
+        id: 'stats-payments',
+        title: 'Tab: Payments',
+        description: 'Payment history with filters and summary metrics.',
+        whenToUse: 'Use when validating conversion, pending buildup, or provider correctness.',
+        filters: [
+          'Search by payer/id/username.',
+          'Period: `24h / 7d / 30d / all`.',
+          'Method and status filters.',
+        ],
+        kpis: [
+          '`Total payments` — number of transactions in period.',
+          '`Amount` — aggregated payment amount (with currency limitations in UI).',
+          '`Successful` — confirmed payments count.',
+          '`Pending / failed` — unresolved and failed transactions in one KPI.',
+        ],
+        details: [
+          'Table columns: payer, payment id, amount, method, status, time.',
+          'If pending grows and does not clear, check provider callback/webhook and auto-cancel timeout.',
+          'If failed rate spikes, verify provider secrets/keys and payment payload.',
+          'For disputed transaction, compare statistics row with runtime logs for the same timestamp.',
+        ],
+      },
+      {
+        id: 'stats-subscribers',
+        title: 'Tab: Subscribers',
+        description: 'User base that interacted with the bot, plus source analytics.',
+        whenToUse: 'Use when tracking audience growth, engagement, and traffic quality (message vs callback).',
+        filters: [
+          'Search by name/username/user id.',
+          'Period: `24h / 7d / 30d / all`.',
+          'Source: `message / callback_query / unknown / all`.',
+        ],
+        kpis: [
+          '`Total subscribers` — total audience size.',
+          '`Active in period` — users active in selected window.',
+          '`New in period` — first-seen users in selected window.',
+          '`Last activity` — latest recorded user interaction.',
+        ],
+        details: [
+          'Source cards show distribution across `message`, `callback_query`, `unknown`.',
+          'Language card shows top language_code values for localization prioritization.',
+          'Subscribers table: user, id, language, source, first/last seen.',
+          'If subscribers do not grow, verify subscriber collection mode is enabled in `System`.',
+        ],
+      },
+    ],
+    diagnostics: [
+      'Define problem class first: technical, payments, or audience.',
+      'Use Dashboard -> Statistics for cross-bot analytics; editor Statistics is scoped to the current bot only.',
+      'Avoid “all time” for incident response; start with narrow period.',
+      'Correlate metrics with latest save/deploy/test cycle to avoid analyzing stale version.',
+      'If numbers look wrong, click `Refresh` and compare with test logs for same period.',
+      'For complex incidents, record period, filters, and KPI before/after each fix.',
     ],
   },
   dataAndSecurity: {
     title: 'Data Storage and Security',
     description: 'Where things are stored and what is persistent vs runtime-only.',
     rows: [
-      { id: 'bots', item: 'Bot base data (name/status/metadata)', where: 'Supabase: `bots`', persistence: 'Persistent', visibility: 'Visible in SB', notes: 'General bot state and metadata.' },
-      { id: 'bot-configs', item: 'Canvas (nodes/edges/variables)', where: 'Supabase: `bot_configs` (JSONB)', persistence: 'Persistent', visibility: 'Visible in SB (JSON)', notes: 'Stored as JSON arrays, not separate rows per node.' },
-      { id: 'secrets', item: 'Telegram token / service secrets', where: 'Supabase: `bot_secrets` (encrypted)', persistence: 'Persistent', visibility: 'Ciphertext visible, not plaintext', notes: 'Protected server-side storage for secrets.' },
-      { id: 'test-logs', item: 'Runtime test logs', where: 'Supabase `bot_test_logs` + memory fallback', persistence: 'Persistent when DB write succeeds', visibility: 'Visible in SB and UI logs', notes: 'Useful for support and future admin panel.' },
-      { id: 'audit', item: 'Audit events (save/start/stop)', where: 'Supabase: `bot_audit_events`', persistence: 'Persistent', visibility: 'Visible in SB', notes: 'Useful for troubleshooting and support.' },
-      { id: 'runtime-session', item: 'Runtime variables / waiting states', where: 'Runtime process memory (partially temporary)', persistence: 'Temporary', visibility: 'Usually not directly visible in SB', notes: 'Can reset on process restart until persistent runtime storage is added.' },
-      { id: 'ui-local', item: 'UI preferences (panel sizes, toggles)', where: 'Browser localStorage', persistence: 'Local per browser', visibility: 'Not in SB', notes: 'Safe for non-secret UI preferences.' },
+      { id: 'bots', item: 'Bot base data (name/status/metadata)', where: 'Internal project storage', persistence: 'Persistent', visibility: 'Visible in Bots and editor header', notes: 'General bot state and metadata.' },
+      { id: 'bot-configs', item: 'Canvas (nodes/edges/variables)', where: 'Bot configuration storage', persistence: 'Persistent', visibility: 'Visible in Canvas/System after Save', notes: 'Stored as a config payload, not separate rows per node.' },
+      { id: 'secrets', item: 'Telegram token / service secrets', where: 'Protected secret storage (encrypted)', persistence: 'Persistent', visibility: 'Only secret presence is visible in UI', notes: 'Protected server-side storage for sensitive values.' },
+      { id: 'test-logs', item: 'Runtime test logs', where: 'Logs panel + service log storage', persistence: 'Persistent when log write succeeds', visibility: 'Visible in UI logs panel', notes: 'Useful for troubleshooting and support workflow.' },
+      { id: 'audit', item: 'Audit events (save/start/stop)', where: 'Service event storage', persistence: 'Persistent', visibility: 'Used by system/admin tooling', notes: 'Useful for troubleshooting and support.' },
+      { id: 'runtime-session', item: 'Runtime variables / waiting states', where: 'Runtime process memory (partially temporary)', persistence: 'Temporary', visibility: 'Usually not directly visible in UI', notes: 'Can reset on process restart until persistent runtime storage is added.' },
+      { id: 'ui-local', item: 'UI preferences (panel sizes, toggles)', where: 'Browser localStorage', persistence: 'Local per browser', visibility: 'Local in current browser only', notes: 'Safe for non-secret UI preferences.' },
     ],
   },
   testAndDeploy: {
@@ -1631,7 +2111,7 @@ const enContent: DocsContent = {
         id: 'faq-save-errors',
         question: 'Save/Test behaves inconsistently',
         answer: [
-          'Check dev server terminal for Supabase auth/rate-limit errors.',
+          'Check dev server terminal for auth/rate-limit errors.',
           'Confirm session refresh/cookies are working normally.',
           'Restart dev server if auth rate-limit errors accumulate.',
         ],
@@ -1642,7 +2122,7 @@ const enContent: DocsContent = {
         answer: [
           'Confirm Test mode is active.',
           'Confirm the bot receives the Telegram event (token/config is valid).',
-          'Check Supabase `bot_test_logs` if UI polling is delayed.',
+          'Restart Test and rely on the logs panel if UI polling is briefly delayed.',
         ],
       },
       {

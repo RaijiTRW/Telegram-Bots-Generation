@@ -18,6 +18,7 @@ import {
   serializeWorkflowNodes,
   serializeWorkflowEdges,
 } from '@/lib/bot-editor/utils/workflow-serialization'
+import type { ViewerAccess } from '@/lib/billing/types'
 
 type CanvasNode = {
   id: string
@@ -48,6 +49,7 @@ type CanvasVariable = {
 
 interface EditorShellProps {
   botId: string
+  viewerAccess: ViewerAccess
   children: React.ReactNode
 }
 
@@ -66,7 +68,7 @@ const clampNavPanelWidth = (width: number) =>
 
 const getBotSpecificNavPanelStorageKey = (botId: string) => `${NAV_PANEL_STORAGE_KEY_PREFIX}:${botId}`
 
-export function EditorShell({ botId, children }: EditorShellProps) {
+export function EditorShell({ botId, viewerAccess, children }: EditorShellProps) {
   const t = useTranslations('editor.shell')
   const tNav = useTranslations('editor.nav')
   const locale = useLocale()
@@ -86,6 +88,7 @@ export function EditorShell({ botId, children }: EditorShellProps) {
   const [isDeploying, setIsDeploying] = useState(false)
   const [isDownloadingZip, setIsDownloadingZip] = useState(false)
   const [showDeployModal, setShowDeployModal] = useState(false)
+  const [showZipRunGuideModal, setShowZipRunGuideModal] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [sectionsPanelWidth, setSectionsPanelWidth] = useState(NAV_PANEL_DEFAULT_WIDTH)
@@ -94,6 +97,8 @@ export function EditorShell({ botId, children }: EditorShellProps) {
   const hasLoadedSectionsPanelWidthRef = useRef(false)
   const pendingRestoreSectionsPanelWidthRef = useRef<number | null>(null)
   const isBotActive = Boolean(bot?.metadata?.testActive)
+  const canUseAiChat = viewerAccess.isAdmin || viewerAccess.entitlements.aiChat
+  const canUseHostedDeploy = viewerAccess.isAdmin || viewerAccess.entitlements.hosting
   const latestBotIdRef = useRef(botId)
   const hasSentAutoStopSignalRef = useRef(false)
   const allowUnmountAutoStopRef = useRef(false)
@@ -105,6 +110,9 @@ export function EditorShell({ botId, children }: EditorShellProps) {
     const sections = ['ai-chat', 'canvas', 'settings', 'system', 'statistics'] as const
     for (const section of sections) {
       if (pathname?.endsWith(`/${section}`)) {
+        if (section === 'ai-chat' && !canUseAiChat) {
+          return 'canvas'
+        }
         return section
       }
     }
@@ -112,6 +120,13 @@ export function EditorShell({ botId, children }: EditorShellProps) {
   }
 
   const currentSection = getCurrentSection()
+  const zipRunCommands = [
+    'python3 -m venv .venv',
+    'source .venv/bin/activate',
+    'pip install -r requirements.txt',
+    `# ${t('zipRunEnvComment')}`,
+    'python3 main.py',
+  ]
 
   const sendAutoStopTestSignal = useCallback((reason: 'editor_exit' | 'route_leave' | 'pagehide' | 'beforeunload') => {
     const currentBotId = String(latestBotIdRef.current || '').trim()
@@ -285,6 +300,7 @@ export function EditorShell({ botId, children }: EditorShellProps) {
       anchor.remove()
       window.URL.revokeObjectURL(url)
       setShowDeployModal(false)
+      setShowZipRunGuideModal(true)
     } catch (error) {
       setActionError(String(error))
     } finally {
@@ -466,8 +482,8 @@ export function EditorShell({ botId, children }: EditorShellProps) {
                 <h1 className="text-white font-semibold">{tNav('botEditor')}</h1>
                 <HelpGuideButton
                   title={tNav('botEditor')}
-                  summary={tNav('canvasDesc')}
-                  steps={[tNav('canvasDesc'), tNav('systemDesc'), tNav('settingsDesc')]}
+                  summary={tNav('helpSummary')}
+                  steps={[tNav('helpStep1'), tNav('helpStep2'), tNav('helpStep3')]}
                   docsHref={`/${locale}/dashboard/docs/getting-started`}
                 />
               </div>
@@ -542,6 +558,7 @@ export function EditorShell({ botId, children }: EditorShellProps) {
           ) : (
             <EditorNav
               botId={botId}
+              viewerAccess={viewerAccess}
               activeSection={currentSection}
               onSectionChange={setActiveSection}
               isDirty={isDirty}
@@ -610,7 +627,7 @@ export function EditorShell({ botId, children }: EditorShellProps) {
               <button
                 type="button"
                 onClick={() => void handleDeployHosted()}
-                disabled={isSaving || isDeploying || isDownloadingZip}
+                disabled={!canUseHostedDeploy || isSaving || isDeploying || isDownloadingZip}
                 className="w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-3 text-left disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-start gap-3">
@@ -619,7 +636,9 @@ export function EditorShell({ botId, children }: EditorShellProps) {
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-white">{t('deployHostedTitle')}</div>
-                    <div className="text-xs text-zinc-400 mt-1">{t('deployHostedDesc')}</div>
+                    <div className="text-xs text-zinc-400 mt-1">
+                      {canUseHostedDeploy ? t('deployHostedDesc') : t('deployHostedLockedDesc')}
+                    </div>
                   </div>
                 </div>
               </button>
@@ -649,6 +668,27 @@ export function EditorShell({ botId, children }: EditorShellProps) {
                 disabled={isSaving || isDeploying || isDownloadingZip}
               >
                 {t('cancel')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showZipRunGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl rounded-xl border border-white/10 bg-zinc-900/95 p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">{t('zipRunGuideTitle')}</h3>
+            <p className="mt-2 text-sm text-zinc-400">{t('zipRunGuideDesc')}</p>
+
+            <div className="mt-4 rounded-lg border border-white/10 bg-zinc-950/80 p-4">
+              <pre className="text-xs md:text-sm text-zinc-200 overflow-x-auto whitespace-pre">
+                <code>{zipRunCommands.join('\n')}</code>
+              </pre>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end">
+              <Button onClick={() => setShowZipRunGuideModal(false)}>
+                {t('zipRunGuideClose')}
               </Button>
             </div>
           </div>

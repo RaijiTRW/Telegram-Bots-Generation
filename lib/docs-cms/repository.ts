@@ -1027,6 +1027,11 @@ function buildSectionBlocks(content: DocsContent, sectionId: DocsPageSectionId, 
           isRu ? 'Что проверить' : 'Check',
           step.check.join('\n')
         )
+        pushVideoPlaceholder(
+          blocks,
+          step.quickVideoSlotTitle ||
+            (isRu ? `Подробнее по шагу: ${step.title}` : `Step detail: ${step.title}`)
+        )
         pushVideoPlaceholder(blocks, step.videoSlotTitle)
       })
       break
@@ -1094,11 +1099,69 @@ function buildSectionBlocks(content: DocsContent, sectionId: DocsPageSectionId, 
       pushHeading(blocks, 3, content.keyboardsAndTriggers.title)
       pushParagraph(blocks, content.keyboardsAndTriggers.description)
       pushCallout(blocks, 'warning', isRu ? 'Примечание' : 'Note', content.keyboardsAndTriggers.note)
+      pushHeading(blocks, 4, isRu ? 'Быстрые правила' : 'Quick rules')
+      pushList(blocks, content.keyboardsAndTriggers.quickRules)
+      pushHeading(blocks, 4, isRu ? 'Чек-лист диагностики' : 'Debug checklist')
+      pushList(blocks, content.keyboardsAndTriggers.debugChecklist)
       pushTable(
         blocks,
         [isRu ? 'Параметр' : 'Topic', 'Reply Keyboard', 'Inline Keyboard'],
         content.keyboardsAndTriggers.rows.map((row) => [row.topic, row.replyKeyboard, row.inlineKeyboard])
       )
+      pushHeading(blocks, 4, isRu ? 'Практические сценарии настройки' : 'Practical setup scenarios')
+      content.keyboardsAndTriggers.scenarios.forEach((scenario, index) => {
+        pushHeading(blocks, 4, `${index + 1}. ${scenario.title}`)
+        pushParagraph(
+          blocks,
+          `${isRu ? 'Когда использовать:' : 'When to use:'} ${scenario.whenToUse}`
+        )
+        pushList(blocks, scenario.steps)
+        pushCallout(blocks, 'success', isRu ? 'Ожидаемый результат' : 'Expected result', scenario.result)
+        pushCallout(blocks, 'info', isRu ? 'Сигнал в логах' : 'Runtime signal', scenario.runtimeSignal)
+        if (scenario.commonMistakes.length > 0) {
+          pushCallout(
+            blocks,
+            'warning',
+            isRu ? 'Частые ошибки' : 'Common mistakes',
+            scenario.commonMistakes.join('\n')
+          )
+        }
+      })
+      pushHeading(blocks, 4, isRu ? 'Анти-паттерны (что не делать)' : 'Anti-patterns (what to avoid)')
+      pushList(blocks, content.keyboardsAndTriggers.antiPatterns)
+      break
+    }
+    case 'statistics': {
+      pushHeading(blocks, 3, content.statistics.title)
+      pushParagraph(blocks, content.statistics.description)
+      pushCallout(blocks, 'info', isRu ? 'Важно' : 'Important', content.statistics.note)
+      pushHeading(blocks, 4, isRu ? 'Рабочий цикл' : 'Operational cycle')
+      pushList(blocks, content.statistics.workflow)
+      content.statistics.tabs.forEach((tab, index) => {
+        pushHeading(blocks, 4, `${index + 1}. ${tab.title}`)
+        pushParagraph(blocks, tab.description)
+        pushParagraph(blocks, `${isRu ? 'Когда использовать:' : 'When to use:'} ${tab.whenToUse}`)
+        pushCallout(
+          blocks,
+          'info',
+          isRu ? 'Фильтры и диапазоны' : 'Filters and ranges',
+          tab.filters.join('\n')
+        )
+        pushCallout(
+          blocks,
+          'success',
+          isRu ? 'KPI и ключевые метрики' : 'KPI and key metrics',
+          tab.kpis.join('\n')
+        )
+        pushCallout(
+          blocks,
+          'warning',
+          isRu ? 'Что смотреть глубже' : 'Deep-dive checks',
+          tab.details.join('\n')
+        )
+      })
+      pushHeading(blocks, 4, isRu ? 'Диагностика' : 'Diagnostics')
+      pushList(blocks, content.statistics.diagnostics)
       break
     }
     case 'data-security': {

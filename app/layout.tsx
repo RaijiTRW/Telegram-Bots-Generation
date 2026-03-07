@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { PerformanceMode } from "@/components/performance/performance-mode";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,6 +26,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
       </head>
       <body className={`${inter.variable} antialiased`}>
+        <PerformanceMode />
         {children}
       </body>
     </html>

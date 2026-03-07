@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 
-const PRESENCE_HEARTBEAT_MS = 60_000
+const PRESENCE_HEARTBEAT_MS = 90_000
 
 export function DashboardPresenceHeartbeat() {
   const pathname = usePathname()
@@ -29,6 +29,7 @@ export function DashboardPresenceHeartbeat() {
 
     const pingPresence = async () => {
       if (disposed) return
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
 
       try {
         if (!currentUserId) {

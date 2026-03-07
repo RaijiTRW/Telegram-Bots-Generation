@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { getBotSubscribersStatsAction } from '@/lib/bot-editor/actions/editor-actions'
 
 type AutoReactionsConfig = {
   enabled: boolean
@@ -28,20 +27,6 @@ type SubscriberModeConfig = {
   enabled: boolean
   privateChatsOnly: boolean
   trackCallbacks: boolean
-}
-
-type SubscribersStats = {
-  totalSubscribers: number
-  activeLast7Days: number
-  lastSubscriberAt: string | null
-  recentSubscribers: Array<{
-    telegramUserId: number
-    username: string
-    firstName: string
-    lastName: string
-    languageCode: string
-    lastSeenAt: string
-  }>
 }
 
 type ReplyKeyboardButtonStyle = 'default' | 'primary' | 'success' | 'danger'
@@ -978,9 +963,6 @@ export function SystemPanel() {
   const docsKeyboardTriggers = `${docsBasePath}/keyboards-triggers`
   const docsNodes = `${docsBasePath}/nodes`
   const docsDataSecurity = `${docsBasePath}/data-security`
-  const [subscribersStats, setSubscribersStats] = useState<SubscribersStats | null>(null)
-  const [isSubscribersStatsLoading, setIsSubscribersStatsLoading] = useState(false)
-  const [subscribersStatsError, setSubscribersStatsError] = useState<string | null>(null)
 
   const stats = [
     { label: t('nodes'), value: config.nodes.length, icon: Code2, color: 'text-[#24A1DE]' },
@@ -991,43 +973,6 @@ export function SystemPanel() {
   const autoReactions = getAutoReactionsConfig((bot?.metadata || {}) as Record<string, unknown>)
   const replyKeyboard = getReplyKeyboardConfig((bot?.metadata || {}) as Record<string, unknown>)
   const subscriberMode = getSubscriberModeConfig((bot?.metadata || {}) as Record<string, unknown>)
-
-  useEffect(() => {
-    if (!bot?.id) {
-      setSubscribersStats(null)
-      setSubscribersStatsError(null)
-      return
-    }
-
-    let cancelled = false
-    setIsSubscribersStatsLoading(true)
-    setSubscribersStatsError(null)
-
-    void (async () => {
-      try {
-        const result = await getBotSubscribersStatsAction(bot.id)
-        if (cancelled) return
-        if (!result.success || !result.stats) {
-          setSubscribersStats(null)
-          setSubscribersStatsError(result.error || t('subscribers.statsError'))
-          return
-        }
-        setSubscribersStats(result.stats as SubscribersStats)
-      } catch {
-        if (cancelled) return
-        setSubscribersStats(null)
-        setSubscribersStatsError(t('subscribers.statsError'))
-      } finally {
-        if (!cancelled) {
-          setIsSubscribersStatsLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [bot?.id, subscriberMode.enabled, t])
 
   const updateAutoReactions = (patch: Partial<AutoReactionsConfig>) => {
     if (!bot) return
@@ -1167,8 +1112,8 @@ export function SystemPanel() {
           <h1 className="text-white font-semibold">{t('title')}</h1>
           <HelpGuideButton
             title={t('title')}
-            summary={t('subtitle')}
-            steps={[t('nodes'), t('variables'), t('connections')]}
+            summary={t('help.overviewSummary')}
+            steps={[t('help.overviewStep1'), t('help.overviewStep2'), t('help.overviewStep3')]}
             docsHref={docsBasePath}
           />
           <span className="text-zinc-500">|</span>
@@ -1721,117 +1666,8 @@ export function SystemPanel() {
                 />
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <div className="text-xs text-zinc-500 mb-1">{t('subscribers.totalLabel')}</div>
-                <div className="text-2xl font-semibold text-white">
-                  {isSubscribersStatsLoading ? '…' : subscribersStats?.totalSubscribers ?? 0}
-                </div>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <div className="text-xs text-zinc-500 mb-1">{t('subscribers.active7dLabel')}</div>
-                <div className="text-2xl font-semibold text-white">
-                  {isSubscribersStatsLoading ? '…' : subscribersStats?.activeLast7Days ?? 0}
-                </div>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <div className="text-xs text-zinc-500 mb-1">{t('subscribers.lastSeenLabel')}</div>
-                <div className="text-sm font-medium text-zinc-200">
-                  {formatSystemPanelDate(
-                    subscribersStats?.lastSubscriberAt || undefined,
-                    locale,
-                    t('notAvailable')
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {subscribersStatsError && (
-              <div className="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
-                {subscribersStatsError}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm text-zinc-300">{t('subscribers.privateOnlyTitle')}</div>
-                      <HelpGuideButton
-                        title={t('subscribers.privateOnlyTitle')}
-                        summary={t('subscribers.privateOnlyHint')}
-                        steps={[
-                          t('subscribers.privateOnlyHint'),
-                          t('subscribers.note'),
-                        ]}
-                        docsHref={docsDataSecurity}
-                      />
-                    </div>
-                    <p className="text-xs text-zinc-500 mt-1">{t('subscribers.privateOnlyHint')}</p>
-                  </div>
-                  <Switch
-                    checked={subscriberMode.privateChatsOnly}
-                    onCheckedChange={(checked) => updateSubscriberMode({ privateChatsOnly: checked })}
-                    disabled={!subscriberMode.enabled}
-                  />
-                </div>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm text-zinc-300">{t('subscribers.trackCallbacksTitle')}</div>
-                      <HelpGuideButton
-                        title={t('subscribers.trackCallbacksTitle')}
-                        summary={t('subscribers.trackCallbacksHint')}
-                        steps={[
-                          t('subscribers.trackCallbacksHint'),
-                          t('subscribers.note'),
-                        ]}
-                        docsHref={docsDataSecurity}
-                      />
-                    </div>
-                    <p className="text-xs text-zinc-500 mt-1">{t('subscribers.trackCallbacksHint')}</p>
-                  </div>
-                  <Switch
-                    checked={subscriberMode.trackCallbacks}
-                    onCheckedChange={(checked) => updateSubscriberMode({ trackCallbacks: checked })}
-                    disabled={!subscriberMode.enabled}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-lg border border-[#24A1DE]/20 bg-[#24A1DE]/5 p-4">
-              <div className="text-sm font-medium text-white mb-2">{t('subscribers.recentTitle')}</div>
-              {subscribersStats?.recentSubscribers?.length ? (
-                <div className="space-y-2">
-                  {subscribersStats.recentSubscribers.slice(0, 6).map((item) => {
-                    const displayName =
-                      [item.firstName, item.lastName].filter(Boolean).join(' ').trim() ||
-                      (item.username ? `@${item.username}` : `#${item.telegramUserId}`)
-                    return (
-                      <div
-                        key={`${item.telegramUserId}-${item.lastSeenAt}`}
-                        className="text-xs text-zinc-300 flex items-center justify-between gap-3"
-                      >
-                        <span className="truncate">{displayName}</span>
-                        <span className="text-zinc-500 shrink-0">
-                          {formatSystemPanelDate(item.lastSeenAt, locale, t('notAvailable'))}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="text-xs text-zinc-500">{t('subscribers.recentEmpty')}</div>
-              )}
-            </div>
-
-            <div className="mt-4 rounded-lg border border-dashed border-white/10 bg-zinc-950/30 p-4">
-              <div className="text-xs text-zinc-400">{t('subscribers.note')}</div>
+            <div className="rounded-lg border border-dashed border-white/10 bg-zinc-950/30 p-4">
+              <div className="text-xs text-zinc-400">{t('subscribers.analyticsInStatistics')}</div>
             </div>
           </section>
 
@@ -1844,11 +1680,11 @@ export function SystemPanel() {
               {t('botInformation')}
               <HelpGuideButton
                 title={t('botInformation')}
-                summary={t('subtitle')}
+                summary={t('help.botInfoSummary')}
                 steps={[
-                  t('botId'),
-                  t('status'),
-                  t('lastUpdated'),
+                  t('help.botInfoStep1'),
+                  t('help.botInfoStep2'),
+                  t('help.botInfoStep3'),
                 ]}
                 docsHref={docsNodes}
               />

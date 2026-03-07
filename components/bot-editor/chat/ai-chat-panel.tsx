@@ -132,9 +132,10 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
           <h1 className="text-white font-semibold">{tNav('aiAssistant')}</h1>
           <HelpGuideButton
             title={tNav('aiAssistant')}
-            summary={tChat('panelSubtitle')}
-            steps={[tChat('emptyHelp1'), tChat('emptyHelp2'), tChat('emptyHelp3')]}
-            docsHref={`${docsBasePath}/how-it-works`}
+            summary={tChat('helpSummary')}
+            steps={[tChat('helpStep1'), tChat('helpStep2'), tChat('helpStep3')]}
+            notes={[tChat('helpNote')]}
+            docsHref={`${docsBasePath}/how-it-works#editor-areas`}
           />
           <span className="text-zinc-500">|</span>
           <span className="text-sm text-zinc-400">{tChat('panelSubtitle')}</span>

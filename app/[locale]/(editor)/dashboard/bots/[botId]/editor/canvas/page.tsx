@@ -55,9 +55,10 @@ type BotTestLogEntry = {
 
 export default function CanvasPage() {
   const t = useTranslations('editor.canvas')
-  const { bot, config, setConfig, setIsDirty, setBot, autoOpenTelegramAfterTest } = useBotState()
+  const { bot, config, setConfig, setIsDirty, setBot, autoOpenTelegramAfterTest, viewerAccess } = useBotState()
   const botId = String(bot?.id || '')
   const isTestActive = Boolean(bot?.metadata?.testActive)
+  const canUseAiNodes = viewerAccess.isAdmin || viewerAccess.entitlements.aiNodes
 
   const [isTesting, setIsTesting] = useState(false)
   const [testTransition, setTestTransition] = useState<'starting' | 'stopping' | null>(null)
@@ -76,8 +77,9 @@ export default function CanvasPage() {
   const isResizingLogsRef = useRef(false)
   const logsCopyFeedbackTimerRef = useRef<number | null>(null)
 
-  const fetchLogs = useCallback(async (reset = false) => {
+  const fetchLogs = useCallback(async (reset = false, force = false) => {
     if (!botId) return
+    if (!force && typeof document !== 'undefined' && document.visibilityState !== 'visible') return
 
     const result = await getBotTestLogsAction(botId, {
       sinceTs: reset ? undefined : (latestLogTsRef.current ?? undefined),
@@ -114,7 +116,7 @@ export default function CanvasPage() {
 
   const logsPollIntervalMs = useMemo(() => {
     if (!logsFetchError) {
-      return 1000
+      return 1_500
     }
 
     const normalized = logsFetchError.toLowerCase()
@@ -132,7 +134,7 @@ export default function CanvasPage() {
       setLogsFetchError(null)
       setLogsFetchErrorTs(null)
       if (botId) {
-        void fetchLogs(true)
+        void fetchLogs(true, true)
       }
     }, 0)
 
@@ -147,7 +149,7 @@ export default function CanvasPage() {
     }
 
     const initialTimer = window.setTimeout(() => {
-      void fetchLogs(false)
+      void fetchLogs(false, true)
     }, 0)
     const timer = window.setInterval(() => {
       void fetchLogs(false)
@@ -158,6 +160,23 @@ export default function CanvasPage() {
       window.clearInterval(timer)
     }
   }, [botId, isTestActive, isTesting, fetchLogs, logsPollIntervalMs])
+
+  useEffect(() => {
+    if (!botId || (!isTestActive && !isTesting)) {
+      return
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchLogs(false, true)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [botId, isTestActive, isTesting, fetchLogs])
 
   useEffect(() => {
     if (logsCollapsed) return
@@ -440,6 +459,7 @@ export default function CanvasPage() {
             onSave={handleSaveCanvas}
             testButtonLabel={isTestActive ? t('stop') : t('test')}
             isTestActive={isTestActive}
+            isAdmin={canUseAiNodes}
           />
         </div>
 

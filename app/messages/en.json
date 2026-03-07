@@ -74,6 +74,9 @@
       "home": "Home",
       "bots": "Bots",
       "crm": "CRM",
+      "statistics": "Statistics",
+      "subscription": "Subscription",
+      "soon": "soon",
       "docs": "Documentation",
       "cms": "CMS",
       "admin": "Admin",
@@ -95,6 +98,112 @@
       "quickActionsDesc": "Start by creating your first bot",
       "createBot": "Create new bot",
       "viewDocs": "View documentation"
+    },
+    "globalStatistics": {
+      "title": "Global statistics",
+      "subtitle": "Analytics across all bots: business KPIs, payments, and audience activity.",
+      "refresh": "Refresh",
+      "loadError": "Failed to load global statistics.",
+      "empty": "Not enough data for the current filters.",
+      "note": "This is account-level analytics. For deep diagnostics of a specific flow, use the bot editor Statistics tab.",
+      "tabs": {
+        "basic": "Basic",
+        "pro": "Professional"
+      },
+      "proLocked": "Professional analytics are available on the appropriate plan only.",
+      "filters": {
+        "title": "Filters",
+        "period": "Period",
+        "bot": "Bot",
+        "allBots": "All bots"
+      },
+      "period": {
+        "24h": "Last 24 hours",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "all": "All time"
+      },
+      "currency": {
+        "mixed": "Mixed currencies (mixed)",
+        "single": "Primary currency: {currency}",
+        "none": "Currency is not defined"
+      },
+      "kpi": {
+        "revenue": "Revenue",
+        "profit": "Profit",
+        "successfulPayments": "Successful payments",
+        "pendingFailed": "Pending / failed",
+        "totalSubscribers": "Total subscribers",
+        "activeSubscribers": "Active in period",
+        "newSubscribers": "New in period",
+        "avgActivity": "Average user activity"
+      },
+      "trend": {
+        "title": "Revenue and activity trend",
+        "revenue": "Revenue",
+        "activity": "Activity"
+      },
+      "topBots": {
+        "title": "Top bots by revenue",
+        "columns": {
+          "bot": "Bot",
+          "revenue": "Revenue",
+          "conversion": "Conversion",
+          "payments": "Successful payments"
+        }
+      },
+      "payments": {
+        "title": "Payments (all bots)",
+        "searchPlaceholder": "Search: bot, payer, payment ID, username",
+        "method": "Method",
+        "status": "Status",
+        "allMethods": "All methods",
+        "allStatuses": "All statuses",
+        "empty": "No payments for current filters.",
+        "columns": {
+          "bot": "Bot",
+          "payer": "Payer",
+          "id": "Payment ID",
+          "amount": "Amount",
+          "method": "Method",
+          "status": "Status",
+          "time": "Time"
+        }
+      },
+      "subscribers": {
+        "title": "Subscribers (all bots)",
+        "searchPlaceholder": "Search: name, username, user ID",
+        "source": "Source",
+        "allSources": "All sources",
+        "sourceMessage": "Messages",
+        "sourceCallback": "Callback",
+        "sourceUnknown": "Unknown",
+        "summary": "Total: {total} · Active: {active} · New: {newValue}",
+        "empty": "No subscribers for current filters.",
+        "columns": {
+          "bot": "Bot",
+          "user": "User",
+          "userId": "User ID",
+          "language": "Language",
+          "source": "Source",
+          "firstSeen": "First seen",
+          "lastSeen": "Last seen"
+        }
+      },
+      "pro": {
+        "averageCheck": "Average check",
+        "conversion": "Paid conversion",
+        "repeatPayerRate": "Repeat payer rate",
+        "methodSlice": "Method breakdown",
+        "statusSlice": "Status breakdown",
+        "topConversion": "Top bots by conversion",
+        "uniquePayers": "Unique payers"
+      },
+      "pagination": {
+        "pageOf": "Page {page} of {totalPages} · total {total}",
+        "prev": "Prev",
+        "next": "Next"
+      }
     },
     "bots": {
       "title": "Bots",
@@ -165,7 +274,7 @@
       "loadError": "Failed to load profiles for admin panel.",
       "accessDeniedTitle": "Access restricted",
       "accessDeniedDesc": "This page is available to administrators only.",
-      "bootstrapHint": "To assign the first admin, open the `profiles` table in Supabase and set `role = admin` for the required user.",
+      "bootstrapHint": "To assign the first admin, open the internal project profiles section and set `role = admin` for the required user.",
       "backHome": "Back to home",
       "statsTotal": "Total profiles",
       "statsAdmins": "Admins",
@@ -463,10 +572,18 @@
       "settings": "Settings",
       "settingsDesc": "Configuration and options",
       "botEditor": "Bot Editor",
+      "helpSummary": "Main bot workspace: design flow on Canvas, configure System and Settings, then validate in Test mode.",
+      "helpStep1": "Canvas: build node chains and ensure each branch has a valid continuation.",
+      "helpStep2": "System: configure variables, reply keyboard behavior, and global feature toggles.",
+      "helpStep3": "Settings: verify token/runtime mode, click Save, then run Test.",
       "unsavedChanges": "Unsaved changes",
       "toSave": "to save",
       "press": "Press",
-      "saveShortcutTitle": "Cmd/Ctrl+S to save"
+      "saveShortcutTitle": "Cmd/Ctrl+S to save",
+      "subscriptionRequired": "This section requires a higher plan",
+      "subscriptionBadge": "Plan",
+      "adminOnly": "Admins only",
+      "adminOnlyBadge": "Admin"
     },
     "statistics": {
       "description": "Technical metrics for the selected bot.",
@@ -485,6 +602,106 @@
         "eventsPerMinute": "Events / min",
         "subscribersTotal": "Subscribers",
         "subscribersActiveRange": "Active in range"
+      },
+      "tabs": {
+        "technical": "Technical",
+        "payments": "Payments",
+        "subscribers": "Subscribers"
+      },
+      "payment": {
+        "loadError": "Failed to load payment history.",
+        "filtersTitle": "Payment filters",
+        "filters": {
+          "searchPlaceholder": "Search: payer, ID, username",
+          "period": "Period",
+          "method": "Method",
+          "status": "Status",
+          "allMethods": "All methods",
+          "allStatuses": "All statuses"
+        },
+        "period": {
+          "24h": "Last 24 hours",
+          "7d": "Last 7 days",
+          "30d": "Last 30 days",
+          "all": "All time"
+        },
+        "methods": {
+          "yookassa": "YooKassa",
+          "stripe": "Stripe",
+          "robokassa": "Robokassa",
+          "telegram_stars": "Telegram Stars",
+          "unknown": "Unknown"
+        },
+        "statusLabels": {
+          "success": "Success",
+          "pending": "Pending",
+          "failed": "Failed",
+          "unknown": "Unknown"
+        },
+        "summary": {
+          "total": "Total payments",
+          "amount": "Amount",
+          "success": "Successful",
+          "pendingOrFailed": "Pending / failed"
+        },
+        "tableTitle": "Payment history",
+        "columns": {
+          "payer": "Payer",
+          "id": "ID",
+          "amount": "Amount",
+          "method": "Method",
+          "status": "Status",
+          "time": "Time"
+        },
+        "mixedCurrencies": "mixed currencies",
+        "empty": "No payments for current filters."
+      },
+      "subscribers": {
+        "loadError": "Failed to load subscriber data.",
+        "filtersTitle": "Subscriber filters",
+        "filters": {
+          "searchPlaceholder": "Search: name, username, ID",
+          "period": "Period",
+          "source": "Source",
+          "allSources": "All sources"
+        },
+        "period": {
+          "24h": "Last 24 hours",
+          "7d": "Last 7 days",
+          "30d": "Last 30 days",
+          "all": "All time"
+        },
+        "source": {
+          "message": "Messages",
+          "callbackQuery": "Callback",
+          "unknown": "Unknown"
+        },
+        "summary": {
+          "total": "Total subscribers",
+          "active": "Active in period",
+          "new": "New in period",
+          "lastSeen": "Last activity"
+        },
+        "analytics": {
+          "sourceTitle": "Source distribution",
+          "languagesTitle": "Top languages",
+          "languagesEmpty": "No language data."
+        },
+        "tableTitle": "Subscribers table",
+        "columns": {
+          "user": "User",
+          "userId": "User ID",
+          "language": "Language",
+          "source": "Source",
+          "firstSeen": "First seen",
+          "lastSeen": "Last seen"
+        },
+        "empty": "No subscribers for current filters.",
+        "pagination": {
+          "pageOf": "Page {page} of {totalPages} · total {total}",
+          "prev": "Prev",
+          "next": "Next"
+        }
       }
     },
     "help": {
@@ -529,6 +746,11 @@
       "contextMenuClose": "Close node add menu",
       "canvasEmpty": "Canvas Empty",
       "startBuilding": "Start building your bot workflow by dragging nodes from the palette or clicking on them.",
+      "helpSummary": "Canvas is where your workflow is assembled: entry trigger, processing nodes, branching, and final responses.",
+      "helpStep1": "Start with one short path (trigger -> message), then extend with conditions or router branches.",
+      "helpStep2": "After each structural change, click Save before Test so runtime uses the latest version.",
+      "helpStep3": "Use logs to confirm the executed path and fix one issue per cycle.",
+      "helpNote": "Practical loop: `edit -> Save -> Test -> logs -> fix`.",
       "nodes": "Nodes",
       "connections": "Connections",
       "palette": {
@@ -548,6 +770,10 @@
           "messaging": {
             "label": "Messages",
             "hint": "Send messages and control keyboards"
+          },
+          "ai": {
+            "label": "AI",
+            "hint": "AI nodes: intent, AI message, AI logic"
           },
           "logic": {
             "label": "Logic",
@@ -569,7 +795,9 @@
             "label": "Other",
             "hint": "Utility and miscellaneous nodes"
           }
-        }
+        },
+        "aiSoonBadge": "soon",
+        "aiLockedHint": "AI section is currently unavailable for regular users."
       },
       "nodeTemplateDescriptions": {
         "triggerCommand": "Start workflow when user sends a command",
@@ -776,6 +1004,11 @@
       "statusError": "Error",
       "currentStatus": "Current status: {status}",
       "help": {
+        "overviewSummary": "Settings control bot connection and runtime mode. This section defines how your flow actually runs.",
+        "overviewStep1": "Verify bot identity and confirm Telegram token state.",
+        "overviewStep2": "Check webhook/polling mode and launch parameters before testing.",
+        "overviewStep3": "After updates, click Save in the top header, then run Test and inspect logs.",
+        "overviewNote": "If behavior changed but runtime did not, check Save and runtime mode first.",
         "basicSummary": "This block defines the base bot card: name, description, and lifecycle status.",
         "basicStep1": "Fill in name and description so the bot purpose is clear.",
         "basicStep2": "Use status as a lifecycle marker: draft -> active -> archived.",
@@ -852,6 +1085,16 @@
     "system": {
       "title": "System",
       "subtitle": "Bot logic & configuration",
+      "help": {
+        "overviewSummary": "System controls bot-wide behavior: variables, keyboard rules, reactions, and subscriber tracking mode.",
+        "overviewStep1": "Create and document variables used by Message/Condition/Router nodes.",
+        "overviewStep2": "Configure Reply Keyboard and condition rules when different menus are needed.",
+        "overviewStep3": "Save editor state and validate behavior in Test mode + logs.",
+        "botInfoSummary": "This card shows technical bot status so you can confirm you are editing the correct bot.",
+        "botInfoStep1": "Verify Bot ID before applying critical changes.",
+        "botInfoStep2": "Check bot status and last-updated timestamp after saving.",
+        "botInfoStep3": "If values look stale, verify Save first, then restart Test mode."
+      },
       "nodes": "Nodes",
       "variables": "Variables",
       "connections": "Connections",
@@ -875,14 +1118,13 @@
       "booleanTrue": "Yes",
       "booleanFalse": "No",
       "eventTriggers": "Event Triggers",
-      "active": "active",
+      "active": "Active",
       "tip": "Tip:",
       "tipText": "Enable triggers to define when your bot should respond to events. Use Configure to add filters and custom behavior for each trigger type.",
       "configureTrigger": "Configure Trigger",
       "save": "Save",
       "cancel": "Cancel",
       "configure": "Configure",
-      "active": "Active",
       "inactive": "Inactive",
       "onBotStart": "On Bot Start",
       "onBotStartDesc": "Triggered when a user starts the bot or sends /start command",
@@ -912,7 +1154,7 @@
       "separateCommands": "Separate multiple commands with commas",
       "commandsPlaceholder": "/help, /start, /about",
       "regexPlaceholder": "regex pattern",
-      "inlineQueryTemplatePlaceholder": "@{bot} {query}",
+      "inlineQueryTemplatePlaceholder": "@bot query",
       "notAvailable": "N/A",
       "autoReactions": {
         "title": "Extra Feature: Telegram Reactions",
@@ -941,6 +1183,7 @@
         "description": "Builds an audience list of users who interact with the bot (this is not Telegram channel subscribers).",
         "enabled": "Enabled",
         "disabled": "Disabled",
+        "analyticsInStatistics": "Detailed table and analytics are available in Statistics → Subscribers.",
         "totalLabel": "Total subscribers",
         "active7dLabel": "Active in last 7 days",
         "lastSeenLabel": "Last seen",
@@ -1044,6 +1287,11 @@
       "quickActions": "Quick actions:",
       "enterToSend": "Press Enter to send, Shift+Enter for new line",
       "panelSubtitle": "Build your bot with AI",
+      "helpSummary": "AI Assistant helps you draft flow ideas quickly, but production behavior is defined only by real nodes on Canvas.",
+      "helpStep1": "Describe the business goal: user input, expected output, and fallback behavior.",
+      "helpStep2": "Use AI output as a draft, then verify each step manually on Canvas.",
+      "helpStep3": "Run Test and confirm logs before considering the flow ready.",
+      "helpNote": "AI suggestions accelerate work, but validation is always manual.",
       "poweredByAI": "Powered by AI",
       "suggestionsPrefix": "Suggestions",
       "errorFallback": "Sorry, I encountered an error. Please try again.",
@@ -1125,8 +1373,13 @@
       "deployModalDesc": "You can deploy the bot on our server or download the source code archive.",
       "deployHostedTitle": "Deploy on our server",
       "deployHostedDesc": "Start deployment on our managed hosting.",
+      "deployHostedLockedDesc": "Managed hosting is available starting from the Business plan.",
       "downloadZipTitle": "Download bot (ZIP)",
-      "downloadZipDesc": "Download bot source code as a ZIP archive.",
+      "downloadZipDesc": "Download a ready-to-run Python bot ZIP (main.py, requirements.txt, workflow.json).",
+      "zipRunGuideTitle": "How to run the bot from the downloaded ZIP",
+      "zipRunGuideDesc": "Run the commands below in terminal inside the project folder.",
+      "zipRunEnvComment": "create .env with BOT_TOKEN=...",
+      "zipRunGuideClose": "Got it",
       "cancel": "Cancel",
       "autoOpenTelegram": "Auto-open Telegram",
       "unsavedChanges": "Unsaved changes",
@@ -1150,7 +1403,32 @@
         "step1": "Fill fields top-to-bottom: input params, logic conditions, output data.",
         "step2": "Verify you edit the right node by checking node title and ID.",
         "step3": "Run Test after changes and inspect execution path in logs.",
-        "note": "Changes appear on the canvas immediately. To keep them permanently, click Save in the top bar."
+        "note": "Changes appear on the canvas immediately. To keep them permanently, click Save in the top bar.",
+        "notes": {
+          "trigger-command": "Use command triggers for explicit entry points like `/start`, `/menu`, or `/help`.",
+          "trigger-text": "Use Text Trigger for reply keyboard presses and plain user text routing.",
+          "trigger-callback": "Callback Trigger works only with inline buttons configured in Message nodes.",
+          "trigger-schedule": "Always verify timezone and target chat/user for scheduled executions.",
+          "trigger-ai": "Keep a fallback branch for AI Trigger so flow remains stable when intent match fails.",
+          "message": "Use variable placeholders (double curly braces) for personalized message output.",
+          "message-ai": "Always keep fallback text for AI Message in case AI is unavailable.",
+          "input": "Use clear variable names (`name`, `phone`, `budget`) to simplify maintenance.",
+          "condition": "Connect both true/false outputs to avoid dead-end branches.",
+          "condition-ai": "Validate AI Logic on real examples before production rollout.",
+          "router": "Router is cleaner than long Condition chains when you have 3+ branches.",
+          "scheduler": "Double-check timezone for delays/date-time, especially in multi-region bots.",
+          "reply-keyboard": "Reply Keyboard sends plain text. Handle presses via Text Trigger.",
+          "action": "After Action, verify output in the next Message node or runtime logs.",
+          "script": "Keep scripts short and deterministic: input/context/vars in, result out.",
+          "http": "Set timeout and error handling for HTTP calls to avoid blocked flows.",
+          "webhook": "Webhook/HTTP steps need a stable endpoint and response validation.",
+          "payment-yookassa": "Store payment keys as secrets only and test with correct test/live credentials.",
+          "payment-stripe": "Verify Stripe success/cancel URLs and amount/currency consistency.",
+          "payment-robokassa": "Robokassa requires valid merchant credentials and callback verification flow.",
+          "payment-stars": "Use Telegram Stars via inline buttons or links, not Reply Keyboard.",
+          "wait": "Wait/Scheduler relies on runtime session state; account for process restarts in tests.",
+          "comment": "Comment node does not affect execution; use it as in-flow documentation."
+        }
       },
       "nodeId": "ID:",
       "message": {
@@ -1159,6 +1437,8 @@
         "variableHint": "Use a variable to insert values",
         "formatContextHint": "Tip: select text and right-click for quick formatting",
         "formatting": "Formatting",
+        "formattingHelpLabel": "Formatting help",
+        "formattingHelpHint": "None means plain text. Markdown/MarkdownV2/HTML enable styling (bold, italic, links). MarkdownV2 requires escaping special characters.",
         "none": "None",
         "markdown": "Markdown",
         "markdownV2": "MarkdownV2",
@@ -1328,6 +1608,10 @@
         "password1Placeholder": "password_1",
         "failUrlLabel": "Fail URL",
         "failUrlPlaceholder": "https://example.com/payment/fail",
+        "failUrlAutoHint": "URL is generated automatically from your project domain.",
+        "failUrlCopyLabel": "Copy fail URL",
+        "failUrlCopiedLabel": "Fail URL copied",
+        "robokassaUrlsRegenerate": "Regenerate success/fail URLs",
         "invoiceIdLabel": "Invoice ID (optional)",
         "invoiceIdPlaceholder": "order_1001",
         "testModeLabel": "Test mode",
@@ -1340,11 +1624,11 @@
         "currencyPlaceholder": "RUB / USD / EUR",
         "starsCurrencyHint": "Currency is fixed for Telegram Stars: XTR.",
         "descriptionLabel": "Payment description",
-        "descriptionPlaceholder": "Order payment #'{{orderId}}'",
+        "descriptionPlaceholder": "Order payment #orderId",
         "autoSendPaymentLinkLabel": "Auto-send payment link to user",
         "messageTemplateLabel": "Payment link message template",
-        "messageTemplatePlaceholder": "Pay here: '{{payment.url}}'",
-        "messageTemplateHint": "Available variables: '{{payment.url}}', '{{payment.paymentId}}', '{{payment.status}}', '{{payment.amount}}', '{{payment.currency}}'",
+        "messageTemplatePlaceholder": "Pay here: payment.url",
+        "messageTemplateHint": "Available variables: payment.url, payment.paymentId, payment.status, payment.amount, payment.currency",
         "saveToVariableLabel": "Save result to variable",
         "saveToVariablePlaceholder": "payment"
       },
@@ -1415,8 +1699,8 @@
         "actionUrl": "URL link",
         "actionStars": "Telegram Stars payment",
         "urlPlaceholder": "https://example.com",
-        "starsUrlPlaceholder": "'{{payment.url}}'",
-        "starsHint": "Usually use '{{payment.url}}' from the Telegram Stars node."
+        "starsUrlPlaceholder": "payment.url",
+        "starsHint": "Usually use the payment.url variable from the Telegram Stars node."
       },
       "router": {
         "variableLabel": "Variable",
@@ -1695,28 +1979,64 @@
       "product": {
         "title": "Product",
         "links": [
-          { "label": "Features", "href": "#features" },
-          { "label": "Templates", "href": "#templates" },
-          { "label": "Pricing", "href": "#pricing" },
-          { "label": "Documentation", "href": "#docs" }
+          {
+            "label": "Features",
+            "href": "#features"
+          },
+          {
+            "label": "Templates",
+            "href": "#templates"
+          },
+          {
+            "label": "Pricing",
+            "href": "/pricing"
+          },
+          {
+            "label": "Documentation",
+            "href": "#docs"
+          }
         ]
       },
       "resources": {
         "title": "Resources",
         "links": [
-          { "label": "Blog", "href": "#blog" },
-          { "label": "API", "href": "#api" },
-          { "label": "Community", "href": "#community" },
-          { "label": "Help", "href": "#help" }
+          {
+            "label": "Blog",
+            "href": "#blog"
+          },
+          {
+            "label": "API",
+            "href": "#api"
+          },
+          {
+            "label": "Community",
+            "href": "#community"
+          },
+          {
+            "label": "Help",
+            "href": "#help"
+          }
         ]
       },
       "company": {
         "title": "Company",
         "links": [
-          { "label": "About", "href": "#about" },
-          { "label": "Careers", "href": "#careers" },
-          { "label": "Privacy", "href": "#privacy" },
-          { "label": "Terms", "href": "#terms" }
+          {
+            "label": "About",
+            "href": "#about"
+          },
+          {
+            "label": "Careers",
+            "href": "#careers"
+          },
+          {
+            "label": "Privacy",
+            "href": "#privacy"
+          },
+          {
+            "label": "Terms",
+            "href": "#terms"
+          }
         ]
       }
     },

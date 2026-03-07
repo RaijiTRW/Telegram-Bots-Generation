@@ -103,6 +103,12 @@ function setOverride(content: DocsContent, key: string, value: OverrideValue): v
     case 'keyboardsAndTriggers.note':
       if (typeof value === 'string') content.keyboardsAndTriggers.note = value
       return
+    case 'statistics.description':
+      if (typeof value === 'string') content.statistics.description = value
+      return
+    case 'statistics.note':
+      if (typeof value === 'string') content.statistics.note = value
+      return
     case 'dataAndSecurity.description':
       if (typeof value === 'string') content.dataAndSecurity.description = value
       return

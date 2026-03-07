@@ -42,6 +42,151 @@ export interface Database {
         }
         Relationships: []
       }
+      user_subscriptions: {
+        Row: {
+          user_id: string
+          plan_code: 'base' | 'business' | 'enterprise'
+          status: 'active' | 'past_due' | 'canceled' | 'expired' | 'incomplete'
+          currency: 'RUB' | 'USD'
+          billing_provider: 'yookassa'
+          price_amount: number
+          started_at: string
+          current_period_start: string | null
+          current_period_end: string | null
+          cancel_at_period_end: boolean
+          canceled_at: string | null
+          past_due_at: string | null
+          provider_customer_id: string | null
+          provider_payment_method_id: string | null
+          provider_last_payment_id: string | null
+          provider_metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          plan_code?: 'base' | 'business' | 'enterprise'
+          status?: 'active' | 'past_due' | 'canceled' | 'expired' | 'incomplete'
+          currency?: 'RUB' | 'USD'
+          billing_provider?: 'yookassa'
+          price_amount?: number
+          started_at?: string
+          current_period_start?: string | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          past_due_at?: string | null
+          provider_customer_id?: string | null
+          provider_payment_method_id?: string | null
+          provider_last_payment_id?: string | null
+          provider_metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          plan_code?: 'base' | 'business' | 'enterprise'
+          status?: 'active' | 'past_due' | 'canceled' | 'expired' | 'incomplete'
+          currency?: 'RUB' | 'USD'
+          billing_provider?: 'yookassa'
+          price_amount?: number
+          started_at?: string
+          current_period_start?: string | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          past_due_at?: string | null
+          provider_customer_id?: string | null
+          provider_payment_method_id?: string | null
+          provider_last_payment_id?: string | null
+          provider_metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'user_subscriptions_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: true
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      subscription_transactions: {
+        Row: {
+          id: string
+          user_id: string
+          plan_code: 'base' | 'business' | 'enterprise'
+          kind: 'initial' | 'renewal' | 'change'
+          status: 'pending' | 'succeeded' | 'failed' | 'canceled'
+          amount: number
+          currency: 'RUB' | 'USD'
+          billing_provider: 'yookassa'
+          provider_payment_id: string | null
+          provider_payment_method_id: string | null
+          provider_idempotence_key: string | null
+          confirmation_url: string | null
+          return_url: string | null
+          failure_reason: string | null
+          payload: Json
+          succeeded_at: string | null
+          failed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          plan_code: 'base' | 'business' | 'enterprise'
+          kind: 'initial' | 'renewal' | 'change'
+          status?: 'pending' | 'succeeded' | 'failed' | 'canceled'
+          amount: number
+          currency: 'RUB' | 'USD'
+          billing_provider?: 'yookassa'
+          provider_payment_id?: string | null
+          provider_payment_method_id?: string | null
+          provider_idempotence_key?: string | null
+          confirmation_url?: string | null
+          return_url?: string | null
+          failure_reason?: string | null
+          payload?: Json
+          succeeded_at?: string | null
+          failed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          plan_code?: 'base' | 'business' | 'enterprise'
+          kind?: 'initial' | 'renewal' | 'change'
+          status?: 'pending' | 'succeeded' | 'failed' | 'canceled'
+          amount?: number
+          currency?: 'RUB' | 'USD'
+          billing_provider?: 'yookassa'
+          provider_payment_id?: string | null
+          provider_payment_method_id?: string | null
+          provider_idempotence_key?: string | null
+          confirmation_url?: string | null
+          return_url?: string | null
+          failure_reason?: string | null
+          payload?: Json
+          succeeded_at?: string | null
+          failed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'subscription_transactions_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       bots: {
         Row: {
           id: string
@@ -635,6 +780,8 @@ export interface Database {
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
+export type UserSubscriptionRow = Database['public']['Tables']['user_subscriptions']['Row']
+export type SubscriptionTransactionRow = Database['public']['Tables']['subscription_transactions']['Row']
 export type BotRow = Database['public']['Tables']['bots']['Row']
 export type BotConfigRow = Database['public']['Tables']['bot_configs']['Row']
 export type BotTestLogRow = Database['public']['Tables']['bot_test_logs']['Row']

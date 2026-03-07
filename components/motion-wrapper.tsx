@@ -1,6 +1,6 @@
 'use client';
 
-import { LazyMotion, domAnimation, m, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { LazyMotion, MotionConfig, domAnimation, m, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 
 /**
  * MotionWrapper - оптимизированная обертка для Framer Motion
@@ -11,9 +11,11 @@ import { LazyMotion, domAnimation, m, AnimatePresence, useScroll, useTransform }
  */
 export function MotionWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <LazyMotion features={domAnimation} strict>
-      {children}
-    </LazyMotion>
+    <MotionConfig reducedMotion="user">
+      <LazyMotion features={domAnimation} strict>
+        {children}
+      </LazyMotion>
+    </MotionConfig>
   );
 }
 

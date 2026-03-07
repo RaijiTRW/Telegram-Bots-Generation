@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { FileImage, FileVideo } from 'lucide-react'
 
+import { DocsInlineText } from '@/components/docs/docs-inline-text'
 import type { DocsBlock } from '@/lib/docs-cms/types'
 
 const headingTagByLevel = {
@@ -12,16 +13,6 @@ const headingTagByLevel = {
   5: 'h5',
   6: 'h6',
 } as const
-
-function renderTextWithLineBreaks(value: string) {
-  const lines = String(value || '').split('\n')
-  return lines.map((line, index) => (
-    <span key={`${line}-${index}`}>
-      {line}
-      {index < lines.length - 1 ? <br /> : null}
-    </span>
-  ))
-}
 
 function stripBasicHtml(value: string): string {
   return String(value || '')
@@ -97,20 +88,24 @@ export function CmsBlockRenderer({
           case 'paragraph':
             return (
               <p key={block.id} className="text-zinc-200 leading-7 text-[15px] md:text-base max-w-[72ch]">
-                {renderTextWithLineBreaks(stripBasicHtml(block.richText))}
+                <DocsInlineText text={stripBasicHtml(block.richText)} />
               </p>
             )
           case 'list':
             return block.ordered ? (
               <ol key={block.id} className="list-decimal pl-6 space-y-2 text-zinc-200 text-[15px] md:text-base leading-7 max-w-[72ch]">
                 {block.items.map((item, index) => (
-                  <li key={`${block.id}-item-${index}`}>{item}</li>
+                  <li key={`${block.id}-item-${index}`}>
+                    <DocsInlineText text={item} />
+                  </li>
                 ))}
               </ol>
             ) : (
               <ul key={block.id} className="list-disc pl-6 space-y-2 text-zinc-200 text-[15px] md:text-base leading-7 max-w-[72ch]">
                 {block.items.map((item, index) => (
-                  <li key={`${block.id}-item-${index}`}>{item}</li>
+                  <li key={`${block.id}-item-${index}`}>
+                    <DocsInlineText text={item} />
+                  </li>
                 ))}
               </ul>
             )
@@ -123,8 +118,12 @@ export function CmsBlockRenderer({
             }
             return (
               <div key={block.id} className={`rounded-xl border p-4 ${tones[block.tone]}`}>
-                <div className="font-semibold">{block.title}</div>
-                <div className="mt-1 text-sm opacity-95">{renderTextWithLineBreaks(block.text)}</div>
+                <div className="font-semibold">
+                  <DocsInlineText text={block.title} />
+                </div>
+                <div className="mt-1 text-sm opacity-95">
+                  <DocsInlineText text={block.text} />
+                </div>
               </div>
             )
           }
@@ -145,10 +144,14 @@ export function CmsBlockRenderer({
                           key={`${block.id}-card-${columnIndex}`}
                           className="w-[300px] sm:w-[330px] shrink-0 snap-start rounded-2xl border border-white/10 bg-zinc-950/55 p-5"
                         >
-                          <h3 className="text-lg font-semibold text-white leading-7">{column}</h3>
+                          <h3 className="text-lg font-semibold text-white leading-7">
+                            <DocsInlineText text={column} />
+                          </h3>
                           <div className="mt-3 space-y-2 text-sm leading-7 text-zinc-300">
                             {values.length > 0 ? values.map((value, index) => (
-                              <p key={`${block.id}-card-${columnIndex}-value-${index}`}>{renderTextWithLineBreaks(value)}</p>
+                              <p key={`${block.id}-card-${columnIndex}-value-${index}`}>
+                                <DocsInlineText text={value} />
+                              </p>
                             )) : <p className="text-zinc-500">—</p>}
                           </div>
                         </article>
@@ -169,7 +172,7 @@ export function CmsBlockRenderer({
                           key={`${block.id}-th-${index}`}
                           className="px-3 py-2 text-left font-medium text-zinc-300 border-b border-white/10"
                         >
-                          {column}
+                          <DocsInlineText text={column} />
                         </th>
                       ))}
                     </tr>
@@ -179,7 +182,7 @@ export function CmsBlockRenderer({
                       <tr key={`${block.id}-row-${rowIndex}`} className="border-b border-white/5">
                         {row.map((cell, cellIndex) => (
                           <td key={`${block.id}-cell-${rowIndex}-${cellIndex}`} className="px-3 py-2 text-zinc-200 leading-7">
-                            {cell}
+                            <DocsInlineText text={String(cell)} />
                           </td>
                         ))}
                       </tr>
@@ -204,7 +207,11 @@ export function CmsBlockRenderer({
                 ) : (
                   renderMediaPlaceholder({ kind: 'image', locale })
                 )}
-                {block.caption ? <figcaption className="text-sm text-zinc-400">{block.caption}</figcaption> : null}
+                {block.caption ? (
+                  <figcaption className="text-sm text-zinc-400">
+                    <DocsInlineText text={block.caption} />
+                  </figcaption>
+                ) : null}
               </figure>
             )
           case 'video':
@@ -217,7 +224,11 @@ export function CmsBlockRenderer({
                 ) : (
                   renderMediaPlaceholder({ kind: 'video', locale })
                 )}
-                {block.caption ? <figcaption className="text-sm text-zinc-400">{block.caption}</figcaption> : null}
+                {block.caption ? (
+                  <figcaption className="text-sm text-zinc-400">
+                    <DocsInlineText text={block.caption} />
+                  </figcaption>
+                ) : null}
               </figure>
             )
           case 'videoEmbed':
@@ -236,7 +247,11 @@ export function CmsBlockRenderer({
                 ) : (
                   renderMediaPlaceholder({ kind: 'video', locale })
                 )}
-                {block.caption ? <figcaption className="text-sm text-zinc-400">{block.caption}</figcaption> : null}
+                {block.caption ? (
+                  <figcaption className="text-sm text-zinc-400">
+                    <DocsInlineText text={block.caption} />
+                  </figcaption>
+                ) : null}
               </figure>
             )
           case 'button':
@@ -251,7 +266,7 @@ export function CmsBlockRenderer({
                         : 'bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] text-white hover:opacity-90'
                     }`}
                 >
-                  {block.label || 'Open'}
+                  <DocsInlineText text={block.label || 'Open'} />
                 </Link>
               </div>
             )

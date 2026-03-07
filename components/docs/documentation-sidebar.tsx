@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
 import {
+  BarChart3,
   BookOpen,
   Bot,
   CircleHelp,
@@ -52,6 +53,8 @@ function getPageIcon(slug: DocsPageSlug): ComponentType<{ className?: string }> 
       return Bot
     case 'keyboards-triggers':
       return Keyboard
+    case 'statistics':
+      return BarChart3
     case 'data-security':
       return Database
     case 'testing-deploy':
@@ -180,6 +183,19 @@ export function DocumentationSidebar({
             kind: 'node',
           })
         }
+      }
+    }
+
+    const statisticsPage = pageBySection.get('statistics')
+    if (statisticsPage) {
+      for (const tab of content.statistics.tabs) {
+        pushEntry({
+          id: `stats-${tab.id}`,
+          href: `${baseDocsPath}/${statisticsPage.slug}#statistics`,
+          title: tab.title,
+          snippet: `${tab.description} ${tab.whenToUse} ${tab.kpis.slice(0, 2).join(' ')}`,
+          kind: 'section',
+        })
       }
     }
 

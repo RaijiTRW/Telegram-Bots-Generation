@@ -26,9 +26,10 @@ export default function SettingsPage() {
           <h1 className="text-white font-semibold">{tNav('settings')}</h1>
           <HelpGuideButton
             title={tNav('settings')}
-            summary={tHelp('basicSummary')}
-            steps={[tHelp('basicStep1'), tHelp('basicStep2'), tHelp('basicStep3')]}
-            docsHref={`${docsBasePath}/getting-started`}
+            summary={tHelp('overviewSummary')}
+            steps={[tHelp('overviewStep1'), tHelp('overviewStep2'), tHelp('overviewStep3')]}
+            notes={[tHelp('overviewNote')]}
+            docsHref={`${docsBasePath}/how-it-works#editor-areas`}
           />
           <span className="text-zinc-500">|</span>
           <span className="text-sm text-zinc-400">{tNav('settingsDesc')}</span>

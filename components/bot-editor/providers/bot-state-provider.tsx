@@ -2,12 +2,15 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react'
 import type { Bot, BotConfig, EditorSection, BotState } from '@/lib/bot-editor/types/bot.types'
+import type { ViewerAccess } from '@/lib/billing/types'
 import {
   serializeWorkflowEdges,
   serializeWorkflowNodes,
 } from '@/lib/bot-editor/utils/workflow-serialization'
 
 interface BotStateContextValue extends BotState {
+  isAdmin: boolean
+  viewerAccess: ViewerAccess
   setBot: (bot: Bot | null) => void
   updateBotDraft: (patch: Partial<Bot>) => void
   setConfig: (config: BotConfig) => void
@@ -140,9 +143,10 @@ function getBotDraftComparableSnapshot(bot: Bot | null): string {
 interface BotStateProviderProps {
   children: ReactNode
   initialBot?: Bot | null
+  viewerAccess: ViewerAccess
 }
 
-export function BotStateProvider({ children, initialBot = null }: BotStateProviderProps) {
+export function BotStateProvider({ children, initialBot = null, viewerAccess }: BotStateProviderProps) {
   const botBaselineSnapshotRef = useRef(getBotDraftComparableSnapshot(initialBot))
   const configBaselineSnapshotRef = useRef(getConfigComparableSnapshot(initialBot?.config ?? initialConfig))
   const [state, setState] = useState<BotState>({
@@ -311,6 +315,8 @@ export function BotStateProvider({ children, initialBot = null }: BotStateProvid
 
   const value: BotStateContextValue = {
     ...state,
+    isAdmin: viewerAccess.isAdmin,
+    viewerAccess,
     setBot,
     updateBotDraft,
     setConfig,

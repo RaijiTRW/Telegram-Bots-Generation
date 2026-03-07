@@ -5,6 +5,7 @@ export type DocsPageSlug =
   | 'how-it-works'
   | 'nodes'
   | 'keyboards-triggers'
+  | 'statistics'
   | 'data-security'
   | 'testing-deploy'
   | 'troubleshooting'
@@ -18,6 +19,7 @@ export type DocsPageSectionId =
   | 'ui-components'
   | 'nodes-reference'
   | 'keyboards-triggers'
+  | 'statistics'
   | 'data-security'
   | 'test-deploy'
   | 'troubleshooting'
@@ -45,6 +47,7 @@ export function getDocsPageDefinitions(content: DocsContent): DocsPageDefinition
   const areas = getMeta('editor-areas')
   const nodes = getMeta('nodes-reference')
   const kb = getMeta('keyboards-triggers')
+  const stats = getMeta('statistics')
   const data = getMeta('data-security')
   const test = getMeta('test-deploy')
   const trouble = getMeta('troubleshooting')
@@ -74,6 +77,12 @@ export function getDocsPageDefinitions(content: DocsContent): DocsPageDefinition
       title: kb.title,
       description: kb.description,
       sections: ['keyboards-triggers'],
+    },
+    {
+      slug: 'statistics',
+      title: stats.title,
+      description: stats.description,
+      sections: ['statistics'],
     },
     {
       slug: 'data-security',
