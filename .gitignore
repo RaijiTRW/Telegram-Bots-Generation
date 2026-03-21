@@ -24,6 +24,7 @@
 .DS_Store
 *.pem
 .tflow-media/
+.codex/
 
 # debug
 npm-debug.log*
