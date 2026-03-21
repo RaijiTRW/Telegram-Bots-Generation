@@ -4,11 +4,14 @@ import { motion } from '@/components/motion-wrapper';
 import { useTranslations } from 'next-intl';
 import { Shield, Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { BorderBeam } from '@/components/ui/border-beam';
-
 export function Monitoring() {
   const t = useTranslations('monitoring');
+  const enterViewport = {
+    once: true,
+    amount: 0.12,
+    margin: '280px 0px',
+  } as const;
 
-  // Bot status points for radar visualization
   const botPoints = [
     { x: 30, y: 20, delay: 0 },
     { x: 60, y: 40, delay: 0.5 },
@@ -25,38 +28,22 @@ export function Monitoring() {
 
   return (
     <section className="py-24 md:py-32 px-4 relative overflow-hidden cyber-grid cyber-noise">
-      {/* Radar animation background */}
       <div className="absolute inset-0 pointer-events-none">
-        <motion.div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-        >
-          <div
-            className="w-[800px] h-[800px] rounded-full border"
-            style={{ borderColor: 'rgba(30, 136, 229, 0.1)' }}
-          />
-        </motion.div>
-        <motion.div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          animate={{ rotate: -360 }}
-          transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
-        >
-          <div
-            className="w-[600px] h-[600px] rounded-full border"
-            style={{ borderColor: 'rgba(124, 77, 255, 0.1)' }}
-          />
-        </motion.div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 gpu-layer">
+          <div className="w-[800px] h-[800px] rounded-full border" style={{ borderColor: 'rgba(30, 136, 229, 0.1)' }} />
+        </div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 gpu-layer">
+          <div className="w-[600px] h-[600px] rounded-full border" style={{ borderColor: 'rgba(124, 77, 255, 0.1)' }} />
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left column */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            viewport={enterViewport}
+            transition={{ duration: 0.42 }}
           >
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel mb-6 font-mono text-sm">
               <Shield className="w-4 h-4 text-[#00E676]" />
@@ -75,17 +62,17 @@ export function Monitoring() {
             </p>
 
             <div className="space-y-4">
-              {features.map((item, i) => {
+              {features.map((item, index) => {
                 const Icon = item.icon;
                 return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.1 }}
-                    className="flex items-center gap-4"
-                  >
+                    <motion.div
+                      key={item.text}
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={enterViewport}
+                      transition={{ delay: index * 0.04, duration: 0.34 }}
+                      className="flex items-center gap-4"
+                    >
                     <div
                       className="w-10 h-10 rounded-lg glass-panel flex items-center justify-center"
                       style={{ borderColor: `${item.color}20` }}
@@ -99,100 +86,66 @@ export function Monitoring() {
             </div>
           </motion.div>
 
-          {/* Right column - Radar visualization */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="relative"
+            viewport={enterViewport}
+            transition={{ duration: 0.42 }}
+            className="relative gpu-layer"
           >
             <div className="relative aspect-square max-w-md mx-auto">
               <BorderBeam duration={10} size={400} roundedClassName="rounded-full" />
 
               <div className="relative glass-cyber-strong rounded-full aspect-square flex items-center justify-center">
-                {/* Radar circles */}
-                <div
-                  className="absolute inset-0 rounded-full border border-white/5"
-                  style={{ background: 'radial-gradient(circle, rgba(30, 136, 229, 0.05) 0%, transparent 70%)' }}
-                />
-                <div
-                  className="absolute inset-8 rounded-full border border-white/5"
-                  style={{ background: 'radial-gradient(circle, rgba(124, 77, 255, 0.03) 0%, transparent 70%)' }}
-                />
-                <div
-                  className="absolute inset-16 rounded-full border border-white/5"
-                  style={{ background: 'radial-gradient(circle, rgba(30, 136, 229, 0.02) 0%, transparent 70%)' }}
-                />
+                <div className="absolute inset-0 rounded-full border border-white/5" style={{ background: 'radial-gradient(circle, rgba(30, 136, 229, 0.05) 0%, transparent 70%)' }} />
+                <div className="absolute inset-8 rounded-full border border-white/5" style={{ background: 'radial-gradient(circle, rgba(124, 77, 255, 0.03) 0%, transparent 70%)' }} />
+                <div className="absolute inset-16 rounded-full border border-white/5" style={{ background: 'radial-gradient(circle, rgba(30, 136, 229, 0.02) 0%, transparent 70%)' }} />
 
-                {/* Radar sweep */}
                 <motion.div
-                  className="absolute inset-0"
+                  className="absolute inset-0 gpu-layer"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
                 >
                   <div
-                    className="absolute top-1/2 left-1/2 w-1/2 h-1 origin-left"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent, rgba(30, 136, 229, 0.4))',
-                    }}
+                    className="absolute top-1/2 left-1/2 h-1 w-1/2 origin-left"
+                    style={{ background: 'linear-gradient(90deg, transparent, rgba(30, 136, 229, 0.4))' }}
                   />
                 </motion.div>
                 <motion.div
-                  className="absolute inset-0"
+                  className="absolute inset-0 rotate-[132deg] gpu-layer"
                   animate={{ rotate: -360 }}
                   transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
                 >
                   <div
-                    className="absolute top-1/2 left-1/2 w-1/3 h-1 origin-left"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent, rgba(124, 77, 255, 0.3))',
-                    }}
+                    className="absolute top-1/2 left-1/2 h-1 w-1/3 origin-left"
+                    style={{ background: 'linear-gradient(90deg, transparent, rgba(124, 77, 255, 0.3))' }}
                   />
                 </motion.div>
 
-                {/* Bot points */}
                 {botPoints.map((bot) => (
-                  <motion.div
+                  <div
                     key={bot.delay}
-                    className="absolute w-3 h-3 rounded-full shadow-lg"
+                    className="absolute w-3 h-3 rounded-full shadow-lg gpu-layer"
                     style={{
                       left: `${bot.x}%`,
                       top: `${bot.y}%`,
                       background: '#00E676',
-                      boxShadow: '0 0 10px rgba(0, 230, 118, 0.5)',
-                    }}
-                    animate={{
-                      scale: [1, 1.5, 1],
-                      opacity: [0.6, 1, 0.6],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      delay: bot.delay,
+                      boxShadow: '0 0 10px rgba(0, 230, 118, 0.18)',
                     }}
                   />
                 ))}
 
-                {/* Center status */}
                 <div className="relative z-10 text-center">
-                  <motion.div
-                    className="w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center"
+                  <div
+                    className="w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center gpu-layer"
                     style={{
                       background: 'rgba(0, 230, 118, 0.15)',
                       border: '2px solid #00E676',
+                      boxShadow: '0 0 26px rgba(0, 230, 118, 0.18)',
                     }}
-                    animate={{
-                      boxShadow: [
-                        '0 0 20px rgba(0, 230, 118, 0.3)',
-                        '0 0 40px rgba(0, 230, 118, 0.5)',
-                        '0 0 20px rgba(0, 230, 118, 0.3)',
-                      ],
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
                   >
                     <CheckCircle2 className="w-8 h-8 text-[#00E676]" />
-                  </motion.div>
+                  </div>
                   <div className="text-sm font-mono text-[#00E676]">{t('statusTitle')}</div>
                   <div className="text-xs text-white/40 mt-1">{t('statusSubtitle')}</div>
                 </div>

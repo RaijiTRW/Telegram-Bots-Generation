@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
+import { useState, useEffect, useRef } from 'react';
+import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { motion, AnimatePresence } from '@/components/motion-wrapper';
 import { BorderBeam } from '@/components/ui/border-beam';
@@ -10,28 +10,8 @@ import {
   GitBranch,
   Zap,
   Code,
-  Bot,
   Sparkles,
-  ArrowRight,
 } from 'lucide-react';
-
-// Typing animation hook
-function useTypingEffect(text: string, speed: number = 50) {
-  const [displayText, setDisplayText] = useState('');
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (index < text.length) {
-      const timeout = setTimeout(() => {
-        setDisplayText(text.slice(0, index + 1));
-        setIndex(index + 1);
-      }, speed);
-      return () => clearTimeout(timeout);
-    }
-  }, [index, text, speed]);
-
-  return displayText;
-}
 
 // Logic node visualization component
 function LogicNode({
@@ -60,7 +40,7 @@ function LogicNode({
     >
       {/* Node connector line */}
       <motion.div
-        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full w-8 h-0.5 bg-gradient-to-r from-transparent to-[#1E88E5]/50"
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full w-6 h-0.5 bg-gradient-to-r from-transparent to-[#1E88E5]/50 md:w-8"
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
         transition={{ duration: 0.3, delay: delay + 0.1 }}
@@ -68,12 +48,12 @@ function LogicNode({
 
       {/* Node content */}
       <div
-        className={`glass-panel rounded-lg px-3 py-2 border-l-2 ${isActive ? 'border-l-[#1E88E5]' : 'border-l-white/10'
+        className={`glass-panel rounded-lg px-2.5 py-1.5 border-l-2 md:px-3 md:py-2 ${isActive ? 'border-l-[#1E88E5]' : 'border-l-white/10'
           }`}
       >
         <div className="flex items-center gap-2">
           <Code className="w-3 h-3 text-[#1E88E5]" />
-          <span className="text-xs font-mono text-white/80">{label}</span>
+          <span className="font-mono text-[11px] text-white/80 md:text-xs">{label}</span>
         </div>
       </div>
     </motion.div>
@@ -81,28 +61,51 @@ function LogicNode({
 }
 
 export function Hero() {
-  const t = useTranslations('hero');
   const locale = useLocale();
-  const [prompt, setPrompt] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [typedLength, setTypedLength] = useState(0);
   const [activeNodes, setActiveNodes] = useState<number[]>([]);
+  const exampleTimeoutRef = useRef<number | null>(null);
 
   const examplePrompt = locale === 'ru' ? 'Создать бота продаж для моего магазина...' : 'Create a sales bot for my online store...';
-  const typedPrompt = useTypingEffect(examplePrompt, 50);
+  const placeholderPrompt = locale === 'ru' ? 'Опишите вашего бота...' : 'Describe your bot...';
+  const visiblePrompt = isTyping ? examplePrompt.slice(0, typedLength) : placeholderPrompt;
 
   // Simulate node tree building
   useEffect(() => {
-    if (isTyping) {
-      const intervals = [
-        setTimeout(() => setActiveNodes([0]), 800),
-        setTimeout(() => setActiveNodes([0, 1]), 1400),
-        setTimeout(() => setActiveNodes([0, 1, 2]), 2000),
-        setTimeout(() => setActiveNodes([0, 1, 2, 3]), 2600),
-      ];
-
-      return () => intervals.forEach(clearTimeout);
+    if (!isTyping) {
+      return;
     }
+
+    const intervals = [
+      window.setTimeout(() => setActiveNodes([0]), 800),
+      window.setTimeout(() => setActiveNodes([0, 1]), 1400),
+      window.setTimeout(() => setActiveNodes([0, 1, 2]), 2000),
+      window.setTimeout(() => setActiveNodes([0, 1, 2, 3]), 2600),
+    ];
+
+    return () => intervals.forEach(window.clearTimeout);
   }, [isTyping]);
+
+  useEffect(() => {
+    if (!isTyping || typedLength >= examplePrompt.length) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setTypedLength((current) => Math.min(current + 1, examplePrompt.length));
+    }, 42);
+
+    return () => window.clearTimeout(timeout);
+  }, [examplePrompt, isTyping, typedLength]);
+
+  useEffect(() => {
+    return () => {
+      if (exampleTimeoutRef.current !== null) {
+        window.clearTimeout(exampleTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const nodes = [
     { label: '/start', delay: 0.1 },
@@ -112,7 +115,7 @@ export function Hero() {
   ];
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center px-4 pt-20 overflow-hidden cyber-grid cyber-noise">
+    <section className="relative flex items-center justify-center overflow-hidden px-4 pb-10 pt-20 md:min-h-[calc(100svh-5rem)] md:pb-14 md:pt-24 cyber-grid cyber-noise">
       {/* Ambient glow effects - static for performance */}
       <div className="absolute inset-0 pointer-events-none">
         <div
@@ -124,7 +127,7 @@ export function Hero() {
       </div>
 
       <div className="relative max-w-7xl mx-auto w-full z-10">
-        <div className="grid lg:grid-cols-2 gap-8 items-center">
+        <div className="grid items-center gap-6 lg:grid-cols-2 lg:gap-8">
           {/* Left Column - Console Interface */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
@@ -136,14 +139,14 @@ export function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="mb-8"
+              className="mb-6 md:mb-7"
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel mb-6">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full glass-panel px-3 py-1.5 md:mb-5">
                 <Sparkles className="w-3.5 h-3.5 text-[#7C4DFF]" />
                 <span className="text-xs font-mono text-white/60">{locale === 'ru' ? 'Генерация на основе ИИ' : 'AI-Powered Generation'}</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6">
+              <h1 className="mb-4 text-4xl font-bold leading-[0.95] tracking-[-0.03em] sm:text-5xl md:mb-5 md:text-[3.35rem] xl:text-[3.9rem]">
                 {locale === 'ru' ? (
                   <>
                     Создавайте ботов со{' '}
@@ -161,7 +164,7 @@ export function Hero() {
                 )}
               </h1>
 
-              <p className="text-lg text-white/60 max-w-xl">
+              <p className="max-w-lg text-base leading-relaxed text-white/60 md:text-lg">
                 {locale === 'ru' ? (
                   <>Опишите вашего бота простым языком. Наблюдайте, как ИИ строит логику, настраивает функции и разворачивает — всё в реальном времени.</>
                 ) : (
@@ -180,9 +183,9 @@ export function Hero() {
               <div className="relative rounded-xl overflow-hidden">
                 <BorderBeam duration={12} size={300} roundedClassName="rounded-xl" />
 
-                <div className="relative glass-panel rounded-xl h-full">
+                <div className="relative h-full rounded-xl glass-panel">
                   {/* Console header */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                  <div className="flex items-center justify-between border-b border-white/5 px-3.5 py-2.5 md:px-4 md:py-3">
                     <div className="flex items-center gap-2">
                       <Terminal className="w-4 h-4 text-[#1E88E5]" />
                       <span className="text-xs font-mono text-white/60">cbtooll-cli</span>
@@ -195,14 +198,14 @@ export function Hero() {
                   </div>
 
                   {/* Console body */}
-                  <div className="p-4 min-h-[200px] font-mono text-sm">
+                  <div className="min-h-[176px] p-3.5 font-mono text-sm md:min-h-[190px] md:p-4">
                     {/* Prompt line */}
                     <div className="flex items-start gap-2 mb-2">
                       <span className="text-[#1E88E5]">$</span>
                       <div className="flex-1">
                         {isTyping ? (
                           <span className="text-white/90">
-                            {typedPrompt}
+                            {visiblePrompt}
                             <motion.span
                               animate={{ opacity: [1, 0, 1] }}
                               transition={{ duration: 0.8, repeat: Infinity }}
@@ -211,7 +214,7 @@ export function Hero() {
                           </span>
                         ) : (
                           <span className="text-white/40">
-                            {prompt || (locale === 'ru' ? 'Опишите вашего бота...' : 'Describe your bot...')}
+                            {visiblePrompt}
                             <motion.span
                               animate={{ opacity: [1, 0, 1] }}
                               transition={{ duration: 0.8, repeat: Infinity }}
@@ -229,7 +232,7 @@ export function Hero() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
-                          className="space-y-1 mt-4 text-xs"
+                          className="mt-3 space-y-1 text-xs"
                         >
                           <div className="text-[#00E676]">
                             {locale === 'ru' ? '→ Анализ требований...' : '→ Analyzing requirements...'}
@@ -249,11 +252,11 @@ export function Hero() {
                   </div>
 
                   {/* Console footer */}
-                  <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
+                  <div className="flex items-center justify-between border-t border-white/5 px-3.5 py-2.5 md:px-4 md:py-3">
                     <Link
                       href={`/${locale}/dashboard`}
                       onClick={() => setIsTyping(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF] rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF] px-3.5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                     >
                       <Zap className="w-4 h-4" />
                       <span>{locale === 'ru' ? 'Сгенерировать и запустить' : 'Generate & Launch'}</span>
@@ -261,8 +264,17 @@ export function Hero() {
 
                     <button
                       onClick={() => {
+                        if (exampleTimeoutRef.current !== null) {
+                          window.clearTimeout(exampleTimeoutRef.current);
+                        }
+                        setTypedLength(0);
+                        setActiveNodes([]);
                         setIsTyping(true);
-                        setTimeout(() => setIsTyping(false), 4000);
+                        exampleTimeoutRef.current = window.setTimeout(() => {
+                          setActiveNodes([]);
+                          setIsTyping(false);
+                          exampleTimeoutRef.current = null;
+                        }, 4000);
                       }}
                       className="text-xs text-white/40 hover:text-white/60 transition-colors font-mono"
                     >
@@ -279,23 +291,23 @@ export function Hero() {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative"
+            className="relative w-full lg:max-w-[560px] lg:justify-self-end"
           >
-            <div className="relative glass-panel rounded-xl p-6 min-h-[400px]">
+            <div className="relative min-h-[340px] rounded-xl glass-panel p-5 md:min-h-[360px] md:p-6 lg:min-h-[350px] lg:p-5">
               {/* Tree header */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="mb-5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <GitBranch className="w-5 h-5 text-[#1E88E5]" />
-                  <h3 className="font-semibold">{locale === 'ru' ? 'Дерево логики' : 'Logic Tree'}</h3>
+                  <GitBranch className="h-4 w-4 text-[#1E88E5] md:h-5 md:w-5" />
+                  <h3 className="text-sm font-semibold md:text-base">{locale === 'ru' ? 'Дерево логики' : 'Logic Tree'}</h3>
                 </div>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#00E676]/10 border border-[#00E676]/20">
+                <div className="flex items-center gap-1.5 rounded border border-[#00E676]/20 bg-[#00E676]/10 px-2 py-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse" />
                   <span className="text-xs font-mono text-[#00E676]">LIVE</span>
                 </div>
               </div>
 
               {/* Node tree */}
-              <div className="space-y-3 pl-4">
+              <div className="space-y-2.5 pl-3 md:pl-4">
                 {nodes.map((node, index) => (
                   <LogicNode
                     key={index}
@@ -311,9 +323,9 @@ export function Hero() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                className="mt-6 p-4 rounded-lg bg-black/30 border border-white/5 font-mono text-xs"
+                className="mt-5 rounded-lg border border-white/5 bg-black/30 p-3.5 font-mono text-[11px] md:p-4 md:text-xs"
               >
-                <pre className="text-white/70">
+                <pre className="text-white/70 leading-relaxed">
                   <span className="text-[#7C4DFF]">const</span> bot = {'{'}
                   <br />
                   <span className="ml-4 text-[#1E88E5]">handlers</span>: [

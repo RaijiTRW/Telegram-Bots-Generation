@@ -1,6 +1,7 @@
 'use client';
 
-import { useTranslations, useLocale } from 'next-intl';
+import dynamic from 'next/dynamic';
+import { useLocale } from 'next-intl';
 import { motion } from '@/components/motion-wrapper';
 import {
   Globe,
@@ -11,77 +12,27 @@ import {
   Download,
 } from 'lucide-react';
 import { BorderBeam } from '@/components/ui/border-beam';
-import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
-import { useState } from 'react';
 
-// Simplified world GeoJSON for detailed map
-const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
+const WorldMap = dynamic(
+  () => import('./world-map').then((module) => module.WorldMap),
+  {
+    ssr: false,
+    loading: () => <LiteMapPreview />,
+  }
+);
 
-// World map points for Edge Hosting visualization (using lat/lon for react-simple-maps)
-const mapPoints: Array<{
-  name: string;
-  coordinates: [number, number];
-  delay: number;
-}> = [
-  { name: 'US East', coordinates: [-74, 40.7], delay: 0 },      // New York
-  { name: 'US West', coordinates: [-122.4, 37.8], delay: 0.5 },  // San Francisco
-  { name: 'EU West', coordinates: [-0.1, 51.5], delay: 1 },      // London
-  { name: 'EU East', coordinates: [30.5, 50.4], delay: 1.5 },     // Kyiv
-  { name: 'Asia', coordinates: [139.7, 35.7], delay: 2 },         // Tokyo
-  { name: 'Australia', coordinates: [151.2, -33.9], delay: 2.5 }, // Sydney
-  { name: 'SA', coordinates: [-46.6, -23.6], delay: 3 },          // Sao Paulo
-  { name: 'Africa', coordinates: [18.4, -33.9], delay: 3.5 },    // Cape Town
-];
-
-// WorldMap component that loads GeoJSON
-function WorldMap() {
-  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
-
+function LiteMapPreview() {
   return (
-    <div
-      className="w-full h-full"
-      style={{ outline: 'none', userSelect: 'none' }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      <ComposableMap
-        projection="geoMercator"
-        projectionConfig={{
-          scale: 140,
-          center: [0, 35],
-        }}
-        className="w-full h-full"
-        style={{ backgroundColor: 'transparent', outline: 'none' }}
-      >
-        <Geographies geography={geoUrl}>
-          {({ geographies }: { geographies: any[] }) =>
-            geographies.map((geo) => {
-              const isHovered = hoveredCountry === geo.rsmKey;
-              return (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={isHovered ? 'rgba(30, 136, 229, 0.5)' : 'rgba(30, 136, 229, 0.25)'}
-                  stroke={isHovered ? 'rgba(30, 136, 229, 1)' : 'rgba(30, 136, 229, 0.6)'}
-                  strokeWidth={isHovered ? 1 : 0.5}
-                  onMouseEnter={() => setHoveredCountry(geo.rsmKey)}
-                  onMouseLeave={() => setHoveredCountry(null)}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                />
-              );
-            })
-          }
-      </Geographies>
-      {mapPoints.map((point) => (
-        <Marker key={point.name} coordinates={point.coordinates}>
-          <g>
-            <circle r={3} fill="#1E88E5" style={{ filter: 'drop-shadow(0 0 4px rgba(30, 136, 229, 0.6))' }} />
-          </g>
-        </Marker>
-      ))}
-    </ComposableMap>
+    <div className="w-full h-full rounded-xl border border-[#1E88E5]/20 bg-linear-to-br from-[#08111E] to-[#0B0F17] p-4">
+      <div className="relative h-full overflow-hidden rounded-lg border border-white/6 bg-black/20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(30,136,229,0.18),transparent_26%),radial-gradient(circle_at_75%_35%,rgba(124,77,255,0.16),transparent_24%),radial-gradient(circle_at_58%_72%,rgba(0,230,118,0.12),transparent_22%)]" />
+        <div className="absolute inset-x-5 top-1/2 h-px -translate-y-1/2 bg-linear-to-r from-transparent via-[#1E88E5]/40 to-transparent" />
+        <div className="absolute left-[18%] top-[34%] w-2 h-2 rounded-full bg-[#1E88E5]" />
+        <div className="absolute left-[37%] top-[43%] w-2 h-2 rounded-full bg-[#7C4DFF]" />
+        <div className="absolute left-[61%] top-[30%] w-2 h-2 rounded-full bg-[#00E676]" />
+        <div className="absolute left-[74%] top-[58%] w-2 h-2 rounded-full bg-[#1E88E5]" />
+        <div className="absolute left-[48%] top-[68%] w-2 h-2 rounded-full bg-[#7C4DFF]" />
+      </div>
     </div>
   );
 }
@@ -123,56 +74,29 @@ const infrastructureBlocks = [
 ];
 
 export function Features() {
-  const t = useTranslations('features');
   const locale = useLocale();
+  const enterViewport = {
+    once: true,
+    amount: 0.12,
+    margin: '280px 0px',
+  } as const;
 
   return (
     <section className="py-24 md:py-32 px-4 relative overflow-hidden cyber-grid cyber-noise">
-      {/* Background glow effects */}
-      <div className="absolute inset-0 pointer-events-none">
-        <motion.div
-          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(30, 136, 229, 0.08) 0%, transparent 70%)' }}
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.2, 0.4, 0.2],
-          }}
-          transition={{
-            duration: 12,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-        <motion.div
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(124, 77, 255, 0.08) 0%, transparent 70%)' }}
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.15, 0.35, 0.15],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: 'easeInOut',
-            delay: 2,
-          }}
-        />
-      </div>
-
       <div className="max-w-7xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.42 }}
           className="text-center mb-16"
         >
           <motion.span
             className="inline-block px-4 py-2 rounded-full glass-panel text-sm text-white/60 mb-4 font-mono"
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+            viewport={enterViewport}
+            transition={{ duration: 0.34 }}
           >
             {locale === 'ru' ? 'Инфраструктура' : 'Infrastructure'}
           </motion.span>
@@ -215,9 +139,13 @@ export function Features() {
                 key={block.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className={`${colSpan} glass-cyber rounded-3xl p-6 hover:bg-white/5 transition-all duration-300 group relative overflow-hidden flex flex-col`}
+                viewport={enterViewport}
+                transition={{
+                  opacity: { duration: 0.34, delay: index * 0.04 },
+                  scale: { duration: 0.34, delay: index * 0.04 },
+                  y: { duration: 0.14, ease: 'easeOut' },
+                }}
+                className={`${colSpan} glass-cyber rounded-3xl p-6 hover:bg-white/5 transition-colors duration-150 group relative overflow-hidden flex flex-col gpu-layer`}
                 style={{ maxHeight: block.size === 'large' ? '424px' : block.size === 'medium' ? '200px' : '200px' }}
                 whileHover={{ y: -5 }}
               >
@@ -287,14 +215,13 @@ export function Features() {
                           <span className="text-[#7C4DFF]">async def</span> <span className="text-[#1E88E5]">start</span>(msg):{'\n'}
                           <span className="ml-2 text-white/50"># Your logic</span>
                         </pre>
-                        <motion.button
-                          className="mt-2 py-1.5 rounded bg-[#1E88E5]/20 border border-[#1E88E5]/30 text-[#1E88E5] text-[10px] flex items-center justify-center gap-1.5 shrink-0"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
+                        <div
+                          className="pointer-events-none mt-2 py-1.5 rounded bg-[#1E88E5]/20 border border-[#1E88E5]/30 text-[#1E88E5] text-[10px] flex items-center justify-center gap-1.5 shrink-0 select-none"
+                          aria-hidden="true"
                         >
                           <Download className="w-3 h-3" />
                           {locale === 'ru' ? 'Экспорт' : 'Export'}
-                        </motion.button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -307,13 +234,13 @@ export function Features() {
                           key={i}
                           className="flex-1 rounded-t"
                           style={{
-                            background: 'linear-gradient(to top, #1E88E5, #7C4DFF)',
+                        background: 'linear-gradient(to top, #1E88E5, #7C4DFF)',
                             height: `${height}%`,
                           }}
                           initial={{ height: 0 }}
                           whileInView={{ height: `${height}%` }}
-                          viewport={{ once: true }}
-                          transition={{ duration: 0.5, delay: i * 0.05 }}
+                          viewport={enterViewport}
+                          transition={{ duration: 0.42, delay: i * 0.03 }}
                         />
                       ))}
                     </div>
@@ -326,15 +253,8 @@ export function Features() {
                         style={{
                           background: 'rgba(255, 171, 0, 0.15)',
                           border: '2px solid #FFAB00',
+                          boxShadow: '0 0 28px rgba(255, 171, 0, 0.16)',
                         }}
-                        animate={{
-                          boxShadow: [
-                            '0 0 20px rgba(255, 171, 0, 0.3)',
-                            '0 0 40px rgba(255, 171, 0, 0.5)',
-                            '0 0 20px rgba(255, 171, 0, 0.3)',
-                          ],
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
                       >
                         <Shield className="w-6 h-6 text-[#FFAB00]" />
                       </motion.div>

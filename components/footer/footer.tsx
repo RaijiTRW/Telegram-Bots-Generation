@@ -11,6 +11,11 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   const isRu = locale === 'ru';
+  const enterViewport = {
+    once: true,
+    amount: 0.12,
+    margin: '280px 0px',
+  } as const;
 
   const productLinks = isRu
     ? [
@@ -36,30 +41,13 @@ export function Footer() {
 
   return (
     <footer className="border-t border-white/5 mt-auto relative overflow-hidden cyber-grid">
-      {/* Background glow effects */}
-      <div className="absolute inset-0 pointer-events-none">
-        <motion.div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(0, 230, 118, 0.08) 0%, transparent 70%)' }}
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.2, 0.4, 0.2],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 py-24 relative z-10">
         {/* Main CTA Section */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.42 }}
           className="text-center mb-20"
         >
           <h2 className="text-4xl md:text-6xl font-bold mb-8">
@@ -87,20 +75,6 @@ export function Footer() {
             whileTap={{ scale: 0.98 }}
           >
             {/* Expanding glow effect on hover */}
-            <motion.div
-              className="absolute inset-0 rounded-full blur-3xl"
-              style={{ background: 'linear-gradient(135deg, #1E88E5, #00E676)' }}
-              animate={{
-                scale: [1, 1.5, 1],
-                opacity: [0.2, 0.4, 0.2],
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-            />
-
             <Link
               href={`/${locale}/dashboard`}
               className="relative px-16 py-6 rounded-full text-xl font-bold text-white shadow-2xl inline-flex items-center gap-4"
@@ -108,18 +82,9 @@ export function Footer() {
                 background: 'linear-gradient(135deg, #1E88E5, #00E676)',
               }}
             >
-              <motion.span
-                animate={{
-                  textShadow: [
-                    '0 0 20px rgba(255, 255, 255, 0.5)',
-                    '0 0 40px rgba(255, 255, 255, 0.8)',
-                    '0 0 20px rgba(255, 255, 255, 0.5)',
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
+              <span className="drop-shadow-[0_0_18px_rgba(255,255,255,0.2)]">
                 {isRu ? 'Развернуть первого бота сейчас' : 'Deploy your first bot now'}
-              </motion.span>
+              </span>
               <motion.div
                 animate={{ x: [0, 5, 0] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
@@ -134,21 +99,16 @@ export function Footer() {
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.34, delay: 0.08 }}
           className="flex items-center justify-center gap-4 mb-16"
         >
-          <motion.div
+          <div
             className="w-3 h-3 rounded-full"
-            style={{ background: '#00E676' }}
-            animate={{
-              boxShadow: [
-                '0 0 10px rgba(0, 230, 118, 0.5)',
-                '0 0 20px rgba(0, 230, 118, 0.8)',
-                '0 0 10px rgba(0, 230, 118, 0.5)',
-              ],
+            style={{
+              background: '#00E676',
+              boxShadow: '0 0 14px rgba(0, 230, 118, 0.28)',
             }}
-            transition={{ duration: 2, repeat: Infinity }}
           />
           <span className="text-white/60 font-mono text-sm">{isRu ? 'Статус системы: ' : 'System Status: '}</span>
           <span className="text-[#00E676] font-semibold">{isRu ? 'Работает' : 'Operational'}</span>
@@ -158,12 +118,12 @@ export function Footer() {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand Column */}
           <motion.div
-            className="md:col-span-1"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
+          className="md:col-span-1"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.34 }}
+        >
             <Link href={`/${locale}`} className="flex items-center gap-2 mb-4 group">
               <TFlowLogo className="w-32 h-10" showText={false} />
             </Link>
@@ -174,11 +134,11 @@ export function Footer() {
 
           {/* Quick Links */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.34, delay: 0.04 }}
+        >
             <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Продукт' : 'Product'}</h4>
             <ul className="space-y-2">
               {productLinks.map((link) => (
@@ -197,11 +157,11 @@ export function Footer() {
 
           {/* Company Links */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.34, delay: 0.08 }}
+        >
             <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Компания' : 'Company'}</h4>
             <ul className="space-y-2">
               {companyLinks.map((link) => (
@@ -220,11 +180,11 @@ export function Footer() {
 
           {/* Legal Links */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.34, delay: 0.12 }}
+        >
             <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Правовая информация' : 'Legal'}</h4>
             <ul className="space-y-2">
               {legalLinks.map((link) => (
@@ -247,8 +207,8 @@ export function Footer() {
           className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.4 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.32, delay: 0.14 }}
         >
           <div className="text-sm text-white/60">
             © {currentYear} CBTooll. {isRu ? 'Создано для скорости, разработано для масштабирования.' : 'Built for speed, designed for scale.'}

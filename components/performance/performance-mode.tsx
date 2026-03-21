@@ -1,36 +1,38 @@
 'use client'
 
 import { useEffect } from 'react'
-
-function shouldUseLiteMode(): boolean {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return false
-  }
-
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  const smallViewport = window.matchMedia('(max-width: 1024px)').matches
-  const coarsePointer = window.matchMedia('(hover: none), (pointer: coarse)').matches
-  const lowCores = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 8
-  const lowMemory =
-    'deviceMemory' in navigator &&
-    typeof (navigator as Navigator & { deviceMemory?: number }).deviceMemory === 'number' &&
-    ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 0) <= 8
-
-  return reducedMotion || smallViewport || coarsePointer || lowCores || lowMemory
-}
+import { shouldUseLiteMode } from './performance-utils'
 
 export function PerformanceMode() {
   useEffect(() => {
     const root = document.documentElement
+    let currentMode = root.getAttribute('data-performance') === 'lite' ? 'lite' : 'full'
+    let rafId = 0
 
     const apply = () => {
       const lite = shouldUseLiteMode()
-      root.setAttribute('data-performance', lite ? 'lite' : 'full')
+      const nextMode = lite ? 'lite' : 'full'
+
+      if (nextMode === currentMode) {
+        return
+      }
+
+      currentMode = nextMode
+      root.setAttribute('data-performance', nextMode)
+      window.dispatchEvent(new Event('cbtooll:performance-mode-changed'))
     }
 
     apply()
 
-    const onResize = () => apply()
+    const onResize = () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+      }
+
+      rafId = window.requestAnimationFrame(() => {
+        apply()
+      })
+    }
     window.addEventListener('resize', onResize, { passive: true })
 
     const reducedMotionMql = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -38,6 +40,10 @@ export function PerformanceMode() {
     reducedMotionMql.addEventListener('change', onReducedMotionChange)
 
     return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+      }
+
       window.removeEventListener('resize', onResize)
       reducedMotionMql.removeEventListener('change', onReducedMotionChange)
     }
@@ -45,4 +51,3 @@ export function PerformanceMode() {
 
   return null
 }
-

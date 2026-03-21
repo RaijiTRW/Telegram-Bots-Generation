@@ -151,21 +151,7 @@ export function Header() {
             className="flex items-center gap-2 group"
             aria-label="CBTooll Home"
           >
-            <div className="relative">
-              <CompactLogo className="w-12 h-10" />
-              <motion.div
-                className="absolute inset-0 bg-[#24A1DE]/20 blur-xl rounded-full"
-                animate={{
-                  opacity: [0.3, 0.5, 0.3],
-                  scale: [1, 1.1, 1],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              />
-            </div>
+            <CompactLogo className="w-12 h-10" />
             {/* Текст TFlow показываем только на десктопе */}
             <span className="hidden lg:block text-xl font-bold gradient-text">
               CBTooll
@@ -179,11 +165,11 @@ export function Header() {
                 key={item.key}
                 href={item.href}
                 className="text-sm text-white/60 hover:text-white transition-colors relative"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
-                whileHover={{ y: -2 }}
-              >
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.05 }}
+              whileHover={{ y: -2 }}
+            >
                 {t(item.key)}
                 <motion.span
                   className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-primary"

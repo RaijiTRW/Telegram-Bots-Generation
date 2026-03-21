@@ -237,15 +237,35 @@ svg {
   }
 
   html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
+    background: #05070A;
+    background-color: #05070A;
+    color-scheme: dark;
+    overscroll-behavior-y: none;
   }
 
   body {
+    min-height: 100vh;
     background: #05070A;
+    background-color: #05070A;
     color: #FFFFFF;
     font-family: 'Geist', var(--font-inter), system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
   }
+
+html[data-scroll-ready='1'] {
+  scroll-behavior: smooth;
+}
+
+html[data-scroll-restore-pending='1'] {
+  scroll-behavior: auto !important;
+  overflow-anchor: none;
+}
+
+html[data-scroll-restore-pending='1'] body {
+  visibility: hidden;
+}
 
   /* Typography variables */
   :root {
@@ -307,12 +327,35 @@ html[data-performance='lite'] .status-online::before {
   animation: none !important;
 }
 
+html[data-performance='lite'] .cyber-noise::before,
+html[data-performance='lite'] .cyber-noise-css::before,
+html[data-performance='lite'] .cyber-grid-pulse::before,
+html[data-performance='lite'] .btn-primary::before {
+  display: none !important;
+}
+
+html[data-performance='lite'] .btn-primary:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
 /* ReactFlow edge glow filters are costly with many edges. */
 html[data-performance='lite'] .react-flow__edge:hover .react-flow__edge-path,
 html[data-performance='lite'] .react-flow__edge.selected .react-flow__edge-path,
 html[data-performance='lite'] .react-flow__edge:focus .react-flow__edge-path,
 html[data-performance='lite'] .react-flow__edge:focus-visible .react-flow__edge-path {
   filter: none !important;
+}
+
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 960px;
+}
+
+.gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
 }
 
 /* Glassmorphism utility */
@@ -525,16 +568,6 @@ html[data-performance='lite'] .react-flow__edge:focus-visible .react-flow__edge-
   }
   100% {
     transform: rotate(360deg);
-  }
-}
-
-/* Border beam animation */
-@keyframes border-beam {
-  0% {
-    offset-distance: 0%;
-  }
-  100% {
-    offset-distance: 100%;
   }
 }
 

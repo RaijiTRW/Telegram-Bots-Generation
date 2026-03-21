@@ -4,17 +4,20 @@ import { useRef } from 'react';
 import { motion, useScroll, useTransform } from '@/components/motion-wrapper';
 import { useTranslations } from 'next-intl';
 import { Smartphone, Cloud, CheckCircle, ArrowUpRight } from 'lucide-react';
-
 export function Engine() {
   const t = useTranslations('engine');
   const containerRef = useRef<HTMLDivElement>(null);
+  const enterViewport = {
+    once: true,
+    amount: 0.12,
+    margin: '280px 0px',
+  } as const;
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start end', 'end start'],
   });
 
-  // Transform values for scroll-linked animations
   const phoneY = useTransform(scrollYProgress, [0, 0.5, 1], [0, 0, -100]);
   const phoneOpacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.3, 1, 1, 0]);
   const textCloudOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
@@ -23,10 +26,10 @@ export function Engine() {
   const deployOpacity = useTransform(scrollYProgress, [0.8, 1], [0, 1]);
 
   const stages = [
-    { label: t('stages.analyze'), icon: Cloud, description: t('stages.analyzeDesc'), progress: 0.25 },
-    { label: t('stages.build'), icon: CheckCircle, description: t('stages.buildDesc'), progress: 0.5 },
-    { label: t('stages.configure'), icon: Smartphone, description: t('stages.configureDesc'), progress: 0.75 },
-    { label: t('stages.deploy'), icon: ArrowUpRight, description: t('stages.deployDesc'), progress: 1 },
+    { label: t('stages.analyze'), icon: Cloud, description: t('stages.analyzeDesc') },
+    { label: t('stages.build'), icon: CheckCircle, description: t('stages.buildDesc') },
+    { label: t('stages.configure'), icon: Smartphone, description: t('stages.configureDesc') },
+    { label: t('stages.deploy'), icon: ArrowUpRight, description: t('stages.deployDesc') },
   ];
 
   const words = [
@@ -40,55 +43,34 @@ export function Engine() {
 
   return (
     <section ref={containerRef} className="relative py-32 md:py-48 overflow-hidden cyber-grid">
-      {/* Background gradient */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl bg-[#1E88E5]/5" />
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 relative z-10">
-        {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.42 }}
           className="text-center mb-24"
         >
           <span className="inline-block px-4 py-2 rounded-full glass-panel text-sm text-white/60 mb-4 font-mono">
             {t('badge')}
           </span>
-          <h2 className="text-3xl md:text-5xl font-bold mb-4">
-            {t('title')}
-          </h2>
-          <p className="text-lg text-white/60 max-w-2xl mx-auto">
-            {t('subtitle')}
-          </p>
+          <h2 className="text-3xl md:text-5xl font-bold mb-4">{t('title')}</h2>
+          <p className="text-lg text-white/60 max-w-2xl mx-auto">{t('subtitle')}</p>
         </motion.div>
 
-        {/* Scroll visualization area */}
         <div className="relative h-[600px] flex items-center justify-center">
-          {/* Fixed smartphone */}
-          <motion.div
-            style={{ y: phoneY, opacity: phoneOpacity }}
-            className="relative z-10"
-          >
+          <motion.div style={{ y: phoneY, opacity: phoneOpacity }} className="relative z-10 gpu-layer">
             <div className="w-64 h-[500px] rounded-3xl glass-panel p-4 relative">
-              {/* Phone notch */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-black rounded-b-xl" />
 
-              {/* Phone screen */}
               <div className="absolute inset-4 flex items-center justify-center overflow-hidden">
-                {/* Stage 1: Text cloud */}
-                <motion.div
-                  style={{ opacity: textCloudOpacity }}
-                  className="absolute inset-0 flex flex-wrap gap-2 items-center justify-center p-4"
-                >
-                  {words.map((word, i) => (
+                <motion.div style={{ opacity: textCloudOpacity }} className="absolute inset-0 flex flex-wrap gap-2 items-center justify-center p-4">
+                  {words.map((word, index) => (
                     <motion.span
                       key={word}
                       initial={{ opacity: 0, scale: 0 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.1 }}
+                      transition={{ delay: index * 0.1 }}
                       className="px-3 py-1.5 rounded-full glass-panel text-xs font-mono text-white/80"
                     >
                       {word}
@@ -96,11 +78,7 @@ export function Engine() {
                   ))}
                 </motion.div>
 
-                {/* Stage 2: Bot structure */}
-                <motion.div
-                  style={{ opacity: botStructureOpacity }}
-                  className="absolute inset-0 flex items-center justify-center"
-                >
+                <motion.div style={{ opacity: botStructureOpacity }} className="absolute inset-0 flex items-center justify-center">
                   <div className="space-y-2 w-full px-8">
                     <motion.div
                       initial={{ width: 0 }}
@@ -126,23 +104,17 @@ export function Engine() {
                   </div>
                 </motion.div>
 
-                {/* Stage 3: UI elements */}
-                <motion.div
-                  style={{ opacity: uiElementsOpacity }}
-                  className="absolute inset-0 flex flex-col p-4 space-y-3"
-                >
-                  {/* Header */}
+                <motion.div style={{ opacity: uiElementsOpacity }} className="absolute inset-0 flex flex-col p-4 space-y-3">
                   <div className="h-10 rounded-lg bg-gradient-to-r from-[#1E88E5]/20 to-[#7C4DFF]/20 border border-[#1E88E5]/30 flex items-center justify-center">
                     <span className="text-xs font-semibold">{t('botName')}</span>
                   </div>
-                  {/* Chat messages */}
                   <div className="space-y-2 flex-1">
-                    {[1, 2, 3].map((i) => (
+                    {[1, 2, 3].map((item) => (
                       <motion.div
-                        key={i}
+                        key={item}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.15 }}
+                        transition={{ delay: item * 0.15 }}
                         className="h-8 rounded-lg bg-white/5 border border-white/10 flex items-center px-3"
                       >
                         <div className="w-2 h-2 rounded-full bg-[#1E88E5] mr-2" />
@@ -150,25 +122,20 @@ export function Engine() {
                       </motion.div>
                     ))}
                   </div>
-                  {/* Action buttons */}
                   <div className="grid grid-cols-2 gap-2">
-                    {[1, 2].map((i) => (
+                    {[1, 2].map((item) => (
                       <motion.div
-                        key={i}
+                        key={item}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5 + i * 0.1 }}
+                        transition={{ delay: 0.5 + item * 0.1 }}
                         className="h-8 rounded-lg bg-[#1E88E5]/20 border border-[#1E88E5]/30"
                       />
                     ))}
                   </div>
                 </motion.div>
 
-                {/* Stage 4: Deployed */}
-                <motion.div
-                  style={{ opacity: deployOpacity }}
-                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#00E676]/10 to-transparent"
-                >
+                <motion.div style={{ opacity: deployOpacity }} className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#00E676]/10 to-transparent">
                   <div className="text-center">
                     <motion.div
                       initial={{ scale: 0 }}
@@ -201,17 +168,16 @@ export function Engine() {
             </div>
           </motion.div>
 
-          {/* Stage indicators */}
           <div className="absolute right-0 top-0 bottom-0 w-64 space-y-8 py-12 hidden lg:block">
-            {stages.map((stage, i) => {
+            {stages.map((stage, index) => {
               const Icon = stage.icon;
               return (
                 <motion.div
                   key={stage.label}
                   initial={{ opacity: 0, x: 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  viewport={enterViewport}
+                  transition={{ delay: index * 0.05, duration: 0.34 }}
                   className="flex items-center gap-4"
                 >
                   <div className="w-12 h-12 rounded-xl glass-panel flex items-center justify-center flex-shrink-0">
@@ -227,18 +193,18 @@ export function Engine() {
           </div>
         </div>
 
-        {/* Scroll indicator */}
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
+          viewport={enterViewport}
+          transition={{ duration: 0.32 }}
           className="text-center mt-12"
         >
           <p className="text-sm text-white/40 font-mono mb-2">{t('scrollHint')}</p>
           <motion.div
             animate={{ y: [0, 8, 0] }}
             transition={{ duration: 1.5, repeat: Infinity }}
-            className="inline-block"
+            className="inline-block gpu-layer"
           >
             <ArrowUpRight className="w-6 h-6 text-[#1E88E5]/50 rotate-180" />
           </motion.div>
