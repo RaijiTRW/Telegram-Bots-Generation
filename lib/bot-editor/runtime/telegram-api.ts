@@ -1,7 +1,17 @@
+import { request as httpsRequest } from 'node:https'
+
 const TELEGRAM_API_BASE_URL = 'https://api.telegram.org'
 const TELEGRAM_REQUEST_TIMEOUT_MS = 15_000
 const TELEGRAM_GET_UPDATES_GRACE_MS = 10_000
 const TELEGRAM_MAX_ATTEMPTS = 3
+const TELEGRAM_DIRECT_IP_HOST = 'api.telegram.org'
+const TELEGRAM_DIRECT_IP_FALLBACKS = (() => {
+  const raw = String(process.env.TELEGRAM_DIRECT_IP_FALLBACKS || '149.154.167.220').trim()
+  return raw
+    .split(/[,\s]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+})()
 
 async function sleep(ms: number): Promise<void> {
   if (ms <= 0) {
@@ -47,6 +57,187 @@ function formatNetworkError(method: string, error: unknown): Error {
   return new Error(`Telegram API network error (${method}): ${String(error)}`)
 }
 
+function isTelegramReachabilityError(error: unknown): boolean {
+  const message = String(error || '')
+  return (
+    message.includes('UND_ERR_CONNECT_TIMEOUT') ||
+    message.includes('ENOTFOUND') ||
+    message.includes('ECONNRESET') ||
+    message.includes('ETIMEDOUT') ||
+    message.includes('fetch failed')
+  )
+}
+
+function normalizeRequestHeaders(headers: HeadersInit | undefined): Record<string, string> {
+  const normalized: Record<string, string> = {}
+  if (!headers) return normalized
+
+  if (headers instanceof Headers) {
+    headers.forEach((value, key) => {
+      normalized[key] = value
+    })
+    return normalized
+  }
+
+  if (Array.isArray(headers)) {
+    for (const [key, value] of headers) {
+      normalized[String(key)] = String(value)
+    }
+    return normalized
+  }
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (value === undefined) continue
+    normalized[key] = String(value)
+  }
+
+  return normalized
+}
+
+async function serializeRequestBody(
+  init: Omit<RequestInit, 'cache'> & { cache?: RequestCache }
+): Promise<{ body: Buffer | null; headers: Record<string, string> }> {
+  const headers = normalizeRequestHeaders(init.headers)
+  const body = init.body
+
+  if (body == null) {
+    return { body: null, headers }
+  }
+
+  if (typeof body === 'string') {
+    const serialized = Buffer.from(body)
+    headers['content-length'] = String(serialized.byteLength)
+    return { body: serialized, headers }
+  }
+
+  if (body instanceof URLSearchParams) {
+    const serialized = Buffer.from(body.toString())
+    if (!headers['content-type']) {
+      headers['content-type'] = 'application/x-www-form-urlencoded;charset=UTF-8'
+    }
+    headers['content-length'] = String(serialized.byteLength)
+    return { body: serialized, headers }
+  }
+
+  if (body instanceof ArrayBuffer) {
+    const serialized = Buffer.from(body)
+    headers['content-length'] = String(serialized.byteLength)
+    return { body: serialized, headers }
+  }
+
+  if (ArrayBuffer.isView(body)) {
+    const serialized = Buffer.from(body.buffer, body.byteOffset, body.byteLength)
+    headers['content-length'] = String(serialized.byteLength)
+    return { body: serialized, headers }
+  }
+
+  if (typeof FormData !== 'undefined' && body instanceof FormData) {
+    const request = new Request('https://telegram-direct-ip-fallback.invalid', {
+      method: init.method || 'POST',
+      body,
+    })
+    const serialized = Buffer.from(await request.arrayBuffer())
+    request.headers.forEach((value, key) => {
+      if (!headers[key]) {
+        headers[key] = value
+      }
+    })
+    headers['content-length'] = String(serialized.byteLength)
+    return { body: serialized, headers }
+  }
+
+  throw new Error('Unsupported Telegram request body for direct IP fallback')
+}
+
+function requestTelegramApiByDirectIp(
+  ip: string,
+  token: string,
+  method: string,
+  init: Omit<RequestInit, 'cache'> & { cache?: RequestCache },
+  timeoutMs: number
+): Promise<Response> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const { body, headers } = await serializeRequestBody(init)
+      const req = httpsRequest(
+        {
+          host: ip,
+          port: 443,
+          path: `/bot${token}/${method}`,
+          method: init.method || 'POST',
+          headers: {
+            ...headers,
+            Host: TELEGRAM_DIRECT_IP_HOST,
+          },
+          // Fallback works around providers blocking TLS/SNI to api.telegram.org.
+          rejectUnauthorized: false,
+          timeout: timeoutMs,
+        },
+        (res) => {
+          const chunks: Buffer[] = []
+          res.on('data', (chunk) => {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+          })
+          res.on('end', () => {
+            const responseHeaders = new Headers()
+            for (const [key, value] of Object.entries(res.headers)) {
+              if (Array.isArray(value)) {
+                for (const item of value) {
+                  responseHeaders.append(key, item)
+                }
+              } else if (value !== undefined) {
+                responseHeaders.set(key, String(value))
+              }
+            }
+            resolve(
+              new Response(Buffer.concat(chunks), {
+                status: res.statusCode || 500,
+                headers: responseHeaders,
+              })
+            )
+          })
+        }
+      )
+
+      req.on('timeout', () => {
+        req.destroy(new Error(`Direct IP fallback timeout (${ip}:${443})`))
+      })
+      req.on('error', reject)
+
+      if (body) {
+        req.write(body)
+      }
+
+      req.end()
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
+
+async function requestTelegramApiWithDirectIpFallback(
+  token: string,
+  method: string,
+  init: Omit<RequestInit, 'cache'> & { cache?: RequestCache },
+  timeoutMs: number
+): Promise<Response> {
+  let lastError: Error | null = null
+
+  for (const ip of TELEGRAM_DIRECT_IP_FALLBACKS) {
+    try {
+      return await requestTelegramApiByDirectIp(ip, token, method, init, timeoutMs)
+    } catch (error) {
+      lastError = formatNetworkError(method, error)
+    }
+  }
+
+  if (lastError) {
+    throw lastError
+  }
+
+  throw new Error(`Telegram API direct IP fallback failed (${method})`)
+}
+
 async function requestTelegramApi(
   token: string,
   method: string,
@@ -75,6 +266,13 @@ async function requestTelegramApi(
       return response
     } catch (error) {
       lastNetworkError = formatNetworkError(method, error)
+      if (TELEGRAM_DIRECT_IP_FALLBACKS.length > 0 && isTelegramReachabilityError(lastNetworkError)) {
+        try {
+          return await requestTelegramApiWithDirectIpFallback(token, method, init, timeoutMs)
+        } catch (fallbackError) {
+          lastNetworkError = formatNetworkError(method, fallbackError)
+        }
+      }
       if (attempt < TELEGRAM_MAX_ATTEMPTS - 1) {
         await sleep(resolveRetryDelayMs(null, attempt))
         continue

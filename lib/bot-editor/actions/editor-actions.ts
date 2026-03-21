@@ -127,6 +127,26 @@ interface SyncTelegramBotStyleInput {
   avatarUrl?: string
 }
 
+function isTelegramApiReachabilityError(error: unknown): boolean {
+  const message = String(error || '')
+  return (
+    message.includes('Telegram API network error') &&
+    (
+      message.includes('UND_ERR_CONNECT_TIMEOUT') ||
+      message.includes('ENOTFOUND') ||
+      message.includes('api.telegram.org')
+    )
+  )
+}
+
+function toTelegramTestStartErrorMessage(error: unknown): string {
+  if (isTelegramApiReachabilityError(error)) {
+    return 'Сервер не может подключиться к Telegram Bot API (api.telegram.org:443). Это проблема сети или хостинга, а не Bot Token. Разрешите исходящие HTTPS-подключения к Telegram на сервере или используйте сервер/прокси без блокировки Telegram.'
+  }
+
+  return String(error)
+}
+
 function sanitizeAttachmentFileName(name: string): string {
   const trimmed = String(name || '').trim() || 'attachment'
   const extension = extname(trimmed).slice(0, 16)
@@ -1485,7 +1505,8 @@ export async function startBotTestAction(
     }
   } catch (error) {
     console.error('Failed to start bot test:', error)
-    appendBotTestLog(botId, 'system', `Ошибка запуска теста: ${String(error)}`, 'error')
+    const userFacingError = toTelegramTestStartErrorMessage(error)
+    appendBotTestLog(botId, 'system', `Ошибка запуска теста: ${userFacingError}`, 'error')
     try {
       const supabase = await createServerClientWrapper()
       await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
@@ -1494,14 +1515,15 @@ export async function startBotTestAction(
         source: 'editor',
         eventType: 'test.start_failed',
         payload: {
-          error: String(error),
+          error: userFacingError,
+          rawError: String(error),
         },
       })
     } catch {
       // ignore audit write errors on failure path
     }
     setBotTestLogRunContext(botId, null)
-    return { success: false, error: String(error) }
+    return { success: false, error: userFacingError }
   }
 }
 

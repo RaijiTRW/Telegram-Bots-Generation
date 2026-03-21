@@ -39,44 +39,6 @@ export function PublicPricingPageClient({
 
   return (
     <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-zinc-950/75 px-6 py-12 shadow-[0_24px_80px_rgba(0,0,0,0.32)] md:px-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(36,161,222,0.18),transparent_36%),radial-gradient(circle_at_top_right,rgba(139,92,246,0.14),transparent_32%)]" />
-        <div className="relative z-10 flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#24A1DE]/20 bg-[#24A1DE]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-[#9EDFFF]">
-              <CreditCard className="h-3.5 w-3.5" />
-              {isRu ? 'Тарифы' : 'Pricing'}
-            </div>
-            <h1 className="text-4xl font-bold tracking-tight text-white md:text-5xl">
-              {isRu ? 'Подберите тариф под текущий этап роста' : 'Choose a plan that matches your growth stage'}
-            </h1>
-            <p className="max-w-2xl text-base leading-7 text-zinc-300">
-              {isRu
-                ? 'Base закрывает старт и ZIP-экспорт. Business сделан основным тарифом для продаж: CRM, базовая dashboard-аналитика, AI-ноды и managed hosting. Enterprise нужен, когда уже важны полная аналитика, AI Chat и высокий лимит по ботам.'
-                : 'Base covers the starting point and ZIP export. Business is intentionally positioned as the main sales plan with CRM, dashboard analytics, AI nodes, and managed hosting. Enterprise is for full analytics, AI Chat, and higher scale.'}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {availableCurrencies.map((availableCurrency) => (
-              <Button
-                key={availableCurrency}
-                type="button"
-                variant={currency === availableCurrency ? 'default' : 'outline'}
-                onClick={() => setCurrency(availableCurrency)}
-              >
-                {availableCurrency}
-              </Button>
-            ))}
-            <Button asChild className="gap-2">
-              <Link href={`/${locale}/auth/signup`}>
-                {isRu ? 'Создать аккаунт' : 'Create account'}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-6">
