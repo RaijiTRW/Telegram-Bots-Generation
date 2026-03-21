@@ -45,7 +45,7 @@ export function WorldMap() {
                   fill="rgba(30, 136, 229, 0.25)"
                   stroke="rgba(30, 136, 229, 0.6)"
                   strokeWidth={0.5}
-                  style={{ pointerEvents: 'none' }}
+                  className="pointer-events-none"
                 />
               );
             })

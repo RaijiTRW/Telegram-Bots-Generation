@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import {
+  usePathname,
+  useSearchParams,
+  type ReadonlyURLSearchParams,
+} from 'next/navigation';
 
 declare global {
   interface Window {

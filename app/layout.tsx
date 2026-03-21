@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { PerformanceMode } from "@/components/performance/performance-mode";
@@ -71,7 +72,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} antialiased`}>
         <PerformanceMode />
-        <ScrollRestoration />
+        <Suspense fallback={null}>
+          <ScrollRestoration />
+        </Suspense>
         {children}
       </body>
     </html>
