@@ -25,6 +25,7 @@
 *.pem
 .tflow-media/
 .codex/
+.env*
 
 # debug
 npm-debug.log*

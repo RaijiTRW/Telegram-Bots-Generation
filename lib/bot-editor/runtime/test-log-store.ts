@@ -32,12 +32,14 @@ interface AppendBotTestLogOptions {
   runId?: string | null
 }
 
+type AsyncResult<T> = PromiseLike<T>
+
 type BotTestLogsWriteClient = {
   from: (table: string) => {
     upsert: (
       rows: Record<string, unknown>[],
       options: { onConflict: string; ignoreDuplicates: boolean }
-    ) => Promise<{ error: unknown }>
+    ) => AsyncResult<{ error: unknown }>
   }
 }
 
@@ -53,7 +55,7 @@ type BotTestLogsReadQuery = {
   eq: (column: string, value: unknown) => BotTestLogsReadQuery
   gt: (column: string, value: unknown) => BotTestLogsReadQuery
   order: (column: string, options: { ascending: boolean }) => BotTestLogsReadQuery
-  limit: (count: number) => Promise<{ data: BotTestLogsReadRow[] | null; error: unknown }>
+  limit: (count: number) => AsyncResult<{ data: BotTestLogsReadRow[] | null; error: unknown }>
 }
 
 type BotTestLogsReadClient = {

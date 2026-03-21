@@ -4,27 +4,29 @@ const BOT_SECRETS_TABLE = 'bot_secrets'
 const ENCRYPTION_ALGO = 'aes-256-gcm'
 const IV_LENGTH = 12
 
+type AsyncResult<T> = PromiseLike<T>
+
 type SupabaseLike = {
   from: (table: string) => {
     select: (columns: string) => unknown
     upsert: (
       values: Record<string, unknown> | Record<string, unknown>[],
       options?: Record<string, unknown>
-    ) => Promise<{ error: unknown }>
+    ) => AsyncResult<{ error: unknown }>
     delete: () => {
       eq: (column: string, value: unknown) => {
-        eq: (column: string, value: unknown) => Promise<{ error: unknown }>
+        eq: (column: string, value: unknown) => AsyncResult<{ error: unknown }>
       }
     }
   }
 }
 
 type SelectManyQuery = {
-  eq: (column: string, value: unknown) => Promise<{ data: unknown; error: unknown }>
+  eq: (column: string, value: unknown) => AsyncResult<{ data: unknown; error: unknown }>
 }
 
 type SelectSingleBaseQuery = {
-  single: () => Promise<{ data: unknown; error: unknown }>
+  single: () => AsyncResult<{ data: unknown; error: unknown }>
 }
 
 type SelectSingleQuery = {

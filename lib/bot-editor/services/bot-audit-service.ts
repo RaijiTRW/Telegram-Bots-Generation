@@ -1,6 +1,8 @@
+type AsyncResult<T> = PromiseLike<T>
+
 type SupabaseLike = {
   from: (table: string) => {
-    insert: (value: Record<string, unknown> | Record<string, unknown>[]) => Promise<{ error: unknown }>
+    insert: (value: Record<string, unknown> | Record<string, unknown>[]) => AsyncResult<{ error: unknown }>
   }
 }
 
@@ -41,4 +43,3 @@ export async function appendBotAuditEventSafe(
     console.error('Bot audit event write failed:', error)
   }
 }
-

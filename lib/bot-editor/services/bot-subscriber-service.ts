@@ -1,28 +1,30 @@
+type AsyncResult<T> = PromiseLike<T>
+
 type SupabaseLike = {
   from: (table: string) => {
     select: (columns: string, options?: Record<string, unknown>) => {
       eq: (column: string, value: unknown) => {
         eq: (column: string, value: unknown) => {
-          maybeSingle: () => Promise<{ data: unknown; error: unknown }>
+          maybeSingle: () => AsyncResult<{ data: unknown; error: unknown }>
           select: (columns?: string) => {
-            limit: (value: number) => Promise<{ error: unknown }>
+            limit: (value: number) => AsyncResult<{ error: unknown }>
           }
         }
         gte: (column: string, value: unknown) => {
-          limit: (value: number) => Promise<{ data: unknown; error: unknown; count?: number | null }>
+          limit: (value: number) => AsyncResult<{ data: unknown; error: unknown; count?: number | null }>
         }
         order: (column: string, options?: { ascending?: boolean }) => {
-          limit: (value: number) => Promise<{ data: unknown; error: unknown }>
+          limit: (value: number) => AsyncResult<{ data: unknown; error: unknown }>
         }
-        limit: (value: number) => Promise<{ data: unknown; error: unknown; count?: number | null }>
+        limit: (value: number) => AsyncResult<{ data: unknown; error: unknown; count?: number | null }>
       }
     }
-    insert: (value: Record<string, unknown>) => Promise<{ error: unknown }>
+    insert: (value: Record<string, unknown>) => AsyncResult<{ error: unknown }>
     update: (value: Record<string, unknown>) => {
       eq: (column: string, value: unknown) => {
         eq: (column: string, value: unknown) => {
           select: (columns?: string) => {
-            limit: (value: number) => Promise<{ error: unknown }>
+            limit: (value: number) => AsyncResult<{ error: unknown }>
           }
         }
       }

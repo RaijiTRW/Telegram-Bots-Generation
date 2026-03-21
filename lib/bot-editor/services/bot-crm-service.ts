@@ -7,10 +7,12 @@ import type {
   LeadStage,
 } from '@/lib/bot-editor/types/analytics.types'
 
+type AsyncResult<T> = PromiseLike<T>
+
 type SupabaseLike = {
   from: (table: string) => {
     select: (columns: string, options?: Record<string, unknown>) => any
-    insert: (values: Record<string, unknown> | Array<Record<string, unknown>>) => Promise<{ error: unknown }>
+    insert: (values: Record<string, unknown> | Array<Record<string, unknown>>) => AsyncResult<{ error: unknown }>
     update: (values: Record<string, unknown>) => any
   }
 }
