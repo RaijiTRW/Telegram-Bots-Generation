@@ -1303,6 +1303,9 @@
       "emptyHelp3": "Настраивать переменные и хранение данных",
       "emptyHelp4": "Объяснять и отлаживать существующую логику бота",
       "emptyQuestion": "Что вы хотите создать сегодня?",
+      "lockedTitle": "Для AI чата нужен Enterprise",
+      "lockedDescription": "Переключите подписку на Enterprise, чтобы использовать AI чат внутри редактора.",
+      "openSubscription": "Открыть подписку",
       "thinking": "AI думает..."
     },
     "variableAssist": {

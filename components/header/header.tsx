@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -12,12 +12,14 @@ import { createClient } from '@/lib/supabase/client';
 import { getSafeClientUser } from '@/lib/supabase/client-auth';
 import { setUserLocale } from '@/app/actions/locale';
 import type { Locale } from '@/app/i18n';
+import { prefetchHrefOnce } from '@/lib/navigation/prefetch';
 
 export function Header() {
   const t = useTranslations('header');
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
+  const [isLocalePending, startLocaleTransition] = useTransition();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<{ userName: string; userEmail: string; avatarUrl: string | null } | null>(null);
 
@@ -107,24 +109,10 @@ export function Header() {
     };
   }, []);
 
-  const switchLocale = async (newLocale: string) => {
+  const switchLocale = (newLocale: string) => {
     // Prevent double-click
-    if (newLocale === locale) {
+    if (newLocale === locale || isLocalePending) {
       return;
-    }
-
-    // Set cookie for next-intl middleware to detect the locale change
-    const maxAge = 60 * 60 * 24 * 365; // 1 year
-    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=${maxAge}; SameSite=Lax`;
-
-    // Also update the DB for logged-in users so the middleware
-    // (which prioritizes DB locale over cookie) stays in sync
-    if (user) {
-      try {
-        await setUserLocale(newLocale as Locale);
-      } catch {
-        // Continue with navigation even if DB update fails
-      }
     }
 
     // Remove current locale from path and add new one
@@ -135,8 +123,22 @@ export function Header() {
 
     const newUrl = `/${newLocale}${pathWithoutLocale}`;
 
-    // Navigate to new locale
-    window.location.href = newUrl;
+    // Set cookie for next-intl middleware to detect the locale change
+    const maxAge = 60 * 60 * 24 * 365; // 1 year
+    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=${maxAge}; SameSite=Lax`;
+    prefetchHrefOnce(router, newUrl);
+    setIsMenuOpen(false);
+
+    startLocaleTransition(() => {
+      router.push(newUrl);
+    });
+
+    // Keep the profile preference in sync without blocking navigation.
+    if (user) {
+      void setUserLocale(newLocale as Locale).catch(() => {
+        // Continue with client-side navigation even if DB update fails.
+      });
+    }
   };
 
   const navItems = [
@@ -156,7 +158,7 @@ export function Header() {
             className="flex items-center gap-2 group"
             aria-label="CBTooll Home"
           >
-            <CompactLogo className="w-12 h-10" />
+            <CompactLogo className="w-12 h-10" idPrefix="site-header-logo" />
             {/* Текст TFlow показываем только на десктопе */}
             <span className="hidden lg:block text-xl font-bold gradient-text">
               CBTooll
@@ -166,22 +168,25 @@ export function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             {navItems.map((item, index) => (
-              <motion.a
+              <motion.div
                 key={item.key}
-                href={item.href}
-                className="text-sm text-white/60 hover:text-white transition-colors relative"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-              whileHover={{ y: -2 }}
-            >
-                {t(item.key)}
-                <motion.span
-                  className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-primary"
-                  whileHover={{ width: '100%' }}
-                  transition={{ duration: 0.3 }}
-                />
-              </motion.a>
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                whileHover={{ y: -2 }}
+              >
+                <Link
+                  href={item.href}
+                  className="text-sm text-white/60 hover:text-white transition-colors relative"
+                >
+                  {t(item.key)}
+                  <motion.span
+                    className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-primary"
+                    whileHover={{ width: '100%' }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </Link>
+              </motion.div>
             ))}
           </nav>
 
@@ -190,10 +195,11 @@ export function Header() {
             {/* Language Switcher */}
             <motion.button
               onClick={() => switchLocale(locale === 'ru' ? 'en' : 'ru')}
+              disabled={isLocalePending}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
               aria-label={t('switchLanguage')}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: isLocalePending ? 1 : 1.05 }}
+              whileTap={{ scale: isLocalePending ? 1 : 0.95 }}
             >
               <Globe className="w-4 h-4 text-white/60" />
               <span className="text-sm font-medium">
@@ -248,17 +254,20 @@ export function Header() {
           >
             <div className="px-4 py-6 space-y-4">
               {navItems.map((item, index) => (
-                <motion.a
+                <motion.div
                   key={item.key}
-                  href={item.href}
-                  className="block py-2 text-white/60 hover:text-white transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2, delay: index * 0.05 }}
                 >
-                  {t(item.key)}
-                </motion.a>
+                  <Link
+                    href={item.href}
+                    className="block py-2 text-white/60 hover:text-white transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {t(item.key)}
+                  </Link>
+                </motion.div>
               ))}
               <motion.div
                 className="pt-4 border-t border-white/10 space-y-3"
@@ -268,6 +277,7 @@ export function Header() {
               >
                 <button
                   onClick={() => switchLocale(locale === 'ru' ? 'en' : 'ru')}
+                  disabled={isLocalePending}
                   className="flex items-center gap-2 w-full px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
                 >
                   <Globe className="w-4 h-4" />

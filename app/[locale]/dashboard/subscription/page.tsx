@@ -1,21 +1,21 @@
 import { redirect } from 'next/navigation'
-import { getServerUser } from '@/lib/supabase/server'
+import SubscriptionScreen from '@/components/dashboard/screens/subscription-screen'
 import { getViewerAccess } from '@/lib/billing/server'
-import { SubscriptionPageClient } from '@/components/billing/subscription-page-client'
+import { getServerUser } from '@/lib/supabase/server'
 
 export default async function DashboardSubscriptionPage({
   params,
 }: {
   params: Promise<{ locale: string }>
 }) {
+  const { locale } = await params
   const user = await getServerUser()
 
   if (!user) {
-    redirect('/auth/login')
+    redirect(`/${locale}/auth/login`)
   }
 
-  const { locale } = await params
   const subscription = await getViewerAccess(user.id)
 
-  return <SubscriptionPageClient locale={locale} initialSubscription={subscription} />
+  return <SubscriptionScreen initialSubscription={subscription} />
 }

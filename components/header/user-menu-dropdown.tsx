@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from '@/components/motion-wrapper'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { User, ChevronDown, LayoutDashboard, User as UserIcon, Settings, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { prefetchHrefOnce, schedulePrefetchHref } from '@/lib/navigation/prefetch'
 
 interface UserMenuDropdownProps {
   userName: string
@@ -21,6 +22,9 @@ export function UserMenuDropdown({ userName, userEmail, avatarUrl }: UserMenuDro
   const router = useRouter()
   const supabase = createClient()
   const t = useTranslations('header.userMenu')
+  const dashboardHref = `/${locale}/dashboard`
+  const profileHref = `/${locale}/dashboard/profile`
+  const settingsHref = `/${locale}/dashboard/settings`
 
   const initials = userName
     .split(' ')
@@ -35,24 +39,37 @@ export function UserMenuDropdown({ userName, userEmail, avatarUrl }: UserMenuDro
   }
 
   const menuItems = [
-    { icon: LayoutDashboard, label: t('dashboard'), href: `/${locale}/dashboard` },
-    { icon: UserIcon, label: t('profile'), href: `/${locale}/dashboard/profile` },
-    { icon: Settings, label: t('settings'), href: `/${locale}/dashboard/settings` },
+    { icon: LayoutDashboard, label: t('dashboard'), href: dashboardHref },
+    { icon: UserIcon, label: t('profile'), href: profileHref },
+    { icon: Settings, label: t('settings'), href: settingsHref },
   ]
+
+  useEffect(() => {
+    if (!isDropdownOpen) {
+      return
+    }
+
+    schedulePrefetchHref(router, dashboardHref)
+    schedulePrefetchHref(router, profileHref)
+    schedulePrefetchHref(router, settingsHref)
+  }, [dashboardHref, isDropdownOpen, profileHref, router, settingsHref])
 
   return (
     <div
       className="relative"
-      onMouseEnter={() => setIsDropdownOpen(true)}
+      onMouseEnter={() => {
+        setIsDropdownOpen(true)
+        prefetchHrefOnce(router, dashboardHref)
+      }}
       onMouseLeave={() => setIsDropdownOpen(false)}
     >
       {/* Avatar with click to dashboard */}
       <Link
-        href={`/${locale}/dashboard`}
+        href={dashboardHref}
+        prefetch={false}
         className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
-        onClick={() => {
-          // Allow navigation when clicking directly on avatar link
-        }}
+        onMouseEnter={() => prefetchHrefOnce(router, dashboardHref)}
+        onFocus={() => prefetchHrefOnce(router, dashboardHref)}
       >
         <div className="relative">
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#24A1DE] to-[#8B5CF6] blur-sm opacity-70" />
@@ -96,7 +113,10 @@ export function UserMenuDropdown({ userName, userEmail, avatarUrl }: UserMenuDro
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
+                  onMouseEnter={() => prefetchHrefOnce(router, item.href)}
+                  onFocus={() => prefetchHrefOnce(router, item.href)}
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}

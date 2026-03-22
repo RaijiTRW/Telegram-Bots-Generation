@@ -121,7 +121,7 @@ export function AuthSplitLayout({
               href={homeHref}
               className="inline-flex items-center gap-3 rounded-xl border border-white/10 bg-zinc-900/60 px-3 py-2 hover:bg-zinc-900 transition-colors"
             >
-              <CompactLogo className="h-8 w-10" />
+              <CompactLogo className="h-8 w-10" idPrefix="auth-split-logo" />
               <span className="text-lg font-semibold text-white">CBTooll</span>
             </Link>
 

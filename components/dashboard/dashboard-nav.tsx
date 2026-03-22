@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, type ComponentType } from 'react'
+import { startTransition, useEffect, useMemo, type ComponentType } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -9,21 +9,26 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { CompactLogo } from '@/components/logo'
 import type { ViewerAccess } from '@/lib/billing/types'
+import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
+import { preloadDashboardSection, type DashboardSection } from '@/components/dashboard/layout/dashboard-section-viewport'
 
 interface DashboardNavProps {
   viewerAccess: ViewerAccess
+  activeSection?: DashboardSection | 'docs' | null
+  onSectionChange?: (section: DashboardSection, href: string) => void
 }
 
 type DashboardNavItem = {
   href: string
   icon: ComponentType<{ className?: string }>
   label: string
+  section?: DashboardSection
   disabled?: boolean
   locked?: boolean
   badge?: string
 }
 
-export function DashboardNav({ viewerAccess }: DashboardNavProps) {
+export function DashboardNav({ viewerAccess, activeSection = null, onSectionChange }: DashboardNavProps) {
   const t = useTranslations()
   const pathname = usePathname()
   const router = useRouter()
@@ -37,6 +42,7 @@ export function DashboardNav({ viewerAccess }: DashboardNavProps) {
       href: '/dashboard/crm',
       icon: Users,
       label: 'dashboard.nav.crm',
+      section: 'crm',
       disabled: !isAdmin,
       locked: !isAdmin,
       badge: !isAdmin ? 'dashboard.nav.soon' : undefined,
@@ -45,22 +51,24 @@ export function DashboardNav({ viewerAccess }: DashboardNavProps) {
       href: '/dashboard/statistics',
       icon: BarChart3,
       label: 'dashboard.nav.statistics',
+      section: 'statistics',
     }
     const subscriptionNavItem: DashboardNavItem = {
       href: '/dashboard/subscription',
       icon: CreditCard,
       label: 'dashboard.nav.subscription',
+      section: 'subscription',
     }
 
     const baseItems: DashboardNavItem[] = [
-      { href: '/dashboard', icon: Home, label: 'dashboard.nav.home' },
-      { href: '/dashboard/bots', icon: Bot, label: 'dashboard.nav.bots' },
+      { href: '/dashboard', icon: Home, label: 'dashboard.nav.home', section: 'home' },
+      { href: '/dashboard/bots', icon: Bot, label: 'dashboard.nav.bots', section: 'bots' },
       statsNavItem,
       subscriptionNavItem,
       crmNavItem,
       { href: '/dashboard/docs', icon: BookOpen, label: 'dashboard.nav.docs' },
-      { href: '/dashboard/profile', icon: User, label: 'dashboard.nav.profile' },
-      { href: '/dashboard/settings', icon: Settings, label: 'dashboard.nav.settings' },
+      { href: '/dashboard/profile', icon: User, label: 'dashboard.nav.profile', section: 'profile' },
+      { href: '/dashboard/settings', icon: Settings, label: 'dashboard.nav.settings', section: 'settings' },
     ]
 
     if (!isAdmin) {
@@ -73,13 +81,40 @@ export function DashboardNav({ viewerAccess }: DashboardNavProps) {
       baseItems[2],
       baseItems[3],
       baseItems[4],
-      { href: '/dashboard/cms', icon: FileText, label: 'dashboard.nav.cms' },
-      { href: '/dashboard/admin', icon: Shield, label: 'dashboard.nav.admin' },
+      { href: '/dashboard/cms', icon: FileText, label: 'dashboard.nav.cms', section: 'cms' },
+      { href: '/dashboard/admin', icon: Shield, label: 'dashboard.nav.admin', section: 'admin' },
       baseItems[5],
       baseItems[6],
       baseItems[7],
     ]
   }, [isAdmin])
+
+  useEffect(() => {
+    for (const item of navItems) {
+      if (item.section) {
+        void preloadDashboardSection(item.section)
+      }
+    }
+  }, [navItems])
+
+  const prefetchRoute = (href: string, section?: DashboardSection, disabled?: boolean) => {
+    if (disabled) {
+      return
+    }
+    prefetchHrefOnce(router, `/${locale}${href}`)
+    if (section) {
+      void preloadDashboardSection(section)
+    }
+  }
+
+  const handleSectionNavigation = (href: string, section: DashboardSection) => {
+    const fullHref = `/${locale}${href}`
+    onSectionChange?.(section, fullHref)
+    prefetchRoute(href, section)
+    startTransition(() => {
+      router.push(fullHref)
+    })
+  }
 
   const handleLogout = async () => {
     const { createClient } = await import('@/lib/supabase/client')
@@ -97,7 +132,7 @@ export function DashboardNav({ viewerAccess }: DashboardNavProps) {
         {/* Logo area with gradient accent */}
         <Link href={`/${locale}`} className="mb-8 px-4 py-3 rounded-xl bg-linear-to-r from-blue-500/10 to-purple-500/10 border border-white/10 hover:from-blue-500/20 hover:to-purple-500/20 transition-colors">
           <div className="flex items-center gap-3">
-            <CompactLogo className="w-10 h-8 shrink-0" />
+            <CompactLogo className="w-10 h-8 shrink-0" idPrefix="dashboard-nav-logo" />
             <h1 className="text-xl font-bold text-white tracking-tight">CBTooll</h1>
           </div>
         </Link>
@@ -108,7 +143,9 @@ export function DashboardNav({ viewerAccess }: DashboardNavProps) {
             const Icon = item.icon
             const fullPath = `/${locale}${item.href}`
             // Exact match for home, or starts with for other pages (but not just the parent)
-            const isActive = pathname === fullPath || (item.href !== '/dashboard' && pathname?.startsWith(fullPath + '/'))
+            const isActive = item.section
+              ? activeSection === item.section
+              : pathname === fullPath || (item.href !== '/dashboard' && pathname?.startsWith(fullPath + '/'))
 
             if (item.disabled) {
               return (
@@ -117,16 +154,48 @@ export function DashboardNav({ viewerAccess }: DashboardNavProps) {
                   variant={isActive ? 'secondary' : 'ghost'}
                   disabled
                   className={cn(
-                    'w-full justify-start cursor-not-allowed',
+                    'relative w-full justify-start cursor-not-allowed',
                     isActive
                       ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/10 text-white border border-white/10'
                       : 'text-zinc-400/90 hover:text-zinc-400/90 hover:bg-transparent'
                   )}
                 >
-                  <span className="flex items-center relative w-full">
-                    {isActive && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6]" />
-                    )}
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6]" />
+                  )}
+                  <span className="flex items-center w-full">
+                    <Icon className="w-5 h-5 mr-3" />
+                    <span className="font-medium">{t(item.label)}</span>
+                    {item.locked ? <Lock className="w-3.5 h-3.5 ml-2 text-zinc-400" /> : null}
+                    {item.badge ? (
+                      <span className="ml-auto rounded border border-white/15 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
+                        {t(item.badge)}
+                      </span>
+                    ) : null}
+                  </span>
+                </Button>
+              )
+            }
+
+            if (item.section) {
+              return (
+                <Button
+                  key={item.href}
+                  variant={isActive ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'relative w-full justify-start',
+                    isActive
+                      ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/10 text-white border border-white/10'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                  )}
+                  onClick={() => handleSectionNavigation(item.href, item.section as DashboardSection)}
+                  onMouseEnter={() => prefetchRoute(item.href, item.section, item.disabled)}
+                  onFocus={() => prefetchRoute(item.href, item.section, item.disabled)}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6]" />
+                  )}
+                  <span className="flex items-center w-full">
                     <Icon className="w-5 h-5 mr-3" />
                     <span className="font-medium">{t(item.label)}</span>
                     {item.locked ? <Lock className="w-3.5 h-3.5 ml-2 text-zinc-400" /> : null}
@@ -150,9 +219,11 @@ export function DashboardNav({ viewerAccess }: DashboardNavProps) {
                     ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/10 text-white border border-white/10'
                     : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 )}
+                onMouseEnter={() => prefetchRoute(item.href, item.section, item.disabled)}
+                onFocus={() => prefetchRoute(item.href, item.section, item.disabled)}
                 asChild
               >
-                <Link href={fullPath} className="flex items-center relative">
+                <Link href={fullPath} prefetch={false} className="flex items-center relative">
                   {isActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6]" />
                   )}
@@ -176,6 +247,8 @@ export function DashboardNav({ viewerAccess }: DashboardNavProps) {
             variant="ghost"
             className="w-full justify-start text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors duration-200 group"
             onClick={handleLogout}
+            onMouseEnter={() => prefetchHrefOnce(router, `/${locale}/auth/login`)}
+            onFocus={() => prefetchHrefOnce(router, `/${locale}/auth/login`)}
           >
             <span className="flex items-center">
               <LogOut className="w-5 h-5 mr-3" />

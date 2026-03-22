@@ -1,8 +1,24 @@
-import { Fragment, useId } from 'react';
+import { Fragment } from 'react';
 
 interface TFlowLogoProps {
   className?: string;
   showText?: boolean;
+  idPrefix?: string;
+}
+
+function normalizeLogoIdPrefix(prefix: string): string {
+  const normalized = prefix.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+  return normalized || 'cbtooll-logo';
+}
+
+function getLogoGradientIds(prefix: string) {
+  const safePrefix = normalizeLogoIdPrefix(prefix);
+
+  return {
+    bodyGradientId: `${safePrefix}-body-gradient`,
+    orbitGradientId: `${safePrefix}-orbit-gradient`,
+    wordmarkId: `${safePrefix}-wordmark-gradient`,
+  };
 }
 
 function BrandGlyphGraphic({
@@ -55,10 +71,8 @@ function BrandGlyphGraphic({
   );
 }
 
-export function TFlowLogo({ className = '', showText = true }: TFlowLogoProps) {
-  const bodyGradientId = useId();
-  const orbitGradientId = useId();
-  const wordmarkId = useId();
+export function TFlowLogo({ className = '', showText = true, idPrefix = 'cbtooll-logo' }: TFlowLogoProps) {
+  const { bodyGradientId, orbitGradientId, wordmarkId } = getLogoGradientIds(idPrefix);
 
   return (
     <svg
@@ -108,9 +122,14 @@ export function TFlowLogo({ className = '', showText = true }: TFlowLogoProps) {
   );
 }
 
-export function CompactLogo({ className = '' }: { className?: string }) {
-  const bodyGradientId = useId();
-  const orbitGradientId = useId();
+export function CompactLogo({
+  className = '',
+  idPrefix = 'cbtooll-compact-logo',
+}: {
+  className?: string;
+  idPrefix?: string;
+}) {
+  const { bodyGradientId, orbitGradientId } = getLogoGradientIds(idPrefix);
 
   return (
     <svg

@@ -125,7 +125,7 @@ export function Footer() {
           transition={{ duration: 0.34 }}
         >
             <Link href={`/${locale}`} className="flex items-center gap-2 mb-4 group">
-              <TFlowLogo className="w-32 h-10" showText={false} />
+              <TFlowLogo className="w-32 h-10" showText={false} idPrefix="site-footer-logo" />
             </Link>
             <p className="text-sm text-white/60 leading-relaxed">
               {isRu ? 'Создавайте Telegram ботов за 60 секунд с помощью ИИ. Без кода, без серверов.' : 'Create Telegram bots in 60 seconds with AI. No code, no servers.'}
@@ -143,13 +143,14 @@ export function Footer() {
             <ul className="space-y-2">
               {productLinks.map((link) => (
                 <li key={link.label}>
-                  <motion.a
-                    href={link.href}
-                    className="text-sm text-white/60 hover:text-white transition-colors inline-block"
-                    whileHover={{ x: 3 }}
-                  >
-                    {link.label}
-                  </motion.a>
+                  <motion.div whileHover={{ x: 3 }} className="inline-block">
+                    <Link
+                      href={link.href}
+                      className="text-sm text-white/60 hover:text-white transition-colors inline-block"
+                    >
+                      {link.label}
+                    </Link>
+                  </motion.div>
                 </li>
               ))}
             </ul>

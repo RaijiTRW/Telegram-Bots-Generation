@@ -6,7 +6,8 @@ import { Globe } from 'lucide-react'
 import { motion } from '@/components/motion-wrapper'
 import { setUserLocale } from '@/app/actions/locale'
 import { type Locale } from '@/app/i18n'
-import { useState, useTransition } from 'react'
+import { useTransition } from 'react'
+import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
 
 export function LanguageSwitcher() {
   const locale = useLocale()
@@ -14,7 +15,6 @@ export function LanguageSwitcher() {
   const router = useRouter()
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
-  const [isSaving, setIsSaving] = useState(false)
 
   const switchLocale = () => {
     const newLocale: Locale = locale === 'ru' ? 'en' : 'ru'
@@ -24,23 +24,28 @@ export function LanguageSwitcher() {
       pathWithoutLocale = pathname.slice(`/${locale}`.length) || '/'
     }
 
-    // Save to database and navigate
-    setIsSaving(true)
-    startTransition(async () => {
-      await setUserLocale(newLocale)
-      router.push(`/${newLocale}${pathWithoutLocale}`)
-      setIsSaving(false)
+    const nextHref = `/${newLocale}${pathWithoutLocale}`
+    const maxAge = 60 * 60 * 24 * 365
+    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=${maxAge}; SameSite=Lax`
+    prefetchHrefOnce(router, nextHref)
+
+    startTransition(() => {
+      router.push(nextHref)
+    })
+
+    void setUserLocale(newLocale).catch(() => {
+      // Locale cookie already updates the UI path immediately.
     })
   }
 
   return (
     <motion.button
       onClick={switchLocale}
-      disabled={isSaving || isPending}
+      disabled={isPending}
       className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-zinc-400 hover:text-white disabled:opacity-50"
       aria-label={t('header.switchLanguage')}
-      whileHover={{ scale: isSaving || isPending ? 1 : 1.05 }}
-      whileTap={{ scale: isSaving || isPending ? 1 : 0.95 }}
+      whileHover={{ scale: isPending ? 1 : 1.05 }}
+      whileTap={{ scale: isPending ? 1 : 0.95 }}
     >
       <Globe className="w-4 h-4" />
       <span className="text-sm font-medium">
