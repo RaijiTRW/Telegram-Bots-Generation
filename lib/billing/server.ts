@@ -268,7 +268,9 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
       getLatestPendingSubscriptionTransaction(userId),
     ])
   } catch (error) {
-    console.error('Failed to load viewer access, using base fallback:', error)
+    if (process.env.NODE_ENV !== 'development') {
+      console.error('Failed to load viewer access, using base fallback:', error)
+    }
     return buildFallbackViewerAccess()
   }
 

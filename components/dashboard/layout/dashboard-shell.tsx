@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { DashboardNav } from '@/components/dashboard/dashboard-nav'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
@@ -61,6 +61,14 @@ export function DashboardShell({ viewerAccess, children }: DashboardShellProps) 
       : currentSection
   const viewportActiveSection = displayedSection === 'docs' ? 'home' : displayedSection
   const isDocsRoute = currentSection === 'docs'
+
+  useEffect(() => {
+    if (!pendingNavigation) return
+    if (!pathname) return
+    if (pathname === pendingNavigation.href || currentSection === 'docs') {
+      setPendingNavigation(null)
+    }
+  }, [currentSection, pathname, pendingNavigation])
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#05070A]">

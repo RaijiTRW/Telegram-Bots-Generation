@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { PerformanceMode } from "@/components/performance/performance-mode";
 import { ScrollRestoration } from "@/components/scroll/scroll-restoration";
+import { AbortErrorSuppressor } from "@/components/supabase/abort-error-suppressor";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -72,6 +73,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} antialiased`}>
         <PerformanceMode />
+        <AbortErrorSuppressor />
         <Suspense fallback={null}>
           <ScrollRestoration />
         </Suspense>
