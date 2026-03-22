@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { useLocale, useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
+import { getSafeClientUser } from '@/lib/supabase/client-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -80,9 +81,7 @@ export default function DashboardCrmPage() {
   const loadBots = useCallback(async () => {
     try {
       const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const user = await getSafeClientUser(supabase)
       if (!user) {
         setBots([])
         return

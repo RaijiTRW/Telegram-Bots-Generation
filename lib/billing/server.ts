@@ -127,6 +127,40 @@ function buildPendingTransaction(row: SubscriptionTransactionRow | null): Pendin
   }
 }
 
+function buildFallbackViewerAccess(): ViewerAccess {
+  const currency: BillingCurrency = 'RUB'
+  const availableCurrencies = getAvailableBillingCurrencies()
+  const entitlements = getPlanEntitlements('base')
+  const definition = getPlanDefinition('base', 'en')
+
+  return {
+    role: 'user',
+    isAdmin: false,
+    planCode: 'base',
+    effectivePlanCode: 'base',
+    status: 'active',
+    currency,
+    priceAmount: Number(definition.monthlyPrice[currency]),
+    billingProvider: 'yookassa',
+    cancelAtPeriodEnd: false,
+    startedAt: null,
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    canceledAt: null,
+    pastDueAt: null,
+    usage: {
+      bots: 0,
+      hostedBots: 0,
+    },
+    entitlements,
+    softLocked: false,
+    usageExceeded: false,
+    restrictions: [],
+    availableCurrencies,
+    pendingTransaction: null,
+  }
+}
+
 export async function ensureUserSubscription(userId: string): Promise<UserSubscriptionRow> {
   const admin = createAdminClient()
 
@@ -221,12 +255,22 @@ export async function getLatestPendingSubscriptionTransaction(userId: string): P
 }
 
 export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
-  const [role, subscriptionRow, usage, pendingTransaction] = await Promise.all([
-    getUserRole(userId),
-    getCurrentSubscriptionRow(userId),
-    getSubscriptionUsage(userId),
-    getLatestPendingSubscriptionTransaction(userId),
-  ])
+  let role: UserRole
+  let subscriptionRow: UserSubscriptionRow | null
+  let usage: SubscriptionUsage
+  let pendingTransaction: SubscriptionTransactionRow | null
+
+  try {
+    ;[role, subscriptionRow, usage, pendingTransaction] = await Promise.all([
+      getUserRole(userId),
+      getCurrentSubscriptionRow(userId),
+      getSubscriptionUsage(userId),
+      getLatestPendingSubscriptionTransaction(userId),
+    ])
+  } catch (error) {
+    console.error('Failed to load viewer access, using base fallback:', error)
+    return buildFallbackViewerAccess()
+  }
 
   const isAdmin = role === 'admin'
   const derivedStatus = resolveDerivedStatus(subscriptionRow)

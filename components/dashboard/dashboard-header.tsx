@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getSafeClientUser } from '@/lib/supabase/client-auth'
 import { useEffect, useState } from 'react'
 import { LanguageSwitcher } from '@/components/dashboard/language-switcher'
 import packageJson from '@/package.json'
@@ -19,7 +20,7 @@ export function DashboardHeader() {
     const supabase = createClient()
 
     const setUserPreview = async (user?: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']) => {
-      const resolvedUser = user ?? (await supabase.auth.getUser()).data.user
+      const resolvedUser = user ?? await getSafeClientUser(supabase)
 
       if (!resolvedUser) {
         setUserName('')
@@ -45,19 +46,23 @@ export function DashboardHeader() {
       setUserName(fallbackName)
       setAvatarUrl(fallbackAvatar)
 
-      const { data: profileRow } = await ((supabase
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', resolvedUser.id)
-        .maybeSingle()) as unknown as Promise<{
-        data: { full_name: string | null; avatar_url: string | null } | null
-      }>)
+      try {
+        const { data: profileRow } = await ((supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', resolvedUser.id)
+          .maybeSingle()) as unknown as Promise<{
+          data: { full_name: string | null; avatar_url: string | null } | null
+        }>)
 
-      if (profileRow?.full_name?.trim()) {
-        setUserName(profileRow.full_name)
-      }
-      if (typeof profileRow?.avatar_url === 'string') {
-        setAvatarUrl(profileRow.avatar_url)
+        if (profileRow?.full_name?.trim()) {
+          setUserName(profileRow.full_name)
+        }
+        if (typeof profileRow?.avatar_url === 'string') {
+          setAvatarUrl(profileRow.avatar_url)
+        }
+      } catch {
+        // Keep auth metadata fallback when profile query is unavailable.
       }
     }
 

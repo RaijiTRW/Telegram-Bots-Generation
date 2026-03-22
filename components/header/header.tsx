@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from '@/components/motion-wrapper';
 import { CompactLogo } from '@/components/logo';
 import { UserMenuDropdown } from '@/components/header/user-menu-dropdown';
 import { createClient } from '@/lib/supabase/client';
+import { getSafeClientUser } from '@/lib/supabase/client-auth';
 import { setUserLocale } from '@/app/actions/locale';
 import type { Locale } from '@/app/i18n';
 
@@ -24,7 +25,7 @@ export function Header() {
     const supabase = createClient();
 
     const setUserPreview = async (authUser?: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']) => {
-      const resolvedUser = authUser ?? (await supabase.auth.getUser()).data.user;
+      const resolvedUser = authUser ?? await getSafeClientUser(supabase);
 
       if (!resolvedUser) {
         setUser(null);
@@ -51,24 +52,28 @@ export function Header() {
         avatarUrl: fallbackAvatar,
       });
 
-      const { data: profileRow } = await ((supabase
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', resolvedUser.id)
-        .maybeSingle()) as unknown as Promise<{
-        data: { full_name: string | null; avatar_url: string | null } | null
-      }>);
+      try {
+        const { data: profileRow } = await ((supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', resolvedUser.id)
+          .maybeSingle()) as unknown as Promise<{
+          data: { full_name: string | null; avatar_url: string | null } | null
+        }>);
 
-      setUser((prev) => {
-        if (!prev) return prev;
-        if (!profileRow) return prev;
+        setUser((prev) => {
+          if (!prev) return prev;
+          if (!profileRow) return prev;
 
-        return {
-          ...prev,
-          userName: profileRow.full_name?.trim() || prev.userName,
-          avatarUrl: typeof profileRow.avatar_url === 'string' ? profileRow.avatar_url : prev.avatarUrl,
-        };
-      });
+          return {
+            ...prev,
+            userName: profileRow.full_name?.trim() || prev.userName,
+            avatarUrl: typeof profileRow.avatar_url === 'string' ? profileRow.avatar_url : prev.avatarUrl,
+          };
+        });
+      } catch {
+        // Keep auth metadata fallback when profile query is unavailable.
+      }
     };
 
     void setUserPreview();

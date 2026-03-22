@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
+import { getSafeClientUser } from '@/lib/supabase/client-auth'
 import { User, Mail, Shield, Camera, Loader2, X } from 'lucide-react'
 
 type ProfileForm = {
@@ -146,13 +147,7 @@ export default function ProfilePage() {
       setStatus(null)
 
       try {
-        const { data: userData, error: userError } = await supabase.auth.getUser()
-
-        if (userError) {
-          throw userError
-        }
-
-        const user = userData.user
+        const user = await getSafeClientUser(supabase)
         if (!user) {
           throw new Error('User not found')
         }
@@ -271,13 +266,7 @@ export default function ProfilePage() {
     const normalizedBio = form.bio.trim()
 
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser()
-
-      if (userError) {
-        throw userError
-      }
-
-      const user = userData.user
+      const user = await getSafeClientUser(supabase)
       if (!user) {
         throw new Error('User not found')
       }

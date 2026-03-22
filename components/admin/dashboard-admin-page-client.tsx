@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
+import { getSafeClientUser } from '@/lib/supabase/client-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,13 +115,9 @@ export function DashboardAdminPageClient() {
     setStatus(null)
 
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError || !user) {
-        throw userError || new Error('User not found')
+      const user = await getSafeClientUser(supabase)
+      if (!user) {
+        throw new Error('User not found')
       }
 
       setCurrentUserId(user.id)

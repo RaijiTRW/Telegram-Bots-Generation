@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
+import { getSafeClientUser } from '@/lib/supabase/client-auth'
 
 const PRESENCE_HEARTBEAT_MS = 90_000
 
@@ -33,9 +34,7 @@ export function DashboardPresenceHeartbeat() {
 
       try {
         if (!currentUserId) {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
+          const user = await getSafeClientUser(supabase)
           currentUserId = user?.id || null
         }
 

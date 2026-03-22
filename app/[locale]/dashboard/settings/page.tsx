@@ -8,6 +8,7 @@ import { type Locale } from '@/app/i18n'
 import { setUserLocale } from '@/app/actions/locale'
 import { deleteCurrentUserAccount } from '@/app/actions/account'
 import { createClient } from '@/lib/supabase/client'
+import { getSafeClientUser } from '@/lib/supabase/client-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -428,10 +429,7 @@ export default function SettingsPage() {
       setSettingsStatus(null)
 
       try {
-        const { data, error } = await supabase.auth.getUser()
-        if (error) throw error
-
-        const user = data.user
+        const user = await getSafeClientUser(supabase)
         if (!user) throw new Error('User not found')
 
         if (!isMounted) return
