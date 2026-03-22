@@ -5,6 +5,44 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from './lib/supabase/types';
 
+const LOCALE_COOKIE_NAME = 'NEXT_LOCALE';
+const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const SUPABASE_AUTH_COOKIE_MARKER = '-auth-token';
+const intlMiddleware = createMiddleware({
+  locales,
+  defaultLocale: 'ru',
+  localeDetection: true,
+});
+
+function hasSupabaseSessionCookie(request: NextRequest) {
+  return request.cookies
+    .getAll()
+    .some(({ name }) => name.startsWith('sb-') && name.includes(SUPABASE_AUTH_COOKIE_MARKER));
+}
+
+function getLocaleAgnosticPathname(pathname: string) {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length === 0) {
+    return '/';
+  }
+
+  if (locales.includes(segments[0] as (typeof locales)[number])) {
+    const pathWithoutLocale = segments.slice(1).join('/');
+    return pathWithoutLocale ? `/${pathWithoutLocale}` : '/';
+  }
+
+  return pathname;
+}
+
+function isProtectedPath(pathname: string) {
+  const normalizedPathname = getLocaleAgnosticPathname(pathname);
+  return normalizedPathname === '/dashboard' || normalizedPathname.startsWith('/dashboard/');
+}
+
+function isPrefetchRequest(request: NextRequest) {
+  return request.headers.has('next-router-prefetch') || request.headers.get('purpose') === 'prefetch';
+}
+
 async function getUserLocale(request: NextRequest, userId?: string | null): Promise<string | null> {
   if (!userId) {
     return null;
@@ -43,13 +81,26 @@ async function getUserLocale(request: NextRequest, userId?: string | null): Prom
 }
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
   const isMutationRequest = request.method !== 'GET' && request.method !== 'HEAD'
   const isServerActionRequest = Boolean(request.headers.get('next-action'))
+  const isPrefetch = isPrefetchRequest(request)
+  const hasSessionCookie = hasSupabaseSessionCookie(request)
+  const cookieLocale = request.cookies.get(LOCALE_COOKIE_NAME)?.value;
+  const cookiePreferredLocale =
+    cookieLocale && locales.includes(cookieLocale as (typeof locales)[number])
+      ? cookieLocale
+      : null;
+  const shouldRefreshProtectedSession =
+    !isServerActionRequest && !isPrefetch && hasSessionCookie && isProtectedPath(pathname)
+  const shouldLookupUserLocale =
+    !isMutationRequest && !isServerActionRequest && !isPrefetch && !cookiePreferredLocale && hasSessionCookie
+  const shouldRunSupabaseMiddleware = shouldRefreshProtectedSession || shouldLookupUserLocale
 
   // First, update Supabase session for normal navigation requests.
   // Server Actions are frequent (logs polling, saves, etc.) and will manage auth
   // in the action itself; skipping middleware auth refresh here reduces auth churn.
-  const supabaseResponse = isServerActionRequest
+  const supabaseResponse = !shouldRunSupabaseMiddleware
     ? NextResponse.next({ request: { headers: request.headers } })
     : await updateSession(request);
 
@@ -63,30 +114,12 @@ export async function middleware(request: NextRequest) {
   // Get user's stored language preference only for navigational requests.
   // Redirecting POST / Server Actions breaks Next.js action responses.
   const userLocale =
-    isMutationRequest || isServerActionRequest
+    isMutationRequest || isServerActionRequest || isPrefetch || cookiePreferredLocale
       ? null
       : await getUserLocale(request, userIdFromMiddleware);
 
-  // Check for NEXT_LOCALE cookie preference first (for guest users)
-  const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value;
-  const cookiePreferredLocale = cookieLocale && locales.includes(cookieLocale as (typeof locales)[number])
-    ? cookieLocale
-    : null;
-
   // Use cookie locale if no user locale from database
   const effectiveLocale = userLocale || cookiePreferredLocale;
-
-  // Then apply next-intl middleware
-  const intlMiddleware = createMiddleware({
-    // A list of all locales that are supported
-    locales,
-
-    // Used when no locale matches
-    defaultLocale: 'ru',
-
-    // Automatically detect user's preferred language
-    localeDetection: true,
-  });
 
   const response = intlMiddleware(request);
 
@@ -102,10 +135,16 @@ export async function middleware(request: NextRequest) {
   if (middlewareUserEmail) {
     response.headers.set('x-user-email', middlewareUserEmail);
   }
+  if (effectiveLocale && cookiePreferredLocale !== effectiveLocale) {
+    response.cookies.set(LOCALE_COOKIE_NAME, effectiveLocale, {
+      path: '/',
+      sameSite: 'lax',
+      maxAge: LOCALE_COOKIE_MAX_AGE,
+    });
+  }
 
   // If effective locale doesn't match URL, redirect
   if (effectiveLocale) {
-    const pathname = request.nextUrl.pathname;
     const segments = pathname.split('/');
     const currentLocale = segments[1];
 
@@ -124,6 +163,11 @@ export async function middleware(request: NextRequest) {
       if (middlewareUserEmail) {
         redirectResponse.headers.set('x-user-email', middlewareUserEmail);
       }
+      redirectResponse.cookies.set(LOCALE_COOKIE_NAME, effectiveLocale, {
+        path: '/',
+        sameSite: 'lax',
+        maxAge: LOCALE_COOKIE_MAX_AGE,
+      });
       return redirectResponse;
     }
   }

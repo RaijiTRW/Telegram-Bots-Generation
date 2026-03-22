@@ -3,13 +3,16 @@ import { getServerUser } from '@/lib/supabase/server'
 
 export default async function EditorLayout({
   children,
+  params,
 }: {
   children: React.ReactNode
+  params: Promise<{ locale: string }>
 }) {
+  const { locale } = await params
   const user = await getServerUser()
 
   if (!user) {
-    redirect('/auth/login')
+    redirect(`/${locale}/auth/login`)
   }
 
   // This layout does NOT include DashboardNav and DashboardHeader

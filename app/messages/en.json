@@ -1303,6 +1303,9 @@
       "emptyHelp3": "Set up variables and data storage",
       "emptyHelp4": "Explain and debug existing bot logic",
       "emptyQuestion": "What would you like to build today?",
+      "lockedTitle": "AI Chat requires Enterprise",
+      "lockedDescription": "Upgrade the subscription to Enterprise to use AI Chat inside the editor.",
+      "openSubscription": "Open subscription",
       "thinking": "AI is thinking..."
     },
     "variableAssist": {

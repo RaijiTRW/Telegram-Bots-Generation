@@ -1,7 +1,5 @@
-'use client'
-
-import { SystemPanel } from '@/components/bot-editor/settings/system-panel'
+import SystemScreen from '@/components/bot-editor/screens/system-screen'
 
 export default function SystemPage() {
-  return <SystemPanel />
+  return <SystemScreen />
 }

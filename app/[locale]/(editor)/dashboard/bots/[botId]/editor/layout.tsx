@@ -12,13 +12,12 @@ export default async function BotEditorLayout({
   children: React.ReactNode
   params: Promise<{ locale: string; botId: string }>
 }) {
+  const { botId, locale } = await params
   const user = await getServerUser()
 
   if (!user) {
-    redirect('/auth/login')
+    redirect(`/${locale}/auth/login`)
   }
-
-  const { botId, locale } = await params
 
   const supabase = await createServerClientWrapper()
   const botService = createBotService(supabase)

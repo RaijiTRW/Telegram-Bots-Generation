@@ -1,12 +1,14 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { startTransition, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import { MessageSquare, Workflow, Settings, Cpu, BarChart3, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useMemo } from 'react'
 import type { EditorSection as EditorSectionType } from '@/lib/bot-editor/types/bot.types'
 import type { ViewerAccess } from '@/lib/billing/types'
+import { preloadEditorSection } from './editor-section-viewport'
+import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
 
 export type EditorSection = EditorSectionType
 
@@ -52,6 +54,9 @@ const staticNavItems: Omit<NavItem, 'labelKey' | 'descKey'>[] = [
   },
 ]
 
+const buildSectionHref = (locale: string, botId: string, section: EditorSection) =>
+  `/${locale}/dashboard/bots/${botId}/editor/${section}`
+
 export function EditorNav({
   botId,
   viewerAccess,
@@ -62,8 +67,8 @@ export function EditorNav({
   className,
 }: EditorNavProps) {
   const t = useTranslations('editor.nav')
+  const locale = useLocale()
   const router = useRouter()
-  const pathname = usePathname()
   const isCompact = mode === 'compact'
   const canUseAiChat = viewerAccess.isAdmin || viewerAccess.entitlements.aiChat
   type NavTranslationKey = Parameters<typeof t>[0]
@@ -106,14 +111,44 @@ export function EditorNav({
     })
   }, [canUseAiChat])
 
+  const sectionHrefs = useMemo<Record<EditorSection, string>>(
+    () => ({
+      canvas: buildSectionHref(locale, botId, 'canvas'),
+      'ai-chat': buildSectionHref(locale, botId, 'ai-chat'),
+      system: buildSectionHref(locale, botId, 'system'),
+      statistics: buildSectionHref(locale, botId, 'statistics'),
+      settings: buildSectionHref(locale, botId, 'settings'),
+    }),
+    [botId, locale]
+  )
+
+  useEffect(() => {
+    for (const item of navItems) {
+      if (item.disabled) {
+        continue
+      }
+      void preloadEditorSection(item.id)
+    }
+  }, [navItems])
+
+  const prefetchSection = (section: EditorSection) => {
+    if (section === 'ai-chat' && !canUseAiChat) {
+      return
+    }
+    prefetchHrefOnce(router, sectionHrefs[section])
+    void preloadEditorSection(section)
+  }
+
   const handleSectionChange = (section: EditorSection) => {
     if (section === 'ai-chat' && !canUseAiChat) {
       return
     }
     onSectionChange(section)
-    // Extract locale from pathname (e.g., /ru/dashboard/bots/123/editor -> /ru)
-    const locale = pathname.split('/')[1] || 'ru'
-    router.push(`/${locale}/dashboard/bots/${botId}/editor/${section}`, { scroll: false })
+    const targetHref = sectionHrefs[section]
+    prefetchSection(section)
+    startTransition(() => {
+      router.push(targetHref, { scroll: false })
+    })
   }
 
   return (
@@ -160,6 +195,8 @@ export function EditorNav({
               key={item.id}
               disabled={isDisabled}
               onClick={() => handleSectionChange(item.id)}
+              onMouseEnter={() => prefetchSection(item.id)}
+              onFocus={() => prefetchSection(item.id)}
               title={isCompact ? (disabledHint ? `${label}: ${disabledHint}` : label) : disabledHint}
               className={cn(
                 'w-full text-left rounded-xl transition-all duration-200 group border relative',
@@ -171,8 +208,13 @@ export function EditorNav({
                   : 'text-zinc-400 hover:text-white hover:bg-white/5 border-transparent'
               )}
             >
-              {isActive && !isCompact && (
-                <div className="absolute left-1.5 top-1/2 -translate-y-1/2 h-8 w-[3px] rounded-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6] opacity-80" />
+              {isActive && (
+                <div
+                  className={cn(
+                    'absolute top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6] opacity-80',
+                    isCompact ? 'left-1.5 h-6 w-[3px]' : 'left-1.5 h-8 w-[3px]'
+                  )}
+                />
               )}
               <div className={cn('flex items-center', isCompact ? 'justify-center' : 'gap-3')}>
                 <div className={cn(
@@ -215,11 +257,11 @@ export function EditorNav({
                     )}
                   </div>
                 )}
-                {isActive && (
+                {isActive && !isCompact && (
                   <div
                     className={cn(
                       'rounded-full bg-[#24A1DE] shadow-[0_0_8px_rgba(36,161,222,0.5)]',
-                      isCompact ? 'absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5' : 'w-1.5 h-1.5'
+                      'w-1.5 h-1.5'
                     )}
                   />
                 )}

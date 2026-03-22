@@ -8,6 +8,7 @@ import { EditorNav } from './editor-nav'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import { Button } from '@/components/ui/button'
 import { useBotActivityFavicon } from './use-bot-activity-favicon'
+import { EditorSectionViewport } from './editor-section-viewport'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 import {
   saveCanvasAction,
@@ -18,6 +19,7 @@ import {
   serializeWorkflowNodes,
   serializeWorkflowEdges,
 } from '@/lib/bot-editor/utils/workflow-serialization'
+import type { EditorSection } from '@/lib/bot-editor/types/bot.types'
 import type { ViewerAccess } from '@/lib/billing/types'
 
 type CanvasNode = {
@@ -91,13 +93,13 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
   const [showZipRunGuideModal, setShowZipRunGuideModal] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [pendingSection, setPendingSection] = useState<EditorSection | null>(null)
   const [sectionsPanelWidth, setSectionsPanelWidth] = useState(NAV_PANEL_DEFAULT_WIDTH)
   const [isResizingSectionsPanel, setIsResizingSectionsPanel] = useState(false)
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
   const hasLoadedSectionsPanelWidthRef = useRef(false)
   const pendingRestoreSectionsPanelWidthRef = useRef<number | null>(null)
   const isBotActive = Boolean(bot?.metadata?.testActive)
-  const canUseAiChat = viewerAccess.isAdmin || viewerAccess.entitlements.aiChat
   const canUseHostedDeploy = viewerAccess.isAdmin || viewerAccess.entitlements.hosting
   const latestBotIdRef = useRef(botId)
   const hasSentAutoStopSignalRef = useRef(false)
@@ -110,9 +112,6 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
     const sections = ['ai-chat', 'canvas', 'settings', 'system', 'statistics'] as const
     for (const section of sections) {
       if (pathname?.endsWith(`/${section}`)) {
-        if (section === 'ai-chat' && !canUseAiChat) {
-          return 'canvas'
-        }
         return section
       }
     }
@@ -120,6 +119,9 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
   }
 
   const currentSection = getCurrentSection()
+  const displayedSection = pendingSection ?? currentSection
+  const initialSectionRef = useRef<EditorSection>(currentSection)
+  const initialContentRef = useRef(children)
   const zipRunCommands = [
     'python3 -m venv .venv',
     'source .venv/bin/activate',
@@ -312,6 +314,11 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
     latestBotIdRef.current = botId
     hasSentAutoStopSignalRef.current = false
   }, [botId])
+
+  useEffect(() => {
+    setPendingSection(null)
+    setActiveSection(currentSection)
+  }, [currentSection, setActiveSection])
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -559,8 +566,11 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
             <EditorNav
               botId={botId}
               viewerAccess={viewerAccess}
-              activeSection={currentSection}
-              onSectionChange={setActiveSection}
+              activeSection={displayedSection}
+              onSectionChange={(section) => {
+                setPendingSection(section)
+                setActiveSection(section)
+              }}
               isDirty={isDirty}
               mode={sectionsPanelMode}
               className="w-full border-r border-white/10"
@@ -582,7 +592,11 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
         </div>
 
         <div className="flex-1 overflow-hidden min-w-0">
-          {children}
+          <EditorSectionViewport
+            activeSection={displayedSection}
+            initialSection={initialSectionRef.current}
+            initialContent={initialContentRef.current}
+          />
         </div>
       </div>
 

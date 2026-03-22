@@ -1,0 +1,1130 @@
+
+> cbtooll@0.9.6 dev
+> next dev --port 3000
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.28:3000
+- Environments: .env.local
+- Experiments (use with caution):
+  · serverActions
+
+✓ Starting...
+Creating turbopack project {
+  dir: 'C:\\Users\\phelo\\OneDrive\\Desktop\\TgBots\\Telegram-Bots-Generation',
+  testMode: true
+}
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 1368ms
+ HEAD /ru 200 in 3.3s (compile: 1841ms, proxy.ts: 270ms, generate-params: 693ms, render: 1222ms)
+○ Compiling /api/bot-tests/stop-on-exit ...
+ POST /api/bot-tests/stop-on-exit 200 in 3.0s (compile: 1652ms, render: 1371ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 8.5s (compile: 5.1s, proxy.ts: 1168ms, render: 2.2s)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 404 in 2.6s (compile: 1713ms, proxy.ts: 767ms, render: 109ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 404 in 976ms (compile: 42ms, proxy.ts: 668ms, render: 266ms)
+ POST /api/bot-tests/stop-on-exit 200 in 1256ms (compile: 18ms, render: 1238ms)
+✓ Compiled in 3.7s
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 7.7s (compile: 3.2s, proxy.ts: 3.3s, render: 1300ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 3.4s (compile: 10ms, proxy.ts: 1696ms, render: 1732ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 3.6s (compile: 22ms, proxy.ts: 1300ms, render: 2.3s)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 2.6s (compile: 182ms, proxy.ts: 1284ms, render: 1177ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 1581ms (compile: 41ms, proxy.ts: 1008ms, render: 532ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 3.6s (compile: 18ms, proxy.ts: 1177ms, render: 2.4s)
+ GET /ru 200 in 1149ms (compile: 449ms, proxy.ts: 3ms, generate-params: 21ms, render: 697ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 3.2s (compile: 824ms, proxy.ts: 1104ms, render: 1321ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 4.1s (compile: 3.4s, proxy.ts: 680ms, render: 24ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1479ms (compile: 31ms, proxy.ts: 8ms, render: 1439ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1517ms (compile: 19ms, proxy.ts: 751ms, render: 747ms)
+✓ Compiled in 508ms
+✓ Compiled in 421ms
+ POST /api/bot-tests/stop-on-exit 200 in 1496ms (compile: 332ms, render: 1164ms)
+ POST /api/bot-tests/stop-on-exit 200 in 1450ms (compile: 343ms, render: 1107ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 404 in 1094ms (compile: 277ms, proxy.ts: 680ms, render: 137ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 404 in 681ms (compile: 12ms, proxy.ts: 635ms, render: 34ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 404 in 1001ms (compile: 8ms, proxy.ts: 741ms, render: 252ms)
+ POST /api/bot-tests/stop-on-exit 200 in 1075ms (compile: 9ms, render: 1066ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 2.2s (compile: 1107ms, proxy.ts: 709ms, render: 388ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1154ms (compile: 23ms, proxy.ts: 684ms, render: 447ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1538ms (compile: 19ms, proxy.ts: 659ms, render: 860ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 2.9s (compile: 45ms, proxy.ts: 868ms, render: 1950ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1158ms (compile: 16ms, proxy.ts: 921ms, render: 220ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1155ms (compile: 21ms, proxy.ts: 657ms, render: 477ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 3.0s (compile: 32ms, proxy.ts: 683ms, render: 2.2s)
+✓ Compiled in 360ms
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1598ms (compile: 448ms, proxy.ts: 794ms, render: 356ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 909ms (compile: 21ms, proxy.ts: 668ms, render: 221ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 857ms (compile: 24ms, proxy.ts: 644ms, render: 189ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 903ms (compile: 19ms, proxy.ts: 657ms, render: 227ms)
+✓ Compiled in 352ms
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1544ms (compile: 380ms, proxy.ts: 720ms, render: 444ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 918ms (compile: 18ms, proxy.ts: 686ms, render: 213ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 903ms (compile: 17ms, proxy.ts: 653ms, render: 232ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 868ms (compile: 27ms, proxy.ts: 636ms, render: 205ms)
+ POST /api/bot-tests/stop-on-exit 200 in 1744ms (compile: 3ms, render: 1741ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 3.1s (compile: 24ms, proxy.ts: 826ms, render: 2.3s)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 1344ms (compile: 541ms, proxy.ts: 658ms, render: 145ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 3.3s (compile: 2.6s, proxy.ts: 679ms, render: 27ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 1606ms (compile: 15ms, proxy.ts: 4ms, render: 1587ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 1333ms (compile: 22ms, proxy.ts: 7ms, render: 1304ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/settings 200 in 3.2s (compile: 2.4s, proxy.ts: 711ms, render: 57ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 754ms (compile: 19ms, proxy.ts: 676ms, render: 58ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 792ms (compile: 67ms, proxy.ts: 665ms, render: 60ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 718ms (compile: 17ms, proxy.ts: 676ms, render: 26ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1357ms (compile: 580ms, proxy.ts: 652ms, render: 126ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1359ms (compile: 9ms, proxy.ts: 5ms, render: 1345ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 820ms (compile: 130ms, proxy.ts: 620ms, render: 70ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 703ms (compile: 20ms, proxy.ts: 652ms, render: 31ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1277ms (compile: 8ms, proxy.ts: 4ms, render: 1265ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 765ms (compile: 24ms, proxy.ts: 689ms, render: 52ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 762ms (compile: 21ms, proxy.ts: 706ms, render: 35ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 710ms (compile: 14ms, proxy.ts: 652ms, render: 44ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 1367ms (compile: 7ms, proxy.ts: 5ms, render: 1356ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 1379ms (compile: 26ms, proxy.ts: 6ms, render: 1347ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/settings 200 in 703ms (compile: 16ms, proxy.ts: 668ms, render: 19ms)
+ POST /api/bot-tests/stop-on-exit 200 in 1008ms (compile: 7ms, render: 1001ms)
+ GET /ru/dashboard/bots 200 in 4.3s (compile: 2.9s, proxy.ts: 651ms, generate-params: 484ms, render: 758ms)
+ POST /ru/dashboard/bots 200 in 714ms (compile: 25ms, proxy.ts: 4ms, generate-params: 15ms, render: 685ms)
+ POST /ru/dashboard/bots 200 in 671ms (compile: 19ms, proxy.ts: 5ms, generate-params: 7ms, render: 647ms)
+ GET /ru/dashboard/statistics 200 in 3.3s (compile: 2.7s, proxy.ts: 630ms, generate-params: 529ms, render: 18ms)
+ GET /ru/dashboard/subscription 200 in 3.9s (compile: 2.4s, proxy.ts: 644ms, generate-params: 504ms, render: 821ms)
+ GET /ru/dashboard/crm 200 in 3.1s (compile: 2.4s, proxy.ts: 653ms, generate-params: 475ms, render: 18ms)
+ POST /ru/dashboard/crm 200 in 754ms (compile: 43ms, proxy.ts: 12ms, generate-params: 20ms, render: 699ms)
+ POST /ru/dashboard/crm 200 in 658ms (compile: 15ms, proxy.ts: 5ms, generate-params: 7ms, render: 638ms)
+ POST /ru/dashboard/crm 200 in 1973ms (compile: 45ms, proxy.ts: 10ms, generate-params: 22ms, render: 1917ms)
+ POST /ru/dashboard/crm 200 in 1428ms (compile: 15ms, proxy.ts: 4ms, generate-params: 7ms, render: 1410ms)
+✓ Compiled in 1419ms
+ GET /ru/dashboard/crm 200 in 1905ms (compile: 49ms, proxy.ts: 1677ms, generate-params: 62µs, render: 179ms)
+ GET /ru/dashboard/crm 200 in 2.1s (compile: 19ms, proxy.ts: 795ms, generate-params: 8ms, render: 1331ms)
+ POST /ru/dashboard/crm 200 in 692ms (compile: 31ms, proxy.ts: 6ms, generate-params: 18ms, render: 655ms)
+ POST /ru/dashboard/crm 200 in 1340ms (compile: 20ms, proxy.ts: 3ms, generate-params: 6ms, render: 1317ms)
+ POST /ru/dashboard/crm 200 in 1400ms (compile: 15ms, proxy.ts: 4ms, generate-params: 8ms, render: 1382ms)
+✓ Compiled in 849ms
+ GET /ru/dashboard/crm 200 in 897ms (compile: 23ms, proxy.ts: 760ms, generate-params: 12ms, render: 114ms)
+ GET /ru/dashboard/crm 200 in 792ms (compile: 15ms, proxy.ts: 669ms, generate-params: 7ms, render: 108ms)
+ GET /ru/dashboard/crm 200 in 789ms (compile: 15ms, proxy.ts: 664ms, generate-params: 7ms, render: 110ms)
+ GET /ru/dashboard/crm 200 in 809ms (compile: 20ms, proxy.ts: 673ms, generate-params: 9ms, render: 116ms)
+ GET /ru/dashboard/crm 200 in 800ms (compile: 27ms, proxy.ts: 678ms, generate-params: 8ms, render: 95ms)
+ POST /ru/dashboard/crm 200 in 1432ms (compile: 8ms, proxy.ts: 4ms, generate-params: 34µs, render: 1420ms)
+ POST /ru/dashboard/crm 200 in 1401ms (compile: 15ms, proxy.ts: 4ms, generate-params: 7ms, render: 1382ms)
+✓ Compiled in 409ms
+ GET /ru/dashboard 200 in 4.0s (compile: 3.0s, proxy.ts: 818ms, generate-params: 504ms, render: 200ms)
+ GET /ru 200 in 1697ms (compile: 596ms, proxy.ts: 778ms, generate-params: 31ms, render: 322ms)
+ POST /api/analytics/landing-view 200 in 1226ms (compile: 505ms, render: 721ms)
+ GET /ru/dashboard 200 in 2.2s (compile: 15ms, proxy.ts: 709ms, generate-params: 7ms, render: 1501ms)
+ GET /ru/dashboard 200 in 2.2s (compile: 21ms, proxy.ts: 1392ms, generate-params: 9ms, render: 798ms)
+ GET /ru/dashboard/bots 200 in 1275ms (compile: 489ms, proxy.ts: 679ms, generate-params: 20ms, render: 107ms)
+ POST /ru/dashboard/bots 200 in 755ms (compile: 34ms, proxy.ts: 13ms, generate-params: 34µs, render: 708ms)
+ POST /ru/dashboard/bots 200 in 699ms (compile: 33ms, proxy.ts: 6ms, generate-params: 17ms, render: 660ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 5.3s (compile: 2.4s, proxy.ts: 660ms, render: 2.2s)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1428ms (compile: 65ms, proxy.ts: 5ms, render: 1359ms)
+ POST /api/bot-tests/stop-on-exit 200 in 1829ms (compile: 4ms, render: 1825ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 3.2s (compile: 20ms, proxy.ts: 691ms, render: 2.5s)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1386ms (compile: 16ms, proxy.ts: 5ms, render: 1365ms)
+✓ Compiled in 535ms
+ POST /api/bot-tests/stop-on-exit 200 in 1057ms (compile: 7ms, render: 1051ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 5.2s (compile: 18ms, proxy.ts: 6ms, render: 5.1s)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1428ms (compile: 93ms, proxy.ts: 20ms, render: 1315ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1378ms (compile: 24ms, proxy.ts: 6ms, render: 1347ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1409ms (compile: 21ms, proxy.ts: 5ms, render: 1383ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1389ms (compile: 66ms, proxy.ts: 7ms, render: 1315ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1362ms (compile: 24ms, proxy.ts: 4ms, render: 1334ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1316ms (compile: 24ms, proxy.ts: 5ms, render: 1287ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1380ms (compile: 26ms, proxy.ts: 6ms, render: 1348ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1336ms (compile: 23ms, proxy.ts: 6ms, render: 1308ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1371ms (compile: 25ms, proxy.ts: 5ms, render: 1342ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1666ms (compile: 302ms, proxy.ts: 35ms, render: 1329ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1322ms (compile: 29ms, proxy.ts: 5ms, render: 1289ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1350ms (compile: 35ms, proxy.ts: 4ms, render: 1311ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1359ms (compile: 17ms, proxy.ts: 4ms, render: 1337ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1548ms (compile: 192ms, proxy.ts: 55ms, render: 1301ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1414ms (compile: 45ms, proxy.ts: 9ms, render: 1360ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1336ms (compile: 15ms, proxy.ts: 4ms, render: 1317ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1322ms (compile: 16ms, proxy.ts: 5ms, render: 1301ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1419ms (compile: 16ms, proxy.ts: 4ms, render: 1398ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1338ms (compile: 35ms, proxy.ts: 8ms, render: 1295ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1343ms (compile: 28ms, proxy.ts: 4ms, render: 1311ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1352ms (compile: 19ms, proxy.ts: 7ms, render: 1325ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1411ms (compile: 69ms, proxy.ts: 26ms, render: 1316ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1288ms (compile: 38ms, proxy.ts: 7ms, render: 1243ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1329ms (compile: 23ms, proxy.ts: 9ms, render: 1297ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1378ms (compile: 20ms, proxy.ts: 5ms, render: 1353ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1151ms (compile: 47ms, proxy.ts: 4ms, render: 1101ms)
+⨯ Error: aborted
+    at ignore-listed frames
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 2.5s (compile: 28ms, proxy.ts: 705ms, render: 1817ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1363ms (compile: 13ms, proxy.ts: 4ms, render: 1346ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 2.1s (compile: 86ms, proxy.ts: 8ms, render: 1986ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1327ms (compile: 24ms, proxy.ts: 5ms, render: 1297ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1335ms (compile: 17ms, proxy.ts: 4ms, render: 1313ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1308ms (compile: 39ms, proxy.ts: 12ms, render: 1257ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1352ms (compile: 24ms, proxy.ts: 5ms, render: 1323ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1287ms (compile: 18ms, proxy.ts: 6ms, render: 1264ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1273ms (compile: 14ms, proxy.ts: 4ms, render: 1256ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1352ms (compile: 18ms, proxy.ts: 12ms, render: 1322ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1268ms (compile: 17ms, proxy.ts: 4ms, render: 1247ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1323ms (compile: 15ms, proxy.ts: 4ms, render: 1305ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1292ms (compile: 16ms, proxy.ts: 4ms, render: 1272ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1316ms (compile: 28ms, proxy.ts: 7ms, render: 1281ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1345ms (compile: 34ms, proxy.ts: 19ms, render: 1291ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1307ms (compile: 28ms, proxy.ts: 8ms, render: 1270ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1338ms (compile: 20ms, proxy.ts: 5ms, render: 1313ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1277ms (compile: 13ms, proxy.ts: 3ms, render: 1261ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1288ms (compile: 19ms, proxy.ts: 4ms, render: 1266ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1498ms (compile: 688ms, proxy.ts: 654ms, render: 156ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 1814ms (compile: 38ms, proxy.ts: 5ms, render: 1771ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 1292ms (compile: 456ms, proxy.ts: 652ms, render: 184ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 1975ms (compile: 735ms, proxy.ts: 1047ms, render: 193ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 3.1s (compile: 17ms, proxy.ts: 4ms, render: 3.1s)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/settings 200 in 2.8s (compile: 648ms, proxy.ts: 1782ms, render: 389ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 1412ms (compile: 119ms, proxy.ts: 1113ms, render: 181ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 1483ms (compile: 197ms, proxy.ts: 1089ms, render: 196ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 1526ms (compile: 56ms, proxy.ts: 1418ms, render: 52ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 2.8s (compile: 38ms, proxy.ts: 24ms, render: 2.7s)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/canvas 200 in 731ms (compile: 25ms, proxy.ts: 657ms, render: 49ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/system 200 in 719ms (compile: 16ms, proxy.ts: 643ms, render: 61ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/ai-chat 200 in 777ms (compile: 39ms, proxy.ts: 701ms, render: 37ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 755ms (compile: 33ms, proxy.ts: 659ms, render: 63ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 1636ms (compile: 56ms, proxy.ts: 11ms, render: 1569ms)
+ GET /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/settings 200 in 695ms (compile: 16ms, proxy.ts: 656ms, render: 23ms)
+ POST /ru/dashboard/bots/7227a5ab-6ec4-4417-85f5-3f4007654c57/editor/statistics 200 in 1281ms (compile: 7ms, proxy.ts: 4ms, render: 1271ms)
+ POST /ru/dashboard/bots 200 in 25ms (compile: 7ms, proxy.ts: 4ms, generate-params: 20µs, render: 14ms)
+ GET /ru/dashboard/bots 200 in 1384ms (compile: 21ms, proxy.ts: 640ms, generate-params: 8ms, render: 723ms)
+ POST /ru/dashboard/bots 200 in 658ms (compile: 15ms, proxy.ts: 4ms, generate-params: 7ms, render: 639ms)
+ POST /ru/dashboard/bots 200 in 661ms (compile: 23ms, proxy.ts: 5ms, generate-params: 9ms, render: 633ms)
+ POST /api/bot-tests/stop-on-exit 200 in 3.1s (compile: 5ms, render: 3.1s)
+ GET /ru/dashboard/settings 200 in 2.7s (compile: 2.0s, proxy.ts: 628ms, generate-params: 429ms, render: 17ms)
+ GET /ru/dashboard/profile 200 in 2.7s (compile: 1979ms, proxy.ts: 653ms, generate-params: 443ms, render: 18ms)
+ POST /ru/dashboard/bots 200 in 710ms (compile: 20ms, proxy.ts: 6ms, generate-params: 10ms, render: 684ms)
+ POST /ru/dashboard/bots 200 in 704ms (compile: 18ms, proxy.ts: 4ms, generate-params: 8ms, render: 682ms)
+ GET /ru/dashboard/statistics 200 in 1382ms (compile: 569ms, proxy.ts: 697ms, generate-params: 27ms, render: 116ms)
+ POST /ru/dashboard/statistics 200 in 1458ms (compile: 10ms, proxy.ts: 4ms, generate-params: 26µs, render: 1444ms)
+ POST /ru/dashboard/statistics 200 in 1439ms (compile: 13ms, proxy.ts: 4ms, generate-params: 6ms, render: 1422ms)
+ POST /ru/dashboard/statistics 200 in 1435ms (compile: 36ms, proxy.ts: 9ms, generate-params: 17ms, render: 1390ms)
+ POST /ru/dashboard/statistics 200 in 1339ms (compile: 14ms, proxy.ts: 4ms, generate-params: 7ms, render: 1321ms)
+ POST /ru/dashboard/statistics 200 in 1342ms (compile: 13ms, proxy.ts: 3ms, generate-params: 6ms, render: 1326ms)
+ POST /ru/dashboard/statistics 200 in 1379ms (compile: 13ms, proxy.ts: 3ms, generate-params: 6ms, render: 1362ms)
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:44:17
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'
+[0m [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+ [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m    |[39m                 [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+✓ Compiled in 809ms
+ GET /ru/dashboard/statistics 200 in 1596ms (compile: 15ms, proxy.ts: 1437ms, generate-params: 7ms, render: 144ms)
+ GET /ru/dashboard/statistics 200 in 889ms (compile: 14ms, proxy.ts: 762ms, generate-params: 6ms, render: 113ms)
+ GET /ru/dashboard/statistics 200 in 856ms (compile: 14ms, proxy.ts: 708ms, generate-params: 8ms, render: 134ms)
+ GET /ru/dashboard/statistics 200 in 863ms (compile: 14ms, proxy.ts: 745ms, generate-params: 7ms, render: 105ms)
+✓ Compiled in 601ms
+ GET /ru/dashboard/statistics 200 in 1582ms (compile: 482ms, proxy.ts: 780ms, generate-params: 21ms, render: 320ms)
+ GET /ru/dashboard/statistics 200 in 836ms (compile: 20ms, proxy.ts: 640ms, generate-params: 8ms, render: 176ms)
+ GET /ru/dashboard/statistics 200 in 950ms (compile: 52ms, proxy.ts: 754ms, generate-params: 50µs, render: 144ms)
+ GET /ru/dashboard/statistics 200 in 2.3s (compile: 15ms, proxy.ts: 999ms, generate-params: 6ms, render: 1335ms)
+ POST /ru/dashboard/statistics 200 in 1969ms (compile: 28ms, proxy.ts: 6ms, generate-params: 16ms, render: 1935ms)
+ POST /ru/dashboard/statistics 200 in 1424ms (compile: 17ms, proxy.ts: 5ms, generate-params: 8ms, render: 1402ms)
+ POST /ru/dashboard/statistics 200 in 1416ms (compile: 14ms, proxy.ts: 4ms, generate-params: 7ms, render: 1398ms)
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:43:20
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'
+[0m [90m 41 |[39m [36mconst[39m editorSectionLoaders[33m:[39m [33mRecord[39m[33m<[39m[33mEditorSection[39m[33m,[39m () [33m=>[39m [33mPromise[39m[33m<[39m[33mEditorSectionModule[39m[33m>>[39m [33m=[39m {
+ [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+ [90m    |[39m                    [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:43:20
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'
+[0m [90m 41 |[39m [36mconst[39m editorSectionLoaders[33m:[39m [33mRecord[39m[33m<[39m[33mEditorSection[39m[33m,[39m () [33m=>[39m [33mPromise[39m[33m<[39m[33mEditorSectionModule[39m[33m>>[39m [33m=[39m {
+ [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+ [90m    |[39m                    [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:43:20
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'
+[0m [90m 41 |[39m [36mconst[39m editorSectionLoaders[33m:[39m [33mRecord[39m[33m<[39m[33mEditorSection[39m[33m,[39m () [33m=>[39m [33mPromise[39m[33m<[39m[33mEditorSectionModule[39m[33m>>[39m [33m=[39m {
+ [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+ [90m    |[39m                    [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:43:20
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'
+[0m [90m 41 |[39m [36mconst[39m editorSectionLoaders[33m:[39m [33mRecord[39m[33m<[39m[33mEditorSection[39m[33m,[39m () [33m=>[39m [33mPromise[39m[33m<[39m[33mEditorSectionModule[39m[33m>>[39m [33m=[39m {
+ [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+ [90m    |[39m                    [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:43:20
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'
+[0m [90m 41 |[39m [36mconst[39m editorSectionLoaders[33m:[39m [33mRecord[39m[33m<[39m[33mEditorSection[39m[33m,[39m () [33m=>[39m [33mPromise[39m[33m<[39m[33mEditorSectionModule[39m[33m>>[39m [33m=[39m {
+ [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+ [90m    |[39m                    [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:43:20
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'
+[0m [90m 41 |[39m [36mconst[39m editorSectionLoaders[33m:[39m [33mRecord[39m[33m<[39m[33mEditorSection[39m[33m,[39m () [33m=>[39m [33mPromise[39m[33m<[39m[33mEditorSectionModule[39m[33m>>[39m [33m=[39m {
+ [90m 42 |[39m   canvas[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/canvas/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+ [90m    |[39m                    [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+ GET /ru/dashboard/statistics 200 in 849ms (compile: 14ms, proxy.ts: 699ms, generate-params: 6ms, render: 136ms)
+ GET /ru/dashboard/statistics 200 in 766ms (compile: 14ms, proxy.ts: 650ms, generate-params: 6ms, render: 103ms)
+ GET /ru/dashboard/statistics 200 in 883ms (compile: 43ms, proxy.ts: 655ms, generate-params: 21ms, render: 184ms)
+ GET /ru/dashboard/statistics 200 in 789ms (compile: 14ms, proxy.ts: 639ms, generate-params: 7ms, render: 136ms)
+ GET /ru/dashboard/statistics 200 in 817ms (compile: 17ms, proxy.ts: 670ms, generate-params: 6ms, render: 131ms)
+ GET /ru/dashboard/statistics 200 in 818ms (compile: 13ms, proxy.ts: 681ms, generate-params: 6ms, render: 124ms)
+ GET /ru/dashboard/statistics 200 in 816ms (compile: 13ms, proxy.ts: 696ms, generate-params: 7ms, render: 107ms)
+ GET /ru/dashboard/statistics 200 in 776ms (compile: 12ms, proxy.ts: 657ms, generate-params: 6ms, render: 107ms)
+✓ Compiled in 462ms
+ GET /ru/dashboard/statistics 200 in 1157ms (compile: 335ms, proxy.ts: 636ms, generate-params: 17ms, render: 186ms)
+ GET /ru/dashboard/statistics 200 in 786ms (compile: 16ms, proxy.ts: 653ms, generate-params: 6ms, render: 117ms)
+ GET /ru/dashboard/statistics 200 in 800ms (compile: 15ms, proxy.ts: 678ms, generate-params: 7ms, render: 108ms)
+ GET /ru/dashboard/statistics 200 in 753ms (compile: 14ms, proxy.ts: 650ms, generate-params: 7ms, render: 88ms)
+ GET /ru/dashboard/statistics 200 in 845ms (compile: 39ms, proxy.ts: 641ms, generate-params: 24ms, render: 166ms)
+ GET /ru/dashboard/statistics 200 in 765ms (compile: 18ms, proxy.ts: 654ms, generate-params: 7ms, render: 93ms)
+ GET /ru/dashboard/statistics 200 in 812ms (compile: 16ms, proxy.ts: 698ms, generate-params: 7ms, render: 98ms)
+ GET /ru/dashboard/statistics 200 in 782ms (compile: 14ms, proxy.ts: 662ms, generate-params: 7ms, render: 106ms)
+ GET /ru/dashboard/statistics 200 in 766ms (compile: 13ms, proxy.ts: 667ms, generate-params: 6ms, render: 86ms)
+ GET /ru/dashboard/statistics 200 in 745ms (compile: 14ms, proxy.ts: 637ms, generate-params: 6ms, render: 94ms)
+ GET /ru/dashboard/statistics 200 in 830ms (compile: 39ms, proxy.ts: 639ms, generate-params: 19ms, render: 151ms)
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:46:19
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'
+[0m [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m    |[39m                   [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 47 |[39m }
+ [90m 48 |[39m
+ [90m 49 |[39m [36mconst[39m editorSectionComponentCache [33m=[39m [36mnew[39m [33mMap[39m[33m<[39m[33mEditorSection[39m[33m,[39m [33mEditorSectionComponent[39m[33m>[39m()[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:46:19
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'
+[0m [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m    |[39m                   [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 47 |[39m }
+ [90m 48 |[39m
+ [90m 49 |[39m [36mconst[39m editorSectionComponentCache [33m=[39m [36mnew[39m [33mMap[39m[33m<[39m[33mEditorSection[39m[33m,[39m [33mEditorSectionComponent[39m[33m>[39m()[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:46:19
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'
+[0m [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m    |[39m                   [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 47 |[39m }
+ [90m 48 |[39m
+ [90m 49 |[39m [36mconst[39m editorSectionComponentCache [33m=[39m [36mnew[39m [33mMap[39m[33m<[39m[33mEditorSection[39m[33m,[39m [33mEditorSectionComponent[39m[33m>[39m()[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:46:19
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'
+[0m [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+ [90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m    |[39m                   [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 47 |[39m }
+ [90m 48 |[39m
+ [90m 49 |[39m [36mconst[39m editorSectionComponentCache [33m=[39m [36mnew[39m [33mMap[39m[33m<[39m[33mEditorSection[39m[33m,[39m [33mEditorSectionComponent[39m[33m>[39m()[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+ GET /ru/dashboard/statistics 200 in 1170ms (compile: 304ms, proxy.ts: 695ms, generate-params: 15ms, render: 170ms)
+ GET /ru/dashboard/statistics 200 in 792ms (compile: 15ms, proxy.ts: 653ms, generate-params: 6ms, render: 124ms)
+ GET /ru/dashboard/statistics 200 in 797ms (compile: 13ms, proxy.ts: 677ms, generate-params: 6ms, render: 107ms)
+ GET /ru/dashboard/statistics 200 in 775ms (compile: 13ms, proxy.ts: 653ms, generate-params: 6ms, render: 109ms)
+ GET /ru/dashboard/statistics 200 in 882ms (compile: 32ms, proxy.ts: 656ms, generate-params: 19ms, render: 193ms)
+ GET /ru/dashboard/statistics 200 in 776ms (compile: 14ms, proxy.ts: 655ms, generate-params: 7ms, render: 107ms)
+ GET /ru/dashboard/statistics 200 in 818ms (compile: 15ms, proxy.ts: 662ms, generate-params: 7ms, render: 141ms)
+ GET /ru/dashboard/statistics 200 in 818ms (compile: 14ms, proxy.ts: 687ms, generate-params: 6ms, render: 117ms)
+ GET /ru/dashboard/statistics 200 in 769ms (compile: 13ms, proxy.ts: 660ms, generate-params: 6ms, render: 96ms)
+✓ Compiled in 740ms
+ GET /ru/dashboard/statistics 200 in 1276ms (compile: 339ms, proxy.ts: 703ms, generate-params: 21ms, render: 235ms)
+ GET /ru/dashboard/statistics 200 in 781ms (compile: 14ms, proxy.ts: 673ms, generate-params: 7ms, render: 94ms)
+ GET /ru/dashboard/statistics 200 in 841ms (compile: 59ms, proxy.ts: 620ms, generate-params: 20ms, render: 163ms)
+ GET /ru/dashboard/statistics 200 in 790ms (compile: 26ms, proxy.ts: 649ms, generate-params: 10ms, render: 114ms)
+ GET /ru/dashboard/statistics 200 in 791ms (compile: 14ms, proxy.ts: 675ms, generate-params: 6ms, render: 103ms)
+ GET /ru/dashboard/statistics 200 in 738ms (compile: 16ms, proxy.ts: 621ms, generate-params: 6ms, render: 101ms)
+ GET /ru/dashboard/statistics 200 in 736ms (compile: 14ms, proxy.ts: 637ms, generate-params: 6ms, render: 86ms)
+ GET /ru/dashboard/statistics 200 in 749ms (compile: 15ms, proxy.ts: 647ms, generate-params: 7ms, render: 87ms)
+ GET /ru/dashboard/statistics 200 in 756ms (compile: 18ms, proxy.ts: 624ms, generate-params: 7ms, render: 115ms)
+ GET /ru/dashboard/statistics 200 in 772ms (compile: 15ms, proxy.ts: 662ms, generate-params: 7ms, render: 95ms)
+ GET /ru/dashboard/statistics 200 in 774ms (compile: 18ms, proxy.ts: 653ms, generate-params: 8ms, render: 104ms)
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:45:21
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'
+[0m [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+ [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m    |[39m                     [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }
+ [90m 48 |[39m[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./components/bot-editor/layout/editor-section-viewport.tsx:45:21
+Module not found: Can't resolve '@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'
+[0m [90m 43 |[39m   [32m'ai-chat'[39m[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/ai-chat/page'[39m)[33m,[39m
+ [90m 44 |[39m   system[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/system/page'[39m)[33m,[39m
+[31m[1m>[22m[39m[90m 45 |[39m   statistics[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page'[39m)[33m,[39m
+ [90m    |[39m                     [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 46 |[39m   settings[33m:[39m () [33m=>[39m [36mimport[39m([32m'@/app/[locale]/(editor)/dashboard/bots/[botId]/editor/settings/page'[39m)[33m,[39m
+ [90m 47 |[39m }
+ [90m 48 |[39m[0m
+
+Import map: aliased to relative './app/[locale]/(editor)/dashboard/bots/[botId]/editor/statistics/page' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component Browser]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/bot-editor/layout/editor-section-viewport.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Client Component SSR]
+    ./components/bot-editor/layout/editor-shell.tsx [Server Component]
+    ./app/[locale]/(editor)/dashboard/bots/[botId]/editor/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+ GET /ru/dashboard/statistics 200 in 923ms (compile: 125ms, proxy.ts: 644ms, generate-params: 17ms, render: 153ms)
+ GET /ru/dashboard/statistics 200 in 771ms (compile: 18ms, proxy.ts: 649ms, generate-params: 8ms, render: 104ms)
+ GET /ru/dashboard/statistics 200 in 855ms (compile: 36ms, proxy.ts: 644ms, generate-params: 16ms, render: 176ms)
+ GET /ru/dashboard/statistics 200 in 772ms (compile: 13ms, proxy.ts: 642ms, generate-params: 6ms, render: 117ms)
+ GET /ru/dashboard/statistics 200 in 813ms (compile: 15ms, proxy.ts: 676ms, generate-params: 9ms, render: 122ms)
+ GET /ru/dashboard/statistics 200 in 750ms (compile: 13ms, proxy.ts: 634ms, generate-params: 6ms, render: 103ms)
+ GET /ru/dashboard/statistics 200 in 774ms (compile: 15ms, proxy.ts: 642ms, generate-params: 7ms, render: 118ms)
+ GET /ru/dashboard/statistics 200 in 851ms (compile: 44ms, proxy.ts: 638ms, generate-params: 20ms, render: 170ms)
+ GET /ru/dashboard/statistics 200 in 723ms (compile: 14ms, proxy.ts: 617ms, generate-params: 6ms, render: 92ms)
+ GET /ru/dashboard/statistics 200 in 890ms (compile: 15ms, proxy.ts: 673ms, generate-params: 6ms, render: 202ms)
+✓ Compiled in 351ms
+ GET /ru/dashboard/statistics 200 in 777ms (compile: 14ms, proxy.ts: 665ms, generate-params: 6ms, render: 98ms)
+ GET /ru/dashboard/statistics 200 in 761ms (compile: 14ms, proxy.ts: 637ms, generate-params: 8ms, render: 110ms)
+ GET /ru/dashboard/statistics 200 in 842ms (compile: 26ms, proxy.ts: 667ms, generate-params: 12ms, render: 150ms)
+ GET /ru/dashboard/statistics 200 in 727ms (compile: 13ms, proxy.ts: 628ms, generate-params: 6ms, render: 86ms)
+ GET /ru/dashboard/statistics 200 in 747ms (compile: 14ms, proxy.ts: 649ms, generate-params: 7ms, render: 84ms)
+ GET /ru/dashboard/statistics 200 in 786ms (compile: 17ms, proxy.ts: 671ms, generate-params: 8ms, render: 98ms)
+ GET /ru/dashboard/statistics 200 in 807ms (compile: 37ms, proxy.ts: 626ms, generate-params: 14ms, render: 144ms)
+ GET /ru/dashboard/statistics 200 in 768ms (compile: 15ms, proxy.ts: 635ms, generate-params: 7ms, render: 118ms)
+ GET /ru/dashboard/statistics 200 in 746ms (compile: 13ms, proxy.ts: 645ms, generate-params: 6ms, render: 88ms)
+ GET /ru/dashboard/statistics 200 in 735ms (compile: 13ms, proxy.ts: 622ms, generate-params: 7ms, render: 99ms)
+ GET /ru/dashboard/statistics 200 in 762ms (compile: 14ms, proxy.ts: 661ms, generate-params: 6ms, render: 87ms)
+ GET /ru/dashboard/statistics 200 in 829ms (compile: 31ms, proxy.ts: 643ms, generate-params: 13ms, render: 154ms)
+ GET /ru/dashboard/statistics 200 in 757ms (compile: 14ms, proxy.ts: 636ms, generate-params: 7ms, render: 107ms)
+ GET /ru/dashboard/statistics 200 in 747ms (compile: 13ms, proxy.ts: 639ms, generate-params: 6ms, render: 95ms)
+ GET /ru/dashboard/statistics 200 in 733ms (compile: 14ms, proxy.ts: 618ms, generate-params: 7ms, render: 102ms)
+ GET /ru/dashboard/statistics 200 in 803ms (compile: 16ms, proxy.ts: 650ms, generate-params: 8ms, render: 137ms)
+ GET /ru/dashboard/statistics 200 in 777ms (compile: 14ms, proxy.ts: 677ms, generate-params: 6ms, render: 86ms)
+ GET /ru/dashboard/statistics 200 in 841ms (compile: 36ms, proxy.ts: 628ms, generate-params: 22ms, render: 177ms)
+ GET /ru/dashboard/statistics 200 in 768ms (compile: 13ms, proxy.ts: 642ms, generate-params: 7ms, render: 113ms)
+ GET /ru/dashboard/statistics 200 in 840ms (compile: 38ms, proxy.ts: 653ms, generate-params: 18ms, render: 150ms)
+ GET /ru/dashboard/statistics 200 in 755ms (compile: 14ms, proxy.ts: 638ms, generate-params: 7ms, render: 104ms)
+ GET /ru/dashboard/statistics 200 in 748ms (compile: 13ms, proxy.ts: 650ms, generate-params: 7ms, render: 84ms)
+ GET /ru/dashboard/statistics 200 in 837ms (compile: 29ms, proxy.ts: 652ms, generate-params: 15ms, render: 155ms)
+ GET /ru/dashboard/statistics 200 in 742ms (compile: 15ms, proxy.ts: 632ms, generate-params: 7ms, render: 95ms)
+ GET /ru/dashboard/statistics 200 in 730ms (compile: 13ms, proxy.ts: 631ms, generate-params: 7ms, render: 86ms)
+ GET /ru/dashboard/statistics 200 in 843ms (compile: 49ms, proxy.ts: 639ms, generate-params: 21ms, render: 155ms)
+ GET /ru/dashboard/statistics 200 in 757ms (compile: 15ms, proxy.ts: 643ms, generate-params: 7ms, render: 99ms)
+ GET /ru/dashboard/statistics 200 in 779ms (compile: 15ms, proxy.ts: 672ms, generate-params: 6ms, render: 93ms)
+ GET /ru/dashboard/statistics 200 in 841ms (compile: 34ms, proxy.ts: 645ms, generate-params: 21ms, render: 163ms)
+ GET /ru/dashboard/statistics 200 in 754ms (compile: 13ms, proxy.ts: 634ms, generate-params: 6ms, render: 106ms)
+ GET /ru/dashboard/statistics 200 in 760ms (compile: 12ms, proxy.ts: 656ms, generate-params: 7ms, render: 91ms)
+ GET /ru/dashboard/statistics 200 in 799ms (compile: 26ms, proxy.ts: 621ms, generate-params: 12ms, render: 151ms)
+ GET /ru/dashboard/statistics 200 in 891ms (compile: 14ms, proxy.ts: 737ms, generate-params: 7ms, render: 141ms)
+ GET /ru/dashboard/statistics 200 in 805ms (compile: 15ms, proxy.ts: 662ms, generate-params: 8ms, render: 127ms)
+ GET /ru/dashboard/statistics 200 in 796ms (compile: 13ms, proxy.ts: 684ms, generate-params: 6ms, render: 100ms)
+ GET /ru/dashboard/statistics 200 in 769ms (compile: 18ms, proxy.ts: 646ms, generate-params: 8ms, render: 104ms)
+ GET /ru/dashboard/statistics 200 in 838ms (compile: 43ms, proxy.ts: 633ms, generate-params: 20ms, render: 162ms)
+ GET /ru/dashboard/statistics 200 in 757ms (compile: 14ms, proxy.ts: 647ms, generate-params: 6ms, render: 97ms)
+ GET /ru/dashboard/statistics 200 in 808ms (compile: 16ms, proxy.ts: 665ms, generate-params: 6ms, render: 128ms)
+ GET /ru/dashboard/statistics 200 in 811ms (compile: 33ms, proxy.ts: 636ms, generate-params: 17ms, render: 141ms)
+ GET /ru/dashboard/statistics 200 in 787ms (compile: 18ms, proxy.ts: 639ms, generate-params: 8ms, render: 130ms)
+ GET /ru/dashboard/statistics 200 in 762ms (compile: 14ms, proxy.ts: 641ms, generate-params: 7ms, render: 108ms)
+ GET /ru/dashboard/statistics 200 in 827ms (compile: 21ms, proxy.ts: 635ms, generate-params: 11ms, render: 171ms)
+ GET /ru/dashboard/statistics 200 in 786ms (compile: 12ms, proxy.ts: 664ms, generate-params: 6ms, render: 110ms)
+ GET /ru/dashboard/statistics 200 in 785ms (compile: 16ms, proxy.ts: 666ms, generate-params: 6ms, render: 102ms)
+ GET /ru/dashboard/statistics 200 in 851ms (compile: 42ms, proxy.ts: 635ms, generate-params: 20ms, render: 174ms)
+ GET /ru/dashboard/statistics 200 in 764ms (compile: 13ms, proxy.ts: 643ms, generate-params: 6ms, render: 108ms)
+ GET /ru/dashboard/statistics 200 in 852ms (compile: 41ms, proxy.ts: 638ms, generate-params: 20ms, render: 173ms)
+ GET /ru/dashboard/statistics 200 in 767ms (compile: 13ms, proxy.ts: 639ms, generate-params: 6ms, render: 115ms)
+ GET /ru/dashboard/statistics 200 in 794ms (compile: 16ms, proxy.ts: 677ms, generate-params: 7ms, render: 101ms)
+ GET /ru/dashboard/statistics 200 in 841ms (compile: 42ms, proxy.ts: 629ms, generate-params: 21ms, render: 170ms)
+ GET /ru/dashboard/statistics 200 in 780ms (compile: 13ms, proxy.ts: 662ms, generate-params: 7ms, render: 104ms)
+ GET /ru/dashboard/statistics 200 in 926ms (compile: 124ms, proxy.ts: 642ms, generate-params: 16ms, render: 159ms)
+ GET /ru/dashboard/statistics 200 in 744ms (compile: 14ms, proxy.ts: 626ms, generate-params: 6ms, render: 104ms)
+ GET /ru/dashboard/statistics 200 in 800ms (compile: 13ms, proxy.ts: 661ms, generate-params: 7ms, render: 127ms)
+ GET /ru/dashboard/statistics 200 in 775ms (compile: 13ms, proxy.ts: 662ms, generate-params: 7ms, render: 99ms)
+ GET /ru/dashboard/statistics 200 in 836ms (compile: 33ms, proxy.ts: 641ms, generate-params: 17ms, render: 161ms)
+ GET /ru/dashboard/statistics 200 in 756ms (compile: 14ms, proxy.ts: 650ms, generate-params: 6ms, render: 91ms)
+ GET /ru/dashboard/statistics 200 in 739ms (compile: 14ms, proxy.ts: 628ms, generate-params: 6ms, render: 98ms)
+ GET /ru/dashboard/statistics 200 in 850ms (compile: 38ms, proxy.ts: 654ms, generate-params: 15ms, render: 158ms)
+ GET /ru/dashboard/statistics 200 in 783ms (compile: 17ms, proxy.ts: 667ms, generate-params: 7ms, render: 99ms)
+ GET /ru/dashboard/statistics 200 in 813ms (compile: 30ms, proxy.ts: 628ms, generate-params: 14ms, render: 154ms)
+ GET /ru/dashboard/statistics 200 in 764ms (compile: 13ms, proxy.ts: 640ms, generate-params: 7ms, render: 111ms)
+ GET /ru/dashboard/statistics 200 in 744ms (compile: 18ms, proxy.ts: 625ms, generate-params: 7ms, render: 101ms)
+ GET /ru/dashboard/statistics 200 in 842ms (compile: 37ms, proxy.ts: 655ms, generate-params: 24ms, render: 151ms)
+ GET /ru/dashboard/statistics 200 in 817ms (compile: 13ms, proxy.ts: 675ms, generate-params: 8ms, render: 129ms)
+ GET /ru/dashboard/statistics 200 in 753ms (compile: 13ms, proxy.ts: 635ms, generate-params: 6ms, render: 105ms)
+ GET /ru/dashboard/statistics 200 in 762ms (compile: 14ms, proxy.ts: 648ms, generate-params: 8ms, render: 101ms)
+ GET /ru/dashboard/statistics 200 in 847ms (compile: 29ms, proxy.ts: 652ms, generate-params: 16ms, render: 166ms)
+ GET /ru/dashboard/statistics 200 in 745ms (compile: 13ms, proxy.ts: 633ms, generate-params: 6ms, render: 100ms)
+ GET /ru/dashboard/statistics 200 in 783ms (compile: 13ms, proxy.ts: 661ms, generate-params: 6ms, render: 108ms)
+ GET /ru/dashboard/statistics 200 in 760ms (compile: 16ms, proxy.ts: 652ms, generate-params: 6ms, render: 92ms)
+ GET /ru/dashboard/statistics 200 in 859ms (compile: 43ms, proxy.ts: 654ms, generate-params: 20ms, render: 162ms)
+ GET /ru/dashboard/statistics 200 in 757ms (compile: 15ms, proxy.ts: 644ms, generate-params: 7ms, render: 98ms)
+ GET /ru/dashboard/statistics 200 in 810ms (compile: 36ms, proxy.ts: 627ms, generate-params: 17ms, render: 147ms)
+ GET /ru/dashboard/statistics 200 in 757ms (compile: 13ms, proxy.ts: 642ms, generate-params: 6ms, render: 102ms)
+ GET /ru/dashboard/statistics 200 in 816ms (compile: 16ms, proxy.ts: 676ms, generate-params: 8ms, render: 123ms)
+ GET /ru/dashboard/statistics 200 in 911ms (compile: 22ms, proxy.ts: 638ms, generate-params: 11ms, render: 251ms)
+ GET /ru/dashboard/statistics 200 in 776ms (compile: 17ms, proxy.ts: 663ms, generate-params: 9ms, render: 96ms)
+ GET /ru/dashboard/statistics 200 in 791ms (compile: 20ms, proxy.ts: 653ms, generate-params: 10ms, render: 118ms)
+ GET /ru/dashboard/statistics 200 in 769ms (compile: 15ms, proxy.ts: 647ms, generate-params: 7ms, render: 107ms)
+ GET /ru/dashboard/statistics 200 in 808ms (compile: 15ms, proxy.ts: 675ms, generate-params: 7ms, render: 119ms)
+ GET /ru/dashboard/statistics 200 in 803ms (compile: 16ms, proxy.ts: 664ms, generate-params: 9ms, render: 123ms)
+ GET /ru/dashboard/statistics 200 in 749ms (compile: 14ms, proxy.ts: 630ms, generate-params: 7ms, render: 106ms)
+ GET /ru/dashboard/statistics 200 in 783ms (compile: 16ms, proxy.ts: 646ms, generate-params: 7ms, render: 121ms)
+ GET /ru/dashboard/statistics 200 in 834ms (compile: 34ms, proxy.ts: 637ms, generate-params: 15ms, render: 163ms)
+ GET /ru/dashboard/statistics 200 in 813ms (compile: 16ms, proxy.ts: 687ms, generate-params: 8ms, render: 110ms)
+ GET /ru/dashboard/statistics 200 in 801ms (compile: 15ms, proxy.ts: 663ms, generate-params: 7ms, render: 123ms)
+ GET /ru/dashboard/statistics 200 in 746ms (compile: 16ms, proxy.ts: 626ms, generate-params: 7ms, render: 104ms)
+ GET /ru/dashboard/statistics 200 in 809ms (compile: 14ms, proxy.ts: 650ms, generate-params: 7ms, render: 144ms)
+ GET /ru/dashboard/statistics 200 in 808ms (compile: 14ms, proxy.ts: 691ms, generate-params: 7ms, render: 103ms)
+ GET /ru/dashboard/statistics 200 in 813ms (compile: 38ms, proxy.ts: 627ms, generate-params: 21ms, render: 149ms)
+ GET /ru/dashboard/statistics 200 in 799ms (compile: 15ms, proxy.ts: 664ms, generate-params: 7ms, render: 119ms)
+ GET /ru/dashboard/statistics 200 in 792ms (compile: 15ms, proxy.ts: 657ms, generate-params: 7ms, render: 120ms)
+ GET /ru/dashboard/statistics 200 in 768ms (compile: 17ms, proxy.ts: 641ms, generate-params: 7ms, render: 110ms)
+ GET /ru/dashboard/statistics 200 in 751ms (compile: 14ms, proxy.ts: 644ms, generate-params: 7ms, render: 92ms)
+ GET /ru/dashboard/statistics 200 in 860ms (compile: 31ms, proxy.ts: 651ms, generate-params: 44µs, render: 178ms)
+ GET /ru/dashboard/statistics 200 in 782ms (compile: 13ms, proxy.ts: 664ms, generate-params: 7ms, render: 105ms)
+ GET /ru/dashboard/statistics 200 in 811ms (compile: 13ms, proxy.ts: 682ms, generate-params: 7ms, render: 116ms)
+ GET /ru/dashboard/statistics 200 in 750ms (compile: 16ms, proxy.ts: 627ms, generate-params: 7ms, render: 107ms)
+ GET /ru/dashboard/statistics 200 in 850ms (compile: 39ms, proxy.ts: 650ms, generate-params: 18ms, render: 161ms)
+ GET /ru/dashboard/statistics 200 in 765ms (compile: 14ms, proxy.ts: 645ms, generate-params: 6ms, render: 106ms)
+ GET /ru/dashboard/statistics 200 in 820ms (compile: 28ms, proxy.ts: 627ms, generate-params: 13ms, render: 165ms)
+ GET /ru/dashboard/statistics 200 in 832ms (compile: 15ms, proxy.ts: 691ms, generate-params: 7ms, render: 126ms)
+ GET /ru/dashboard/statistics 200 in 763ms (compile: 13ms, proxy.ts: 648ms, generate-params: 6ms, render: 102ms)
+ GET /ru/dashboard/statistics 200 in 772ms (compile: 13ms, proxy.ts: 655ms, generate-params: 7ms, render: 104ms)
+ GET /ru/dashboard/statistics 200 in 751ms (compile: 14ms, proxy.ts: 640ms, generate-params: 7ms, render: 97ms)
+ GET /ru/dashboard/statistics 200 in 738ms (compile: 14ms, proxy.ts: 626ms, generate-params: 6ms, render: 98ms)
+ GET /ru/dashboard/statistics 200 in 850ms (compile: 35ms, proxy.ts: 647ms, generate-params: 18ms, render: 168ms)
+ GET /ru/dashboard/statistics 200 in 819ms (compile: 16ms, proxy.ts: 679ms, generate-params: 7ms, render: 123ms)
+ GET /ru/dashboard/statistics 200 in 760ms (compile: 14ms, proxy.ts: 646ms, generate-params: 6ms, render: 100ms)
+ GET /ru/dashboard/statistics 200 in 834ms (compile: 39ms, proxy.ts: 641ms, generate-params: 17ms, render: 155ms)
+ GET /ru/dashboard/statistics 200 in 753ms (compile: 13ms, proxy.ts: 643ms, generate-params: 6ms, render: 97ms)
+ GET /ru/dashboard/statistics 200 in 816ms (compile: 27ms, proxy.ts: 634ms, generate-params: 12ms, render: 154ms)
+ GET /ru/dashboard/statistics 200 in 786ms (compile: 14ms, proxy.ts: 667ms, generate-params: 6ms, render: 105ms)
+ GET /ru/dashboard/statistics 200 in 770ms (compile: 18ms, proxy.ts: 654ms, generate-params: 9ms, render: 98ms)
+ GET /ru/dashboard/statistics 200 in 832ms (compile: 39ms, proxy.ts: 633ms, generate-params: 21ms, render: 160ms)
+ GET /ru/dashboard/statistics 200 in 1292ms (compile: 38ms, proxy.ts: 1073ms, generate-params: 21ms, render: 181ms)
+ GET /ru/dashboard/statistics 200 in 747ms (compile: 13ms, proxy.ts: 633ms, generate-params: 7ms, render: 100ms)
+ GET /ru/dashboard/statistics 200 in 849ms (compile: 33ms, proxy.ts: 656ms, generate-params: 17ms, render: 160ms)
+ GET /ru/dashboard/statistics 200 in 786ms (compile: 14ms, proxy.ts: 673ms, generate-params: 7ms, render: 98ms)
+ GET /ru/dashboard/statistics 200 in 839ms (compile: 39ms, proxy.ts: 632ms, generate-params: 22ms, render: 168ms)
+ GET /ru/dashboard/statistics 200 in 761ms (compile: 18ms, proxy.ts: 647ms, generate-params: 7ms, render: 95ms)
+ GET /ru/dashboard/statistics 200 in 775ms (compile: 13ms, proxy.ts: 648ms, generate-params: 7ms, render: 114ms)
+ GET /ru/dashboard/statistics 200 in 843ms (compile: 41ms, proxy.ts: 625ms, generate-params: 18ms, render: 177ms)
+ GET /ru/dashboard/statistics 200 in 774ms (compile: 17ms, proxy.ts: 659ms, generate-params: 7ms, render: 99ms)
+ GET /ru/dashboard/statistics 200 in 768ms (compile: 14ms, proxy.ts: 649ms, generate-params: 7ms, render: 105ms)
+ GET /ru/dashboard/statistics 200 in 832ms (compile: 35ms, proxy.ts: 626ms, generate-params: 18ms, render: 171ms)
+ GET /ru/dashboard/statistics 200 in 754ms (compile: 14ms, proxy.ts: 641ms, generate-params: 6ms, render: 99ms)
+ GET /ru/dashboard/statistics 200 in 776ms (compile: 21ms, proxy.ts: 637ms, generate-params: 6ms, render: 118ms)
+ GET /ru/dashboard/statistics 200 in 878ms (compile: 45ms, proxy.ts: 647ms, generate-params: 21ms, render: 185ms)
+ GET /ru/dashboard/statistics 200 in 811ms (compile: 15ms, proxy.ts: 682ms, generate-params: 7ms, render: 114ms)
+ GET /ru/dashboard/statistics 200 in 720ms (compile: 16ms, proxy.ts: 625ms, generate-params: 7ms, render: 79ms)
+ GET /ru/dashboard/statistics 200 in 772ms (compile: 15ms, proxy.ts: 642ms, generate-params: 7ms, render: 115ms)
+ GET /ru/dashboard/statistics 200 in 840ms (compile: 38ms, proxy.ts: 639ms, generate-params: 20ms, render: 163ms)
+ GET /ru/dashboard/statistics 200 in 756ms (compile: 14ms, proxy.ts: 637ms, generate-params: 7ms, render: 104ms)
+ GET /ru/dashboard/statistics 200 in 794ms (compile: 13ms, proxy.ts: 670ms, generate-params: 7ms, render: 111ms)
+ GET /ru/dashboard/statistics 200 in 784ms (compile: 14ms, proxy.ts: 657ms, generate-params: 6ms, render: 113ms)
+ GET /ru/dashboard/statistics 200 in 825ms (compile: 30ms, proxy.ts: 635ms, generate-params: 15ms, render: 160ms)
+ GET /ru/dashboard/statistics 200 in 771ms (compile: 14ms, proxy.ts: 644ms, generate-params: 6ms, render: 113ms)
+ GET /ru/dashboard/statistics 200 in 774ms (compile: 16ms, proxy.ts: 647ms, generate-params: 7ms, render: 110ms)
+ GET /ru/dashboard/statistics 200 in 841ms (compile: 44ms, proxy.ts: 643ms, generate-params: 20ms, render: 153ms)
+ GET /ru/dashboard/statistics 200 in 792ms (compile: 14ms, proxy.ts: 664ms, generate-params: 7ms, render: 114ms)
+ GET /ru/dashboard/statistics 200 in 753ms (compile: 15ms, proxy.ts: 637ms, generate-params: 7ms, render: 101ms)
+ GET /ru/dashboard/statistics 200 in 769ms (compile: 26ms, proxy.ts: 650ms, generate-params: 7ms, render: 93ms)
+ GET /ru/dashboard/statistics 200 in 860ms (compile: 39ms, proxy.ts: 651ms, generate-params: 18ms, render: 170ms)
+ GET /ru/dashboard/statistics 200 in 747ms (compile: 14ms, proxy.ts: 642ms, generate-params: 6ms, render: 92ms)
+ GET /ru/dashboard/statistics 200 in 765ms (compile: 15ms, proxy.ts: 661ms, generate-params: 7ms, render: 89ms)
+ GET /ru/dashboard/statistics 200 in 836ms (compile: 36ms, proxy.ts: 649ms, generate-params: 19ms, render: 151ms)
+ GET /ru/dashboard/statistics 200 in 778ms (compile: 29ms, proxy.ts: 646ms, generate-params: 7ms, render: 103ms)
+ GET /ru/dashboard/statistics 200 in 782ms (compile: 15ms, proxy.ts: 665ms, generate-params: 7ms, render: 102ms)
+ GET /ru/dashboard/statistics 200 in 755ms (compile: 17ms, proxy.ts: 650ms, generate-params: 7ms, render: 88ms)
+ GET /ru/dashboard/statistics 200 in 848ms (compile: 43ms, proxy.ts: 650ms, generate-params: 20ms, render: 156ms)
+ GET /ru/dashboard/statistics 200 in 843ms (compile: 13ms, proxy.ts: 672ms, generate-params: 7ms, render: 158ms)
+ GET /ru/dashboard/statistics 200 in 776ms (compile: 14ms, proxy.ts: 641ms, generate-params: 7ms, render: 121ms)
+ GET /ru/dashboard/statistics 200 in 754ms (compile: 14ms, proxy.ts: 644ms, generate-params: 6ms, render: 96ms)
+ GET /ru/dashboard/statistics 200 in 861ms (compile: 44ms, proxy.ts: 652ms, generate-params: 24ms, render: 166ms)
+ GET /ru/dashboard/statistics 200 in 758ms (compile: 15ms, proxy.ts: 652ms, generate-params: 7ms, render: 91ms)
+ GET /ru/dashboard/statistics 200 in 762ms (compile: 14ms, proxy.ts: 659ms, generate-params: 8ms, render: 90ms)
+ GET /ru/dashboard/statistics 200 in 790ms (compile: 15ms, proxy.ts: 652ms, generate-params: 7ms, render: 123ms)
+ GET /ru/dashboard/statistics 200 in 812ms (compile: 28ms, proxy.ts: 638ms, generate-params: 14ms, render: 146ms)
+ GET /ru/dashboard/statistics 200 in 766ms (compile: 13ms, proxy.ts: 647ms, generate-params: 7ms, render: 106ms)
+ GET /ru/dashboard/statistics 200 in 801ms (compile: 34ms, proxy.ts: 624ms, generate-params: 16ms, render: 143ms)
+[?25h
