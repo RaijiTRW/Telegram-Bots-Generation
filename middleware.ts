@@ -4,6 +4,7 @@ import { updateSession } from '@/lib/supabase/middleware';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from './lib/supabase/types';
+import { getSupabasePublicEnv, hasSupabasePublicEnv } from '@/lib/supabase/config';
 
 const LOCALE_COOKIE_NAME = 'NEXT_LOCALE';
 const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -48,10 +49,15 @@ async function getUserLocale(request: NextRequest, userId?: string | null): Prom
     return null;
   }
 
+  const { url, anonKey, isConfigured } = getSupabasePublicEnv();
+  if (!isConfigured || !url || !anonKey) {
+    return null;
+  }
+
   try {
     const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      url,
+      anonKey,
       {
         cookies: {
           getAll() {
@@ -81,6 +87,7 @@ async function getUserLocale(request: NextRequest, userId?: string | null): Prom
 }
 
 export async function middleware(request: NextRequest) {
+  const supabaseConfigured = hasSupabasePublicEnv()
   const pathname = request.nextUrl.pathname;
   const isMutationRequest = request.method !== 'GET' && request.method !== 'HEAD'
   const isServerActionRequest = Boolean(request.headers.get('next-action'))
@@ -95,7 +102,8 @@ export async function middleware(request: NextRequest) {
     !isServerActionRequest && !isPrefetch && hasSessionCookie && isProtectedPath(pathname)
   const shouldLookupUserLocale =
     !isMutationRequest && !isServerActionRequest && !isPrefetch && !cookiePreferredLocale && hasSessionCookie
-  const shouldRunSupabaseMiddleware = shouldRefreshProtectedSession || shouldLookupUserLocale
+  const shouldRunSupabaseMiddleware =
+    supabaseConfigured && (shouldRefreshProtectedSession || shouldLookupUserLocale)
 
   // First, update Supabase session for normal navigation requests.
   // Server Actions are frequent (logs polling, saves, etc.) and will manage auth

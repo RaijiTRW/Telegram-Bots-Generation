@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
+import { hasSupabasePublicEnv, isMissingSupabaseConfigurationError } from "@/lib/supabase/config"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +18,7 @@ export function LoginForm() {
   const locale = useLocale()
   const router = useRouter()
   const supabase = createClient()
+  const isSupabaseConfigured = hasSupabasePublicEnv()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -25,6 +27,7 @@ export function LoginForm() {
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const formError = error ?? (!isSupabaseConfigured ? te("supabaseNotConfigured") : null)
 
   const redirectToDashboard = () => {
     router.push(`/${locale}/dashboard`)
@@ -57,6 +60,10 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (loginStep !== "credentials") return
+    if (!isSupabaseConfigured) {
+      setError(te("supabaseNotConfigured"))
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -71,6 +78,11 @@ export function LoginForm() {
         authError && typeof authError === "object" && "code" in authError
           ? String((authError as { code?: unknown }).code ?? "")
           : ""
+
+      if (isMissingSupabaseConfigurationError(authError)) {
+        setError(te("supabaseNotConfigured"))
+        return
+      }
 
       if (authError && authErrorCode !== "mfa_required") {
         setError(te("invalidCredentials"))
@@ -102,6 +114,10 @@ export function LoginForm() {
   const handleVerifyMfa = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!mfaFactorId) return
+    if (!isSupabaseConfigured) {
+      setError(te("supabaseNotConfigured"))
+      return
+    }
 
     const code = mfaCode.trim()
     if (!code) {
@@ -140,6 +156,10 @@ export function LoginForm() {
     setLoginStep("credentials")
 
     // Prevent partial aal1 session from remaining if user leaves MFA step.
+    if (!isSupabaseConfigured) {
+      return
+    }
+
     await supabase.auth.signOut()
   }
 
@@ -203,9 +223,9 @@ export function LoginForm() {
           </>
         )}
 
-        {error && (
+        {formError && (
           <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400 animate-in fade-in-50 slide-in-from-top-2 duration-300">
-            {error}
+            {formError}
           </div>
         )}
 
@@ -213,7 +233,7 @@ export function LoginForm() {
           <Button 
             type="submit" 
             className="w-full h-10 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#1a8bc7] hover:to-[#7c4fdd] text-white font-medium shadow-lg shadow-purple-500/25 transition-all duration-300" 
-            disabled={loading}
+            disabled={loading || !isSupabaseConfigured}
           >
             {loading && <Loader2 className="animate-spin mr-2" />}
             {loginStep === "credentials" ? t("submit") : t("mfaVerifyButton")}

@@ -1,6 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { Database } from '@/lib/supabase/types'
 import { cookies } from 'next/headers'
+import {
+  createMissingSupabaseConfigError,
+  getSupabasePublicEnv,
+  hasSupabasePublicEnv,
+} from '@/lib/supabase/config'
 
 function isRateLimitAuthError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -9,11 +14,16 @@ function isRateLimitAuthError(error: unknown): boolean {
 }
 
 async function createServerSupabaseClient() {
+  const { url, anonKey, isConfigured } = getSupabasePublicEnv()
+  if (!isConfigured || !url || !anonKey) {
+    throw createMissingSupabaseConfigError()
+  }
+
   const cookieStore = await cookies()
 
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {
@@ -39,6 +49,10 @@ async function createServerSupabaseClient() {
  * Used in Server Actions to access current user
  */
 export async function getServerUser() {
+  if (!hasSupabasePublicEnv()) {
+    return null
+  }
+
   const supabase = await createServerSupabaseClient()
 
   // Get user from session (validates JWT server-side)

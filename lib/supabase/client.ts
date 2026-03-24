@@ -1,8 +1,10 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { processLock } from '@supabase/auth-js'
 import { Database } from './types'
+import { createMissingSupabaseConfigError, getSupabasePublicEnv } from './config'
 
 let client: ReturnType<typeof createBrowserClient<Database>> | null = null
+let fallbackClient: ReturnType<typeof createBrowserClient<Database>> | null = null
 
 function isAbortLikeError(error: unknown) {
   if (!error || typeof error !== 'object') return false
@@ -52,16 +54,111 @@ async function safeSupabaseBrowserFetch(input: RequestInfo | URL, init?: Request
   }
 }
 
+function createMissingQueryBuilder() {
+  const resultPromise = Promise.resolve({
+    data: null,
+    error: createMissingSupabaseConfigError(),
+    count: 0,
+    status: 503,
+    statusText: 'Supabase not configured',
+  })
+
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === 'then') return resultPromise.then.bind(resultPromise)
+        if (prop === 'catch') return resultPromise.catch.bind(resultPromise)
+        if (prop === 'finally') return resultPromise.finally.bind(resultPromise)
+        if (prop === Symbol.toStringTag) return 'Promise'
+        return () => createMissingQueryBuilder()
+      },
+    }
+  )
+}
+
+function createFallbackClient() {
+  return {
+    auth: {
+      getUser: async () => ({
+        data: { user: null },
+        error: null,
+      }),
+      getSession: async () => ({
+        data: { session: null },
+        error: null,
+      }),
+      onAuthStateChange: () => ({
+        data: {
+          subscription: {
+            unsubscribe() {},
+          },
+        },
+      }),
+      signOut: async () => ({
+        error: null,
+      }),
+      signInWithPassword: async () => ({
+        data: { user: null, session: null },
+        error: createMissingSupabaseConfigError(),
+      }),
+      signUp: async () => ({
+        data: { user: null, session: null },
+        error: createMissingSupabaseConfigError(),
+      }),
+      updateUser: async () => ({
+        data: { user: null },
+        error: createMissingSupabaseConfigError(),
+      }),
+      mfa: {
+        listFactors: async () => ({
+          data: { all: [] },
+          error: createMissingSupabaseConfigError(),
+        }),
+        getAuthenticatorAssuranceLevel: async () => ({
+          data: {
+            currentLevel: null,
+            nextLevel: null,
+            currentAuthenticationMethods: [],
+          },
+          error: createMissingSupabaseConfigError(),
+        }),
+        enroll: async () => ({
+          data: null,
+          error: createMissingSupabaseConfigError(),
+        }),
+        unenroll: async () => ({
+          data: null,
+          error: createMissingSupabaseConfigError(),
+        }),
+        challengeAndVerify: async () => ({
+          data: null,
+          error: createMissingSupabaseConfigError(),
+        }),
+      },
+    },
+    from: () => createMissingQueryBuilder(),
+  } as unknown as ReturnType<typeof createBrowserClient<Database>>
+}
+
 export function createClient() {
+  const { url, anonKey, isConfigured } = getSupabasePublicEnv()
+
+  if (!isConfigured || !url || !anonKey) {
+    if (!fallbackClient) {
+      fallbackClient = createFallbackClient()
+    }
+    return fallbackClient
+  }
+
   if (!client) {
     client = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      url,
+      anonKey,
       {
         isSingleton: true,
         auth: {
           lock: processLock,
-          lockAcquireTimeout: 30000,
         },
         global: {
           fetch: safeSupabaseBrowserFetch,

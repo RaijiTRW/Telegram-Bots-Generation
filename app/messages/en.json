@@ -54,7 +54,8 @@
         "invalidCredentials": "Invalid email or password",
         "emailTaken": "Email is already registered",
         "weakPassword": "Password is too weak",
-        "passwordsMismatch": "Passwords do not match"
+        "passwordsMismatch": "Passwords do not match",
+        "supabaseNotConfigured": "Supabase auth is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
       }
     },
     "signup": {

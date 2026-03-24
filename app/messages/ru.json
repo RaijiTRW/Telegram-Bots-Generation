@@ -54,7 +54,8 @@
         "invalidCredentials": "Неверный email или пароль",
         "emailTaken": "Email уже зарегистрирован",
         "weakPassword": "Пароль слишком слабый",
-        "passwordsMismatch": "Пароли не совпадают"
+        "passwordsMismatch": "Пароли не совпадают",
+        "supabaseNotConfigured": "Supabase auth не настроен. Укажите NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY."
       }
     },
     "signup": {
