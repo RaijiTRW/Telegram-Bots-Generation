@@ -40,6 +40,10 @@ function isProtectedPath(pathname: string) {
   return normalizedPathname === '/dashboard' || normalizedPathname.startsWith('/dashboard/');
 }
 
+function isSanityStudioPath(pathname: string) {
+  return pathname === '/dashboard/cms' || pathname.startsWith('/dashboard/cms/')
+}
+
 function isPrefetchRequest(request: NextRequest) {
   return request.headers.has('next-router-prefetch') || request.headers.get('purpose') === 'prefetch';
 }
@@ -89,6 +93,7 @@ async function getUserLocale(request: NextRequest, userId?: string | null): Prom
 export async function middleware(request: NextRequest) {
   const supabaseConfigured = hasSupabasePublicEnv()
   const pathname = request.nextUrl.pathname;
+  const studioRoute = isSanityStudioPath(pathname)
   const isMutationRequest = request.method !== 'GET' && request.method !== 'HEAD'
   const isServerActionRequest = Boolean(request.headers.get('next-action'))
   const isPrefetch = isPrefetchRequest(request)
@@ -115,6 +120,25 @@ export async function middleware(request: NextRequest) {
   // If supabase returned a redirect response, return it
   if (supabaseResponse.status >= 300 && supabaseResponse.status < 400) {
     return supabaseResponse;
+  }
+
+  if (studioRoute) {
+    const response = NextResponse.next({ request: { headers: request.headers } })
+
+    for (const cookie of supabaseResponse.cookies.getAll()) {
+      response.cookies.set(cookie)
+    }
+
+    const middlewareUserId = supabaseResponse.headers.get('x-user-id')
+    const middlewareUserEmail = supabaseResponse.headers.get('x-user-email')
+    if (middlewareUserId) {
+      response.headers.set('x-user-id', middlewareUserId)
+    }
+    if (middlewareUserEmail) {
+      response.headers.set('x-user-email', middlewareUserEmail)
+    }
+
+    return response
   }
 
   const userIdFromMiddleware = supabaseResponse.headers.get('x-user-id');

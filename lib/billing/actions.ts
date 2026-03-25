@@ -2,7 +2,7 @@
 
 import { getServerUser } from '@/lib/supabase/server'
 import { cancelSubscriptionAtPeriodEnd, changeSubscriptionPlan, getCurrentSubscription, resumeSubscription, startSubscriptionCheckout } from '@/lib/billing/service'
-import type { BillingCurrency, PlanCode } from '@/lib/billing/types'
+import type { BillingCurrency, BillingInterval, PlanCode } from '@/lib/billing/types'
 
 export async function getCurrentSubscriptionAction() {
   const user = await getServerUser()
@@ -18,7 +18,7 @@ export async function getCurrentSubscriptionAction() {
   }
 }
 
-export async function startSubscriptionCheckoutAction(planCode: PlanCode, currency: BillingCurrency, locale?: string) {
+export async function startSubscriptionCheckoutAction(planCode: PlanCode, currency: BillingCurrency, billingInterval: BillingInterval, locale?: string) {
   const user = await getServerUser()
   if (!user) {
     return { success: false, error: 'Not authenticated' as const }
@@ -29,6 +29,7 @@ export async function startSubscriptionCheckoutAction(planCode: PlanCode, curren
       userId: user.id,
       planCode,
       currency,
+      billingInterval,
       locale,
     })
 
@@ -42,7 +43,7 @@ export async function startSubscriptionCheckoutAction(planCode: PlanCode, curren
   }
 }
 
-export async function changeSubscriptionPlanAction(planCode: PlanCode, currency: BillingCurrency, locale?: string) {
+export async function changeSubscriptionPlanAction(planCode: PlanCode, currency: BillingCurrency, billingInterval: BillingInterval, locale?: string) {
   const user = await getServerUser()
   if (!user) {
     return { success: false, error: 'Not authenticated' as const }
@@ -53,6 +54,7 @@ export async function changeSubscriptionPlanAction(planCode: PlanCode, currency:
       userId: user.id,
       planCode,
       currency,
+      billingInterval,
       locale,
     })
 

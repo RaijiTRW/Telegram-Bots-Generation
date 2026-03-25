@@ -74,6 +74,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
   const t = useTranslations('editor.shell')
   const tNav = useTranslations('editor.nav')
   const locale = useLocale()
+  const isRu = locale !== 'en'
   const pathname = usePathname()
   const router = useRouter()
   const {
@@ -100,7 +101,10 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
   const hasLoadedSectionsPanelWidthRef = useRef(false)
   const pendingRestoreSectionsPanelWidthRef = useRef<number | null>(null)
   const isBotActive = Boolean(bot?.metadata?.testActive)
-  const canUseHostedDeploy = viewerAccess.isAdmin || viewerAccess.entitlements.hosting
+  const hostedDeploySoonBadge = isRu ? 'Скоро' : 'Soon'
+  const hostedDeploySoonDesc = isRu
+    ? 'Развертывание на нашем сервере появится позже.'
+    : 'Deployment on our managed hosting will be available later.'
   const latestBotIdRef = useRef(botId)
   const hasSentAutoStopSignalRef = useRef(false)
   const allowUnmountAutoStopRef = useRef(false)
@@ -202,7 +206,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
       })
 
       if (!canvasResult.success) {
-        setActionError(canvasResult.error || t('saveError'))
+        setActionError(('error' in canvasResult ? canvasResult.error : null) || t('saveError'))
         return false
       }
 
@@ -224,19 +228,21 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
         },
       })
 
-      if (!settingsResult.success || !settingsResult.bot) {
-        setActionError(settingsResult.error || t('settingsError'))
+      const savedBot = settingsResult.success && 'bot' in settingsResult ? settingsResult.bot : null
+
+      if (!settingsResult.success || !savedBot) {
+        setActionError(('error' in settingsResult ? settingsResult.error : null) || t('settingsError'))
         return false
       }
 
       setBot({
-        ...settingsResult.bot,
+        ...savedBot,
         config: {
-          ...(settingsResult.bot.config || config),
-          nodes: serialNodes as typeof settingsResult.bot.config.nodes,
-          edges: serialEdges as typeof settingsResult.bot.config.edges,
+          ...(savedBot.config || config),
+          nodes: serialNodes as typeof savedBot.config.nodes,
+          edges: serialEdges as typeof savedBot.config.edges,
           variables: config.variables,
-          version: config.version || settingsResult.bot.config?.version || '1.0.0',
+          version: config.version || savedBot.config?.version || '1.0.0',
         },
       })
       setIsDirty(false)
@@ -282,7 +288,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
 
       const result = await exportBotZipAction(bot.id)
       if (!result.success || !result.zipBase64 || !result.fileName) {
-        setActionError(result.error || t('downloadZipError'))
+        setActionError(('error' in result ? result.error : null) || t('downloadZipError'))
         return
       }
 
@@ -641,7 +647,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
               <button
                 type="button"
                 onClick={() => void handleDeployHosted()}
-                disabled={!canUseHostedDeploy || isSaving || isDeploying || isDownloadingZip}
+                disabled
                 className="w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-3 text-left disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-start gap-3">
@@ -649,9 +655,14 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
                     <Server className="w-4 h-4 text-[#24A1DE]" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-white">{t('deployHostedTitle')}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium text-white">{t('deployHostedTitle')}</div>
+                      <span className="rounded border border-white/15 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
+                        {hostedDeploySoonBadge}
+                      </span>
+                    </div>
                     <div className="text-xs text-zinc-400 mt-1">
-                      {canUseHostedDeploy ? t('deployHostedDesc') : t('deployHostedLockedDesc')}
+                      {hostedDeploySoonDesc}
                     </div>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
@@ -27,7 +27,12 @@ export function LoginForm() {
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const formError = error ?? (!isSupabaseConfigured ? te("supabaseNotConfigured") : null)
+  const [isHydrated, setIsHydrated] = useState(false)
+  const formError = error ?? (isHydrated && !isSupabaseConfigured ? te("supabaseNotConfigured") : null)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   const redirectToDashboard = () => {
     router.push(`/${locale}/dashboard`)
@@ -233,7 +238,7 @@ export function LoginForm() {
           <Button 
             type="submit" 
             className="w-full h-10 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#1a8bc7] hover:to-[#7c4fdd] text-white font-medium shadow-lg shadow-purple-500/25 transition-all duration-300" 
-            disabled={loading || !isSupabaseConfigured}
+            disabled={loading || (isHydrated && !isSupabaseConfigured)}
           >
             {loading && <Loader2 className="animate-spin mr-2" />}
             {loginStep === "credentials" ? t("submit") : t("mfaVerifyButton")}

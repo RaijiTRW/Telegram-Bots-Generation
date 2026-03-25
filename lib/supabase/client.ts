@@ -1,5 +1,4 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { processLock } from '@supabase/auth-js'
 import { Database } from './types'
 import { createMissingSupabaseConfigError, getSupabasePublicEnv } from './config'
 
@@ -157,9 +156,6 @@ export function createClient() {
       anonKey,
       {
         isSingleton: true,
-        auth: {
-          lock: processLock,
-        },
         global: {
           fetch: safeSupabaseBrowserFetch,
         },

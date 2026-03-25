@@ -3839,6 +3839,12 @@ async function executeFromNode(args: {
       return 'waiting'
     }
 
+    if (node.type === 'comment') {
+      appendBotTestLog(botId, 'workflow', `Node comment -> ${node.id} (noop)`, 'debug')
+      currentNodeId = getDefaultNextNodeId(config, node.id)
+      continue
+    }
+
     currentNodeId = getDefaultNextNodeId(config, node.id)
   }
 

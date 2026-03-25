@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import ReactFlow, {
   MiniMap,
   ConnectionMode,
+  ConnectionLineType,
   PanOnScrollMode,
   Panel,
   useNodesState,
@@ -22,6 +23,7 @@ import 'reactflow/dist/style.css'
 
 import { nodeTypes, nodeTemplates } from './node-types'
 import type { NodeTemplate } from './node-types'
+import { edgeTypes, CANVAS_EDGE_STYLE, CANVAS_EDGE_TYPE } from './edge-types'
 import {
   Workflow,
   Play,
@@ -75,6 +77,8 @@ type CanvasContextMenuState = {
   flowPosition: { x: number; y: number }
 }
 
+const CANVAS_CONTEXT_MENU_DRAG_THRESHOLD = 6
+
 const createUniqueNodeId = (existingNodes: Node[]): string => {
   let id = `node_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
   while (existingNodes.some((node) => node.id === id)) {
@@ -108,6 +112,11 @@ const isEditableElement = (target: EventTarget | null) => {
   return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
 }
 
+const isCanvasPaneElement = (target: EventTarget | null) => {
+  const element = target as HTMLElement | null
+  return Boolean(element?.closest('.react-flow__pane'))
+}
+
 const INPUT_NODE_WRAPPER_STYLE = {
   background: 'transparent',
   border: 'none',
@@ -133,6 +142,16 @@ const CANVAS_MIN_ZOOM = 0.2
 const CANVAS_MAX_ZOOM = 2
 const CANVAS_WHEEL_ZOOM_STEP = 0.12
 const AI_NODE_TEMPLATE_IDS = new Set(['trigger-ai', 'message-ai', 'condition-ai'])
+
+const applyRuntimeEdgeStyle = (edge: Edge): Edge => ({
+  ...edge,
+  type: CANVAS_EDGE_TYPE,
+  animated: edge.animated ?? true,
+  style: {
+    ...CANVAS_EDGE_STYLE,
+    ...(edge.style || {}),
+  },
+})
 
 function isAiTemplateCandidate(template: { id?: string; data?: Record<string, unknown> } | null | undefined): boolean {
   if (!template) return false
@@ -393,11 +412,13 @@ function getNodeTemplateDescription(
     'condition-ai': 'nodeTemplateDescriptions.conditionAI',
     router: 'nodeTemplateDescriptions.router',
     scheduler: 'nodeTemplateDescriptions.scheduler',
+    wait: 'nodeTemplateDescriptions.wait',
     'reply-keyboard': 'nodeTemplateDescriptions.replyKeyboard',
     script: 'nodeTemplateDescriptions.script',
     action: 'nodeTemplateDescriptions.action',
     input: 'nodeTemplateDescriptions.input',
     http: 'nodeTemplateDescriptions.http',
+    comment: 'nodeTemplateDescriptions.comment',
     'payment-yookassa': 'nodeTemplateDescriptions.paymentYookassa',
     'payment-stripe': 'nodeTemplateDescriptions.paymentStripe',
     'payment-robokassa': 'nodeTemplateDescriptions.paymentRobokassa',
@@ -429,11 +450,13 @@ function getNodeTemplateShortDescription(
     'condition-ai': 'nodeTemplateShortDescriptions.conditionAI',
     router: 'nodeTemplateShortDescriptions.router',
     scheduler: 'nodeTemplateShortDescriptions.scheduler',
+    wait: 'nodeTemplateShortDescriptions.wait',
     'reply-keyboard': 'nodeTemplateShortDescriptions.replyKeyboard',
     script: 'nodeTemplateShortDescriptions.script',
     action: 'nodeTemplateShortDescriptions.action',
     input: 'nodeTemplateShortDescriptions.input',
     http: 'nodeTemplateShortDescriptions.http',
+    comment: 'nodeTemplateShortDescriptions.comment',
     'payment-yookassa': 'nodeTemplateShortDescriptions.paymentYookassa',
     'payment-stripe': 'nodeTemplateShortDescriptions.paymentStripe',
     'payment-robokassa': 'nodeTemplateShortDescriptions.paymentRobokassa',
@@ -465,11 +488,13 @@ function getNodeTemplateHelpSteps(
     'condition-ai': 'nodeTemplateHelpSteps.conditionAI',
     router: 'nodeTemplateHelpSteps.router',
     scheduler: 'nodeTemplateHelpSteps.scheduler',
+    wait: 'nodeTemplateHelpSteps.wait',
     'reply-keyboard': 'nodeTemplateHelpSteps.replyKeyboard',
     script: 'nodeTemplateHelpSteps.script',
     action: 'nodeTemplateHelpSteps.action',
     input: 'nodeTemplateHelpSteps.input',
     http: 'nodeTemplateHelpSteps.http',
+    comment: 'nodeTemplateHelpSteps.comment',
     'payment-yookassa': 'nodeTemplateHelpSteps.paymentYookassa',
     'payment-stripe': 'nodeTemplateHelpSteps.paymentStripe',
     'payment-robokassa': 'nodeTemplateHelpSteps.paymentRobokassa',
@@ -511,10 +536,12 @@ function getNodeTemplateDocsHref(docsBasePath: string, template: NodeTemplate): 
     'condition-ai': 'node-condition-ai',
     router: 'node-router',
     scheduler: 'node-date-scheduler',
+    wait: 'nodes-reference',
     action: 'node-action',
     http: 'node-http',
     webhook: 'node-http',
     script: 'node-script',
+    comment: 'nodes-reference',
     'payment-yookassa': 'node-payment-yookassa',
     'payment-stripe': 'node-payment-stripe',
     'payment-robokassa': 'node-payment-robokassa',
@@ -569,15 +596,20 @@ function FlowCanvasInner({
     () => initialNodes.map(migrateLegacyHttpActionNode).map(applyNodeWrapperStyle),
     [initialNodes]
   )
+  const preparedInitialEdges = useMemo(
+    () => initialEdges.map(applyRuntimeEdgeStyle),
+    [initialEdges]
+  )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(preparedInitialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(preparedInitialEdges)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
   const [pinnedPaletteCategory, setPinnedPaletteCategory] = useState<PaletteCategoryId | null>(null)
   const [hoveredPaletteCategory, setHoveredPaletteCategory] = useState<PaletteCategoryId | null>(null)
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null)
   const [contextMenuCategory, setContextMenuCategory] = useState<PaletteCategoryId | null>(null)
+  const [isSelectionModifierPressed, setIsSelectionModifierPressed] = useState(false)
   const historyRef = useRef<CanvasHistorySnapshot[]>([])
   const historyIndexRef = useRef(-1)
   const skipNextHistoryCaptureRef = useRef(false)
@@ -585,13 +617,40 @@ function FlowCanvasInner({
   const clipboardRef = useRef<CanvasClipboardSnapshot | null>(null)
   const clipboardPasteCountRef = useRef(0)
   const contextMenuPanelRef = useRef<HTMLDivElement | null>(null)
+  const rightClickOriginRef = useRef<{ x: number; y: number } | null>(null)
+  const suppressNextCanvasContextMenuRef = useRef(false)
 
   useEffect(() => {
     onChange?.(nodes, edges)
   }, [nodes, edges, onChange])
 
+  useEffect(() => {
+    const syncSelectionModifier = (event: KeyboardEvent) => {
+      setIsSelectionModifierPressed(event.shiftKey)
+    }
+
+    const resetSelectionModifier = () => {
+      setIsSelectionModifierPressed(false)
+    }
+
+    window.addEventListener('keydown', syncSelectionModifier)
+    window.addEventListener('keyup', syncSelectionModifier)
+    window.addEventListener('blur', resetSelectionModifier)
+
+    return () => {
+      window.removeEventListener('keydown', syncSelectionModifier)
+      window.removeEventListener('keyup', syncSelectionModifier)
+      window.removeEventListener('blur', resetSelectionModifier)
+    }
+  }, [])
+
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({
+      ...params,
+      type: CANVAS_EDGE_TYPE,
+      animated: true,
+      style: CANVAS_EDGE_STYLE,
+    }, eds)),
     [setEdges]
   )
 
@@ -633,8 +692,8 @@ function FlowCanvasInner({
         return
       }
 
-      // Keep native panning for trackpad two-finger gestures and Shift-modified pan.
-      if (event.shiftKey || !isMouseWheelEvent(event)) {
+      // Keep native trackpad two-finger pan and pinch gestures untouched.
+      if (!isMouseWheelEvent(event)) {
         return
       }
 
@@ -801,7 +860,7 @@ function FlowCanvasInner({
       } as Node)
     )
 
-    const restoredEdges = snapshot.edges.map((serializedEdge) => ({
+    const restoredEdges = snapshot.edges.map((serializedEdge) => applyRuntimeEdgeStyle({
       id: serializedEdge.id,
       source: serializedEdge.source,
       target: serializedEdge.target,
@@ -811,6 +870,7 @@ function FlowCanvasInner({
       data: serializedEdge.data as Edge['data'],
       animated: Boolean(serializedEdge.animated),
       type: serializedEdge.type,
+      style: undefined,
     })) as Edge[]
 
     setNodes(restoredNodes)
@@ -908,7 +968,7 @@ function FlowCanvasInner({
           return null
         }
 
-        const edge: Edge = {
+        const edge: Edge = applyRuntimeEdgeStyle({
           id: createUniqueEdgeId(existingEdges),
           source,
           target,
@@ -918,7 +978,8 @@ function FlowCanvasInner({
           data: cloneValue(serializedEdge.data as Edge['data']),
           animated: Boolean(serializedEdge.animated),
           type: serializedEdge.type,
-        }
+          style: undefined,
+        })
 
         existingEdges.push(edge)
         return edge
@@ -1130,6 +1191,53 @@ function FlowCanvasInner({
     })
   }, [paletteCategories, firstEnabledPaletteCategory, screenToFlowPosition])
 
+  const handleCanvasMouseDownCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 2 || !isCanvasPaneElement(event.target)) {
+      rightClickOriginRef.current = null
+      suppressNextCanvasContextMenuRef.current = false
+      return
+    }
+
+    rightClickOriginRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    }
+    suppressNextCanvasContextMenuRef.current = false
+  }, [])
+
+  const handleCanvasMouseMoveCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    const origin = rightClickOriginRef.current
+    if (!origin) {
+      return
+    }
+
+    const distance = Math.hypot(event.clientX - origin.x, event.clientY - origin.y)
+    if (distance >= CANVAS_CONTEXT_MENU_DRAG_THRESHOLD) {
+      suppressNextCanvasContextMenuRef.current = true
+    }
+  }, [])
+
+  const handleCanvasMouseUpCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button === 2) {
+      rightClickOriginRef.current = null
+    }
+  }, [])
+
+  const handleCanvasContextMenu = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!isCanvasPaneElement(event.target)) {
+      return
+    }
+
+    if (suppressNextCanvasContextMenuRef.current) {
+      suppressNextCanvasContextMenuRef.current = false
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
+    handlePaneContextMenu(event)
+  }, [handlePaneContextMenu])
+
   const handleContextMenuAddNode = useCallback((template: NodeTemplate) => {
     if (!contextMenu) return
     if (!isAdmin && isAiTemplateCandidate(template)) return
@@ -1172,8 +1280,14 @@ function FlowCanvasInner({
 
   const defaultEdgeOptions = useMemo(() => ({
     animated: true,
-    style: { stroke: '#24A1DE', strokeWidth: 2 },
-    type: 'smoothstep'
+    style: CANVAS_EDGE_STYLE,
+    type: CANVAS_EDGE_TYPE,
+  }), [])
+  const connectionLineStyle = useMemo<CSSProperties>(() => ({
+    ...CANVAS_EDGE_STYLE,
+    strokeDasharray: '6 6',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
   }), [])
 
   const handleSettingsSave = useCallback(async () => {
@@ -1204,9 +1318,19 @@ function FlowCanvasInner({
   )
 
   return (
-    <div className="w-full h-full flex">
+    <div
+      className="flow-canvas-shell w-full h-full flex"
+      data-selection-mode={isSelectionModifierPressed ? 'true' : 'false'}
+    >
       {/* Canvas Area */}
-      <div className="flex-1" ref={canvasWrapperRef}>
+      <div
+        className="flex-1"
+        ref={canvasWrapperRef}
+        onMouseDownCapture={handleCanvasMouseDownCapture}
+        onMouseMoveCapture={handleCanvasMouseMoveCapture}
+        onMouseUpCapture={handleCanvasMouseUpCapture}
+        onContextMenu={handleCanvasContextMenu}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -1219,18 +1343,22 @@ function FlowCanvasInner({
           onPaneClick={closeContextMenu}
           onPaneContextMenu={handlePaneContextMenu}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           connectionMode={ConnectionMode.Loose}
+          connectionLineType={ConnectionLineType.SmoothStep}
+          connectionLineStyle={connectionLineStyle}
           defaultEdgeOptions={defaultEdgeOptions}
           panOnScroll
           panOnScrollMode={PanOnScrollMode.Free}
-          panOnDrag={[0]}
-          panActivationKeyCode="Shift"
+          panOnDrag={[2]}
+          panActivationKeyCode={null}
+          selectionKeyCode="Shift"
           zoomOnScroll={false}
           zoomOnPinch
           minZoom={CANVAS_MIN_ZOOM}
           maxZoom={CANVAS_MAX_ZOOM}
           fitView
-          className="bg-[#05070A]"
+          className="bot-flow-canvas bg-[#05070A]"
           proOptions={{ hideAttribution: true }}
         >
           {/* Custom Grid Background */}
@@ -1249,10 +1377,12 @@ function FlowCanvasInner({
                 condition: '#F59E0B',
                 router: '#EAB308',
                 scheduler: '#22C55E',
+                wait: '#14B8A6',
                 action: '#8B5CF6',
                 input: '#10B981',
                 http: '#F43F5E',
                 webhook: '#EF4444',
+                comment: '#6B7280',
                 paymentYookassa: '#38BDF8',
                 paymentStripe: '#6366F1',
                 paymentRobokassa: '#F97316',

@@ -117,6 +117,7 @@ function buildTree(rows: DocsPageRow[]): DocsPageNode[] {
       locale: row.locale,
       parentId: row.parent_id,
       title: row.title,
+      summary: '',
       slug: row.slug,
       path: row.path,
       sortOrder: row.sort_order,
@@ -1223,7 +1224,7 @@ function buildSectionBlocks(content: DocsContent, sectionId: DocsPageSectionId, 
   return blocks
 }
 
-function buildLegacyHomeBlocks(content: DocsContent, pages: DocsPageDefinition[], locale: CmsLocaleType): DocsBlock[] {
+export function buildLegacyHomeBlocks(content: DocsContent, _pages: DocsPageDefinition[], locale: CmsLocaleType): DocsBlock[] {
   const isRu = locale === 'ru'
   const blocks: DocsBlock[] = []
   pushHeading(blocks, 1, content.hero.title)
@@ -1232,14 +1233,10 @@ function buildLegacyHomeBlocks(content: DocsContent, pages: DocsPageDefinition[]
   pushCallout(blocks, 'info', isRu ? 'Ключевые заметки' : 'Key notes', content.hero.notes.join('\n'))
   pushHeading(blocks, 2, content.tocTitle)
   pushParagraph(blocks, content.tocHint)
-  pushList(
-    blocks,
-    pages.map((page) => `${page.title}: ${page.description}`)
-  )
   return blocks
 }
 
-function buildLegacyPageBlocks(content: DocsContent, page: DocsPageDefinition, locale: CmsLocaleType): DocsBlock[] {
+export function buildLegacyPageBlocks(content: DocsContent, page: DocsPageDefinition, locale: CmsLocaleType): DocsBlock[] {
   const blocks: DocsBlock[] = []
   pushHeading(blocks, 1, page.title)
   pushParagraph(blocks, page.description)

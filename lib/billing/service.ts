@@ -12,6 +12,7 @@ import {
 } from '@/lib/billing/server'
 import type {
   BillingCurrency,
+  BillingInterval,
   PlanCode,
   SubscriptionSummary,
   SubscriptionTransactionKind,
@@ -36,6 +37,10 @@ function normalizeBillingCurrency(value: string): BillingCurrency {
   return value.toUpperCase() === 'USD' ? 'USD' : 'RUB'
 }
 
+function normalizeBillingInterval(value: unknown): BillingInterval {
+  return String(value || '').trim().toLowerCase() === 'year' ? 'year' : 'month'
+}
+
 function ensureSupportedCurrency(currency: BillingCurrency) {
   if (!getAvailableBillingCurrencies().includes(currency)) {
     throw new Error(`Currency ${currency} is not enabled for subscriptions`)
@@ -53,6 +58,7 @@ function classifyPaymentStatus(value: unknown): SubscriptionTransactionStatus {
 async function insertTransaction(input: {
   userId: string
   planCode: PlanCode
+  billingInterval: BillingInterval
   kind: SubscriptionTransactionKind
   amount: number
   currency: BillingCurrency
@@ -64,6 +70,7 @@ async function insertTransaction(input: {
     .insert({
       user_id: input.userId,
       plan_code: input.planCode,
+      billing_interval: input.billingInterval,
       kind: input.kind,
       status: 'pending',
       amount: input.amount,
@@ -108,6 +115,7 @@ async function activatePaidSubscription(input: {
   userId: string
   planCode: PlanCode
   currency: BillingCurrency
+  billingInterval: BillingInterval
   amount: number
   providerPaymentId: string
   providerPaymentMethodId: string | null
@@ -115,7 +123,7 @@ async function activatePaidSubscription(input: {
 }) {
   const admin = createAdminClient()
   const current = await getCurrentSubscriptionRow(input.userId)
-  const period = getNextPeriodRange()
+  const period = getNextPeriodRange(undefined, input.billingInterval)
 
   const result = await admin
     .from('user_subscriptions')
@@ -123,6 +131,7 @@ async function activatePaidSubscription(input: {
       plan_code: input.planCode,
       status: 'active',
       currency: input.currency,
+      billing_interval: input.billingInterval,
       billing_provider: 'yookassa',
       price_amount: input.amount,
       started_at: current.plan_code === 'base' ? period.currentPeriodStart : (current.started_at || period.currentPeriodStart),
@@ -161,6 +170,7 @@ async function downgradeToBaseNow(userId: string) {
       plan_code: 'base',
       status: 'active',
       currency: 'RUB',
+      billing_interval: 'month',
       billing_provider: 'yookassa',
       price_amount: 0,
       current_period_start: null,
@@ -223,6 +233,7 @@ export async function startSubscriptionCheckout(input: {
   userId: string
   planCode: PlanCode
   currency: BillingCurrency
+  billingInterval: BillingInterval
   locale?: string
 }) {
   if (input.planCode === 'base') {
@@ -232,25 +243,39 @@ export async function startSubscriptionCheckout(input: {
   ensureSupportedCurrency(input.currency)
 
   const access = await getViewerAccess(input.userId)
-  if (!access.isAdmin && access.planCode === input.planCode && access.status === 'active' && !access.cancelAtPeriodEnd) {
+  if (
+    !access.isAdmin &&
+    access.planCode === input.planCode &&
+    access.billingInterval === input.billingInterval &&
+    access.currency === input.currency &&
+    access.status === 'active' &&
+    !access.cancelAtPeriodEnd
+  ) {
     throw new Error('Selected plan is already active')
   }
 
-  if (access.pendingTransaction && access.pendingTransaction.planCode === input.planCode && access.pendingTransaction.confirmationUrl) {
+  if (
+    access.pendingTransaction &&
+    access.pendingTransaction.planCode === input.planCode &&
+    access.pendingTransaction.billingInterval === input.billingInterval &&
+    access.pendingTransaction.currency === input.currency &&
+    access.pendingTransaction.confirmationUrl
+  ) {
     return {
       confirmationUrl: access.pendingTransaction.confirmationUrl,
       transactionId: access.pendingTransaction.id,
     }
   }
 
-  const amount = subscriptionPriceFor(input.planCode, input.currency)
+  const amount = subscriptionPriceFor(input.planCode, input.currency, input.billingInterval)
   const baseUrl = await resolveAppBaseUrl()
   const locale = input.locale || 'ru'
-  const returnUrl = `${baseUrl}/${locale}/payment/return?source=subscription&plan=${input.planCode}`
+  const returnUrl = `${baseUrl}/${locale}/payment/return?source=subscription&plan=${input.planCode}&billing=${input.billingInterval}`
   const kind: SubscriptionTransactionKind = access.planCode === 'base' ? 'initial' : 'change'
   const transaction = await insertTransaction({
     userId: input.userId,
     planCode: input.planCode,
+    billingInterval: input.billingInterval,
     kind,
     amount,
     currency: input.currency,
@@ -260,6 +285,7 @@ export async function startSubscriptionCheckout(input: {
   const checkout = await createYooKassaSubscriptionCheckout({
     amount,
     currency: input.currency,
+    billingInterval: input.billingInterval,
     returnUrl,
     planCode: input.planCode,
     userId: input.userId,
@@ -290,6 +316,7 @@ export async function changeSubscriptionPlan(input: {
   userId: string
   planCode: PlanCode
   currency: BillingCurrency
+  billingInterval: BillingInterval
   locale?: string
 }) {
   if (input.planCode === 'base') {
@@ -426,6 +453,7 @@ export async function syncSubscriptionFromWebhook(payload: Record<string, unknow
       userId: transaction.user_id,
       planCode: normalizePlanCode(transaction.plan_code),
       currency,
+      billingInterval: normalizeBillingInterval(transaction.billing_interval || metadata.billingInterval),
       amount,
       providerPaymentId: paymentId,
       providerPaymentMethodId: String(paymentMethod.id || transaction.provider_payment_method_id || '') || null,
@@ -469,17 +497,19 @@ export async function runDueRenewals(options: { locale?: string } = {}) {
     const transaction = await insertTransaction({
       userId: row.user_id,
       planCode: row.plan_code,
+      billingInterval: normalizeBillingInterval(row.billing_interval),
       kind: 'renewal',
-      amount: Number(row.price_amount || subscriptionPriceFor(row.plan_code, row.currency)),
+      amount: Number(row.price_amount || subscriptionPriceFor(row.plan_code, row.currency, normalizeBillingInterval(row.billing_interval))),
       currency: row.currency,
     })
 
     try {
       const renewal = await chargeSavedYooKassaPaymentMethod({
-        amount: Number(row.price_amount || subscriptionPriceFor(row.plan_code, row.currency)),
+        amount: Number(row.price_amount || subscriptionPriceFor(row.plan_code, row.currency, normalizeBillingInterval(row.billing_interval))),
         currency: row.currency,
         paymentMethodId,
         planCode: row.plan_code,
+        billingInterval: normalizeBillingInterval(row.billing_interval),
         userId: row.user_id,
         transactionId: transaction.id,
         locale: options.locale || 'ru',
@@ -500,6 +530,7 @@ export async function runDueRenewals(options: { locale?: string } = {}) {
           userId: row.user_id,
           planCode: row.plan_code,
           currency: row.currency,
+          billingInterval: normalizeBillingInterval(row.billing_interval),
           amount: Number(row.price_amount || 0),
           providerPaymentId: renewal.paymentId,
           providerPaymentMethodId: renewal.paymentMethodId || paymentMethodId,

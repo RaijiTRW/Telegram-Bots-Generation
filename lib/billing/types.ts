@@ -6,6 +6,8 @@ export type BillingCurrency = 'RUB' | 'USD'
 
 export type BillingProvider = 'yookassa'
 
+export type BillingInterval = 'month' | 'year'
+
 export type SubscriptionTransactionKind = 'initial' | 'renewal' | 'change'
 
 export type SubscriptionTransactionStatus = 'pending' | 'succeeded' | 'failed' | 'canceled'
@@ -44,6 +46,7 @@ export type PricingFeatureRow = {
   id: string
   label: string
   description?: string
+  soon?: boolean
   values: Record<PlanCode, PricingFeatureCell>
 }
 
@@ -59,8 +62,11 @@ export type PlanDefinition = {
   tagline: string
   description: string
   badge?: string
+  recommendedBadge?: string
   popular?: boolean
   monthlyPrice: Record<BillingCurrency, number>
+  yearlyPrice: Record<BillingCurrency, number>
+  yearlyDiscountPercent: number
   entitlements: PlanEntitlements
   spotlightFeatures: string[]
 }
@@ -73,6 +79,7 @@ export type SubscriptionUsage = {
 export type PendingSubscriptionTransaction = {
   id: string
   planCode: PlanCode
+  billingInterval: BillingInterval
   kind: SubscriptionTransactionKind
   amount: number
   currency: BillingCurrency
@@ -88,6 +95,7 @@ export type SubscriptionSummary = {
   status: PlanStatus
   currency: BillingCurrency
   priceAmount: number
+  billingInterval: BillingInterval
   billingProvider: BillingProvider
   cancelAtPeriodEnd: boolean
   startedAt: string | null

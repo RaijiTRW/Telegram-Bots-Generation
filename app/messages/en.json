@@ -97,6 +97,13 @@
       "overview": "Overview of your account",
       "quickActions": "Quick Actions",
       "quickActionsDesc": "Start by creating your first bot",
+      "activeProjects": "Active Bot Projects",
+      "activeProjectsDesc": "The same project cards as in Bots, filtered to active ones only",
+      "viewAllBots": "Open all bots",
+      "loadingProjects": "Loading active projects...",
+      "noActiveProjects": "No active bots yet",
+      "noActiveProjectsDesc": "Drafts and archived bots stay in the Bots section. Activate a bot and it will appear here.",
+      "loadError": "Failed to load dashboard data",
       "createBot": "Create new bot",
       "viewDocs": "View documentation"
     },
@@ -583,6 +590,8 @@
       "saveShortcutTitle": "Cmd/Ctrl+S to save",
       "subscriptionRequired": "This section requires a higher plan",
       "subscriptionBadge": "Plan",
+      "soonBadge": "Soon",
+      "soonLocked": "This section is coming soon",
       "adminOnly": "Admins only",
       "adminOnlyBadge": "Admin"
     },
@@ -752,6 +761,19 @@
       "helpStep2": "After each structural change, click Save before Test so runtime uses the latest version.",
       "helpStep3": "Use logs to confirm the executed path and fix one issue per cycle.",
       "helpNote": "Practical loop: `edit -> Save -> Test -> logs -> fix`.",
+      "controls": {
+        "title": "Canvas controls",
+        "selectionStatusActive": "Selection mode is active",
+        "selectionStatusIdle": "Hold Shift to start box selection",
+        "selectedCount": "Selected: {count}",
+        "selectedCountEmpty": "No selection",
+        "selectionLabel": "Selection",
+        "selectionHint": "Shift + drag on empty canvas draws the selection box and shows the selected group bounds.",
+        "mousePanLabel": "Mouse",
+        "mousePanHint": "Right button + drag pans the canvas.",
+        "trackpadPanLabel": "Mac trackpad",
+        "trackpadPanHint": "Two-finger movement pans the canvas without breaking selection."
+      },
       "nodes": "Nodes",
       "connections": "Connections",
       "palette": {
@@ -812,11 +834,13 @@
         "conditionAI": "Branch by AI classification / intent (fallback available)",
         "router": "Branch to multiple paths by variable value",
         "scheduler": "Continue workflow later (timezone-aware)",
+        "wait": "Pause workflow until the next user event",
         "replyKeyboard": "Control Telegram reply keyboard",
         "script": "Run JavaScript or Python transform code",
         "action": "Perform custom actions",
         "input": "Request user input or data",
         "http": "Make HTTP requests to external APIs",
+        "comment": "Add an internal note to document the flow",
         "paymentYookassa": "Create payment link via YooKassa",
         "paymentStripe": "Create payment link via Stripe",
         "paymentRobokassa": "Create payment link via Robokassa",
@@ -834,11 +858,13 @@
         "conditionAI": "AI branch",
         "router": "Route branch",
         "scheduler": "Delay step",
+        "wait": "Pause flow",
         "replyKeyboard": "Reply keyboard",
         "script": "JS/Python code",
         "action": "Set data",
         "input": "Wait input",
         "http": "API request",
+        "comment": "Internal note",
         "paymentYookassa": "YooKassa payment",
         "paymentStripe": "Stripe payment",
         "paymentRobokassa": "Robokassa payment",
@@ -900,6 +926,11 @@
           "step2": "Set timezone and optional variable to store scheduler output.",
           "step3": "Connect to the step that must execute later."
         },
+        "wait": {
+          "step1": "Choose what event resumes the flow, for example the next user message.",
+          "step2": "Set timeout if the pause must expire automatically.",
+          "step3": "Connect the next node that should run after the wait is resumed."
+        },
         "replyKeyboard": {
           "step1": "Choose keyboard mode: system, variant, hide, or condition-based.",
           "step2": "Reply Keyboard presses are handled by Text Trigger, not Callback Trigger.",
@@ -924,6 +955,11 @@
           "step1": "Set request URL, method, and optional headers/body.",
           "step2": "Configure timeout and variable for storing API response.",
           "step3": "Add next-step handling (Message, Condition, Router) for response data."
+        },
+        "comment": {
+          "step1": "Add a note describing why this branch exists or what assumptions it has.",
+          "step2": "Use comments for team handoff, TODOs, or documenting edge cases.",
+          "step3": "Comments are ignored by runtime, so they do not need outgoing connections."
         },
         "paymentYookassa": {
           "step1": "Set shopId/secretKey, amount, and return URL.",
@@ -1304,8 +1340,9 @@
       "emptyHelp3": "Set up variables and data storage",
       "emptyHelp4": "Explain and debug existing bot logic",
       "emptyQuestion": "What would you like to build today?",
-      "lockedTitle": "AI Chat requires Enterprise",
-      "lockedDescription": "Upgrade the subscription to Enterprise to use AI Chat inside the editor.",
+      "lockedTitle": "AI Chat coming soon",
+      "lockedDescription": "The AI Chat section is temporarily closed for users and will be opened later. Right now it is available only to administrators.",
+      "backToEditor": "Back to editor",
       "openSubscription": "Open subscription",
       "thinking": "AI is thinking..."
     },
@@ -1442,7 +1479,7 @@
         "formatContextHint": "Tip: select text and right-click for quick formatting",
         "formatting": "Formatting",
         "formattingHelpLabel": "Formatting help",
-        "formattingHelpHint": "None means plain text. Markdown/MarkdownV2/HTML enable styling (bold, italic, links). MarkdownV2 requires escaping special characters.",
+        "formattingHelpHint": "“None” sends the text as a regular message. Markdown, MarkdownV2, and HTML are used when you want bold, italic, underline, or links. MarkdownV2 is the strictest mode: characters like *, _, [, ], and () must be handled carefully or the formatting can break.",
         "none": "None",
         "markdown": "Markdown",
         "markdownV2": "MarkdownV2",
@@ -1807,6 +1844,7 @@
     },
     "userMenu": {
       "dashboard": "Dashboard",
+      "subscription": "Subscription",
       "profile": "Profile",
       "settings": "Settings",
       "logout": "Logout"

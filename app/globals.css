@@ -59,36 +59,69 @@
 }
 
 /* Remove default ReactFlow selected focus ring; custom node renders own selected state */
-.react-flow__node.selectable.selected,
-.react-flow__node.selectable:focus,
-.react-flow__node.selectable:focus-visible {
+.react-flow.bot-flow-canvas .react-flow__node.selectable.selected,
+.react-flow.bot-flow-canvas .react-flow__node.selectable:focus,
+.react-flow.bot-flow-canvas .react-flow__node.selectable:focus-visible {
   box-shadow: none !important;
   outline: none !important;
 }
 
-/* Hide ReactFlow selection rectangle overlay (semi-dark square around selected nodes) */
-.react-flow .react-flow__selection,
-.react-flow .react-flow__nodesselection-rect {
-  background: transparent !important;
-  border: none !important;
+/* Bot canvas selection visuals */
+.react-flow.bot-flow-canvas .react-flow__selection,
+.react-flow.bot-flow-canvas .react-flow__nodesselection-rect {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(36, 161, 222, 0.16), rgba(139, 92, 246, 0.12)) !important;
+  border: 1px solid rgba(103, 232, 249, 0.82) !important;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(36, 161, 222, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 10px 32px rgba(8, 15, 32, 0.28);
+}
+
+.react-flow.bot-flow-canvas .react-flow__selection::before,
+.react-flow.bot-flow-canvas .react-flow__nodesselection-rect::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 1px dashed rgba(125, 211, 252, 0.55);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.react-flow.bot-flow-canvas .react-flow__selection::after,
+.react-flow.bot-flow-canvas .react-flow__nodesselection-rect::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 24px rgba(36, 161, 222, 0.16);
+  pointer-events: none;
 }
 
 /* Canvas cursor behavior:
    default cursor on pane/nodes; grabbing only while node is actively dragged. */
-.react-flow .react-flow__pane,
-.react-flow .react-flow__pane.draggable,
-.react-flow .react-flow__node,
-.react-flow .react-flow__node.selectable {
+.react-flow.bot-flow-canvas .react-flow__pane,
+.react-flow.bot-flow-canvas .react-flow__pane.draggable,
+.react-flow.bot-flow-canvas .react-flow__node,
+.react-flow.bot-flow-canvas .react-flow__node.selectable {
   cursor: default !important;
 }
 
-.react-flow .react-flow__node.dragging,
-.react-flow .react-flow__node.dragging * {
+.flow-canvas-shell[data-selection-mode='true'] .react-flow.bot-flow-canvas .react-flow__pane {
+  cursor: crosshair !important;
+}
+
+.react-flow.bot-flow-canvas .react-flow__node.dragging,
+.react-flow.bot-flow-canvas .react-flow__node.dragging * {
   cursor: grabbing !important;
 }
 
 /* Edge selection / hover UX */
-.react-flow__edge .react-flow__edge-path {
+.react-flow.bot-flow-canvas .react-flow__edge .react-flow__edge-path {
   transition:
     stroke 0.16s ease,
     stroke-width 0.16s ease,
@@ -98,11 +131,11 @@
   stroke-linejoin: round;
 }
 
-.react-flow__edge .react-flow__edge-interaction {
+.react-flow.bot-flow-canvas .react-flow__edge .react-flow__edge-interaction {
   cursor: pointer;
 }
 
-.react-flow__edge:hover .react-flow__edge-path {
+.react-flow.bot-flow-canvas .react-flow__edge:hover .react-flow__edge-path {
   stroke: rgba(103, 232, 249, 0.85) !important;
   stroke-width: 3px !important;
   filter: drop-shadow(0 0 6px rgba(36, 161, 222, 0.32));

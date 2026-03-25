@@ -8,11 +8,11 @@ import {
   Loader2,
   RefreshCcw,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { BillingIntervalToggle } from '@/components/billing/billing-interval-toggle'
 import { PricingComparison, type PricingComparisonAction } from '@/components/billing/pricing-comparison'
 import {
   cancelSubscriptionAtPeriodEndAction,
@@ -22,11 +22,14 @@ import {
 } from '@/lib/billing/actions'
 import type {
   BillingCurrency,
+  BillingInterval,
   PlanCode,
   PlanStatus,
   SubscriptionSummary,
 } from '@/lib/billing/types'
-import { getPlanDefinition } from '@/lib/billing/plans'
+import {
+  getPlanDefinition,
+} from '@/lib/billing/plans'
 
 interface SubscriptionPageClientProps {
   locale: string
@@ -51,6 +54,30 @@ function formatAmount(locale: string, amount: number, currency: BillingCurrency)
     currency,
     maximumFractionDigits: currency === 'USD' ? 2 : 0,
   }).format(amount)
+}
+
+function getBillingIntervalLabel(locale: string, interval: BillingInterval) {
+  if (locale === 'en') {
+    return interval === 'year' ? 'Yearly billing' : 'Monthly billing'
+  }
+
+  return interval === 'year' ? 'Годовая оплата' : 'Ежемесячная оплата'
+}
+
+function getBillingIntervalSuffix(locale: string, interval: BillingInterval) {
+  if (locale === 'en') {
+    return interval === 'year' ? '/ year' : '/ month'
+  }
+
+  return interval === 'year' ? '/ год' : '/ мес'
+}
+
+function getBillingIntervalSwitchLabel(locale: string, interval: BillingInterval) {
+  if (locale === 'en') {
+    return interval === 'year' ? 'yearly' : 'monthly'
+  }
+
+  return interval === 'year' ? 'на год' : 'на месяц'
 }
 
 function getStatusMeta(locale: string, status: PlanStatus) {
@@ -121,6 +148,9 @@ export function SubscriptionPageClient({
 }: SubscriptionPageClientProps) {
   const [subscription, setSubscription] = useState(initialSubscription)
   const [currency, setCurrency] = useState<BillingCurrency>(initialSubscription.currency)
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>(
+    initialSubscription.pendingTransaction?.billingInterval ?? initialSubscription.billingInterval
+  )
   const [error, setError] = useState<string | null>(null)
   const [activeAction, setActiveAction] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -129,7 +159,13 @@ export function SubscriptionPageClient({
   const currentPlan = getPlanDefinition(subscription.planCode, locale)
   const effectivePlan = getPlanDefinition(subscription.effectivePlanCode, locale)
   const visiblePlan = subscription.isAdmin ? currentPlan : effectivePlan
+  const nextBillingDateLabel =
+    subscription.planCode === 'base' && !subscription.currentPeriodEnd
+      ? '∞'
+      : formatDate(locale, subscription.currentPeriodEnd)
+  const canSwitchCurrency = subscription.availableCurrencies.length > 1
   const statusMeta = getStatusMeta(locale, subscription.status)
+  const currentPlanPriceSuffix = getBillingIntervalSuffix(locale, subscription.billingInterval)
 
   const refreshSubscription = () => {
     startTransition(async () => {
@@ -141,6 +177,7 @@ export function SubscriptionPageClient({
       }
       setSubscription(result.subscription)
       setCurrency((prev) => (result.subscription.availableCurrencies.includes(prev) ? prev : result.subscription.currency))
+      setBillingInterval(result.subscription.pendingTransaction?.billingInterval ?? result.subscription.billingInterval)
     })
   }
 
@@ -149,7 +186,7 @@ export function SubscriptionPageClient({
       setError(null)
       setActiveAction(`plan:${planCode}`)
 
-      const result = await changeSubscriptionPlanAction(planCode, currency, locale)
+      const result = await changeSubscriptionPlanAction(planCode, currency, billingInterval, locale)
       if (!result.success) {
         setError(result.error || (isRu ? 'Не удалось изменить тариф.' : 'Failed to change plan.'))
         setActiveAction(null)
@@ -166,6 +203,7 @@ export function SubscriptionPageClient({
         setError(refreshed.error || (isRu ? 'Тариф изменен, но обновление состояния не удалось.' : 'Plan changed, but refresh failed.'))
       } else {
         setSubscription(refreshed.subscription)
+        setBillingInterval(refreshed.subscription.pendingTransaction?.billingInterval ?? refreshed.subscription.billingInterval)
       }
       setActiveAction(null)
     })
@@ -180,6 +218,7 @@ export function SubscriptionPageClient({
         setError(result.error || (isRu ? 'Не удалось отключить продление.' : 'Failed to disable renewal.'))
       } else {
         setSubscription(result.subscription)
+        setBillingInterval(result.subscription.pendingTransaction?.billingInterval ?? result.subscription.billingInterval)
       }
       setActiveAction(null)
     })
@@ -194,6 +233,7 @@ export function SubscriptionPageClient({
         setError(result.error || (isRu ? 'Не удалось возобновить продление.' : 'Failed to resume renewal.'))
       } else {
         setSubscription(result.subscription)
+        setBillingInterval(result.subscription.pendingTransaction?.billingInterval ?? result.subscription.billingInterval)
       }
       setActiveAction(null)
     })
@@ -202,7 +242,18 @@ export function SubscriptionPageClient({
   const pendingTransaction = subscription.pendingTransaction
 
   const buildPlanAction = (planCode: PlanCode): PricingComparisonAction => {
-    if (pendingTransaction?.planCode === planCode && pendingTransaction.confirmationUrl) {
+    const isBasePlan = planCode === 'base'
+    const matchesCurrentPlan =
+      subscription.planCode === planCode &&
+      subscription.status === 'active' &&
+      !subscription.cancelAtPeriodEnd &&
+      (isBasePlan || (subscription.billingInterval === billingInterval && subscription.currency === currency))
+
+    if (
+      pendingTransaction?.planCode === planCode &&
+      (isBasePlan || (pendingTransaction.billingInterval === billingInterval && pendingTransaction.currency === currency)) &&
+      pendingTransaction.confirmationUrl
+    ) {
       return {
         label: isRu ? 'Продолжить оплату' : 'Continue payment',
         onClick: () => {
@@ -213,11 +264,27 @@ export function SubscriptionPageClient({
       }
     }
 
-    if (subscription.planCode === planCode && subscription.status === 'active' && !subscription.cancelAtPeriodEnd) {
+    if (matchesCurrentPlan) {
       return {
         label: isRu ? 'Текущий тариф' : 'Current plan',
         disabled: true,
         variant: 'outline',
+      }
+    }
+
+    if (
+      !isBasePlan &&
+      subscription.planCode === planCode &&
+      subscription.billingInterval === billingInterval &&
+      subscription.currency === currency &&
+      subscription.cancelAtPeriodEnd
+    ) {
+      return {
+        label: isRu ? 'Оставить тариф активным' : 'Keep plan active',
+        onClick: handleResume,
+        disabled: activeAction !== null && activeAction !== 'resume',
+        loading: activeAction === 'resume',
+        variant: 'default',
       }
     }
 
@@ -234,8 +301,16 @@ export function SubscriptionPageClient({
     return {
       label:
         subscription.planCode === 'base'
-          ? isRu ? `Выбрать ${getPlanDefinition(planCode, locale).name}` : `Choose ${getPlanDefinition(planCode, locale).name}`
-          : isRu ? `Перейти на ${getPlanDefinition(planCode, locale).name}` : `Switch to ${getPlanDefinition(planCode, locale).name}`,
+          ? isRu
+            ? `Выбрать ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
+            : `Choose ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
+          : subscription.planCode === planCode
+            ? isRu
+              ? `Переключить ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
+              : `Switch ${getPlanDefinition(planCode, locale).name} to ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
+            : isRu
+              ? `Перейти на ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
+              : `Switch to ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`,
       onClick: () => handlePlanChange(planCode),
       disabled: activeAction !== null && activeAction !== `plan:${planCode}`,
       loading: activeAction === `plan:${planCode}`,
@@ -262,23 +337,25 @@ export function SubscriptionPageClient({
           </h1>
           <p className="max-w-3xl text-sm leading-6 text-zinc-400">
             {isRu
-              ? 'Управляйте ежемесячной подпиской, лимитами аккаунта и доступом к CRM, аналитике, AI и managed hosting.'
-              : 'Manage the monthly subscription, account limits, and access to CRM, analytics, AI, and managed hosting.'}
+              ? 'Управляйте подпиской, биллинг-периодом, лимитами аккаунта и доступом к CRM, аналитике, AI и managed hosting.'
+              : 'Manage the subscription, billing period, account limits, and access to CRM, analytics, AI, and managed hosting.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {subscription.availableCurrencies.map((availableCurrency) => (
-            <Button
-              key={availableCurrency}
-              type="button"
-              variant={currency === availableCurrency ? 'default' : 'outline'}
-              onClick={() => setCurrency(availableCurrency)}
-              disabled={isPending}
-            >
-              {availableCurrency}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {canSwitchCurrency
+            ? subscription.availableCurrencies.map((availableCurrency) => (
+                <Button
+                  key={availableCurrency}
+                  type="button"
+                  variant={currency === availableCurrency ? 'default' : 'outline'}
+                  onClick={() => setCurrency(availableCurrency)}
+                  disabled={isPending}
+                >
+                  {availableCurrency}
+                </Button>
+              ))
+            : null}
           <Button
             type="button"
             variant="outline"
@@ -300,8 +377,8 @@ export function SubscriptionPageClient({
               </div>
               <div className="text-sm text-zinc-300">
                 {isRu
-                  ? `Платеж для тарифа ${getPlanDefinition(subscription.pendingTransaction.planCode, locale).name} уже создан.`
-                  : `A payment for ${getPlanDefinition(subscription.pendingTransaction.planCode, locale).name} is already waiting for completion.`}
+                  ? `Платеж для тарифа ${getPlanDefinition(subscription.pendingTransaction.planCode, locale).name} (${getBillingIntervalLabel(locale, subscription.pendingTransaction.billingInterval).toLowerCase()}) уже создан.`
+                  : `A payment for ${getPlanDefinition(subscription.pendingTransaction.planCode, locale).name} (${getBillingIntervalLabel(locale, subscription.pendingTransaction.billingInterval).toLowerCase()}) is already waiting for completion.`}
               </div>
             </div>
             <Button onClick={() => window.location.assign(subscription.pendingTransaction?.confirmationUrl as string)}>
@@ -360,11 +437,24 @@ export function SubscriptionPageClient({
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right">
                 <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  {isRu ? 'Стоимость' : 'Price'}
+                  {isRu ? 'Стоимость за период' : 'Price per billing period'}
+                </div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  {getBillingIntervalLabel(locale, subscription.billingInterval)}
                 </div>
                 <div className="mt-2 text-2xl font-semibold text-white">
                   {formatAmount(locale, subscription.priceAmount, subscription.currency)}
+                  <span className="ml-2 text-sm font-medium text-zinc-400">{currentPlanPriceSuffix}</span>
                 </div>
+                {subscription.billingInterval === 'year' && subscription.priceAmount > 0 ? (
+                  <div className="mt-2 flex items-center justify-end gap-2 text-xs text-zinc-400">
+                    <span>{isRu ? 'Эквивалент' : 'Equivalent'}</span>
+                    <span className="text-white">
+                      {formatAmount(locale, subscription.priceAmount / 12, subscription.currency)}
+                    </span>
+                    <span>{isRu ? '/ мес' : '/ month'}</span>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -374,7 +464,7 @@ export function SubscriptionPageClient({
                   {isRu ? 'Следующая дата' : 'Next billing date'}
                 </div>
                 <div className="mt-2 text-sm font-medium text-white">
-                  {formatDate(locale, subscription.currentPeriodEnd)}
+                  {nextBillingDateLabel}
                 </div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -439,22 +529,6 @@ export function SubscriptionPageClient({
                 <span>{feature}</span>
               </div>
             ))}
-
-            <div className="rounded-2xl border border-[#24A1DE]/20 bg-[#24A1DE]/10 p-4">
-              <div className="flex items-start gap-3">
-                <Sparkles className="mt-0.5 h-5 w-5 text-[#9EDFFF]" />
-                <div className="space-y-1">
-                  <div className="text-sm font-medium text-white">
-                    {isRu ? 'Business — основной тариф для апгрейда' : 'Business is the default upgrade path'}
-                  </div>
-                  <div className="text-sm leading-6 text-zinc-300">
-                    {isRu
-                      ? 'Если нужен CRM, базовая dashboard-аналитика, AI-ноды и managed hosting, хватит Business. Enterprise нужен, когда нужен AI Chat, докупка токенов и полная аналитика.'
-                      : 'Business covers CRM, basic dashboard analytics, AI nodes, and managed hosting. Move to Enterprise when you need AI Chat, token top-ups, and full analytics.'}
-                  </div>
-                </div>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -462,11 +536,24 @@ export function SubscriptionPageClient({
       <PricingComparison
         locale={locale}
         currency={currency}
+        billingInterval={billingInterval}
         currentPlanCode={subscription.planCode}
-        title={isRu ? 'Сравнение тарифов' : 'Plan comparison'}
-        subtitle={isRu
-          ? 'Business визуально и продуктово выделен как основной тариф для большинства команд. Таблица ниже напрямую связана с реальными лимитами и доступами в приложении.'
-          : 'Business is intentionally highlighted as the default plan for most teams. The table below is wired to the real limits and entitlements used in the app.'}
+        title={isRu ? 'Все тарифы' : 'All plans'}
+        headerControl={
+          <div className="space-y-3 text-center">
+            <BillingIntervalToggle
+              locale={locale}
+              value={billingInterval}
+              onChange={setBillingInterval}
+              disabled={isPending || activeAction !== null}
+            />
+            <div className="text-xs text-zinc-500">
+              {isRu
+                ? 'При оплате за год действует скидка 75% на все 12 месяцев.'
+                : 'Annual billing applies a 75% discount across the full 12 months.'}
+            </div>
+          </div>
+        }
         actions={planActions}
       />
     </div>

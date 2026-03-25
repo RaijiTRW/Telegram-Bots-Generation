@@ -29,6 +29,8 @@ import type {
   BotPaymentHistoryFilters,
   BotPaymentHistoryItem,
   BotPaymentHistoryPeriod,
+  BotSubscribersAnalytics,
+  BotSubscribersPeriod,
   BotSubscribersSource,
   BotTechnicalStats,
   BotTechnicalStatsRange,
@@ -805,6 +807,28 @@ function canUseWebhook(baseUrl: string | null): boolean {
   }
 }
 
+function toPlainServerActionPayload<T>(value: T): T {
+  if (value === undefined) {
+    return value
+  }
+
+  return JSON.parse(JSON.stringify(value, (_key, nestedValue) => {
+    if (nestedValue instanceof Date) {
+      return nestedValue.toISOString()
+    }
+
+    if (typeof nestedValue === 'bigint') {
+      return nestedValue.toString()
+    }
+
+    if (typeof nestedValue === 'function' || nestedValue === undefined) {
+      return undefined
+    }
+
+    return nestedValue
+  })) as T
+}
+
 export async function getEditorBotAction(botId: string) {
   const user = await getServerUser()
   if (!user) {
@@ -820,7 +844,7 @@ export async function getEditorBotAction(botId: string) {
       return { success: false, error: 'Bot not found' }
     }
 
-    return { success: true, bot }
+    return toPlainServerActionPayload({ success: true, bot })
   } catch (error) {
     console.error('Failed to load editor bot:', error)
     return { success: false, error: String(error) }
@@ -992,7 +1016,10 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
 
     const withConfig = await botService.getBot(botId)
 
-    return { success: true, bot: withConfig || { ...updatedBot, config: bot.config } }
+    return toPlainServerActionPayload({
+      success: true,
+      bot: withConfig || { ...updatedBot, config: bot.config },
+    })
   } catch (error) {
     console.error('Failed to save bot settings:', error)
     return { success: false, error: String(error) }
@@ -1280,7 +1307,7 @@ export async function syncTelegramBotStyleAction(
     })
 
     if (syncErrors.length > 0) {
-      return {
+      return toPlainServerActionPayload({
         success: false,
         error: syncErrors.join('; '),
         warnings,
@@ -1288,17 +1315,17 @@ export async function syncTelegramBotStyleAction(
         currentUsername,
         profileStyle: mergedProfileStyle,
         bot: updatedBot,
-      }
+      })
     }
 
-    return {
+    return toPlainServerActionPayload({
       success: true,
       warnings,
       applied,
       currentUsername,
       profileStyle: mergedProfileStyle,
       bot: updatedBot,
-    }
+    })
   } catch (error) {
     console.error('Failed to sync Telegram bot style:', error)
     return {
@@ -1437,14 +1464,14 @@ export async function startBotTestAction(
         },
       })
 
-      return {
+      return toPlainServerActionPayload({
         success: true,
         mode: 'webhook',
         deepLink: `https://t.me/${me.username}?start=test`,
         botUsername: me.username,
         webhookUrl,
         bot: updatedBot,
-      }
+      })
     }
 
     await callTelegramApi(token, 'deleteWebhook', {
@@ -1494,7 +1521,7 @@ export async function startBotTestAction(
       },
     })
 
-    return {
+    return toPlainServerActionPayload({
       success: true,
       mode: 'polling',
       deepLink: `https://t.me/${me.username}?start=test`,
@@ -1502,7 +1529,7 @@ export async function startBotTestAction(
       webhookUrl: '',
       info: 'Локальный тест запущен в polling-режиме',
       bot: updatedBot,
-    }
+    })
   } catch (error) {
     console.error('Failed to start bot test:', error)
     const userFacingError = toTelegramTestStartErrorMessage(error)
@@ -1587,10 +1614,10 @@ export async function stopBotTestAction(botId: string) {
       },
     })
 
-    return {
+    return toPlainServerActionPayload({
       success: true,
       bot: updatedBot,
-    }
+    })
   } catch (error) {
     console.error('Failed to stop bot test:', error)
     appendBotTestLog(botId, 'system', `Ошибка остановки теста: ${String(error)}`, 'error')
@@ -2425,6 +2452,191 @@ export async function getBotPaymentHistoryAction(
       success: true,
       history,
     } as const
+  } catch (error) {
+    return { success: false, error: String(error) } as const
+  }
+}
+
+export async function getBotSubscribersAnalyticsAction(
+  botId: string,
+  filters: {
+    period?: BotSubscribersPeriod
+    source?: 'all' | BotSubscribersSource
+    search?: string
+  } = {},
+  page = 1,
+  pageSize = 25
+) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  const normalizedBotId = String(botId || '').trim()
+  if (!normalizedBotId) {
+    return { success: false, error: 'Bot not found' as const }
+  }
+
+  const normalizedPage = normalizeDashboardGlobalPage(page)
+  const normalizedPageSize = normalizeDashboardGlobalPageSize(pageSize)
+  const period = normalizeDashboardGlobalPeriod(filters.period) as BotSubscribersPeriod
+  const source = normalizeDashboardGlobalSource(filters.source)
+  const search = normalizeDashboardSearch(filters.search)
+  const sinceIso = getDashboardGlobalSinceIso(period)
+
+  try {
+    const supabase = await createServerClientWrapper()
+    const botService = createBotService(supabase)
+    const bot = await botService.getBot(normalizedBotId)
+    if (!bot) {
+      return { success: false, error: 'Bot not found' as const }
+    }
+
+    const totalQuery = supabase
+      .from('bot_subscribers')
+      .select('id', { head: true, count: 'exact' })
+      .eq('bot_id', normalizedBotId)
+
+    let activeQuery = supabase
+      .from('bot_subscribers')
+      .select('id', { head: true, count: 'exact' })
+      .eq('bot_id', normalizedBotId)
+
+    let newQuery = supabase
+      .from('bot_subscribers')
+      .select('id', { head: true, count: 'exact' })
+      .eq('bot_id', normalizedBotId)
+
+    if (source !== 'all') {
+      activeQuery = activeQuery.eq('source', source)
+      newQuery = newQuery.eq('source', source)
+    }
+    if (sinceIso) {
+      activeQuery = activeQuery.gte('last_seen_at', sinceIso)
+      newQuery = newQuery.gte('first_seen_at', sinceIso)
+    }
+
+    let analyticsQuery = supabase
+      .from('bot_subscribers')
+      .select('source, language_code, last_seen_at')
+      .eq('bot_id', normalizedBotId)
+      .order('last_seen_at', { ascending: false })
+      .limit(5000)
+
+    if (source !== 'all') {
+      analyticsQuery = analyticsQuery.eq('source', source)
+    }
+    if (sinceIso) {
+      analyticsQuery = analyticsQuery.gte('last_seen_at', sinceIso)
+    }
+
+    let listQuery = supabase
+      .from('bot_subscribers')
+      .select(
+        'telegram_user_id, telegram_chat_id, username, first_name, last_name, language_code, source, first_seen_at, last_seen_at',
+        { count: 'exact' }
+      )
+      .eq('bot_id', normalizedBotId)
+      .order('last_seen_at', { ascending: false })
+
+    if (source !== 'all') {
+      listQuery = listQuery.eq('source', source)
+    }
+    if (sinceIso) {
+      listQuery = listQuery.gte('last_seen_at', sinceIso)
+    }
+    if (search) {
+      const numericSearch = Number(search)
+      if (Number.isFinite(numericSearch)) {
+        listQuery = listQuery.or(
+          `username.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,telegram_user_id.eq.${Math.round(numericSearch)}`
+        )
+      } else {
+        listQuery = listQuery.or(
+          `username.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`
+        )
+      }
+    }
+
+    const from = (normalizedPage - 1) * normalizedPageSize
+    const to = from + normalizedPageSize - 1
+
+    const [totalResult, activeResult, newResult, analyticsResult, listResult] = await Promise.all([
+      totalQuery,
+      activeQuery,
+      newQuery,
+      analyticsQuery,
+      listQuery.range(from, to),
+    ])
+
+    if (totalResult.error) {
+      return { success: false, error: String(totalResult.error) } as const
+    }
+    if (activeResult.error) {
+      return { success: false, error: String(activeResult.error) } as const
+    }
+    if (newResult.error) {
+      return { success: false, error: String(newResult.error) } as const
+    }
+    if (analyticsResult.error) {
+      return { success: false, error: String(analyticsResult.error) } as const
+    }
+    if (listResult.error) {
+      return { success: false, error: String(listResult.error) } as const
+    }
+
+    const analyticsRows = (Array.isArray(analyticsResult.data) ? analyticsResult.data : []) as Array<Record<string, unknown>>
+    const listRows = (Array.isArray(listResult.data) ? listResult.data : []) as DashboardGlobalSubscriberRow[]
+
+    const sourceCounts: Record<BotSubscribersSource, number> = {
+      message: 0,
+      callback_query: 0,
+      unknown: 0,
+    }
+    const languageCounts = new Map<string, number>()
+
+    for (const row of analyticsRows) {
+      const sourceKey = normalizeDashboardSubscriberSource(row.source)
+      sourceCounts[sourceKey] += 1
+
+      const code = String(row.language_code || '').trim().toLowerCase()
+      if (code) {
+        languageCounts.set(code, (languageCounts.get(code) || 0) + 1)
+      }
+    }
+
+    const data: BotSubscribersAnalytics = {
+      period,
+      page: normalizedPage,
+      pageSize: normalizedPageSize,
+      total: Number(listResult.count || 0),
+      summary: {
+        totalSubscribers: Number(totalResult.count || 0),
+        activeInPeriod: Number(activeResult.count || 0),
+        newInPeriod: Number(newResult.count || 0),
+        lastSeenAt: analyticsRows.length
+          ? (toText((analyticsRows[0] as Record<string, unknown>).last_seen_at) || null)
+          : null,
+      },
+      sourceCounts,
+      topLanguages: Array.from(languageCounts.entries())
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 6)
+        .map(([code, count]) => ({ code, count })),
+      items: listRows.map((row) => ({
+        telegramUserId: Number(row.telegram_user_id || 0),
+        telegramChatId: Number.isFinite(Number(row.telegram_chat_id)) ? Number(row.telegram_chat_id) : null,
+        username: toText(row.username),
+        firstName: toText(row.first_name),
+        lastName: toText(row.last_name),
+        languageCode: toText(row.language_code),
+        source: normalizeDashboardSubscriberSource(row.source),
+        firstSeenAt: row.first_seen_at ? String(row.first_seen_at) : null,
+        lastSeenAt: row.last_seen_at ? String(row.last_seen_at) : null,
+      })),
+    }
+
+    return { success: true, data } as const
   } catch (error) {
     return { success: false, error: String(error) } as const
   }

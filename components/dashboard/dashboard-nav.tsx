@@ -23,6 +23,7 @@ type DashboardNavItem = {
   icon: ComponentType<{ className?: string }>
   label: string
   section?: DashboardSection
+  localeAgnostic?: boolean
   disabled?: boolean
   locked?: boolean
   badge?: string
@@ -44,8 +45,8 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
       label: 'dashboard.nav.crm',
       section: 'crm',
       disabled: !isAdmin,
-      locked: !isAdmin,
-      badge: !isAdmin ? 'dashboard.nav.soon' : undefined,
+      locked: true,
+      badge: 'dashboard.nav.soon',
     }
     const statsNavItem: DashboardNavItem = {
       href: '/dashboard/statistics',
@@ -81,7 +82,7 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
       baseItems[2],
       baseItems[3],
       baseItems[4],
-      { href: '/dashboard/cms', icon: FileText, label: 'dashboard.nav.cms', section: 'cms' },
+      { href: '/dashboard/cms', icon: FileText, label: 'dashboard.nav.cms', localeAgnostic: true },
       { href: '/dashboard/admin', icon: Shield, label: 'dashboard.nav.admin', section: 'admin' },
       baseItems[5],
       baseItems[6],
@@ -101,7 +102,8 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
     if (disabled) {
       return
     }
-    prefetchHrefOnce(router, `/${locale}${href}`)
+    const targetHref = href.startsWith('/dashboard/cms') ? href : `/${locale}${href}`
+    prefetchHrefOnce(router, targetHref)
     if (section) {
       void preloadDashboardSection(section)
     }
@@ -141,7 +143,7 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
         <nav className="flex-1 overflow-y-auto space-y-1 px-2">
           {navItems.map((item) => {
             const Icon = item.icon
-            const fullPath = `/${locale}${item.href}`
+            const fullPath = item.localeAgnostic ? item.href : `/${locale}${item.href}`
             // Exact match for home, or starts with for other pages (but not just the parent)
             const isActive = item.section
               ? activeSection === item.section

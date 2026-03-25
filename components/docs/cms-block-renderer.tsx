@@ -36,11 +36,8 @@ function renderMediaPlaceholder({
         ? 'Изображение скоро появится'
         : 'Image coming soon'
       : isRu
-        ? 'Видео скоро появится'
+        ? 'Видео скоро появится.'
         : 'Video coming soon'
-  const description = isRu
-    ? 'Этот блок добавлен, но файл пока не загружен в CMS.'
-    : 'This block was added, but the file has not been uploaded in CMS yet.'
 
   return (
     <div className="rounded-xl border border-dashed border-white/20 bg-zinc-900/40 p-4">
@@ -50,7 +47,13 @@ function renderMediaPlaceholder({
         </div>
         <div className="min-w-0">
           <div className="text-sm font-medium text-zinc-100">{title}</div>
-          <div className="mt-1 text-xs text-zinc-400">{description}</div>
+          {kind === 'image' ? (
+            <div className="mt-1 text-xs text-zinc-400">
+              {isRu
+                ? 'Этот блок добавлен, но файл пока не загружен в CMS.'
+                : 'This block was added, but the file has not been uploaded in CMS yet.'}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -216,9 +219,17 @@ export function CmsBlockRenderer({
             )
           case 'video':
             return (
-              <figure key={block.id} className="space-y-2">
+              <figure key={block.id} className="max-w-3xl space-y-2">
                 {block.url.trim() ? (
-                  <video controls preload="metadata" poster={block.posterUrl || undefined} className="w-full rounded-xl border border-white/10">
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    poster={block.posterUrl || undefined}
+                    className="w-full rounded-xl border border-white/10 bg-black"
+                  >
                     <source src={block.url} />
                   </video>
                 ) : (

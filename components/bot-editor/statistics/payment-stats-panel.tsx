@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
+import { getBotPaymentHistoryAction } from '@/lib/bot-editor/actions/editor-actions'
 import type { BotPaymentHistory, BotPaymentHistoryPeriod } from '@/lib/bot-editor/types/analytics.types'
 
 const PERIOD_OPTIONS: BotPaymentHistoryPeriod[] = ['24h', '7d', '30d', 'all']
@@ -57,22 +58,12 @@ export function PaymentStatsPanel() {
     setIsLoading(true)
     setError(null)
     try {
-      const query = new URLSearchParams()
-      query.set('period', period)
-      if (search) query.set('search', search)
-      if (method) query.set('method', method)
-      if (status) query.set('status', status)
-
-      const response = await fetch(`/api/bots/${encodeURIComponent(botId)}/payment-history?${query.toString()}`, {
-        method: 'GET',
-        cache: 'no-store',
+      const result = await getBotPaymentHistoryAction(botId, {
+        period,
+        search,
+        method,
+        status,
       })
-
-      const result = await response.json() as {
-        success?: boolean
-        error?: string
-        history?: BotPaymentHistory
-      }
 
       if (!result.success || !result.history) {
         setHistory(null)

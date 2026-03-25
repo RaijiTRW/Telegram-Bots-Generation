@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { DashboardNav } from '@/components/dashboard/dashboard-nav'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
@@ -34,8 +34,6 @@ const getDashboardSectionFromPathname = (pathname: string | null): DashboardRout
       return 'subscription'
     case 'crm':
       return 'crm'
-    case 'cms':
-      return 'cms'
     case 'admin':
       return 'admin'
     case 'profile':
@@ -55,20 +53,16 @@ export function DashboardShell({ viewerAccess, children }: DashboardShellProps) 
   const [pendingNavigation, setPendingNavigation] = useState<PendingDashboardNavigation>(null)
   const [initialSection] = useState<DashboardSection>(currentSection === 'docs' ? 'home' : currentSection)
   const [initialContent] = useState<React.ReactNode | null>(currentSection === 'docs' ? null : children)
+  const effectivePendingNavigation =
+    pendingNavigation && pathname !== pendingNavigation.href && currentSection !== 'docs'
+      ? pendingNavigation
+      : null
   const displayedSection =
-    pendingNavigation && pathname !== pendingNavigation.href
-      ? pendingNavigation.section
+    effectivePendingNavigation
+      ? effectivePendingNavigation.section
       : currentSection
   const viewportActiveSection = displayedSection === 'docs' ? 'home' : displayedSection
   const isDocsRoute = currentSection === 'docs'
-
-  useEffect(() => {
-    if (!pendingNavigation) return
-    if (!pathname) return
-    if (pathname === pendingNavigation.href || currentSection === 'docs') {
-      setPendingNavigation(null)
-    }
-  }, [currentSection, pathname, pendingNavigation])
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#05070A]">

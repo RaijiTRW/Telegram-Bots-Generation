@@ -1,5 +1,5 @@
-import CmsScreen from '@/components/dashboard/screens/cms-screen'
+import { redirect } from 'next/navigation'
 
 export default function DashboardCmsPage() {
-  return <CmsScreen />
+  redirect('/dashboard/cms')
 }

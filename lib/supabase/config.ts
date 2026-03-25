@@ -6,14 +6,11 @@ export type MissingSupabaseConfigError = Error & {
   status: 503
 }
 
-function readEnv(name: 'NEXT_PUBLIC_SUPABASE_URL' | 'NEXT_PUBLIC_SUPABASE_ANON_KEY') {
-  const value = process.env[name]
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
-
 export function getSupabasePublicEnv() {
-  const url = readEnv('NEXT_PUBLIC_SUPABASE_URL')
-  const anonKey = readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const rawAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const url = typeof rawUrl === 'string' && rawUrl.trim() ? rawUrl.trim() : null
+  const anonKey = typeof rawAnonKey === 'string' && rawAnonKey.trim() ? rawAnonKey.trim() : null
 
   return {
     url,

@@ -1,12 +1,16 @@
 {
   "name": "cbtooll",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:nodes": "node ./scripts/check-bot-node-consistency.mjs",
+    "sanity:import:docs": "tsx scripts/import-docs-to-sanity.ts",
+    "sanity:normalize:docs": "tsx scripts/normalize-sanity-docs-pages.ts",
+    "sanity:repair:drafts": "tsx scripts/repair-sanity-docs-drafts.ts"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",
@@ -34,11 +38,14 @@
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
     "next-intl": "^4.8.2",
+    "next-sanity": "^12.1.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-simple-maps": "^3.0.0",
     "reactflow": "^11.11.4",
     "recharts": "^3.7.0",
+    "sanity": "^5.17.1",
+    "styled-components": "^6.3.12",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
@@ -50,6 +57,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

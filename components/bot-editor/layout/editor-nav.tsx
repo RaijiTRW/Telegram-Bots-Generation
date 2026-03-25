@@ -70,7 +70,7 @@ export function EditorNav({
   const locale = useLocale()
   const router = useRouter()
   const isCompact = mode === 'compact'
-  const canUseAiChat = viewerAccess.isAdmin || viewerAccess.entitlements.aiChat
+  const canUseAiChat = viewerAccess.isAdmin
   type NavTranslationKey = Parameters<typeof t>[0]
 
   const navItems = useMemo(() => {
@@ -106,7 +106,7 @@ export function EditorNav({
         labelKey,
         descKey,
         disabled: item.id === 'ai-chat' && !canUseAiChat,
-        badgeKey: item.id === 'ai-chat' && !canUseAiChat ? 'subscriptionBadge' : undefined,
+        badgeKey: item.id === 'ai-chat' ? 'soonBadge' : undefined,
       }
     })
   }, [canUseAiChat])
@@ -188,7 +188,12 @@ export function EditorNav({
           const isDisabled = Boolean(item.disabled)
           const label = t(item.labelKey as NavTranslationKey)
           const description = t(item.descKey as NavTranslationKey)
-          const disabledHint = isDisabled ? t('subscriptionRequired') : undefined
+          const disabledHint =
+            item.id === 'ai-chat' && isDisabled
+              ? t('soonLocked')
+              : isDisabled
+                ? t('subscriptionRequired')
+                : undefined
 
           return (
             <button
@@ -247,9 +252,9 @@ export function EditorNav({
                     </div>
                   </div>
                 )}
-                {isDisabled && (
+                {(isDisabled || (!isCompact && item.badgeKey)) && (
                   <div className="flex items-center gap-1.5 ml-2">
-                    <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                    {isDisabled ? <Lock className="w-3.5 h-3.5 text-zinc-500" /> : null}
                     {!isCompact && item.badgeKey && (
                       <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">
                         {t(item.badgeKey as NavTranslationKey)}

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from '@/components/motion-wrapper'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, ChevronDown, LayoutDashboard, User as UserIcon, Settings, LogOut } from 'lucide-react'
+import { User, ChevronDown, LayoutDashboard, User as UserIcon, Settings, LogOut, CreditCard } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { prefetchHrefOnce, schedulePrefetchHref } from '@/lib/navigation/prefetch'
 
@@ -23,6 +23,7 @@ export function UserMenuDropdown({ userName, userEmail, avatarUrl }: UserMenuDro
   const supabase = createClient()
   const t = useTranslations('header.userMenu')
   const dashboardHref = `/${locale}/dashboard`
+  const subscriptionHref = `/${locale}/dashboard/subscription`
   const profileHref = `/${locale}/dashboard/profile`
   const settingsHref = `/${locale}/dashboard/settings`
 
@@ -40,6 +41,7 @@ export function UserMenuDropdown({ userName, userEmail, avatarUrl }: UserMenuDro
 
   const menuItems = [
     { icon: LayoutDashboard, label: t('dashboard'), href: dashboardHref },
+    { icon: CreditCard, label: t('subscription'), href: subscriptionHref },
     { icon: UserIcon, label: t('profile'), href: profileHref },
     { icon: Settings, label: t('settings'), href: settingsHref },
   ]
@@ -50,9 +52,10 @@ export function UserMenuDropdown({ userName, userEmail, avatarUrl }: UserMenuDro
     }
 
     schedulePrefetchHref(router, dashboardHref)
+    schedulePrefetchHref(router, subscriptionHref)
     schedulePrefetchHref(router, profileHref)
     schedulePrefetchHref(router, settingsHref)
-  }, [dashboardHref, isDropdownOpen, profileHref, router, settingsHref])
+  }, [dashboardHref, isDropdownOpen, profileHref, router, settingsHref, subscriptionHref])
 
   return (
     <div

@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { randomUUID } from 'crypto'
-import type { BillingCurrency, PlanCode } from '@/lib/billing/types'
+import type { BillingCurrency, BillingInterval, PlanCode } from '@/lib/billing/types'
 
 type YooKassaRecord = Record<string, unknown>
 
@@ -66,20 +66,24 @@ async function yookassaRequest(
   return body || {}
 }
 
-export function buildSubscriptionDescription(planCode: PlanCode, locale = 'ru') {
+export function buildSubscriptionDescription(planCode: PlanCode, billingInterval: BillingInterval, locale = 'ru') {
   const prefix = locale === 'en' ? 'CBTooll subscription' : 'Подписка CBTooll'
+  const periodLabel = locale === 'en'
+    ? (billingInterval === 'year' ? 'yearly' : 'monthly')
+    : (billingInterval === 'year' ? 'годовая' : 'ежемесячная')
   if (planCode === 'business') {
-    return `${prefix}: Business`
+    return `${prefix}: Business (${periodLabel})`
   }
   if (planCode === 'enterprise') {
-    return `${prefix}: Enterprise`
+    return `${prefix}: Enterprise (${periodLabel})`
   }
-  return `${prefix}: Base`
+  return `${prefix}: Base (${periodLabel})`
 }
 
 export async function createYooKassaSubscriptionCheckout(input: {
   amount: number
   currency: BillingCurrency
+  billingInterval: BillingInterval
   returnUrl: string
   planCode: PlanCode
   userId: string
@@ -101,11 +105,12 @@ export async function createYooKassaSubscriptionCheckout(input: {
         type: 'redirect',
         return_url: input.returnUrl,
       },
-      description: buildSubscriptionDescription(input.planCode, input.locale),
+      description: buildSubscriptionDescription(input.planCode, input.billingInterval, input.locale),
       metadata: {
         scope: 'subscription',
         userId: input.userId,
         planCode: input.planCode,
+        billingInterval: input.billingInterval,
         transactionId: input.transactionId,
       },
     },
@@ -136,6 +141,7 @@ export async function chargeSavedYooKassaPaymentMethod(input: {
   currency: BillingCurrency
   paymentMethodId: string
   planCode: PlanCode
+  billingInterval: BillingInterval
   userId: string
   transactionId: string
   locale?: string
@@ -151,11 +157,12 @@ export async function chargeSavedYooKassaPaymentMethod(input: {
       },
       capture: true,
       payment_method_id: input.paymentMethodId,
-      description: buildSubscriptionDescription(input.planCode, input.locale),
+      description: buildSubscriptionDescription(input.planCode, input.billingInterval, input.locale),
       metadata: {
         scope: 'subscription-renewal',
         userId: input.userId,
         planCode: input.planCode,
+        billingInterval: input.billingInterval,
         transactionId: input.transactionId,
       },
     },

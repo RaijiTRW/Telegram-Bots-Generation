@@ -158,15 +158,19 @@ export function BotSettingsForm() {
         shortDescription: profileShortDescription,
       })
 
-      if (result.profileStyle) {
-        updateProfileStyleDraft(result.profileStyle)
+      const syncedProfileStyle = 'profileStyle' in result ? result.profileStyle : null
+      const syncWarnings = 'warnings' in result && Array.isArray(result.warnings) ? result.warnings : []
+      const syncError = 'error' in result ? result.error : null
+
+      if (syncedProfileStyle) {
+        updateProfileStyleDraft(syncedProfileStyle)
       }
 
       if (!result.success) {
-        const reason = String(result.error || '').trim()
+        const reason = String(syncError || '').trim()
         const warningText =
-          Array.isArray(result.warnings) && result.warnings.length > 0
-            ? ` ${result.warnings.join(' ')}`
+          syncWarnings.length > 0
+            ? ` ${syncWarnings.join(' ')}`
             : ''
         setStyleSyncMessage({
           tone: 'error',
@@ -177,10 +181,10 @@ export function BotSettingsForm() {
         return
       }
 
-      if (Array.isArray(result.warnings) && result.warnings.length > 0) {
+      if (syncWarnings.length > 0) {
         setStyleSyncMessage({
           tone: 'warning',
-          text: `${t('profileSyncDoneWithWarnings')} ${result.warnings.join(' ')}`.trim(),
+          text: `${t('profileSyncDoneWithWarnings')} ${syncWarnings.join(' ')}`.trim(),
         })
         return
       }

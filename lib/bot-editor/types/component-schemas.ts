@@ -1,6 +1,6 @@
 /**
  * Component Schemas for Telegram Bot Builder
- * Simplified types using 'any' to avoid compilation issues
+ * Component schemas used by the editor/runtime
  */
 
 // ============================================================================
@@ -33,8 +33,43 @@ export type TriggerType = 'command' | 'text' | 'callbackQuery' | 'photo' | 'any'
 export type MessageAttachmentType = 'photo' | 'video' | 'document' | 'audio'
 export type ScriptLanguage = 'javascript' | 'python'
 
+export interface KeyboardButton {
+  id: string
+  text: string
+  actionType?: string
+  callbackData?: string
+  callback_data?: string
+  url?: string
+  starsUrl?: string
+  payStars?: boolean
+  switchInlineQuery?: string
+  switchInlineQueryCurrentChat?: string
+}
+
+export interface KeyboardRow {
+  buttons: KeyboardButton[]
+}
+
+export interface KeyboardData {
+  rows: KeyboardRow[]
+  resize?: boolean
+  oneTime?: boolean
+  selective?: boolean
+}
+
+export interface ValidationRule {
+  type: string
+  value?: unknown
+  errorMessage?: string
+}
+
+export interface ActionPayload {
+  type?: string
+  [key: string]: unknown
+}
+
 // ============================================================================
-// NODE DATA TYPES (simplified with 'any')
+// NODE DATA TYPES
 // ============================================================================
 
 export interface BaseNodeData {
@@ -53,7 +88,7 @@ export interface MessageNodeData extends BaseNodeData {
   parseMode?: ParseMode
   disableWebPagePreview?: boolean
   disableNotification?: boolean
-  keyboard?: any
+  keyboard?: KeyboardData
   attachments?: Array<{
     type: MessageAttachmentType
     source: string // URL or Telegram file_id
@@ -65,20 +100,20 @@ export interface InputNodeData extends BaseNodeData {
   question: string
   variableName: string
   parseMode?: ParseMode
-  validation?: any[]
+  validation?: ValidationRule[]
   errorMessage?: string
-  keyboard?: any
+  keyboard?: KeyboardData
   forceReply?: boolean
   inputPlaceholder?: string
   skipButton?: boolean
-  skipValue?: any
+  skipValue?: string | number
 }
 
 export interface ConditionNodeData extends BaseNodeData {
   type: 'condition'
   variable: string
   operator: ComparisonOperator
-  value: any
+  value: string | number
   trueLabel?: string
   falseLabel?: string
 }
@@ -86,7 +121,7 @@ export interface ConditionNodeData extends BaseNodeData {
 export interface RouterCase {
   id: string
   label?: string
-  value: any
+  value: unknown
 }
 
 export interface RouterNodeData extends BaseNodeData {
@@ -99,7 +134,7 @@ export interface RouterNodeData extends BaseNodeData {
 
 export interface ActionNodeData extends BaseNodeData {
   type: 'action'
-  action: any
+  action: ActionPayload
   onError?: string
   retryCount?: number
 }
@@ -119,7 +154,7 @@ export interface HttpNodeData extends BaseNodeData {
   method: HttpMethod
   headers?: Array<{ key: string; value: string }>
   queryParams?: Array<{ key: string; value: string }>
-  body?: any
+  body?: unknown
   bodyType?: 'json' | 'form' | 'raw' | 'none'
   saveToVariable?: string
   timeout?: number
@@ -129,8 +164,8 @@ export interface WebhookNodeData extends BaseNodeData {
   type: 'webhook'
   url: string
   method: HttpMethod
-  headers?: any
-  body?: any
+  headers?: Array<{ key: string; value: string }>
+  body?: unknown
   bodyType?: 'json' | 'form' | 'raw'
   saveToVariable?: string
   timeout?: number
@@ -232,7 +267,7 @@ export interface ReplyKeyboardNodeData extends BaseNodeData {
   variantKey?: string // `base` or `rule:<id>`
   variable?: string
   operator?: ComparisonOperator
-  value?: any
+  value?: unknown
   trueMode?: 'system' | 'variant' | 'clear'
   trueVariantKey?: string
   falseMode?: 'system' | 'variant' | 'clear'
@@ -444,7 +479,7 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
 // DEFAULT DATA
 // ============================================================================
 
-export const DEFAULT_NODE_DATA: Record<string, any> = {
+export const DEFAULT_NODE_DATA: Record<string, Partial<NodeData>> = {
   message: {
     text: '',
     parseMode: 'None',
@@ -549,6 +584,17 @@ export const DEFAULT_NODE_DATA: Record<string, any> = {
   wait: {
     waitFor: 'message',
     timeout: 300000,
+  },
+  script: {
+    language: 'javascript',
+    inputPath: '',
+    saveToVariable: '',
+    timeoutMs: 1000,
+    code: [
+      '// Use `input`, `context`, `vars` and assign to `result`.',
+      '// Example:',
+      "result = String(input ?? '').toUpperCase()",
+    ].join('\n'),
   },
   scheduler: {
     mode: 'delay',

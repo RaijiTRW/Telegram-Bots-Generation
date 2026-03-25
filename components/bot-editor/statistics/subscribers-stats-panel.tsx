@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
+import { getBotSubscribersAnalyticsAction } from '@/lib/bot-editor/actions/editor-actions'
 import type {
   BotSubscriberItem,
   BotSubscribersAnalytics,
@@ -63,23 +64,16 @@ export function SubscribersStatsPanel() {
     setError(null)
 
     try {
-      const query = new URLSearchParams()
-      query.set('period', period)
-      query.set('source', source)
-      query.set('page', String(page))
-      query.set('pageSize', String(pageSize))
-      if (search) query.set('search', search)
-
-      const response = await fetch(`/api/bots/${encodeURIComponent(botId)}/subscribers?${query.toString()}`, {
-        method: 'GET',
-        cache: 'no-store',
-      })
-
-      const result = await response.json() as {
-        success?: boolean
-        error?: string
-        data?: BotSubscribersAnalytics
-      }
+      const result = await getBotSubscribersAnalyticsAction(
+        botId,
+        {
+          period,
+          source,
+          search,
+        },
+        page,
+        pageSize
+      )
 
       if (!result.success || !result.data) {
         setData(null)

@@ -1,13 +1,21 @@
 'use client'
 
-import { Fragment } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import Link from 'next/link'
 import { Loader2, Lock, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { PLAN_ORDER, getAllPlanDefinitions, getPricingFeatureGroups } from '@/lib/billing/plans'
+import {
+  PLAN_ORDER,
+  getAllPlanDefinitions,
+  getPlanFullYearPriceWithoutDiscount,
+  getPlanMonthlyEquivalent,
+  getPlanPrice,
+  getPricingFeatureGroups,
+} from '@/lib/billing/plans'
 import type {
   BillingCurrency,
+  BillingInterval,
   PlanCode,
   PricingFeatureCell,
 } from '@/lib/billing/types'
@@ -24,9 +32,11 @@ export type PricingComparisonAction = {
 interface PricingComparisonProps {
   locale: string
   currency: BillingCurrency
+  billingInterval: BillingInterval
   currentPlanCode?: PlanCode | null
   title?: string
   subtitle?: string
+  headerControl?: ReactNode
   actions?: Partial<Record<PlanCode, PricingComparisonAction>>
 }
 
@@ -44,6 +54,10 @@ function formatPrice(value: number, currency: BillingCurrency, locale: string) {
 
 function formatPerMonth(locale: string) {
   return locale === 'en' ? '/ month' : '/ мес'
+}
+
+function formatPerYear(locale: string) {
+  return locale === 'en' ? '/ year' : '/ год'
 }
 
 function renderCell(cell: PricingFeatureCell, locale: string) {
@@ -77,9 +91,11 @@ function renderCell(cell: PricingFeatureCell, locale: string) {
 export function PricingComparison({
   locale,
   currency,
+  billingInterval,
   currentPlanCode,
   title,
   subtitle,
+  headerControl,
   actions,
 }: PricingComparisonProps) {
   const plans = getAllPlanDefinitions(locale)
@@ -94,6 +110,8 @@ export function PricingComparison({
         </div>
       ) : null}
 
+      {headerControl ? <div className="flex justify-center">{headerControl}</div> : null}
+
       <div className="overflow-hidden rounded-[28px] border border-white/10 bg-zinc-950/70 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <div className="border-b border-white/10 p-4 md:p-6">
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -102,6 +120,9 @@ export function PricingComparison({
               if (!plan) return null
               const action = actions?.[planCode]
               const isCurrent = currentPlanCode === planCode
+              const planPrice = getPlanPrice(plan.code, currency, billingInterval)
+              const fullYearPrice = getPlanFullYearPriceWithoutDiscount(plan.code, currency)
+              const monthlyEquivalent = getPlanMonthlyEquivalent(plan.code, currency, billingInterval)
 
               return (
                 <div
@@ -114,10 +135,19 @@ export function PricingComparison({
                   )}
                 >
                   <div className="flex min-h-[24px] items-center justify-between gap-2">
-                    {plan.badge ? (
-                      <span className="rounded-full border border-[#24A1DE]/20 bg-[#24A1DE]/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[#9EDFFF]">
-                        {plan.badge}
-                      </span>
+                    {plan.badge || plan.recommendedBadge ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {plan.badge ? (
+                          <span className="rounded-full border border-[#24A1DE]/20 bg-[#24A1DE]/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[#9EDFFF]">
+                            {plan.badge}
+                          </span>
+                        ) : null}
+                        {plan.recommendedBadge ? (
+                          <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-emerald-300">
+                            {plan.recommendedBadge}
+                          </span>
+                        ) : null}
+                      </div>
                     ) : (
                       <span />
                     )}
@@ -135,10 +165,27 @@ export function PricingComparison({
 
                   <div className="mt-6 flex items-end gap-2">
                     <div className="text-3xl font-bold text-white">
-                      {formatPrice(plan.monthlyPrice[currency], currency, locale)}
+                      {formatPrice(planPrice, currency, locale)}
                     </div>
-                    <div className="pb-1 text-sm text-zinc-500">{formatPerMonth(locale)}</div>
+                    <div className="pb-1 text-sm text-zinc-500">
+                      {billingInterval === 'year' ? formatPerYear(locale) : formatPerMonth(locale)}
+                    </div>
                   </div>
+                  {billingInterval === 'year' && planPrice > 0 ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-zinc-500 line-through">
+                        {formatPrice(fullYearPrice, currency, locale)}
+                      </span>
+                      <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                        -75%
+                      </span>
+                      <span className="text-xs text-zinc-400">
+                        {locale === 'en'
+                          ? `Equivalent to ${formatPrice(monthlyEquivalent, currency, locale)} / month`
+                          : `Эквивалент ${formatPrice(monthlyEquivalent, currency, locale)} / мес`}
+                      </span>
+                    </div>
+                  ) : null}
 
                   <p className="mt-4 min-h-[72px] text-sm leading-6 text-zinc-300">
                     {plan.description}
@@ -194,11 +241,16 @@ export function PricingComparison({
 
                   return (
                     <th key={plan.code} className="px-4 py-4 text-center align-middle">
-                      <div className="inline-flex items-center gap-2">
+                      <div className="inline-flex flex-wrap items-center justify-center gap-2">
                         <span className="text-sm font-semibold text-white">{plan.name}</span>
-                        {plan.popular ? (
+                        {plan.badge ? (
                           <span className="rounded-full border border-[#24A1DE]/20 bg-[#24A1DE]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[#9EDFFF]">
-                            {locale === 'en' ? 'Popular' : 'Популярный'}
+                            {plan.badge}
+                          </span>
+                        ) : null}
+                        {plan.recommendedBadge ? (
+                          <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">
+                            {plan.recommendedBadge}
                           </span>
                         ) : null}
                       </div>
@@ -216,10 +268,17 @@ export function PricingComparison({
                       {group.label}
                     </td>
                   </tr>
-                  {group.rows.map((row) => (
+                      {group.rows.map((row) => (
                     <tr key={row.id} className="border-b border-white/[0.06] align-middle">
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-white">{row.label}</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-sm font-medium text-white">{row.label}</div>
+                          {row.soon ? (
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
+                              {locale === 'en' ? 'Soon' : 'Скоро'}
+                            </span>
+                          ) : null}
+                        </div>
                         {row.description ? (
                           <div className="mt-1 text-xs text-zinc-500">{row.description}</div>
                         ) : null}
@@ -240,8 +299,8 @@ export function PricingComparison({
         <div className="flex items-center gap-2 border-t border-white/10 px-6 py-4 text-xs text-zinc-500">
           <Lock className="h-3.5 w-3.5 text-zinc-600" />
           {locale === 'en'
-            ? 'Managed hosting limits are plan-based now. Full hosting orchestration is prepared as a separate rollout.'
-            : 'Лимиты managed hosting уже завязаны на тариф. Полная оркестрация хостинга будет добавлена отдельным этапом.'}
+            ? 'Features marked as "Soon" are already assigned to plans, and their access rules and limits are fixed in advance.'
+            : 'Разделы и функции со статусом «Скоро» уже закреплены за тарифами, а доступы и лимиты по ним зафиксированы заранее.'}
         </div>
       </div>
     </section>

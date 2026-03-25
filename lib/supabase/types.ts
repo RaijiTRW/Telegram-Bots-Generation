@@ -48,6 +48,7 @@ export interface Database {
           plan_code: 'base' | 'business' | 'enterprise'
           status: 'active' | 'past_due' | 'canceled' | 'expired' | 'incomplete'
           currency: 'RUB' | 'USD'
+          billing_interval: 'month' | 'year'
           billing_provider: 'yookassa'
           price_amount: number
           started_at: string
@@ -68,6 +69,7 @@ export interface Database {
           plan_code?: 'base' | 'business' | 'enterprise'
           status?: 'active' | 'past_due' | 'canceled' | 'expired' | 'incomplete'
           currency?: 'RUB' | 'USD'
+          billing_interval?: 'month' | 'year'
           billing_provider?: 'yookassa'
           price_amount?: number
           started_at?: string
@@ -88,6 +90,7 @@ export interface Database {
           plan_code?: 'base' | 'business' | 'enterprise'
           status?: 'active' | 'past_due' | 'canceled' | 'expired' | 'incomplete'
           currency?: 'RUB' | 'USD'
+          billing_interval?: 'month' | 'year'
           billing_provider?: 'yookassa'
           price_amount?: number
           started_at?: string
@@ -118,6 +121,7 @@ export interface Database {
           id: string
           user_id: string
           plan_code: 'base' | 'business' | 'enterprise'
+          billing_interval: 'month' | 'year'
           kind: 'initial' | 'renewal' | 'change'
           status: 'pending' | 'succeeded' | 'failed' | 'canceled'
           amount: number
@@ -139,6 +143,7 @@ export interface Database {
           id?: string
           user_id: string
           plan_code: 'base' | 'business' | 'enterprise'
+          billing_interval: 'month' | 'year'
           kind: 'initial' | 'renewal' | 'change'
           status?: 'pending' | 'succeeded' | 'failed' | 'canceled'
           amount: number
@@ -160,6 +165,7 @@ export interface Database {
           id?: string
           user_id?: string
           plan_code?: 'base' | 'business' | 'enterprise'
+          billing_interval?: 'month' | 'year'
           kind?: 'initial' | 'renewal' | 'change'
           status?: 'pending' | 'succeeded' | 'failed' | 'canceled'
           amount?: number

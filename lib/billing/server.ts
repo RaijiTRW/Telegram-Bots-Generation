@@ -1,9 +1,10 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPlanDefinition, getPlanEntitlements } from '@/lib/billing/plans'
+import { getBillingIntervalMonthCount, getPlanEntitlements, getPlanPrice } from '@/lib/billing/plans'
 import type {
   BillingCurrency,
+  BillingInterval,
   PlanCode,
   PlanEntitlements,
   PendingSubscriptionTransaction,
@@ -34,6 +35,10 @@ function addMonths(isoValue: string, months: number) {
 
 function normalizeCurrency(value: unknown): BillingCurrency {
   return String(value || '').toUpperCase() === 'USD' ? 'USD' : 'RUB'
+}
+
+function normalizeBillingInterval(value: unknown): BillingInterval {
+  return String(value || '').trim().toLowerCase() === 'year' ? 'year' : 'month'
 }
 
 function normalizeRole(value: unknown): UserRole {
@@ -119,6 +124,7 @@ function buildPendingTransaction(row: SubscriptionTransactionRow | null): Pendin
   return {
     id: row.id,
     planCode: row.plan_code,
+    billingInterval: normalizeBillingInterval(row.billing_interval),
     kind: row.kind,
     amount: Number(row.amount || 0),
     currency: row.currency,
@@ -129,9 +135,9 @@ function buildPendingTransaction(row: SubscriptionTransactionRow | null): Pendin
 
 function buildFallbackViewerAccess(): ViewerAccess {
   const currency: BillingCurrency = 'RUB'
+  const billingInterval: BillingInterval = 'month'
   const availableCurrencies = getAvailableBillingCurrencies()
   const entitlements = getPlanEntitlements('base')
-  const definition = getPlanDefinition('base', 'en')
 
   return {
     role: 'user',
@@ -140,7 +146,8 @@ function buildFallbackViewerAccess(): ViewerAccess {
     effectivePlanCode: 'base',
     status: 'active',
     currency,
-    priceAmount: Number(definition.monthlyPrice[currency]),
+    priceAmount: getPlanPrice('base', currency, billingInterval),
+    billingInterval,
     billingProvider: 'yookassa',
     cancelAtPeriodEnd: false,
     startedAt: null,
@@ -185,6 +192,7 @@ export async function ensureUserSubscription(userId: string): Promise<UserSubscr
       plan_code: 'base',
       status: 'active',
       currency: 'RUB',
+      billing_interval: 'month',
       billing_provider: 'yookassa',
       price_amount: 0,
       started_at: nowIso(),
@@ -292,7 +300,7 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
 
   const currentPlanCode = subscriptionRow?.plan_code || 'base'
   const currentCurrency = normalizeCurrency(subscriptionRow?.currency)
-  const definition = getPlanDefinition(currentPlanCode, 'en')
+  const currentBillingInterval = normalizeBillingInterval(subscriptionRow?.billing_interval)
   const availableCurrencies = getAvailableBillingCurrencies()
 
   return {
@@ -302,7 +310,8 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
     effectivePlanCode,
     status: isAdmin ? 'active' : derivedStatus,
     currency: availableCurrencies.includes(currentCurrency) ? currentCurrency : 'RUB',
-    priceAmount: Number(subscriptionRow?.price_amount ?? definition.monthlyPrice[currentCurrency]),
+    priceAmount: Number(subscriptionRow?.price_amount ?? getPlanPrice(currentPlanCode, currentCurrency, currentBillingInterval)),
+    billingInterval: currentBillingInterval,
     billingProvider: 'yookassa',
     cancelAtPeriodEnd: Boolean(subscriptionRow?.cancel_at_period_end),
     startedAt: subscriptionRow?.started_at || null,
@@ -320,15 +329,19 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
   }
 }
 
-export function getNextPeriodRange(fromIso = nowIso()) {
+export function getNextPeriodRangeForInterval(interval: BillingInterval, fromIso = nowIso()) {
   return {
     currentPeriodStart: fromIso,
-    currentPeriodEnd: addMonths(fromIso, 1),
+    currentPeriodEnd: addMonths(fromIso, getBillingIntervalMonthCount(interval)),
   }
 }
 
-export function subscriptionPriceFor(planCode: PlanCode, currency: BillingCurrency) {
-  return getPlanDefinition(planCode, 'en').monthlyPrice[currency]
+export function getNextPeriodRange(fromIso = nowIso(), interval: BillingInterval = 'month') {
+  return getNextPeriodRangeForInterval(interval, fromIso)
+}
+
+export function subscriptionPriceFor(planCode: PlanCode, currency: BillingCurrency, interval: BillingInterval = 'month') {
+  return getPlanPrice(planCode, currency, interval)
 }
 
 export function mergeJson(

@@ -3,13 +3,13 @@
  * Handles CRUD operations for bots in Supabase
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   Bot,
   BotConfig,
   BotMetadata,
   BotStatus,
 } from '../types/bot.types'
-import type { NodeData } from '../types/component-schemas'
 
 // Table names (adjust to your Supabase schema)
 const BOTS_TABLE = 'bots'
@@ -36,14 +36,31 @@ export interface BotWithConfig extends Bot {
   config: BotConfig
 }
 
+type BotRow = {
+  id: string
+  name: string
+  description: string | null
+  status?: BotStatus | null
+  metadata?: Record<string, unknown> | null
+  created_at?: string
+  updated_at?: string
+}
+
+type BotConfigRow = {
+  nodes?: BotConfig['nodes']
+  edges?: BotConfig['edges']
+  variables?: BotConfig['variables']
+  version?: string
+}
+
 // ============================================================================
 // BOT SERVICE
 // ============================================================================
 
 export class BotService {
-  private supabase: any
+  private supabase: SupabaseClient
 
-  constructor(supabaseClient: any) {
+  constructor(supabaseClient: SupabaseClient) {
     this.supabase = supabaseClient
   }
 
@@ -134,7 +151,13 @@ export class BotService {
    * Update bot metadata
    */
   async updateBot(botId: string, input: UpdateBotInput): Promise<Bot> {
-    const updateData: any = {}
+    const updateData: Partial<{
+      name: string
+      description: string | null
+      status: BotStatus
+      metadata: BotMetadata
+      updated_at: string
+    }> = {}
     if (input.name) updateData.name = input.name
     if (input.description !== undefined) updateData.description = input.description
     if (input.status) updateData.status = input.status
@@ -245,7 +268,11 @@ export class BotService {
   // MAPPERS
   // ============================================================================
 
-  private mapBotFromDb(data: any): Bot {
+  private mapBotFromDb(data: BotRow): Bot {
+    const normalizedStatus: BotStatus =
+      data.status === 'active' || data.status === 'archived' || data.status === 'error' || data.status === 'draft'
+        ? data.status
+        : 'draft'
     const rawMetadata = (data.metadata && typeof data.metadata === 'object')
       ? { ...(data.metadata as Record<string, unknown>) }
       : {}
@@ -264,7 +291,7 @@ export class BotService {
       id: data.id,
       name: data.name,
       description: data.description,
-      status: data.status,
+      status: normalizedStatus,
       config: {
         nodes: [],
         edges: [],
@@ -280,7 +307,7 @@ export class BotService {
     }
   }
 
-  private mapConfigFromDb(data: any): BotConfig {
+  private mapConfigFromDb(data: BotConfigRow): BotConfig {
     return {
       nodes: data.nodes || [],
       edges: data.edges || [],
@@ -289,7 +316,7 @@ export class BotService {
     }
   }
 
-  private mapConfigToDb(config: BotConfig): any {
+  private mapConfigToDb(config: BotConfig): BotConfigRow {
     return {
       nodes: config.nodes,
       edges: config.edges,
@@ -306,7 +333,7 @@ export class BotService {
 /**
  * Create bot service instance
  */
-export function createBotService(supabaseClient: any): BotService {
+export function createBotService(supabaseClient: SupabaseClient): BotService {
   return new BotService(supabaseClient)
 }
 
@@ -330,14 +357,13 @@ export function validateBotConfig(config: BotConfig): { valid: boolean; errors: 
   }
 
   // Check for disconnected nodes
-  const nodeIds = new Set(config.nodes.map(n => n.id))
   const connectedNodeIds = new Set([
     ...triggerNodes.map(n => n.id),
     ...config.edges.map(e => e.target),
   ])
 
   for (const node of config.nodes) {
-    if (node.type !== 'trigger' && !connectedNodeIds.has(node.id)) {
+    if (node.type !== 'trigger' && node.type !== 'comment' && !connectedNodeIds.has(node.id)) {
       errors.push(`Node "${node.id}" is disconnected from the workflow`)
     }
   }

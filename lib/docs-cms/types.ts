@@ -130,6 +130,7 @@ export type DocsPageNode = {
   locale: DocsLocale
   parentId: string | null
   title: string
+  summary?: string
   slug: string
   path: string
   sortOrder: number

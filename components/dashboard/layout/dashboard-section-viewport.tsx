@@ -18,7 +18,6 @@ export type DashboardSection =
   | 'statistics'
   | 'subscription'
   | 'crm'
-  | 'cms'
   | 'admin'
   | 'profile'
   | 'settings'
@@ -43,7 +42,6 @@ const DASHBOARD_WARM_ORDER: DashboardSection[] = [
   'settings',
   'crm',
   'admin',
-  'cms',
 ]
 
 const DASHBOARD_SECTION_LABELS: Record<DashboardSection, string> = {
@@ -52,7 +50,6 @@ const DASHBOARD_SECTION_LABELS: Record<DashboardSection, string> = {
   statistics: 'Statistics',
   subscription: 'Subscription',
   crm: 'CRM',
-  cms: 'CMS',
   admin: 'Admin',
   profile: 'Profile',
   settings: 'Settings',
@@ -64,7 +61,6 @@ const dashboardSectionLoaders: Record<DashboardSection, () => Promise<DashboardS
   statistics: () => import('@/components/dashboard/screens/statistics-screen'),
   subscription: () => import('@/components/dashboard/screens/subscription-screen'),
   crm: () => import('@/components/dashboard/screens/crm-screen'),
-  cms: () => import('@/components/dashboard/screens/cms-screen'),
   admin: () => import('@/components/dashboard/screens/admin-screen'),
   profile: () => import('@/components/dashboard/screens/profile-screen'),
   settings: () => import('@/components/dashboard/screens/settings-screen'),
@@ -78,7 +74,7 @@ function readCachedDashboardSection(section: DashboardSection) {
 }
 
 function canWarmSection(section: DashboardSection, viewerAccess: ViewerAccess) {
-  if (section === 'admin' || section === 'cms' || section === 'crm') {
+  if (section === 'admin' || section === 'crm') {
     return viewerAccess.isAdmin
   }
 

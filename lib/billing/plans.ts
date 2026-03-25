@@ -1,5 +1,6 @@
 import type {
   BillingCurrency,
+  BillingInterval,
   PlanCode,
   PlanDefinition,
   PlanEntitlements,
@@ -8,6 +9,7 @@ import type {
 } from '@/lib/billing/types'
 
 export const PLAN_ORDER: PlanCode[] = ['base', 'business', 'enterprise']
+export const YEARLY_BILLING_DISCOUNT_PERCENT = 75
 
 const PLAN_ENTITLEMENTS: Record<PlanCode, PlanEntitlements> = {
   base: {
@@ -70,26 +72,42 @@ function isRu(locale: string) {
   return locale !== 'en'
 }
 
+function roundPrice(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+function buildYearlyPriceMap(monthlyPrice: Record<BillingCurrency, number>) {
+  return {
+    RUB: roundPrice(monthlyPrice.RUB * 12 * (1 - YEARLY_BILLING_DISCOUNT_PERCENT / 100)),
+    USD: roundPrice(monthlyPrice.USD * 12 * (1 - YEARLY_BILLING_DISCOUNT_PERCENT / 100)),
+  } satisfies Record<BillingCurrency, number>
+}
+
 function featureRow(
   id: string,
   locale: string,
   description: { ru?: string; en?: string },
-  values: PricingFeatureRow['values']
+  values: PricingFeatureRow['values'],
+  options?: Pick<PricingFeatureRow, 'soon'>
 ): PricingFeatureRow {
   return {
     id,
     label: isRu(locale) ? description.ru || description.en || id : description.en || description.ru || id,
+    ...(options || {}),
     values,
   }
 }
 
 export function getPlanDefinition(planCode: PlanCode, locale: string): PlanDefinition {
   const ru = isRu(locale)
+  const monthlyPrice = {
+    RUB: planCode === 'base' ? 0 : planCode === 'business' ? 1499 : 3499,
+    USD: planCode === 'base' ? 0 : planCode === 'business' ? 18.99 : 38.99,
+  } satisfies Record<BillingCurrency, number>
   const shared = {
-    monthlyPrice: {
-      RUB: planCode === 'base' ? 0 : planCode === 'business' ? 1499 : 3499,
-      USD: planCode === 'base' ? 0 : planCode === 'business' ? 18.99 : 38.99,
-    },
+    monthlyPrice,
+    yearlyPrice: buildYearlyPriceMap(monthlyPrice),
+    yearlyDiscountPercent: YEARLY_BILLING_DISCOUNT_PERCENT,
     entitlements: PLAN_ENTITLEMENTS[planCode],
   }
 
@@ -117,6 +135,7 @@ export function getPlanDefinition(planCode: PlanCode, locale: string): PlanDefin
         ? 'Основной тариф для бизнеса: CRM, базовая dashboard-аналитика, AI-ноды и managed hosting.'
         : 'Core business plan with CRM, dashboard analytics, AI nodes, and managed hosting.',
       badge: ru ? 'Самый популярный' : 'Most popular',
+      recommendedBadge: ru ? 'Рекомендуем' : 'Recommended',
       popular: true,
       ...shared,
       spotlightFeatures: ru
@@ -147,8 +166,22 @@ export function getPlanEntitlements(planCode: PlanCode): PlanEntitlements {
   return PLAN_ENTITLEMENTS[planCode]
 }
 
-export function getPlanPrice(planCode: PlanCode, currency: BillingCurrency): number {
-  return getPlanDefinition(planCode, 'en').monthlyPrice[currency]
+export function getBillingIntervalMonthCount(interval: BillingInterval): number {
+  return interval === 'year' ? 12 : 1
+}
+
+export function getPlanPrice(planCode: PlanCode, currency: BillingCurrency, interval: BillingInterval = 'month'): number {
+  const definition = getPlanDefinition(planCode, 'en')
+  return interval === 'year' ? definition.yearlyPrice[currency] : definition.monthlyPrice[currency]
+}
+
+export function getPlanFullYearPriceWithoutDiscount(planCode: PlanCode, currency: BillingCurrency): number {
+  return roundPrice(getPlanDefinition(planCode, 'en').monthlyPrice[currency] * 12)
+}
+
+export function getPlanMonthlyEquivalent(planCode: PlanCode, currency: BillingCurrency, interval: BillingInterval = 'month'): number {
+  const price = getPlanPrice(planCode, currency, interval)
+  return interval === 'year' ? roundPrice(price / 12) : price
 }
 
 export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
@@ -182,7 +215,7 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           base: { kind: 'excluded' },
           business: { kind: 'included' },
           enterprise: { kind: 'included' },
-        }),
+        }, { soon: true }),
       ],
     },
     {
@@ -208,7 +241,7 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           base: { kind: 'excluded' },
           business: { kind: 'included' },
           enterprise: { kind: 'included' },
-        }),
+        }, { soon: true }),
       ],
     },
     {
@@ -219,7 +252,7 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           base: { kind: 'excluded' },
           business: { kind: 'included' },
           enterprise: { kind: 'included' },
-        }),
+        }, { soon: true }),
         featureRow('ai-chat', locale, { ru: 'AI Chat', en: 'AI Chat' }, {
           base: { kind: 'excluded' },
           business: { kind: 'excluded' },
@@ -229,12 +262,12 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           base: { kind: 'excluded' },
           business: { kind: 'included' },
           enterprise: { kind: 'included' },
-        }),
+        }, { soon: true }),
         featureRow('token-topups', locale, { ru: 'Докупка токенов для AI', en: 'AI token top-ups' }, {
           base: { kind: 'excluded' },
           business: { kind: 'excluded' },
           enterprise: { kind: 'included' },
-        }),
+        }, { soon: true }),
       ],
     },
     {

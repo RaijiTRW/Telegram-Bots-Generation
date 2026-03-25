@@ -87,7 +87,7 @@ export default function CanvasPage() {
     })
 
     if (!result.success) {
-      setLogsFetchError(result.error || 'logs_error')
+      setLogsFetchError(('error' in result ? result.error : null) || 'logs_error')
       setLogsFetchErrorTs(Date.now())
       return
     }
@@ -257,12 +257,13 @@ export default function CanvasPage() {
       await fetchLogs(false)
 
       if (!stopResult.success) {
-        setError(stopResult.error || t('errorStopFallback'))
+        setError(('error' in stopResult ? stopResult.error : null) || t('errorStopFallback'))
         return
       }
 
-      if (stopResult.bot) {
-        setBot(stopResult.bot)
+      const stoppedBot = stopResult.success && 'bot' in stopResult ? stopResult.bot : null
+      if (stoppedBot) {
+        setBot(stoppedBot)
       }
       setIsDirty(false)
 
@@ -287,17 +288,19 @@ export default function CanvasPage() {
     await fetchLogs(false)
 
     if (!result.success) {
-      setError(result.error || t('errorStartFallback'))
+      setError(('error' in result ? result.error : null) || t('errorStartFallback'))
       return
     }
 
-    if (result.bot) {
-      setBot(result.bot)
+    const startedBot = result.success && 'bot' in result ? result.bot : null
+    if (startedBot) {
+      setBot(startedBot)
     }
     setIsDirty(false)
 
-    if (result.deepLink && autoOpenTelegramAfterTest) {
-      window.open(result.deepLink, '_blank', 'noopener,noreferrer')
+    const deepLink = result.success && 'deepLink' in result ? result.deepLink : null
+    if (deepLink && autoOpenTelegramAfterTest) {
+      window.open(deepLink, '_blank', 'noopener,noreferrer')
     }
   }, [botId, config.variables, config.version, isTestActive, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, t])
 
@@ -317,7 +320,7 @@ export default function CanvasPage() {
     })
 
     if (!result.success) {
-      setError(result.error || t('errorSaveFallback'))
+      setError(('error' in result ? result.error : null) || t('errorSaveFallback'))
       return false
     }
 
@@ -409,7 +412,7 @@ export default function CanvasPage() {
     try {
       const result = await clearBotTestLogsAction(botId)
       if (!result.success) {
-        setError(result.error || t('logsClearError'))
+        setError(('error' in result ? result.error : null) || t('logsClearError'))
         return
       }
 

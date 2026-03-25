@@ -6,6 +6,7 @@ import { Handle, Position, NodeProps, useUpdateNodeInternals } from 'reactflow'
 import { useTranslations } from 'next-intl'
 import {
   MessageSquare,
+  MessageCircle,
   GitBranch,
   Zap,
   Code2,
@@ -40,6 +41,8 @@ const getNodeStyles = (type: string) => {
       return `${baseNodeStyles} bg-emerald-500/10 border-emerald-500/30`
     case 'replyKeyboard':
       return `${baseNodeStyles} bg-sky-500/10 border-sky-500/30`
+    case 'wait':
+      return `${baseNodeStyles} bg-teal-500/10 border-teal-500/30`
     case 'script':
       return `${baseNodeStyles} bg-cyan-500/10 border-cyan-500/30`
     case 'action':
@@ -60,6 +63,8 @@ const getNodeStyles = (type: string) => {
       return `${baseNodeStyles} bg-yellow-400/10 border-yellow-400/30`
     case 'trigger':
       return `${baseNodeStyles} bg-indigo-500/10 border-indigo-500/30`
+    case 'comment':
+      return `${baseNodeStyles} bg-zinc-500/10 border-zinc-500/30 border-dashed`
     default:
       return `${baseNodeStyles} bg-zinc-500/10 border-zinc-500/30`
   }
@@ -80,6 +85,8 @@ const getNodeIcon = (type: string) => {
       return <Clock className={iconClassName} style={{ color: nodeColor }} />
     case 'replyKeyboard':
       return <Keyboard className={iconClassName} style={{ color: nodeColor }} />
+    case 'wait':
+      return <Clock className={iconClassName} style={{ color: nodeColor }} />
     case 'script':
       return <Code2 className={iconClassName} style={{ color: nodeColor }} />
     case 'action':
@@ -98,6 +105,8 @@ const getNodeIcon = (type: string) => {
       return <Star className={iconClassName} style={{ color: nodeColor }} />
     case 'trigger':
       return <Play className={iconClassName} style={{ color: nodeColor }} />
+    case 'comment':
+      return <MessageCircle className={iconClassName} style={{ color: nodeColor }} />
     default:
       return <Settings className={iconClassName} style={{ color: nodeColor }} />
   }
@@ -110,6 +119,7 @@ const getNodeColor = (type: string) => {
     case 'router': return '#EAB308'
     case 'scheduler': return '#22C55E'
     case 'replyKeyboard': return '#0EA5E9'
+    case 'wait': return '#14B8A6'
     case 'script': return '#06B6D4'
     case 'action': return '#8B5CF6'
     case 'input': return '#10B981'
@@ -120,6 +130,7 @@ const getNodeColor = (type: string) => {
     case 'paymentRobokassa': return '#F97316'
     case 'paymentStars': return '#FACC15'
     case 'trigger': return '#6366F1'
+    case 'comment': return '#6B7280'
     default: return '#71717A'
   }
 }
@@ -204,6 +215,14 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'trigger'
       ? getTriggerNodeLabel(dataRecord)
       : String(dataRecord.__label ?? dataRecord.label ?? normalizedType)
+  const commentPreview =
+    normalizedType === 'comment'
+      ? String(dataRecord.text || '').trim()
+      : ''
+  const waitPreview =
+    normalizedType === 'wait'
+      ? String(dataRecord.waitFor || '').trim()
+      : ''
 
   const setRouterCaseRowRef = useCallback((caseId: string, element: HTMLDivElement | null) => {
     routerCaseRowRefs.current[caseId] = element
@@ -263,7 +282,7 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
       className={`${getNodeStyles(normalizedType)} ${selected ? 'ring-2 ring-white/50' : ''}`}
     >
       {/* Input Handle */}
-      {type !== 'trigger' && (
+      {type !== 'trigger' && type !== 'comment' && (
         <Handle
           type="target"
           position={Position.Top}
@@ -284,6 +303,18 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
           {nodeLabel}
         </div>
       </div>
+
+      {normalizedType === 'wait' && waitPreview && (
+        <div className="mt-1.5 text-[10px] text-zinc-400">
+          Wait for: <span className="text-zinc-200">{waitPreview}</span>
+        </div>
+      )}
+
+      {normalizedType === 'comment' && commentPreview && (
+        <div className="mt-1.5 max-h-16 overflow-hidden whitespace-pre-wrap break-words text-[10px] leading-4 text-zinc-300">
+          {commentPreview}
+        </div>
+      )}
 
       {normalizedType === 'router' && (
         <div className="mt-2 space-y-1 pr-3">
@@ -328,7 +359,7 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
       )}
 
       {/* Output Handle */}
-      {type !== 'router' && type !== 'condition' && !isRandomSplitAction && (
+      {type !== 'router' && type !== 'condition' && type !== 'comment' && !isRandomSplitAction && (
         <>
           <Handle
             type="source"
@@ -467,6 +498,7 @@ const ConditionNodeComponent = (props: NodeProps) => <CustomNode {...props} type
 const RouterNodeComponent = (props: NodeProps) => <CustomNode {...props} type="router" />
 const SchedulerNodeComponent = (props: NodeProps) => <CustomNode {...props} type="scheduler" />
 const ReplyKeyboardNodeComponent = (props: NodeProps) => <CustomNode {...props} type="replyKeyboard" />
+const WaitNodeComponent = (props: NodeProps) => <CustomNode {...props} type="wait" />
 const ScriptNodeComponent = (props: NodeProps) => <CustomNode {...props} type="script" />
 const ActionNodeComponent = (props: NodeProps) => <CustomNode {...props} type="action" />
 const InputNodeComponent = (props: NodeProps) => <CustomNode {...props} type="input" />
@@ -477,12 +509,14 @@ const PaymentStripeNodeComponent = (props: NodeProps) => <CustomNode {...props} 
 const PaymentRobokassaNodeComponent = (props: NodeProps) => <CustomNode {...props} type="paymentRobokassa" />
 const PaymentStarsNodeComponent = (props: NodeProps) => <CustomNode {...props} type="paymentStars" />
 const TriggerNodeComponent = (props: NodeProps) => <CustomNode {...props} type="trigger" />
+const CommentNodeComponent = (props: NodeProps) => <CustomNode {...props} type="comment" />
 
 MessageNodeComponent.displayName = 'MessageNodeComponent'
 ConditionNodeComponent.displayName = 'ConditionNodeComponent'
 RouterNodeComponent.displayName = 'RouterNodeComponent'
 SchedulerNodeComponent.displayName = 'SchedulerNodeComponent'
 ReplyKeyboardNodeComponent.displayName = 'ReplyKeyboardNodeComponent'
+WaitNodeComponent.displayName = 'WaitNodeComponent'
 ScriptNodeComponent.displayName = 'ScriptNodeComponent'
 ActionNodeComponent.displayName = 'ActionNodeComponent'
 InputNodeComponent.displayName = 'InputNodeComponent'
@@ -493,12 +527,14 @@ PaymentStripeNodeComponent.displayName = 'PaymentStripeNodeComponent'
 PaymentRobokassaNodeComponent.displayName = 'PaymentRobokassaNodeComponent'
 PaymentStarsNodeComponent.displayName = 'PaymentStarsNodeComponent'
 TriggerNodeComponent.displayName = 'TriggerNodeComponent'
+CommentNodeComponent.displayName = 'CommentNodeComponent'
 
 export const MessageNode = memo(MessageNodeComponent)
 export const ConditionNode = memo(ConditionNodeComponent)
 export const RouterNode = memo(RouterNodeComponent)
 export const SchedulerNode = memo(SchedulerNodeComponent)
 export const ReplyKeyboardNode = memo(ReplyKeyboardNodeComponent)
+export const WaitNode = memo(WaitNodeComponent)
 export const ScriptNode = memo(ScriptNodeComponent)
 export const ActionNode = memo(ActionNodeComponent)
 export const InputNode = memo(InputNodeComponent)
@@ -509,6 +545,7 @@ export const PaymentStripeNode = memo(PaymentStripeNodeComponent)
 export const PaymentRobokassaNode = memo(PaymentRobokassaNodeComponent)
 export const PaymentStarsNode = memo(PaymentStarsNodeComponent)
 export const TriggerNode = memo(TriggerNodeComponent)
+export const CommentNode = memo(CommentNodeComponent)
 
 // Node type mapping for ReactFlow
 export const nodeTypes = {
@@ -517,6 +554,7 @@ export const nodeTypes = {
   router: RouterNode,
   scheduler: SchedulerNode,
   replyKeyboard: ReplyKeyboardNode,
+  wait: WaitNode,
   script: ScriptNode,
   action: ActionNode,
   input: InputNode,
@@ -527,6 +565,7 @@ export const nodeTypes = {
   paymentRobokassa: PaymentRobokassaNode,
   paymentStars: PaymentStarsNode,
   trigger: TriggerNode,
+  comment: CommentNode,
 }
 
 export interface NodeTemplate {
@@ -739,6 +778,22 @@ export const nodeTemplates: NodeTemplate[] = [
     },
   },
   {
+    id: 'wait',
+    type: 'wait',
+    label: 'Wait',
+    description: 'Pause workflow until the next user event',
+    color: '#14B8A6',
+    gradient: 'from-teal-500/20 to-emerald-500/10',
+    border: 'border-teal-500/30',
+    icon: Clock,
+    data: {
+      waitFor: 'message',
+      timeout: 300000,
+      __label: 'Wait',
+      __description: 'Pause until next user event',
+    },
+  },
+  {
     id: 'reply-keyboard',
     type: 'replyKeyboard',
     label: 'Reply Keyboard',
@@ -908,6 +963,22 @@ export const nodeTemplates: NodeTemplate[] = [
       messageTemplate: 'Оплатите заказ в Telegram Stars: {{payment.url}}',
       __label: 'Telegram Stars',
       __description: 'Create Telegram Stars invoice link',
+    },
+  },
+  {
+    id: 'comment',
+    type: 'comment',
+    label: 'Comment',
+    description: 'Add a note to document the flow',
+    color: '#6B7280',
+    gradient: 'from-zinc-500/20 to-zinc-600/10',
+    border: 'border-zinc-500/30',
+    icon: MessageCircle,
+    data: {
+      text: '',
+      color: 'default',
+      __label: 'Comment',
+      __description: 'Internal note for the workflow',
     },
   },
   // Legacy 'webhook' node type is still supported in runtime/config,

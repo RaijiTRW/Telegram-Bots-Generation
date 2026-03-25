@@ -11,8 +11,11 @@ import { useBotState } from '@/components/bot-editor/providers/bot-state-provide
 export default function AiChatPage() {
   const locale = useLocale()
   const t = useTranslations('editor.chat')
-  const { viewerAccess } = useBotState()
-  const canUseAiChat = viewerAccess.isAdmin || viewerAccess.entitlements.aiChat
+  const { viewerAccess, bot } = useBotState()
+  const canUseAiChat = viewerAccess.isAdmin
+  const backHref = bot?.id
+    ? `/${locale}/dashboard/bots/${bot.id}/editor/canvas`
+    : `/${locale}/dashboard`
 
   if (!canUseAiChat) {
     return (
@@ -27,8 +30,8 @@ export default function AiChatPage() {
           <CardContent className="space-y-4 text-zinc-300">
             <p>{t('lockedDescription')}</p>
             <Button asChild>
-              <Link href={`/${locale}/dashboard/subscription`}>
-                {t('openSubscription')}
+              <Link href={backHref}>
+                {t('backToEditor')}
               </Link>
             </Button>
           </CardContent>

@@ -7,8 +7,9 @@ import { Plus, Bot as BotIcon, LogIn, Sparkles, MoreVertical, Pencil, Trash2, Lo
 import { useRouter, usePathname } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { CreateBotModal, EditBotModal } from '@/components/bot-editor/modals'
-import { getUserBots, createBotAction, updateBotAction, deleteBotAction } from '@/app/[locale]/dashboard/bots/actions'
-import type { Bot, BotStatus } from '@/lib/bot-editor/types/bot.types'
+import { BotProjectCard } from '@/components/dashboard/bot-project-card'
+import { getUserBots, createBotAction, updateBotAction, deleteBotAction } from '@/lib/bot-editor/actions/bots-actions'
+import type { Bot } from '@/lib/bot-editor/types/bot.types'
 import { prefetchHrefOnce, schedulePrefetchHref } from '@/lib/navigation/prefetch'
 
 export default function BotsPage() {
@@ -34,26 +35,45 @@ export default function BotsPage() {
     (botId: string) => `/${locale}/dashboard/bots/${botId}/editor/canvas`,
     [locale]
   )
-  type BotStatusTranslationKey = `status.${BotStatus}`
+  const getActionErrorMessage = useCallback((error: unknown, fallback: string) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String(error || '').trim()
 
-  // Load bots on mount
-  useEffect(() => {
-    startTransition(async () => {
+    if (!message || message === '[object Object]' || message.includes('An unexpected response was received from the server.')) {
+      return fallback
+    }
+
+    return message
+  }, [])
+  const loadBotsFallback = uiLocale === 'ru' ? 'Не удалось загрузить список ботов' : 'Failed to load bots'
+  const loadBots = useCallback(async () => {
+    try {
       const result = await getUserBots()
-      setIsLoading(false)
 
       if (result.authenticated) {
         setIsAuthenticated(true)
         setBots(result.bots)
       } else {
         setIsAuthenticated(false)
+        setBots([])
       }
 
-      if (result.error) {
-        setError(result.error)
-      }
-    })
-  }, [])
+      setError(result.error ?? null)
+    } catch (error) {
+      setIsAuthenticated(false)
+      setBots([])
+      setError(getActionErrorMessage(error, loadBotsFallback))
+    } finally {
+      setIsLoading(false)
+    }
+  }, [getActionErrorMessage, loadBotsFallback])
+
+  // Load bots on mount
+  useEffect(() => {
+    void loadBots()
+  }, [loadBots])
 
   useEffect(() => {
     for (const bot of bots.slice(0, 3)) {
@@ -63,20 +83,24 @@ export default function BotsPage() {
 
   // Create bot with Server Action
   const handleCreateBot = async (data: { name: string; description: string }) => {
-    const result = await createBotAction(data)
+    try {
+      const result = await createBotAction(data)
 
-    if (result.success && result.bot) {
-      setBots(prev => [result.bot, ...prev])
-      setShowCreateModal(false)
-      // Navigate to the new bot editor
-      const nextHref = getEditorHref(result.bot.id)
-      prefetchHrefOnce(router, nextHref)
-      startTransition(() => {
-        router.push(nextHref)
-      })
-      // Router will refresh automatically
-    } else {
-      setError(result.error || t('errors.create'))
+      if (result.success && result.bot) {
+        setBots(prev => [result.bot, ...prev])
+        setShowCreateModal(false)
+        setError(null)
+        const nextHref = getEditorHref(result.bot.id)
+        prefetchHrefOnce(router, nextHref)
+        startTransition(() => {
+          router.push(nextHref)
+        })
+      } else {
+        setError(result.error || t('errors.create'))
+      }
+    } catch (error) {
+      await loadBots()
+      setError(getActionErrorMessage(error, t('errors.create')))
     }
   }
 
@@ -84,15 +108,20 @@ export default function BotsPage() {
   const handleUpdateBot = async (data: { name: string; description: string }) => {
     if (!selectedBot) return
 
-    const result = await updateBotAction(selectedBot.id, data)
+    try {
+      const result = await updateBotAction(selectedBot.id, data)
 
-    if (result.success && result.bot) {
-      setBots(prev => prev.map(b => b.id === selectedBot.id ? result.bot! : b))
-      setShowEditModal(false)
-      setSelectedBot(null)
-      // Router will refresh automatically
-    } else {
-      setError(result.error || t('errors.update'))
+      if (result.success && result.bot) {
+        setBots(prev => prev.map(b => b.id === selectedBot.id ? result.bot! : b))
+        setShowEditModal(false)
+        setSelectedBot(null)
+        setError(null)
+      } else {
+        setError(result.error || t('errors.update'))
+      }
+    } catch (error) {
+      await loadBots()
+      setError(getActionErrorMessage(error, t('errors.update')))
     }
   }
 
@@ -100,15 +129,20 @@ export default function BotsPage() {
   const handleDeleteBot = async () => {
     if (!selectedBot) return
 
-    const result = await deleteBotAction(selectedBot.id)
+    try {
+      const result = await deleteBotAction(selectedBot.id)
 
-    if (result.success) {
-      setBots(prev => prev.filter(b => b.id !== selectedBot.id))
-      setShowEditModal(false)
-      setSelectedBot(null)
-      // Router will refresh automatically
-    } else {
-      setError(result.error || t('errors.delete'))
+      if (result.success) {
+        setBots(prev => prev.filter(b => b.id !== selectedBot.id))
+        setShowEditModal(false)
+        setSelectedBot(null)
+        setError(null)
+      } else {
+        setError(result.error || t('errors.delete'))
+      }
+    } catch (error) {
+      await loadBots()
+      setError(getActionErrorMessage(error, t('errors.delete')))
     }
   }
 
@@ -127,16 +161,6 @@ export default function BotsPage() {
     setSelectedBot(bot)
     setShowEditModal(true)
     setShowMenuForBot(null)
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-      case 'draft': return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30'
-      case 'archived': return 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-      case 'error': return 'bg-red-500/20 text-red-400 border-red-500/30'
-      default: return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30'
-    }
   }
 
   return (
@@ -223,91 +247,55 @@ export default function BotsPage() {
           /* Bots Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {bots.map((bot) => (
-              <Card
+              <BotProjectCard
                 key={bot.id}
-                onClick={() => handleBotClick(bot.id)}
-                onDoubleClick={() => handleBotClick(bot.id)}
-                onMouseEnter={() => prefetchHrefOnce(router, getEditorHref(bot.id))}
-                onFocus={() => prefetchHrefOnce(router, getEditorHref(bot.id))}
-                className="group relative bg-zinc-900/50 backdrop-blur-sm border-zinc-800 hover:border-[#24A1DE]/50 transition-all cursor-pointer overflow-hidden"
-              >
-                {/* Gradient overlay on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#24A1DE]/5 to-[#8B5CF6]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                bot={bot}
+                onOpen={() => handleBotClick(bot.id)}
+                onPrefetch={() => prefetchHrefOnce(router, getEditorHref(bot.id))}
+                trailing={
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowMenuForBot(showMenuForBot === bot.id ? null : bot.id)
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
 
-                {/* Card Content */}
-                <CardContent className="relative p-5">
-                  {/* Header with menu button */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
-                      <BotIcon className="w-5 h-5 text-[#24A1DE]" />
-                    </div>
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowMenuForBot(showMenuForBot === bot.id ? null : bot.id)
-                        }}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {/* Dropdown Menu */}
-                      {showMenuForBot === bot.id && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-10"
-                            onClick={() => setShowMenuForBot(null)}
-                          />
-                          <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-800 border border-white/10 rounded-lg shadow-xl py-1 min-w-[140px]">
-                            <button
-                              onClick={(e) => openEditModal(bot, e)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/10 hover:text-white transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                              {t('edit')}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setSelectedBot(bot)
-                                setShowEditModal(true)
-                                setShowMenuForBot(null)
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              {t('delete')}
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    {showMenuForBot === bot.id && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowMenuForBot(null)}
+                        />
+                        <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-800 border border-white/10 rounded-lg shadow-xl py-1 min-w-[140px]">
+                          <button
+                            onClick={(e) => openEditModal(bot, e)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/10 hover:text-white transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            {t('edit')}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedBot(bot)
+                              setShowEditModal(true)
+                              setShowMenuForBot(null)
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {t('delete')}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
-
-                  {/* Bot Info */}
-                  <h3 className="text-lg font-semibold text-white mb-1 line-clamp-1">
-                    {bot.name}
-                  </h3>
-                  <p className="text-sm text-zinc-400 mb-4 line-clamp-2 min-h-[40px]">
-                    {bot.description || t('noDescription')}
-                  </p>
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(bot.status)}`}>
-                      {t(`status.${bot.status}` as BotStatusTranslationKey)}
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      {bot.updatedAt
-                        ? new Intl.DateTimeFormat(uiLocale, { dateStyle: 'short', timeZone: 'UTC' }).format(
-                            new Date(bot.updatedAt)
-                          )
-                        : t('new')}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+                }
+              />
             ))}
           </div>
         )}

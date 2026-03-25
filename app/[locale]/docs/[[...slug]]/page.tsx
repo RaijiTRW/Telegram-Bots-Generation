@@ -11,12 +11,9 @@ import { DocsSectionPage } from '@/components/docs/docs-section-page'
 import { getDocsContentWithMarkdown } from '@/lib/docs/docs-content-loader'
 import { getDocsPageBySlug, getDocsPageDefinitions } from '@/lib/docs/docs-pages'
 import { buildDocsSearchIndex } from '@/lib/docs-cms/search-index'
-import {
-  getPublishedDocsDataset,
-  getPublishedDocsHomePage,
-  getPublishedDocsPageByPath,
-} from '@/lib/docs-cms/repository'
-import { createServerClientWrapper } from '@/lib/supabase/server'
+import { getPublishedSanityDocsDataset, resolvePublishedSanityDocsPage } from '@/lib/sanity/docs'
+
+export const dynamic = 'force-dynamic'
 
 export default async function DocsCatchAllRoute({
   params,
@@ -24,30 +21,14 @@ export default async function DocsCatchAllRoute({
   params: Promise<{ locale: string; slug?: string[] }>
 }) {
   const { locale, slug } = await params
-  const cmsEnabled =
-    process.env.DOCS_CMS_ENABLED === 'true' ||
-    process.env.NEXT_PUBLIC_DOCS_CMS_ENABLED === 'true'
-
-  let cms: Awaited<ReturnType<typeof getPublishedDocsDataset>> | null = null
-  let supabase: Awaited<ReturnType<typeof createServerClientWrapper>> | null = null
-  if (cmsEnabled) {
-    supabase = await createServerClientWrapper()
-    try {
-      cms = await getPublishedDocsDataset(supabase, locale === 'en' ? 'en' : 'ru')
-    } catch {
-      cms = null
-    }
-  }
-  const hasCms = Boolean(cmsEnabled && cms && cms.pages.length > 0)
+  const docsLocale = locale === 'en' ? 'en' : 'ru'
+  const cms = await getPublishedSanityDocsDataset(docsLocale)
+  const hasCms = Boolean(cms && cms.pages.length > 0)
 
   if (hasCms && cms) {
     const basePath = `/${locale}/docs`
     const requestedPath = Array.isArray(slug) ? slug.join('/') : ''
-    const client = supabase ?? (await createServerClientWrapper())
-
-    const resolved = requestedPath
-      ? await getPublishedDocsPageByPath(client, locale === 'en' ? 'en' : 'ru', requestedPath)
-      : await getPublishedDocsHomePage(client, locale === 'en' ? 'en' : 'ru')
+    const resolved = resolvePublishedSanityDocsPage(cms, requestedPath)
 
     if (!resolved) {
       notFound()
@@ -83,6 +64,7 @@ export default async function DocsCatchAllRoute({
                 page={resolved.page}
                 revision={resolved.revision}
                 tree={cms.tree}
+                revisionsByPageId={cms.revisionsByPageId}
               />
             </div>
           </div>
