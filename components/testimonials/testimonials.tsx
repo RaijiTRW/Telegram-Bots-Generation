@@ -52,7 +52,7 @@ const reviews: Record<'ru' | 'en', ReviewItem[]> = {
     {
       name: 'Никита Орлов',
       role: 'Операционный директор e-commerce',
-      image: '/testimonials/nikita-orlov.svg',
+      image: '/testimonials/nikita-orlov-photo.jpg',
       testimonial:
         'Мы сделали бота для каталога, статусов заказов и типовых вопросов по доставке, которые раньше постоянно забирали время у поддержки. После запуска стало меньше одинаковых обращений, а команда смогла сосредоточиться на сложных кейсах. Решение понравилось за скорость изменений и понятную логику, так что дальше будем расширять его под сезонные продажи.',
     },
@@ -75,7 +75,7 @@ const reviews: Record<'ru' | 'en', ReviewItem[]> = {
     {
       name: 'Nikita Orlov',
       role: 'E-commerce operations director',
-      image: '/testimonials/nikita-orlov.svg',
+      image: '/testimonials/nikita-orlov-photo.jpg',
       testimonial:
         'We built a bot for catalog browsing, order statuses, and repetitive delivery questions that used to take a lot of support time. After launch, the team had fewer repetitive conversations and could focus on more complex cases instead. The result was visible quickly, the logic is easy to manage, and we plan to keep using it for seasonal campaigns.',
     },

@@ -122,7 +122,7 @@ export interface Database {
           user_id: string
           plan_code: 'base' | 'business' | 'enterprise'
           billing_interval: 'month' | 'year'
-          kind: 'initial' | 'renewal' | 'change'
+          kind: 'initial' | 'renewal' | 'change' | 'card_binding'
           status: 'pending' | 'succeeded' | 'failed' | 'canceled'
           amount: number
           currency: 'RUB' | 'USD'
@@ -144,7 +144,7 @@ export interface Database {
           user_id: string
           plan_code: 'base' | 'business' | 'enterprise'
           billing_interval: 'month' | 'year'
-          kind: 'initial' | 'renewal' | 'change'
+          kind: 'initial' | 'renewal' | 'change' | 'card_binding'
           status?: 'pending' | 'succeeded' | 'failed' | 'canceled'
           amount: number
           currency: 'RUB' | 'USD'
@@ -166,7 +166,7 @@ export interface Database {
           user_id?: string
           plan_code?: 'base' | 'business' | 'enterprise'
           billing_interval?: 'month' | 'year'
-          kind?: 'initial' | 'renewal' | 'change'
+          kind?: 'initial' | 'renewal' | 'change' | 'card_binding'
           status?: 'pending' | 'succeeded' | 'failed' | 'canceled'
           amount?: number
           currency?: 'RUB' | 'USD'
@@ -186,6 +186,100 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: 'subscription_transactions_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      analytics_email_deliveries: {
+        Row: {
+          id: string
+          user_id: string
+          kind: 'weekly_digest' | 'monthly_summary' | 'anomaly_alert'
+          period_key: string
+          fingerprint: string
+          delivery_channel: string
+          status: 'pending' | 'sent' | 'failed'
+          error: string | null
+          created_at: string
+          sent_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          kind: 'weekly_digest' | 'monthly_summary' | 'anomaly_alert'
+          period_key: string
+          fingerprint: string
+          delivery_channel?: string
+          status?: 'pending' | 'sent' | 'failed'
+          error?: string | null
+          created_at?: string
+          sent_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          kind?: 'weekly_digest' | 'monthly_summary' | 'anomaly_alert'
+          period_key?: string
+          fingerprint?: string
+          delivery_channel?: string
+          status?: 'pending' | 'sent' | 'failed'
+          error?: string | null
+          created_at?: string
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'analytics_email_deliveries_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      browser_push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          locale: string | null
+          user_agent: string | null
+          created_at: string
+          updated_at: string
+          last_seen_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          locale?: string | null
+          user_agent?: string | null
+          created_at?: string
+          updated_at?: string
+          last_seen_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          locale?: string | null
+          user_agent?: string | null
+          created_at?: string
+          updated_at?: string
+          last_seen_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'browser_push_subscriptions_user_id_fkey'
             columns: ['user_id']
             isOneToOne: false
             referencedRelation: 'profiles'
@@ -788,6 +882,7 @@ export type Profile = Database['public']['Tables']['profiles']['Row']
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
 export type UserSubscriptionRow = Database['public']['Tables']['user_subscriptions']['Row']
 export type SubscriptionTransactionRow = Database['public']['Tables']['subscription_transactions']['Row']
+export type AnalyticsEmailDeliveryRow = Database['public']['Tables']['analytics_email_deliveries']['Row']
 export type BotRow = Database['public']['Tables']['bots']['Row']
 export type BotConfigRow = Database['public']['Tables']['bot_configs']['Row']
 export type BotTestLogRow = Database['public']['Tables']['bot_test_logs']['Row']

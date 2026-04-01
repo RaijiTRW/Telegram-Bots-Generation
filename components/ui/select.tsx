@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -46,6 +47,8 @@ const SelectContext = React.createContext<{
   setOpen: (open: boolean) => void
   triggerRef: React.RefObject<HTMLDivElement | null>
   contentRef: React.RefObject<HTMLDivElement | null>
+  labels: Record<string, React.ReactNode>
+  registerItem: (value: string, label: React.ReactNode) => void
 }>({
   value: '',
   onValueChange: () => {},
@@ -53,14 +56,27 @@ const SelectContext = React.createContext<{
   setOpen: () => {},
   triggerRef: { current: null },
   contentRef: { current: null },
+  labels: {},
+  registerItem: () => {},
 })
 
 const Select = ({ value: controlledValue, onValueChange, defaultValue, children }: SelectProps) => {
   const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue || '')
   const [open, setOpen] = React.useState(false)
+  const [labels, setLabels] = React.useState<Record<string, React.ReactNode>>({})
   const triggerRef = React.useRef<HTMLDivElement | null>(null)
   const contentRef = React.useRef<HTMLDivElement | null>(null)
   const currentValue = controlledValue !== undefined ? controlledValue : uncontrolledValue
+
+  const registerItem = React.useCallback((itemValue: string, label: React.ReactNode) => {
+    setLabels((current) => {
+      if (current[itemValue] === label) return current
+      return {
+        ...current,
+        [itemValue]: label,
+      }
+    })
+  }, [])
 
   const handleValueChange = (newValue: string) => {
     if (controlledValue === undefined) {
@@ -105,6 +121,8 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children 
       setOpen,
       triggerRef,
       contentRef,
+      labels,
+      registerItem,
     }}>
       <div className="relative w-full">
         {children}
@@ -134,39 +152,100 @@ const SelectTrigger = ({ children, className }: SelectTriggerProps) => {
 }
 
 const SelectValue = ({ placeholder }: SelectValueProps) => {
-  const { value } = React.useContext(SelectContext)
+  const { value, labels } = React.useContext(SelectContext)
+  const selectedLabel = value ? labels[value] : null
 
   return (
     <span className={cn(!value && "text-zinc-500")}>
-      {value || placeholder}
+      {selectedLabel || value || placeholder}
     </span>
   )
 }
 
 const SelectContent = ({ children, className }: SelectContentProps) => {
-  const { open, contentRef } = React.useContext(SelectContext)
+  const { open, triggerRef, contentRef } = React.useContext(SelectContext)
+  const [mounted, setMounted] = React.useState(false)
+  const [contentStyle, setContentStyle] = React.useState<React.CSSProperties>({
+    left: 0,
+    top: 0,
+    width: 0,
+    visibility: 'hidden',
+  })
 
-  if (!open) return null
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  return (
+  React.useEffect(() => {
+    if (!open || !mounted) return
+
+    const updatePosition = () => {
+      const trigger = triggerRef.current
+      const content = contentRef.current
+      if (!trigger || !content) return
+
+      const triggerRect = trigger.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const margin = 8
+      const menuHeight = content.offsetHeight || 0
+      const spaceBelow = viewportHeight - triggerRect.bottom - margin
+      const shouldOpenAbove =
+        menuHeight > 0
+        && spaceBelow < Math.min(menuHeight, 240)
+        && triggerRect.top > spaceBelow
+
+      const top = shouldOpenAbove
+        ? Math.max(margin, triggerRect.top - menuHeight - 4)
+        : Math.min(viewportHeight - margin, triggerRect.bottom + 4)
+
+      setContentStyle({
+        left: triggerRect.left,
+        top,
+        width: triggerRect.width,
+        visibility: 'visible',
+      })
+    }
+
+    updatePosition()
+
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [contentRef, mounted, open, triggerRef])
+
+  if (!open || !mounted) return null
+
+  return createPortal(
     <div
       ref={contentRef}
+      style={contentStyle}
       className={cn(
-        "absolute left-0 top-full z-50 max-h-60 w-full min-w-[8rem] overflow-auto rounded-md border border-white/10 bg-zinc-950 text-zinc-100 shadow-md",
-        "mt-1",
+        "fixed z-[1000] max-h-60 min-w-[8rem] overflow-auto rounded-md border border-white/10 bg-zinc-950 text-zinc-100 shadow-md",
         className
       )}
     >
       <div className="p-1">
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
 const SelectItem = ({ value, children }: SelectItemProps) => {
-  const { value: selectedValue, onValueChange } = React.useContext(SelectContext)
+  const {
+    value: selectedValue,
+    onValueChange,
+    registerItem,
+  } = React.useContext(SelectContext)
   const isSelected = value === selectedValue
+
+  React.useEffect(() => {
+    registerItem(value, children)
+  }, [children, registerItem, value])
 
   return (
     <div

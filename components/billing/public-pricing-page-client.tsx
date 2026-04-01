@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { CreditCard, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BillingIntervalToggle } from '@/components/billing/billing-interval-toggle'
+import { PaymentSoonModal } from '@/components/billing/payment-soon-modal'
 import { PricingComparison, type PricingComparisonAction } from '@/components/billing/pricing-comparison'
 import type { BillingCurrency, BillingInterval, PlanCode } from '@/lib/billing/types'
 
@@ -16,10 +17,12 @@ export function PublicPricingPageClient({
   locale,
   availableCurrencies,
 }: PublicPricingPageClientProps) {
-  const [currency, setCurrency] = useState<BillingCurrency>(availableCurrencies[0] || 'RUB')
-  const [billingInterval, setBillingInterval] = useState<BillingInterval>('month')
   const isRu = locale !== 'en'
-  const canSwitchCurrency = availableCurrencies.length > 1
+  const localeCurrencies: BillingCurrency[] = isRu ? ['RUB'] : ['USD']
+  const [currency, setCurrency] = useState<BillingCurrency>(localeCurrencies[0] || availableCurrencies[0] || 'RUB')
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>('month')
+  const [paymentSoonOpen, setPaymentSoonOpen] = useState(false)
+  const canSwitchCurrency = localeCurrencies.length > 1
 
   const actions = useMemo<Partial<Record<PlanCode, PricingComparisonAction>>>(() => ({
     base: {
@@ -31,14 +34,16 @@ export function PublicPricingPageClient({
       label: isRu
         ? `Выбрать Business ${billingInterval === 'year' ? 'на год' : 'на месяц'}`
         : `Choose Business ${billingInterval === 'year' ? 'yearly' : 'monthly'}`,
-      href: `/${locale}/auth/signup?plan=business&billingInterval=${billingInterval}&currency=${currency}`,
+      href: isRu ? `/${locale}/auth/signup?plan=business&billingInterval=${billingInterval}&currency=${currency}` : undefined,
+      onClick: isRu ? undefined : () => setPaymentSoonOpen(true),
       variant: 'default',
     },
     enterprise: {
       label: isRu
         ? `Выбрать Enterprise ${billingInterval === 'year' ? 'на год' : 'на месяц'}`
         : `Choose Enterprise ${billingInterval === 'year' ? 'yearly' : 'monthly'}`,
-      href: `/${locale}/auth/signup?plan=enterprise&billingInterval=${billingInterval}&currency=${currency}`,
+      href: isRu ? `/${locale}/auth/signup?plan=enterprise&billingInterval=${billingInterval}&currency=${currency}` : undefined,
+      onClick: isRu ? undefined : () => setPaymentSoonOpen(true),
       variant: 'outline',
     },
   }), [billingInterval, currency, isRu, locale])
@@ -59,7 +64,7 @@ export function PublicPricingPageClient({
 
         <div className="flex flex-wrap items-center gap-2">
           {canSwitchCurrency
-            ? availableCurrencies.map((availableCurrency) => (
+            ? localeCurrencies.map((availableCurrency) => (
                 <Button
                   key={availableCurrency}
                   type="button"
@@ -100,7 +105,7 @@ export function PublicPricingPageClient({
                     ? 'При оплате за год этот тариф считается со скидкой 75% на все 12 месяцев.'
                     : 'With annual billing this plan is charged with a 75% discount across all 12 months.'
                   : isRu
-                    ? 'CRM, AI-ноды, dashboard-аналитика и managed hosting в одном тарифе.'
+                    ? 'CRM, AI-ноды, dashboard-аналитика и размещение на нашем хостинге в одном тарифе.'
                     : 'CRM, AI nodes, dashboard analytics, and managed hosting in one plan.'}
               </div>
             </div>
@@ -114,7 +119,7 @@ export function PublicPricingPageClient({
             <div>
               <div className="text-sm font-medium text-white">{isRu ? 'Enterprise' : 'Enterprise'}</div>
               <div className="text-sm text-zinc-400">
-                {isRu ? 'Полная аналитика, AI Chat и максимальные лимиты.' : 'Full analytics, AI Chat, and the highest limits.'}
+                {isRu ? 'Полная аналитика, AI Chat (скоро) и максимальные лимиты.' : 'Full analytics, AI Chat (coming soon), and the highest limits.'}
               </div>
             </div>
           </div>
@@ -137,6 +142,12 @@ export function PublicPricingPageClient({
           />
         }
         actions={actions}
+      />
+
+      <PaymentSoonModal
+        locale={locale}
+        open={paymentSoonOpen}
+        onClose={() => setPaymentSoonOpen(false)}
       />
     </div>
   )

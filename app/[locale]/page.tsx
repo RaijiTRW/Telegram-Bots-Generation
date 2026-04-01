@@ -27,6 +27,13 @@ const Features = dynamic(
   }
 );
 
+const LandingPricingSection = dynamic(
+  () => import('@/components/billing/landing-pricing-section').then((module) => module.LandingPricingSection),
+  {
+    loading: () => <SectionPlaceholder heightClass="h-[560px] md:h-[520px]" />,
+  }
+);
+
 const Monitoring = dynamic(
   () => import('@/components/monitoring/monitoring').then((module) => module.Monitoring),
   {
@@ -57,6 +64,13 @@ export default function HomePage() {
         <Hero />
         <DeferredSection
           className="content-visibility-auto"
+          placeholder={<SectionPlaceholder heightClass="h-[960px] md:h-[900px]" />}
+          rootMargin="1600px 0px"
+        >
+          <Features />
+        </DeferredSection>
+        <DeferredSection
+          className="content-visibility-auto"
           placeholder={<SectionPlaceholder heightClass="h-[760px] md:h-[820px]" />}
           rootMargin="1600px 0px"
         >
@@ -78,10 +92,10 @@ export default function HomePage() {
         </DeferredSection>
         <DeferredSection
           className="content-visibility-auto"
-          placeholder={<SectionPlaceholder heightClass="h-[960px] md:h-[900px]" />}
+          placeholder={<SectionPlaceholder heightClass="h-[560px] md:h-[520px]" />}
           rootMargin="1600px 0px"
         >
-          <Features />
+          <LandingPricingSection />
         </DeferredSection>
         <DeferredSection
           className="content-visibility-auto"

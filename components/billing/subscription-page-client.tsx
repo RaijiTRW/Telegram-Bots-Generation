@@ -13,12 +13,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { BillingIntervalToggle } from '@/components/billing/billing-interval-toggle'
+import { BillingNoticeModal } from '@/components/billing/billing-notice-modal'
+import { PaymentSoonModal } from '@/components/billing/payment-soon-modal'
 import { PricingComparison, type PricingComparisonAction } from '@/components/billing/pricing-comparison'
 import {
   cancelSubscriptionAtPeriodEndAction,
   changeSubscriptionPlanAction,
   getCurrentSubscriptionAction,
   resumeSubscriptionAction,
+  startCardBindingCheckoutAction,
 } from '@/lib/billing/actions'
 import type {
   BillingCurrency,
@@ -146,15 +149,19 @@ export function SubscriptionPageClient({
   locale,
   initialSubscription,
 }: SubscriptionPageClientProps) {
+  const isRu = locale !== 'en'
+  const localeCurrencies: BillingCurrency[] = isRu ? ['RUB'] : ['USD']
+  const localeCurrency = localeCurrencies[0] || initialSubscription.currency
   const [subscription, setSubscription] = useState(initialSubscription)
-  const [currency, setCurrency] = useState<BillingCurrency>(initialSubscription.currency)
+  const [currency, setCurrency] = useState<BillingCurrency>(localeCurrency)
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(
     initialSubscription.pendingTransaction?.billingInterval ?? initialSubscription.billingInterval
   )
+  const [paymentSoonOpen, setPaymentSoonOpen] = useState(false)
+  const [renewalDisabledModalOpen, setRenewalDisabledModalOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeAction, setActiveAction] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const isRu = locale !== 'en'
 
   const currentPlan = getPlanDefinition(subscription.planCode, locale)
   const effectivePlan = getPlanDefinition(subscription.effectivePlanCode, locale)
@@ -163,7 +170,7 @@ export function SubscriptionPageClient({
     subscription.planCode === 'base' && !subscription.currentPeriodEnd
       ? '∞'
       : formatDate(locale, subscription.currentPeriodEnd)
-  const canSwitchCurrency = subscription.availableCurrencies.length > 1
+  const canSwitchCurrency = localeCurrencies.length > 1
   const statusMeta = getStatusMeta(locale, subscription.status)
   const currentPlanPriceSuffix = getBillingIntervalSuffix(locale, subscription.billingInterval)
 
@@ -176,7 +183,7 @@ export function SubscriptionPageClient({
         return
       }
       setSubscription(result.subscription)
-      setCurrency((prev) => (result.subscription.availableCurrencies.includes(prev) ? prev : result.subscription.currency))
+      setCurrency(localeCurrency)
       setBillingInterval(result.subscription.pendingTransaction?.billingInterval ?? result.subscription.billingInterval)
     })
   }
@@ -219,6 +226,7 @@ export function SubscriptionPageClient({
       } else {
         setSubscription(result.subscription)
         setBillingInterval(result.subscription.pendingTransaction?.billingInterval ?? result.subscription.billingInterval)
+        setRenewalDisabledModalOpen(true)
       }
       setActiveAction(null)
     })
@@ -239,10 +247,46 @@ export function SubscriptionPageClient({
     })
   }
 
+  const handleBindCard = () => {
+    if (!isRu) {
+      setPaymentSoonOpen(true)
+      return
+    }
+
+    startTransition(async () => {
+      setError(null)
+      setActiveAction('bind-card')
+      const result = await startCardBindingCheckoutAction(locale)
+      if (!result.success || !result.confirmationUrl) {
+        setError(result.error || (isRu ? 'Не удалось запустить привязку карты.' : 'Failed to start card binding.'))
+        setActiveAction(null)
+        return
+      }
+
+      window.location.assign(result.confirmationUrl)
+    })
+  }
+
   const pendingTransaction = subscription.pendingTransaction
 
   const buildPlanAction = (planCode: PlanCode): PricingComparisonAction => {
     const isBasePlan = planCode === 'base'
+
+    if (!isRu && !isBasePlan) {
+      return {
+        label:
+          subscription.planCode === 'base'
+            ? `Choose ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
+            : subscription.planCode === planCode
+              ? `Switch ${getPlanDefinition(planCode, locale).name} to ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
+              : `Switch to ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`,
+        onClick: () => setPaymentSoonOpen(true),
+        disabled: false,
+        loading: false,
+        variant: planCode === 'business' ? 'default' : 'outline',
+      }
+    }
+
     const matchesCurrentPlan =
       subscription.planCode === planCode &&
       subscription.status === 'active' &&
@@ -337,14 +381,14 @@ export function SubscriptionPageClient({
           </h1>
           <p className="max-w-3xl text-sm leading-6 text-zinc-400">
             {isRu
-              ? 'Управляйте подпиской, биллинг-периодом, лимитами аккаунта и доступом к CRM, аналитике, AI и managed hosting.'
-              : 'Manage the subscription, billing period, account limits, and access to CRM, analytics, AI, and managed hosting.'}
+              ? 'Управляйте подпиской, биллинг-периодом, лимитами аккаунта и доступом к CRM, retention-аналитике, XLSX-отчетам, email-алертам, AI и размещению на нашем хостинге.'
+              : 'Manage the subscription, billing period, account limits, and access to CRM, retention analytics, XLSX reports, email alerts, AI, and managed hosting.'}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {canSwitchCurrency
-            ? subscription.availableCurrencies.map((availableCurrency) => (
+            ? localeCurrencies.map((availableCurrency) => (
                 <Button
                   key={availableCurrency}
                   type="button"
@@ -430,12 +474,12 @@ export function SubscriptionPageClient({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-wrap items-start gap-4">
               <div>
                 <div className="text-3xl font-bold text-white">{currentPlan.name}</div>
                 <div className="mt-2 text-sm text-zinc-400">{currentPlan.description}</div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right">
+              <div className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right">
                 <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   {isRu ? 'Стоимость за период' : 'Price per billing period'}
                 </div>
@@ -458,7 +502,7 @@ export function SubscriptionPageClient({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className={cn('grid grid-cols-1 gap-3', subscription.planCode !== 'base' ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   {isRu ? 'Следующая дата' : 'Next billing date'}
@@ -483,6 +527,27 @@ export function SubscriptionPageClient({
                   {subscription.usage.hostedBots} / {visiblePlan.entitlements.maxHostedBots}
                 </div>
               </div>
+              {subscription.planCode !== 'base' ? (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                    {isRu ? 'Карта для автопродления' : 'Saved card for renewals'}
+                  </div>
+                  <div className="mt-2 text-sm font-medium text-white">
+                    {subscription.hasSavedPaymentMethod
+                      ? isRu ? 'Привязана' : 'Saved'
+                      : isRu ? 'Не привязана' : 'Not saved'}
+                  </div>
+                  <div className="mt-1 text-xs leading-5 text-zinc-400">
+                    {subscription.hasSavedPaymentMethod
+                      ? isRu
+                        ? 'Эта карта будет использоваться для будущих продлений.'
+                        : 'This card will be used for future renewals.'
+                      : isRu
+                        ? 'Чтобы снова включить автопродление, привяжите карту заново.'
+                        : 'Bind a card again to enable auto-renewal.'}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -498,7 +563,7 @@ export function SubscriptionPageClient({
                 </Button>
               ) : null}
 
-              {subscription.planCode !== 'base' && subscription.cancelAtPeriodEnd ? (
+              {subscription.planCode !== 'base' && subscription.cancelAtPeriodEnd && subscription.hasSavedPaymentMethod ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -509,7 +574,29 @@ export function SubscriptionPageClient({
                   {isRu ? 'Возобновить продление' : 'Resume renewal'}
                 </Button>
               ) : null}
+
+              {subscription.planCode !== 'base' ? (
+                <Button
+                  type="button"
+                  variant={subscription.hasSavedPaymentMethod ? 'outline' : 'default'}
+                  onClick={handleBindCard}
+                  disabled={activeAction !== null}
+                >
+                  {activeAction === 'bind-card' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {subscription.hasSavedPaymentMethod
+                    ? isRu ? 'Перепривязать карту' : 'Bind card again'
+                    : isRu ? 'Привязать карту' : 'Bind card'}
+                </Button>
+              ) : null}
             </div>
+
+            {subscription.planCode !== 'base' ? (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+                {isRu
+                  ? 'Для повторной привязки мы спишем 1 ₽ и вернем его после того, как YooKassa сохранит карту для будущих продлений.'
+                  : 'To save the card again we will charge a test 1 RUB payment and refund it after YooKassa stores the card for future renewals.'}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -555,6 +642,24 @@ export function SubscriptionPageClient({
           </div>
         }
         actions={planActions}
+      />
+
+      <PaymentSoonModal
+        locale={locale}
+        open={paymentSoonOpen}
+        onClose={() => setPaymentSoonOpen(false)}
+      />
+
+      <BillingNoticeModal
+        open={renewalDisabledModalOpen}
+        onClose={() => setRenewalDisabledModalOpen(false)}
+        title={isRu ? 'Ваше автопродление отключено' : 'Auto-renewal has been disabled'}
+        description={
+          isRu
+            ? 'Мы отключили будущие продления и убрали сохраненную карту из автосписаний. Когда захотите вернуть автопродление, просто привяжите карту заново.'
+            : 'Future renewals have been disabled and the saved card has been removed from auto-charges. Bind the card again whenever you want to restore auto-renewal.'
+        }
+        buttonLabel={isRu ? 'Понятно' : 'Got it'}
       />
     </div>
   )

@@ -117,7 +117,7 @@ export function getPlanDefinition(planCode: PlanCode, locale: string): PlanDefin
       name: ru ? 'Base' : 'Base',
       tagline: ru ? 'Бесплатно при регистрации' : 'Free on signup',
       description: ru
-        ? 'Базовый тариф для создания и экспорта ботов без managed hosting и бизнес-аналитики.'
+        ? 'Базовый тариф для создания и экспорта ботов без размещения на нашем хостинге и бизнес-аналитики.'
         : 'Free plan for building and exporting bots without managed hosting or business analytics.',
       ...shared,
       spotlightFeatures: ru
@@ -132,7 +132,7 @@ export function getPlanDefinition(planCode: PlanCode, locale: string): PlanDefin
       name: ru ? 'Business' : 'Business',
       tagline: ru ? 'Основной тариф для бизнеса' : 'Best fit for growing teams',
       description: ru
-        ? 'Основной тариф для бизнеса: CRM, базовая dashboard-аналитика, AI-ноды и managed hosting.'
+        ? 'Основной тариф для бизнеса: CRM, базовая dashboard-аналитика, AI-ноды и хостинг на нашей стороне.'
         : 'Core business plan with CRM, dashboard analytics, AI nodes, and managed hosting.',
       badge: ru ? 'Самый популярный' : 'Most popular',
       recommendedBadge: ru ? 'Рекомендуем' : 'Recommended',
@@ -149,12 +149,12 @@ export function getPlanDefinition(planCode: PlanCode, locale: string): PlanDefin
     name: ru ? 'Enterprise' : 'Enterprise',
     tagline: ru ? 'Максимум возможностей и лимитов' : 'Maximum access and scale',
     description: ru
-      ? 'Расширенный тариф с полной аналитикой, AI Chat и повышенными лимитами на ботов и hosting.'
-      : 'Advanced plan with full analytics, AI Chat, and higher bot/hosting limits.',
+      ? 'Расширенный тариф с retention-аналитикой, XLSX-отчетами, email-алертами по аномалиям, AI Chat (скоро) и повышенными лимитами.'
+      : 'Advanced plan with retention analytics, XLSX reports, anomaly alert emails, AI Chat (coming soon), and higher limits.',
     ...shared,
     spotlightFeatures: ru
-      ? ['До 20 ботов', 'Полная аналитика в dashboard', 'AI Chat и докупка токенов']
-      : ['Up to 20 bots', 'Full dashboard analytics', 'AI Chat and token top-ups'],
+      ? ['До 20 ботов', 'Retention, XLSX-отчеты и email-алерты', 'AI Chat и докупка токенов (скоро)']
+      : ['Up to 20 bots', 'Retention, XLSX reports, and email alerts', 'AI Chat and token top-ups (coming soon)'],
   }
 }
 
@@ -232,7 +232,7 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           business: { kind: 'included' },
           enterprise: { kind: 'included' },
         }),
-        featureRow('dashboard-pro-stats', locale, { ru: 'Улучшенная аналитика в dashboard', en: 'Advanced dashboard analytics' }, {
+        featureRow('dashboard-pro-stats', locale, { ru: 'Retention, отчеты XLSX и email-алерты', en: 'Retention, XLSX reports, and email alerts' }, {
           base: { kind: 'excluded' },
           business: { kind: 'excluded' },
           enterprise: { kind: 'included' },
@@ -257,7 +257,7 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           base: { kind: 'excluded' },
           business: { kind: 'excluded' },
           enterprise: { kind: 'included' },
-        }),
+        }, { soon: true }),
         featureRow('own-ai-keys', locale, { ru: 'Подключение своего AI через API-ключи', en: 'Bring your own AI API keys' }, {
           base: { kind: 'excluded' },
           business: { kind: 'included' },

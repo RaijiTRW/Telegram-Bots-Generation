@@ -8,7 +8,7 @@ export type BillingProvider = 'yookassa'
 
 export type BillingInterval = 'month' | 'year'
 
-export type SubscriptionTransactionKind = 'initial' | 'renewal' | 'change'
+export type SubscriptionTransactionKind = 'initial' | 'renewal' | 'change' | 'card_binding'
 
 export type SubscriptionTransactionStatus = 'pending' | 'succeeded' | 'failed' | 'canceled'
 
@@ -97,6 +97,7 @@ export type SubscriptionSummary = {
   priceAmount: number
   billingInterval: BillingInterval
   billingProvider: BillingProvider
+  hasSavedPaymentMethod: boolean
   cancelAtPeriodEnd: boolean
   startedAt: string | null
   currentPeriodStart: string | null

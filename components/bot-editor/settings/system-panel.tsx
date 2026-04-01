@@ -4,6 +4,7 @@ import { Cpu, Zap, Database, Code2, Info, Keyboard, Plus, Trash2, ChevronDown, U
 import { useLocale, useTranslations } from 'next-intl'
 import { VariablesTable } from './variables-table'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import { HELP_GUIDE_KEYS } from '@/lib/bot-editor/help/help-guide-keys'
 import { useBotState } from '../providers/bot-state-provider'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
@@ -1111,6 +1112,7 @@ export function SystemPanel() {
           <Cpu className="w-4 h-4 text-[#24A1DE] shrink-0" />
           <h1 className="text-white font-semibold">{t('title')}</h1>
           <HelpGuideButton
+            guideKey={HELP_GUIDE_KEYS.editorSystemOverview}
             title={t('title')}
             summary={t('help.overviewSummary')}
             steps={[t('help.overviewStep1'), t('help.overviewStep2'), t('help.overviewStep3')]}
@@ -1156,6 +1158,7 @@ export function SystemPanel() {
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-semibold text-white">{t('autoReactions.title')}</h3>
                   <HelpGuideButton
+                    guideKey={HELP_GUIDE_KEYS.editorSystemAutoReactions}
                     title={t('autoReactions.title')}
                     summary={t('autoReactions.description')}
                     steps={[
@@ -1189,6 +1192,7 @@ export function SystemPanel() {
                     {t('autoReactions.cooldownLabel')}
                   </label>
                   <HelpGuideButton
+                    guideKey={HELP_GUIDE_KEYS.editorSystemAutoReactionsCooldown}
                     title={t('autoReactions.cooldownLabel')}
                     summary={t('autoReactions.cooldownHint')}
                     steps={[
@@ -1224,6 +1228,7 @@ export function SystemPanel() {
                     <div className="flex items-center gap-2">
                       <div className="text-sm text-zinc-300">{t('autoReactions.onlyTextTitle')}</div>
                       <HelpGuideButton
+                        guideKey={HELP_GUIDE_KEYS.editorSystemAutoReactionsOnlyText}
                         title={t('autoReactions.onlyTextTitle')}
                         summary={t('autoReactions.onlyTextHint')}
                         steps={[
@@ -1292,6 +1297,7 @@ export function SystemPanel() {
                   <Keyboard className="w-4 h-4 text-[#24A1DE]" />
                   {t('replyKeyboard.title')}
                   <HelpGuideButton
+                    guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboard}
                     title={t('replyKeyboard.title')}
                     summary={t('replyKeyboard.description')}
                     steps={[
@@ -1329,6 +1335,7 @@ export function SystemPanel() {
                     <div className="flex items-center gap-2">
                       <div className="text-sm text-zinc-300">{t('replyKeyboard.resizeTitle')}</div>
                       <HelpGuideButton
+                        guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardResize}
                         title={t('replyKeyboard.resizeTitle')}
                         summary={t('replyKeyboard.resizeHint')}
                         steps={[
@@ -1354,6 +1361,7 @@ export function SystemPanel() {
                     <div className="flex items-center gap-2">
                       <div className="text-sm text-zinc-300">{t('replyKeyboard.persistentTitle')}</div>
                       <HelpGuideButton
+                        guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardPersistent}
                         title={t('replyKeyboard.persistentTitle')}
                         summary={t('replyKeyboard.persistentHint')}
                         steps={[
@@ -1379,6 +1387,7 @@ export function SystemPanel() {
                     <div className="flex items-center gap-2">
                       <div className="text-sm text-zinc-300">{t('replyKeyboard.oneTimeTitle')}</div>
                       <HelpGuideButton
+                        guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardOneTime}
                         title={t('replyKeyboard.oneTimeTitle')}
                         summary={t('replyKeyboard.oneTimeHint')}
                         steps={[
@@ -1405,6 +1414,7 @@ export function SystemPanel() {
                   {t('replyKeyboard.baseButtonsTitle')}
                 </Label>
                 <HelpGuideButton
+                  guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardBaseButtons}
                   title={t('replyKeyboard.baseButtonsTitle')}
                   summary={t('replyKeyboard.baseButtonsEmpty')}
                   steps={[
@@ -1432,6 +1442,7 @@ export function SystemPanel() {
                   <div className="flex items-center gap-2">
                     <div className="text-sm font-medium text-white">{t('replyKeyboard.rulesTitle')}</div>
                     <HelpGuideButton
+                      guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardRules}
                       title={t('replyKeyboard.rulesTitle')}
                       summary={t('replyKeyboard.rulesHint')}
                       steps={[
@@ -1508,6 +1519,7 @@ export function SystemPanel() {
                         <div className="flex items-center gap-2">
                           <Label htmlFor={`replykb-rule-variable-${rule.id}`}>{t('replyKeyboard.ruleVariableLabel')}</Label>
                           <HelpGuideButton
+                            guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardRuleVariable}
                             title={t('replyKeyboard.ruleVariableLabel')}
                             summary={t('replyKeyboard.ruleVariablePlaceholder')}
                             steps={[
@@ -1533,6 +1545,7 @@ export function SystemPanel() {
                         <div className="flex items-center gap-2">
                           <Label htmlFor={`replykb-rule-operator-${rule.id}`}>{t('replyKeyboard.ruleOperatorLabel')}</Label>
                           <HelpGuideButton
+                            guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardRuleOperator}
                             title={t('replyKeyboard.ruleOperatorLabel')}
                             summary={t('replyKeyboard.rulesHint')}
                             steps={[
@@ -1576,6 +1589,7 @@ export function SystemPanel() {
                         <div className="flex items-center gap-2">
                           <Label htmlFor={`replykb-rule-value-${rule.id}`}>{t('replyKeyboard.ruleValueLabel')}</Label>
                           <HelpGuideButton
+                            guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardRuleValue}
                             title={t('replyKeyboard.ruleValueLabel')}
                             summary={t('replyKeyboard.ruleValuePlaceholder')}
                             steps={[
@@ -1602,6 +1616,7 @@ export function SystemPanel() {
                       <div className="flex items-center gap-2">
                         <Label htmlFor={`replykb-rule-rows-${rule.id}`}>{t('replyKeyboard.ruleButtonsLabel')}</Label>
                         <HelpGuideButton
+                          guideKey={HELP_GUIDE_KEYS.editorSystemReplyKeyboardRuleButtons}
                           title={t('replyKeyboard.ruleButtonsLabel')}
                           summary={t('replyKeyboard.ruleButtonsEmpty')}
                           steps={[
@@ -1643,6 +1658,7 @@ export function SystemPanel() {
                   <Users className="w-4 h-4 text-[#24A1DE]" />
                   {t('subscribers.title')}
                   <HelpGuideButton
+                    guideKey={HELP_GUIDE_KEYS.editorSystemSubscribers}
                     title={t('subscribers.title')}
                     summary={t('subscribers.description')}
                     steps={[
@@ -1679,6 +1695,7 @@ export function SystemPanel() {
               </div>
               {t('botInformation')}
               <HelpGuideButton
+                guideKey={HELP_GUIDE_KEYS.editorSystemBotInfo}
                 title={t('botInformation')}
                 summary={t('help.botInfoSummary')}
                 steps={[

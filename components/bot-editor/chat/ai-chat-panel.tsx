@@ -11,6 +11,7 @@ import type { ChatMessage } from './types'
 import { mockAIResponse, QUICK_PROMPTS } from '@/lib/bot-editor/services/mock-ai-service'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import { HELP_GUIDE_KEYS } from '@/lib/bot-editor/help/help-guide-keys'
 
 interface AiChatPanelProps {
   onClose?: () => void
@@ -131,6 +132,7 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
           <MessageSquare className="w-4 h-4 text-[#24A1DE] shrink-0" />
           <h1 className="text-white font-semibold">{tNav('aiAssistant')}</h1>
           <HelpGuideButton
+            guideKey={HELP_GUIDE_KEYS.editorAiChatOverview}
             title={tNav('aiAssistant')}
             summary={tChat('helpSummary')}
             steps={[tChat('helpStep1'), tChat('helpStep2'), tChat('helpStep3')]}

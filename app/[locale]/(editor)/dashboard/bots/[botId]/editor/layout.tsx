@@ -1,9 +1,12 @@
 import { redirect } from 'next/navigation'
 import { getServerUser, createServerClientWrapper } from '@/lib/supabase/server'
 import { BotStateProvider } from '@/components/bot-editor/providers/bot-state-provider'
+import { EditorHelpGuidesProvider } from '@/components/bot-editor/providers/editor-help-guides-provider'
 import { EditorShell } from '@/components/bot-editor/layout/editor-shell'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
 import { getViewerAccess } from '@/lib/billing/server'
+import { getPublishedSanityHelpGuideMap } from '@/lib/sanity/help-guides'
+import type { HelpGuideLocale } from '@/lib/bot-editor/help/help-guide-types'
 
 export default async function BotEditorLayout({
   children,
@@ -27,12 +30,16 @@ export default async function BotEditorLayout({
     redirect(`/${locale}/dashboard/bots`)
   }
   const viewerAccess = await getViewerAccess(user.id)
+  const helpGuideLocale: HelpGuideLocale = locale === 'en' ? 'en' : 'ru'
+  const helpGuides = await getPublishedSanityHelpGuideMap(helpGuideLocale)
 
   return (
-    <BotStateProvider initialBot={bot} viewerAccess={viewerAccess}>
-      <EditorShell botId={botId} viewerAccess={viewerAccess}>
-        {children}
-      </EditorShell>
-    </BotStateProvider>
+    <EditorHelpGuidesProvider guides={helpGuides}>
+      <BotStateProvider initialBot={bot} viewerAccess={viewerAccess}>
+        <EditorShell botId={botId} viewerAccess={viewerAccess}>
+          {children}
+        </EditorShell>
+      </BotStateProvider>
+    </EditorHelpGuidesProvider>
   )
 }

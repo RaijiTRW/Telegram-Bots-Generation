@@ -8,6 +8,14 @@ import { type Locale } from '@/app/i18n'
 import { setUserLocale } from '@/app/actions/locale'
 import { deleteCurrentUserAccount } from '@/app/actions/account'
 import { createClient } from '@/lib/supabase/client'
+import {
+  createDefaultDashboardSettings,
+  normalizeDashboardDigestFormat,
+  normalizeDashboardSettingsLocale,
+  parseDashboardSettings,
+  type DashboardDigestFormat,
+  type DashboardSettingsState,
+} from '@/lib/dashboard-settings'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +33,6 @@ import {
   BellRing,
   Lock,
   Globe,
-  Palette,
   Shield,
   ChevronRight,
   Mail,
@@ -63,29 +70,17 @@ type TotpEnrollmentState = {
   friendlyName: string
 }
 
-type DashboardSettingsState = {
-  notifications: {
-    emailNotifications: boolean
-    pushNotifications: boolean
-    weeklyDigest: boolean
-  }
-  security: {
-    twoFactorEnabled: boolean
-    loginAlerts: boolean
-  }
-  appearance: {
-    darkTheme: boolean
-    compactMode: boolean
-  }
-  preferences: {
-    language: Locale
-    timezone: string
+type BrowserPushSubscriptionPayload = {
+  endpoint: string
+  keys: {
+    p256dh: string
+    auth: string
   }
 }
 
 type SettingsSectionKey = keyof Pick<DashboardSettingsState, 'notifications' | 'security' | 'appearance'>
 
-type NotificationSettingKey = keyof DashboardSettingsState['notifications']
+type NotificationSettingKey = Exclude<keyof DashboardSettingsState['notifications'], 'digestFormat'>
 type SecuritySettingKey = keyof DashboardSettingsState['security']
 type AppearanceSettingKey = keyof DashboardSettingsState['appearance']
 type SwitchSettingKey = NotificationSettingKey | SecuritySettingKey | AppearanceSettingKey
@@ -125,90 +120,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function asBoolean(value: unknown, fallback: boolean) {
-  return typeof value === 'boolean' ? value : fallback
-}
-
-function asString(value: unknown, fallback: string) {
-  return typeof value === 'string' && value.trim() ? value : fallback
-}
-
-function normalizeLocale(value: unknown, fallback: Locale): Locale {
-  return value === 'en' || value === 'ru' ? value : fallback
-}
-
 function resolveCurrentLocale(locale: string): Locale {
   return locale === 'en' ? 'en' : 'ru'
-}
-
-function resolveBrowserTimeZone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-  } catch {
-    return 'UTC'
-  }
-}
-
-function createDefaultSettings(locale: Locale): DashboardSettingsState {
-  return {
-    notifications: {
-      emailNotifications: true,
-      pushNotifications: false,
-      weeklyDigest: true,
-    },
-    security: {
-      twoFactorEnabled: false,
-      loginAlerts: true,
-    },
-    appearance: {
-      darkTheme: true,
-      compactMode: false,
-    },
-    preferences: {
-      language: locale,
-      timezone: resolveBrowserTimeZone(),
-    },
-  }
-}
-
-function parseDashboardSettings(rawMetadata: unknown, locale: Locale): DashboardSettingsState {
-  const defaults = createDefaultSettings(locale)
-
-  if (!isRecord(rawMetadata)) {
-    return defaults
-  }
-
-  const rawSettings = isRecord(rawMetadata.dashboard_settings) ? rawMetadata.dashboard_settings : {}
-  const notifications = isRecord(rawSettings.notifications) ? rawSettings.notifications : {}
-  const security = isRecord(rawSettings.security) ? rawSettings.security : {}
-  const appearance = isRecord(rawSettings.appearance) ? rawSettings.appearance : {}
-  const preferences = isRecord(rawSettings.preferences) ? rawSettings.preferences : {}
-
-  return {
-    notifications: {
-      emailNotifications: asBoolean(
-        notifications.emailNotifications,
-        defaults.notifications.emailNotifications
-      ),
-      pushNotifications: asBoolean(
-        notifications.pushNotifications,
-        defaults.notifications.pushNotifications
-      ),
-      weeklyDigest: asBoolean(notifications.weeklyDigest, defaults.notifications.weeklyDigest),
-    },
-    security: {
-      twoFactorEnabled: asBoolean(security.twoFactorEnabled, defaults.security.twoFactorEnabled),
-      loginAlerts: asBoolean(security.loginAlerts, defaults.security.loginAlerts),
-    },
-    appearance: {
-      darkTheme: asBoolean(appearance.darkTheme, defaults.appearance.darkTheme),
-      compactMode: asBoolean(appearance.compactMode, defaults.appearance.compactMode),
-    },
-    preferences: {
-      language: normalizeLocale(preferences.language, defaults.preferences.language),
-      timezone: asString(preferences.timezone, defaults.preferences.timezone),
-    },
-  }
 }
 
 function getPendingEmailValue(user: unknown) {
@@ -241,6 +154,35 @@ function formatTimeInZone(locale: Locale, timeZone: string) {
     }).format(new Date())
   } catch {
     return null
+  }
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const normalized = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(normalized)
+  const outputArray = new Uint8Array(rawData.length)
+
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+
+  return outputArray
+}
+
+function normalizePushSubscriptionPayload(
+  value: PushSubscriptionJSON | null | undefined
+): BrowserPushSubscriptionPayload | null {
+  if (!value?.endpoint || !value.keys?.p256dh || !value.keys?.auth) {
+    return null
+  }
+
+  return {
+    endpoint: value.endpoint,
+    keys: {
+      p256dh: value.keys.p256dh,
+      auth: value.keys.auth,
+    },
   }
 }
 
@@ -328,9 +270,9 @@ export default function SettingsPage() {
   const [isRequestingPushPermission, setIsRequestingPushPermission] = useState(false)
   const [isSendingPushTest, setIsSendingPushTest] = useState(false)
 
-  const [settings, setSettings] = useState<DashboardSettingsState>(() => createDefaultSettings(currentLocale))
+  const [settings, setSettings] = useState<DashboardSettingsState>(() => createDefaultDashboardSettings(currentLocale))
   const [initialSettings, setInitialSettings] = useState<DashboardSettingsState>(() =>
-    createDefaultSettings(currentLocale)
+    createDefaultDashboardSettings(currentLocale)
   )
   const [settingsStatus, setSettingsStatus] = useState<Notice>(null)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
@@ -352,6 +294,7 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [dangerStatus, setDangerStatus] = useState<Notice>(null)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
+  const pushPublicKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY || ''
 
   const hasSettingsChanges = JSON.stringify(settings) !== JSON.stringify(initialSettings)
 
@@ -470,7 +413,13 @@ export default function SettingsPage() {
     if (typeof window === 'undefined') return
 
     const syncPermission = () => {
-      if (!('Notification' in window)) {
+      if (
+        !('Notification' in window)
+        || typeof navigator === 'undefined'
+        || !('serviceWorker' in navigator)
+        || !('PushManager' in window)
+        || !pushPublicKey
+      ) {
         setPushPermission('unsupported')
         return
       }
@@ -484,7 +433,7 @@ export default function SettingsPage() {
     return () => {
       window.removeEventListener('focus', syncPermission)
     }
-  }, [])
+  }, [pushPublicKey])
 
   const languageOptions: Array<{ value: Locale; label: string }> = [
     { value: 'ru', label: t('languageRu') },
@@ -530,6 +479,16 @@ export default function SettingsPage() {
           label: t('weeklyDigest'),
           description: t('weeklyDigestDesc'),
         },
+        {
+          key: 'monthlyDigest',
+          label: t('monthlyDigest'),
+          description: t('monthlyDigestDesc'),
+        },
+        {
+          key: 'anomalyEmails',
+          label: t('anomalyEmails'),
+          description: t('anomalyEmailsDesc'),
+        },
       ],
     },
     {
@@ -549,26 +508,6 @@ export default function SettingsPage() {
           key: 'loginAlerts',
           label: t('loginAlerts'),
           description: t('loginAlertsDesc'),
-        },
-      ],
-    },
-    {
-      key: 'appearance',
-      title: t('appearance'),
-      description: t('appearanceDesc'),
-      icon: Palette,
-      iconBg: 'bg-purple-500/20',
-      iconColor: 'text-purple-400',
-      items: [
-        {
-          key: 'darkTheme',
-          label: t('darkTheme'),
-          description: t('darkThemeDesc'),
-        },
-        {
-          key: 'compactMode',
-          label: t('compactMode'),
-          description: t('compactModeDesc'),
         },
       ],
     },
@@ -628,8 +567,15 @@ export default function SettingsPage() {
     })
   }
 
-  const ensurePushPermission = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
+  const ensurePushPermission = useCallback(async () => {
+    if (
+      typeof window === 'undefined'
+      || !('Notification' in window)
+      || typeof navigator === 'undefined'
+      || !('serviceWorker' in navigator)
+      || !('PushManager' in window)
+      || !pushPublicKey
+    ) {
       setPushPermission('unsupported')
       setPushStatus({ type: 'error', text: t('pushUnsupported') })
       return false
@@ -661,7 +607,105 @@ export default function SettingsPage() {
     } finally {
       setIsRequestingPushPermission(false)
     }
-  }
+  }, [pushPublicKey, t])
+
+  const registerPushServiceWorker = useCallback(async () => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+      throw new Error('Service worker is not supported')
+    }
+
+    const registration = await navigator.serviceWorker.register('/push-sw.js', {
+      scope: '/',
+      updateViaCache: 'none',
+    })
+    await navigator.serviceWorker.ready
+    return registration
+  }, [])
+
+  const savePushSubscription = useCallback(async (subscription: BrowserPushSubscriptionPayload) => {
+    const response = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        locale: currentLocale,
+        subscription,
+      }),
+    })
+
+    const payload = await response.json().catch(() => null)
+    if (!response.ok || !payload?.success) {
+      throw new Error(String(payload?.error || 'Failed to save push subscription'))
+    }
+  }, [currentLocale])
+
+  const removePushSubscriptionFromServer = useCallback(async (endpoint: string) => {
+    const response = await fetch('/api/push/unsubscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        endpoint,
+      }),
+    })
+
+    const payload = await response.json().catch(() => null)
+    if (!response.ok || !payload?.success) {
+      throw new Error(String(payload?.error || 'Failed to remove push subscription'))
+    }
+  }, [])
+
+  const ensureBrowserPushSubscription = useCallback(async (persistToServer = true) => {
+    const granted = await ensurePushPermission()
+    if (!granted) return null
+
+    const registration = await registerPushServiceWorker()
+    let subscription = await registration.pushManager.getSubscription()
+
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(pushPublicKey),
+      })
+    }
+
+    const normalized = normalizePushSubscriptionPayload(subscription.toJSON())
+    if (!normalized) {
+      throw new Error('Invalid push subscription payload')
+    }
+
+    if (persistToServer) {
+      await savePushSubscription(normalized)
+    }
+
+    return normalized
+  }, [ensurePushPermission, pushPublicKey, registerPushServiceWorker, savePushSubscription])
+
+  const disableBrowserPushSubscription = useCallback(async () => {
+    const registration = await registerPushServiceWorker()
+    const subscription = await registration.pushManager.getSubscription()
+
+    if (!subscription) {
+      return
+    }
+
+    const normalized = normalizePushSubscriptionPayload(subscription.toJSON())
+    await subscription.unsubscribe().catch(() => undefined)
+
+    if (normalized) {
+      await removePushSubscriptionFromServer(normalized.endpoint)
+    }
+  }, [registerPushServiceWorker, removePushSubscriptionFromServer])
+
+  useEffect(() => {
+    if (isLoadingAccount) return
+    if (!settings.notifications.pushNotifications) return
+    if (pushPermission !== 'granted') return
+
+    void ensureBrowserPushSubscription(true).catch(() => undefined)
+  }, [ensureBrowserPushSubscription, isLoadingAccount, pushPermission, settings.notifications.pushNotifications])
 
   const handleSwitchChange = async (
     sectionKey: SettingsSectionKey,
@@ -675,14 +719,27 @@ export default function SettingsPage() {
 
     if (sectionKey === 'notifications' && itemKey === 'pushNotifications') {
       if (nextChecked) {
-        const granted = await ensurePushPermission()
-        if (!granted) {
+        try {
+          const subscription = await ensureBrowserPushSubscription(true)
+          if (!subscription) {
+            updateSwitchSetting(sectionKey, itemKey, false)
+            return
+          }
+          setPushStatus({ type: 'success', text: t('pushSubscriptionReady') })
+        } catch {
+          setPushStatus({ type: 'error', text: t('pushSubscriptionError') })
           updateSwitchSetting(sectionKey, itemKey, false)
           return
         }
       }
 
       if (!nextChecked) {
+        try {
+          await disableBrowserPushSubscription()
+        } catch {
+          setPushStatus({ type: 'error', text: t('pushSubscriptionError') })
+          return
+        }
         setPushStatus({ type: 'info', text: t('pushDisabledInfo') })
       }
     }
@@ -694,24 +751,30 @@ export default function SettingsPage() {
     if (isSendingPushTest) return
 
     setPushStatus(null)
-
-    const granted = await ensurePushPermission()
-    if (!granted) return
-
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      setPushStatus({ type: 'error', text: t('pushUnsupported') })
-      return
-    }
-
     setIsSendingPushTest(true)
 
     try {
-      const notification = new window.Notification(t('pushTestTitle'), {
-        body: t('pushTestBody'),
-        tag: 'dashboard-settings-push-test',
+      const subscription = await ensureBrowserPushSubscription(settings.notifications.pushNotifications)
+      if (!subscription) {
+        return
+      }
+
+      const response = await fetch('/api/push/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          locale: currentLocale,
+          subscription,
+        }),
       })
 
-      window.setTimeout(() => notification.close(), 5000)
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.success) {
+        throw new Error(String(payload?.error || 'Failed to send push test'))
+      }
+
       setPushStatus({ type: 'success', text: t('pushTestSent') })
     } catch {
       setPushStatus({ type: 'error', text: t('pushTestError') })
@@ -1528,7 +1591,7 @@ export default function SettingsPage() {
                   <Select
                     value={settings.preferences.language}
                     onValueChange={(value) => {
-                      const nextLocale = normalizeLocale(value, settings.preferences.language)
+                      const nextLocale = normalizeDashboardSettingsLocale(value, settings.preferences.language)
                       setSettingsStatus(null)
                       setSettings((prev) => ({
                         ...prev,
@@ -1652,6 +1715,45 @@ export default function SettingsPage() {
                       </div>
                     )
                   })}
+
+                  {section.key === 'notifications' ? (
+                    <div className="flex flex-col gap-4 rounded-lg border border-white/5 bg-white/[0.02] p-4">
+                      <div>
+                        <Label className="text-zinc-200">{t('digestFormat')}</Label>
+                        <p className="mt-0.5 text-sm text-zinc-500">{t('digestFormatDesc')}</p>
+                      </div>
+
+                      <Select
+                        value={settings.notifications.digestFormat}
+                        onValueChange={(value) => {
+                          const nextFormat = normalizeDashboardDigestFormat(
+                            value,
+                            settings.notifications.digestFormat as DashboardDigestFormat
+                          )
+                          setSettingsStatus(null)
+                          setSettings((prev) => ({
+                            ...prev,
+                            notifications: {
+                              ...prev.notifications,
+                              digestFormat: nextFormat,
+                            },
+                          }))
+                        }}
+                      >
+                        <SelectTrigger className="w-full border-zinc-700 bg-zinc-950/50 text-white">
+                          <span>
+                            {settings.notifications.digestFormat === 'xlsx'
+                              ? t('digestFormatXlsx')
+                              : t('digestFormatCsv')}
+                          </span>
+                        </SelectTrigger>
+                        <SelectContent className="w-full">
+                          <SelectItem value="xlsx">{t('digestFormatXlsx')}</SelectItem>
+                          <SelectItem value="csv">{t('digestFormatCsv')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             )

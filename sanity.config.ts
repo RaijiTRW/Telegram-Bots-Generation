@@ -11,7 +11,7 @@ const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'missing-dataset'
 
 export default defineConfig({
   name: 'default',
-  title: 'Documentation CMS',
+  title: 'Content CMS',
   basePath: '/dashboard/cms',
   projectId: projectId || 'missing-project-id',
   dataset: dataset || 'missing-dataset',

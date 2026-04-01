@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { useBotActivityFavicon } from './use-bot-activity-favicon'
 import { EditorSectionViewport } from './editor-section-viewport'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import { HELP_GUIDE_KEYS } from '@/lib/bot-editor/help/help-guide-keys'
 import {
   saveCanvasAction,
   saveBotSettingsAction,
@@ -494,6 +495,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
               <div className="flex items-center gap-2">
                 <h1 className="text-white font-semibold">{tNav('botEditor')}</h1>
                 <HelpGuideButton
+                  guideKey={HELP_GUIDE_KEYS.editorBotHeader}
                   title={tNav('botEditor')}
                   summary={tNav('helpSummary')}
                   steps={[tNav('helpStep1'), tNav('helpStep2'), tNav('helpStep3')]}

@@ -11,6 +11,7 @@ import {
   Zap,
   Code,
   Sparkles,
+  ChevronsDown,
 } from 'lucide-react';
 
 // Logic node visualization component
@@ -113,6 +114,18 @@ export function Hero() {
     { label: 'catalog_view', delay: 0.5 },
     { label: 'order_handler', delay: 0.7 },
   ];
+
+  const handleScrollToFeatures = () => {
+    const target = document.getElementById('features');
+
+    if (!target) {
+      window.location.hash = 'features';
+      return;
+    }
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.history.replaceState(null, '', `/${locale}#features`);
+  };
 
   return (
     <section className="relative flex items-center justify-center overflow-hidden px-4 pb-10 pt-20 md:min-h-[calc(100svh-5rem)] md:pb-14 md:pt-24 cyber-grid cyber-noise">
@@ -345,6 +358,26 @@ export function Hero() {
           </motion.div>
         </div>
       </div>
+
+      <motion.button
+        type="button"
+        onClick={handleScrollToFeatures}
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 1 }}
+        className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-1 text-white/45 transition-colors hover:text-white/75 md:bottom-5"
+      >
+        <span className="text-[9px] font-mono uppercase tracking-[0.34em]">
+          {locale === 'ru' ? 'Возможности' : 'Features'}
+        </span>
+        <motion.div
+          animate={{ y: [0, 4, 0] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-[#38BDF8]"
+        >
+          <ChevronsDown className="h-5 w-5" />
+        </motion.div>
+      </motion.button>
     </section>
   );
 }

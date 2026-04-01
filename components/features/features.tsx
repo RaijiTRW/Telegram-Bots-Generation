@@ -10,6 +10,9 @@ import {
   BarChart3,
   Server,
   Download,
+  Bot,
+  FileArchive,
+  ArrowRight,
 } from 'lucide-react';
 import { BorderBeam } from '@/components/ui/border-beam';
 
@@ -43,38 +46,90 @@ const infrastructureBlocks = [
     id: 'edge',
     size: 'large' as const,
     icon: Globe,
-    title: { ru: 'Edge Хостинг', en: 'Edge Hosting' },
-    description: { ru: 'Глобальное edge-развертывание обеспечивает минимальную задержку для ваших ботов по всему миру.', en: 'Global edge deployment ensures minimal latency for your bots worldwide.' },
+    title: { ru: 'Размещение на нашей стороне', en: 'Hosted for you' },
+    description: {
+      ru: 'Бот работает без отдельного сервера и не требует ручного DevOps при запуске и росте.',
+      en: 'Your bot stays online without managing servers or deployment setup as it grows.',
+    },
     type: 'map' as const,
   },
   {
     id: 'code',
     size: 'medium' as const,
     icon: Code2,
-    title: { ru: 'Экспорт кода', en: 'Source Code Export' },
-    description: { ru: 'Экспортируйте чистый, готовый к продакшену код на Python или Node.js.', en: 'Export clean, production-ready code in Python or Node.js.' },
+    title: { ru: 'Экспорт и контроль', en: 'Export and control' },
+    description: {
+      ru: 'Можно остаться на платформе сейчас и забрать готовый код позже, когда проект вырастет.',
+      en: 'Stay on-platform now and export production-ready code later when the project grows.',
+    },
     type: 'code' as const,
   },
   {
     id: 'analytics',
     size: 'small' as const,
     icon: BarChart3,
-    title: { ru: 'Аналитика', en: 'Analytics' },
-    description: { ru: 'Аналитика в реальном времени вовлеченности пользователей и производительности ботов.', en: 'Real-time insights into user engagement and bot performance.' },
+    title: { ru: 'Платежи и аналитика', en: 'Payments and analytics' },
+    description: {
+      ru: 'Заявки, оплаты и активность видны в одном месте, без ручных таблиц и догадок.',
+      en: 'Leads, payments, and activity stay visible in one place without manual spreadsheets.',
+    },
     type: 'chart' as const,
   },
   {
     id: 'security',
     size: 'small' as const,
     icon: Shield,
-    title: { ru: 'Безопасность', en: 'Security' },
-    description: { ru: 'Сквозное шифрование и безопасная обработка данных.', en: 'End-to-end encryption and secure data handling.' },
+    title: { ru: 'Надёжность и защита', en: 'Security and reliability' },
+    description: {
+      ru: 'Безопасное хранение, контроль доступов и меньше рисков в ежедневной работе.',
+      en: 'Secure storage, controlled access, and less operational risk day to day.',
+    },
     type: 'security' as const,
+  },
+];
+
+const platformOutcomes = [
+  {
+    id: 'launch',
+    icon: Server,
+    title: {
+      ru: 'Запуск без лишней сборки',
+      en: 'Launch without the extra stack',
+    },
+    description: {
+      ru: 'Не нужно отдельно искать хостинг, аналитику и вспомогательные сервисы, чтобы выпустить первую рабочую версию.',
+      en: 'You do not need separate hosting, analytics, and support tooling just to ship the first working version.',
+    },
+  },
+  {
+    id: 'scale',
+    icon: BarChart3,
+    title: {
+      ru: 'Рост без переезда на другой стек',
+      en: 'Grow without rebuilding the stack',
+    },
+    description: {
+      ru: 'Когда бот начинает приносить заявки и оплаты, не приходится пересобирать продукт заново.',
+      en: 'Once the bot starts driving leads and payments, you do not need to rebuild the product from scratch.',
+    },
+  },
+  {
+    id: 'control',
+    icon: Code2,
+    title: {
+      ru: 'Контроль без потери гибкости',
+      en: 'Control without losing flexibility',
+    },
+    description: {
+      ru: 'Сценарии, размещение, аналитика и экспорт уже связаны между собой и не мешают команде развиваться дальше.',
+      en: 'Flows, hosting, analytics, and export already work together and still leave room for the team to grow later.',
+    },
   },
 ];
 
 export function Features() {
   const locale = useLocale();
+  const isRu = locale === 'ru';
   const enterViewport = {
     once: true,
     amount: 0.12,
@@ -82,7 +137,10 @@ export function Features() {
   } as const;
 
   return (
-    <section className="py-24 md:py-32 px-4 relative overflow-hidden cyber-grid cyber-noise">
+    <section
+      id="features"
+      className="relative overflow-hidden px-4 py-24 scroll-mt-24 md:py-32 md:scroll-mt-28 cyber-grid cyber-noise"
+    >
       <div className="max-w-7xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -98,27 +156,29 @@ export function Features() {
             viewport={enterViewport}
             transition={{ duration: 0.34 }}
           >
-            {locale === 'ru' ? 'Инфраструктура' : 'Infrastructure'}
+            {isRu ? 'Возможности платформы' : 'Platform capabilities'}
           </motion.span>
           <h2 className="text-3xl md:text-5xl font-bold mb-4">
-            {locale === 'ru' ? (
+            {isRu ? (
               <>
-                Создано для{' '}
+                Не просто конструктор, а{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF]">
-                  масштабирования
+                  рабочая платформа
                 </span>
               </>
             ) : (
               <>
-                Built for{' '}
+                Not just a builder, but a{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF]">
-                  scale
+                  working platform
                 </span>
               </>
             )}
           </h2>
           <p className="text-lg text-white/60 max-w-2xl mx-auto">
-            {locale === 'ru' ? 'Инфраструктура корпоративного уровня, которая растет вместе с вашим бизнесом.' : 'Enterprise-grade infrastructure that grows with your business.'}
+            {isRu
+              ? 'Запуск, размещение, аналитика и контроль собраны в одном контуре. Меньше ручной сборки, меньше разрозненных сервисов и быстрее путь от идеи до рабочего бота.'
+              : 'Launch, hosting, analytics, and control sit in one workflow. Less manual setup, fewer disconnected tools, and a faster path from idea to a working bot.'}
           </p>
         </motion.div>
 
@@ -126,8 +186,8 @@ export function Features() {
         <div className="grid md:grid-cols-4 gap-6 auto-rows-[200px]">
           {infrastructureBlocks.map((block, index) => {
             const Icon = block.icon;
-            const title = typeof block.title === 'string' ? block.title : (locale === 'ru' ? block.title.ru : block.title.en);
-            const description = typeof block.description === 'string' ? block.description : (locale === 'ru' ? block.description.ru : block.description.en);
+            const title = typeof block.title === 'string' ? block.title : (isRu ? block.title.ru : block.title.en);
+            const description = typeof block.description === 'string' ? block.description : (isRu ? block.description.ru : block.description.en);
 
             // Grid span based on size
             const colSpan = block.size === 'large' ? 'md:col-span-2 md:row-span-2' :
@@ -194,33 +254,50 @@ export function Features() {
 
                       <div className="absolute bottom-0 right-0 text-xs font-mono text-[#1E88E5]">
                         <Server className="w-3 h-3 inline mr-1" />
-                        {locale === 'ru' ? 'Глобальная Edge-сеть' : 'Global Edge Network'}
+                        {isRu ? 'Глобальная сеть' : 'Global network'}
                       </div>
                     </div>
                   )}
 
                   {block.type === 'code' && (
-                    <div className="flex-1 min-h-0 mt-2 flex flex-col">
-                      <div className="rounded-lg bg-black/40 p-3 font-mono text-xs overflow-hidden flex-1 flex flex-col">
-                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10 shrink-0">
-                          <div className="flex gap-1">
-                            <div className="w-2 h-2 rounded-full bg-red-500/50" />
-                            <div className="w-2 h-2 rounded-full bg-yellow-500/50" />
-                            <div className="w-2 h-2 rounded-full bg-green-500/50" />
+                    <div className="mt-auto pt-4">
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#7C4DFF]/15 text-[#A78BFA] shrink-0">
+                              <Bot className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold text-white">
+                                {isRu ? 'Готовый бот' : 'Ready bot'}
+                              </div>
+                              <div className="truncate text-[11px] text-white/45">
+                                {isRu ? 'Остаётся на платформе' : 'Stays on-platform'}
+                              </div>
+                            </div>
                           </div>
-                          <span className="text-white/40 text-[10px]">bot.py</span>
                         </div>
-                        <pre className="text-white/70 text-[10px] leading-relaxed overflow-hidden">
-                          <span className="text-[#7C4DFF]">import</span> tflow{'\n'}
-                          <span className="text-[#7C4DFF]">async def</span> <span className="text-[#1E88E5]">start</span>(msg):{'\n'}
-                          <span className="ml-2 text-white/50"># Your logic</span>
-                        </pre>
-                        <div
-                          className="pointer-events-none mt-2 py-1.5 rounded bg-[#1E88E5]/20 border border-[#1E88E5]/30 text-[#1E88E5] text-[10px] flex items-center justify-center gap-1.5 shrink-0 select-none"
-                          aria-hidden="true"
-                        >
-                          <Download className="w-3 h-3" />
-                          {locale === 'ru' ? 'Экспорт' : 'Export'}
+
+                        <div className="flex shrink-0 items-center gap-1 text-[#38BDF8]">
+                          <ArrowRight className="h-4 w-4" />
+                          <Download className="h-4 w-4" />
+                          <ArrowRight className="h-4 w-4" />
+                        </div>
+
+                        <div className="min-w-0 flex-1 rounded-2xl border border-[#1E88E5]/20 bg-[#1E88E5]/10 px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#1E88E5]/15 text-[#38BDF8] shrink-0">
+                              <FileArchive className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold text-white">
+                                {isRu ? 'ZIP-архив' : 'ZIP archive'}
+                              </div>
+                              <div className="truncate text-[11px] text-white/50">
+                                {isRu ? 'Скачать при необходимости' : 'Export when needed'}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -247,22 +324,12 @@ export function Features() {
                   )}
 
                   {block.type === 'security' && (
-                    <div className="flex-1 min-h-0 mt-2 flex flex-col justify-center items-center">
-                      <motion.div
-                        className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-                        style={{
-                          background: 'rgba(255, 171, 0, 0.15)',
-                          border: '2px solid #FFAB00',
-                          boxShadow: '0 0 28px rgba(255, 171, 0, 0.16)',
-                        }}
-                      >
-                        <Shield className="w-6 h-6 text-[#FFAB00]" />
-                      </motion.div>
-                      <div className="text-center mt-2">
-                        <div className="text-xs font-semibold text-white mb-0.5">
-                          {locale === 'ru' ? 'E2E Защита' : 'E2E Encrypted'}
-                        </div>
-                        <div className="text-[10px] text-white/40">SOC2 Compliant</div>
+                    <div className="mt-auto pt-4">
+                      <div className="text-xs font-semibold text-white mb-1">
+                        {isRu ? 'Защита данных' : 'Protected data'}
+                      </div>
+                      <div className="text-[10px] text-white/40">
+                        {isRu ? 'Secure-by-default' : 'Secure-by-default'}
                       </div>
                     </div>
                   )}
@@ -270,6 +337,69 @@ export function Features() {
               </motion.div>
             );
           })}
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_1.95fr]">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={enterViewport}
+            transition={{ duration: 0.38, delay: 0.06 }}
+            className="rounded-3xl border border-white/8 bg-white/[0.03] p-6 backdrop-blur-xl"
+          >
+            <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-mono uppercase tracking-[0.24em] text-white/55">
+              {isRu ? 'Почему это важно' : 'Why it matters'}
+            </span>
+            <h3 className="mt-5 text-2xl font-semibold text-white md:text-3xl">
+              {isRu
+                ? 'Бот остаётся частью системы, а не отдельным экспериментом'
+                : 'Your bot stays part of the system, not a one-off experiment'}
+            </h3>
+            <p className="mt-4 text-sm leading-7 text-white/65 md:text-base">
+              {isRu
+                ? 'Когда сценарии, размещение, платежи и аналитика уже связаны между собой, команде проще запускать новые потоки, быстрее принимать решения и не тратить время на ручную склейку процессов.'
+                : 'When flows, hosting, payments, and analytics already work together, the team can launch faster, make decisions sooner, and spend less time stitching tools together.'}
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {(isRu
+                ? ['Быстрый запуск', 'Меньше ручной рутины', 'Есть запас для роста']
+                : ['Faster launch', 'Less manual work', 'Room to grow']
+              ).map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/70"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </motion.div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {platformOutcomes.map((item, index) => {
+              const Icon = item.icon;
+              const title = isRu ? item.title.ru : item.title.en;
+              const description = isRu ? item.description.ru : item.description.en;
+
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={enterViewport}
+                  transition={{ duration: 0.34, delay: 0.08 + index * 0.04 }}
+                  className="rounded-3xl border border-white/8 bg-black/30 p-5 backdrop-blur-xl"
+                >
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-[#38BDF8]">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">{title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-white/60">{description}</p>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>

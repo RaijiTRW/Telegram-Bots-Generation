@@ -6,6 +6,8 @@ import {
   getAvailableBillingCurrencies,
   getCurrentSubscriptionRow,
   getNextPeriodRange,
+  getLatestPendingCardBindingTransaction,
+  getLatestPendingSubscriptionTransaction,
   getViewerAccess,
   mergeJson,
   subscriptionPriceFor,
@@ -18,8 +20,11 @@ import type {
   SubscriptionTransactionKind,
   SubscriptionTransactionStatus,
 } from '@/lib/billing/types'
+import type { SubscriptionTransactionRow } from '@/lib/supabase/types'
 import {
   chargeSavedYooKassaPaymentMethod,
+  createYooKassaCardBindingCheckout,
+  createYooKassaRefund,
   createYooKassaSubscriptionCheckout,
   getYooKassaPayment,
 } from '@/lib/billing/yookassa'
@@ -27,6 +32,8 @@ import {
 const PENDING_SUBSCRIPTION_STATUSES = new Set(['pending', 'waiting_for_capture'])
 const SUCCESS_SUBSCRIPTION_STATUSES = new Set(['succeeded'])
 const FAILED_SUBSCRIPTION_STATUSES = new Set(['canceled', 'cancelled', 'failed'])
+const CARD_BINDING_AMOUNT = 1
+const SUBSCRIPTION_CHARGE_KINDS: SubscriptionTransactionKind[] = ['initial', 'renewal', 'change']
 
 function normalizePlanCode(value: string): PlanCode {
   if (value === 'business' || value === 'enterprise') return value
@@ -41,6 +48,10 @@ function normalizeBillingInterval(value: unknown): BillingInterval {
   return String(value || '').trim().toLowerCase() === 'year' ? 'year' : 'month'
 }
 
+function normalizeBillingLocale(value: string | undefined) {
+  return String(value || '').trim().toLowerCase() === 'en' ? 'en' : 'ru'
+}
+
 function ensureSupportedCurrency(currency: BillingCurrency) {
   if (!getAvailableBillingCurrencies().includes(currency)) {
     throw new Error(`Currency ${currency} is not enabled for subscriptions`)
@@ -53,6 +64,16 @@ function classifyPaymentStatus(value: unknown): SubscriptionTransactionStatus {
   if (FAILED_SUBSCRIPTION_STATUSES.has(normalized)) return 'failed'
   if (PENDING_SUBSCRIPTION_STATUSES.has(normalized)) return 'pending'
   return 'pending'
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function isSubscriptionChargeKind(kind: SubscriptionTransactionKind) {
+  return SUBSCRIPTION_CHARGE_KINDS.includes(kind)
 }
 
 async function insertTransaction(input: {
@@ -225,8 +246,257 @@ async function setSubscriptionPastDue(userId: string, reason: string, paymentId?
   return result.data
 }
 
+async function savePaymentMethodForFutureRenewals(input: {
+  userId: string
+  paymentMethodId: string
+  bindingPaymentId: string
+  payload: Record<string, unknown>
+}) {
+  const admin = createAdminClient()
+  const current = await getCurrentSubscriptionRow(input.userId)
+  const result = await admin
+    .from('user_subscriptions')
+    .update({
+      provider_payment_method_id: input.paymentMethodId,
+      cancel_at_period_end: false,
+      provider_metadata: mergeJson(current.provider_metadata, {
+        lastCardBindingAt: new Date().toISOString(),
+        lastCardBindingPaymentId: input.bindingPaymentId,
+        autoRenewDisabledAt: null,
+        lastCardBindingPayload: input.payload,
+      }),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', input.userId)
+    .select('*')
+    .single()
+
+  if (result.error || !result.data) {
+    throw new Error(`Failed to save payment method: ${result.error?.message || 'unknown error'}`)
+  }
+
+  return result.data
+}
+
+async function refundCardBindingCharge(input: {
+  transaction: SubscriptionTransactionRow
+  paymentId: string
+  currency: BillingCurrency
+}) {
+  const existingPayload = asRecord(input.transaction.payload)
+  const existingRefund = asRecord(existingPayload.cardBindingRefund)
+  if (String(existingRefund.id || '').trim()) {
+    return {
+      refundId: String(existingRefund.id || ''),
+      status: String(existingRefund.status || 'succeeded'),
+      raw: existingRefund,
+      idempotenceKey: String(existingPayload.cardBindingRefundIdempotenceKey || ''),
+    }
+  }
+
+  const refund = await createYooKassaRefund({
+    paymentId: input.paymentId,
+    amount: CARD_BINDING_AMOUNT,
+    currency: input.currency,
+    description: 'Возврат тестового списания за привязку карты',
+    metadata: {
+      scope: 'card-binding-refund',
+      transactionId: input.transaction.id,
+      userId: input.transaction.user_id,
+    },
+  })
+
+  await updateTransaction(input.transaction.id, {
+    payload: mergeJson(input.transaction.payload, {
+      cardBindingRefund: refund.raw,
+      cardBindingRefundIdempotenceKey: refund.idempotenceKey,
+    }),
+  })
+
+  return refund
+}
+
 export async function getCurrentSubscription(userId: string): Promise<SubscriptionSummary> {
   return getViewerAccess(userId)
+}
+
+async function syncSubscriptionTransaction(transaction: SubscriptionTransactionRow) {
+  const paymentId = String(transaction.provider_payment_id || '').trim()
+  if (!paymentId) {
+    return {
+      transactionId: transaction.id,
+      paymentId: null,
+      status: classifyPaymentStatus(transaction.status),
+      synced: false,
+    } as const
+  }
+
+  const payment = await getYooKassaPayment(paymentId)
+  const metadata = payment.metadata && typeof payment.metadata === 'object'
+    ? (payment.metadata as Record<string, unknown>)
+    : {}
+  const paymentMethod = payment.payment_method && typeof payment.payment_method === 'object'
+    ? (payment.payment_method as Record<string, unknown>)
+    : {}
+  const txStatus = classifyPaymentStatus(payment.status)
+  const amountRecord = payment.amount && typeof payment.amount === 'object'
+    ? (payment.amount as Record<string, unknown>)
+    : {}
+  const amount = Number(amountRecord.value || transaction.amount || 0)
+  const currency = normalizeBillingCurrency(String(amountRecord.currency || transaction.currency || 'RUB'))
+  const paymentMethodId = String(paymentMethod.id || transaction.provider_payment_method_id || '').trim() || null
+  const basePayload = asRecord(payment)
+  const transactionPayload = mergeJson(transaction.payload, basePayload)
+  const transactionPayloadRecord = asRecord(transactionPayload)
+
+  await updateTransaction(transaction.id, {
+    status: txStatus,
+    provider_payment_id: paymentId,
+    provider_payment_method_id: paymentMethodId,
+    payload: transactionPayload,
+    failure_reason: txStatus === 'failed' ? String(payment.cancellation_details || payment.status || 'payment_failed') : null,
+    succeeded_at: txStatus === 'succeeded' ? new Date().toISOString() : transaction.succeeded_at,
+    failed_at: txStatus === 'failed' ? new Date().toISOString() : transaction.failed_at,
+  })
+
+  if (txStatus === 'succeeded') {
+    if (isSubscriptionChargeKind(transaction.kind)) {
+      await activatePaidSubscription({
+        userId: transaction.user_id,
+        planCode: normalizePlanCode(transaction.plan_code),
+        currency,
+        billingInterval: normalizeBillingInterval(transaction.billing_interval || metadata.billingInterval),
+        amount,
+        providerPaymentId: paymentId,
+        providerPaymentMethodId: paymentMethodId,
+        payload: transactionPayloadRecord,
+      })
+    } else if (transaction.kind === 'card_binding') {
+      if (!paymentMethodId) {
+        throw new Error('YooKassa did not return saved payment_method_id for card binding')
+      }
+
+      await savePaymentMethodForFutureRenewals({
+        userId: transaction.user_id,
+        paymentMethodId,
+        bindingPaymentId: paymentId,
+        payload: transactionPayloadRecord,
+      })
+
+      await refundCardBindingCharge({
+        transaction: {
+          ...transaction,
+          payload: transactionPayload,
+          provider_payment_method_id: paymentMethodId,
+        },
+        paymentId,
+        currency,
+      })
+    }
+  } else if (txStatus === 'failed' && transaction.kind === 'renewal') {
+    await setSubscriptionPastDue(transaction.user_id, String(payment.status || 'renewal_failed'), paymentId)
+  }
+
+  return {
+    transactionId: transaction.id,
+    paymentId,
+    status: txStatus,
+    synced: true,
+  } as const
+}
+
+async function getTransactionForUserById(userId: string, transactionId: string) {
+  const admin = createAdminClient()
+  const result = await admin
+    .from('subscription_transactions')
+    .select('*')
+    .eq('id', transactionId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Failed to load subscription transaction: ${result.error.message}`)
+  }
+
+  return result.data
+}
+
+export async function syncCardBindingForUser(userId: string, transactionId?: string | null) {
+  const transaction = transactionId
+    ? await getTransactionForUserById(userId, transactionId)
+    : await getLatestPendingCardBindingTransaction(userId)
+
+  if (!transaction || transaction.kind !== 'card_binding') {
+    return {
+      synced: false,
+      status: null,
+      transactionId: null,
+      paymentId: null,
+      subscription: await getCurrentSubscription(userId),
+    } as const
+  }
+
+  try {
+    const result = await syncSubscriptionTransaction(transaction)
+    return {
+      ...result,
+      subscription: await getCurrentSubscription(userId),
+    } as const
+  } catch (error) {
+    return {
+      synced: false,
+      status: classifyPaymentStatus(transaction.status),
+      transactionId: transaction.id,
+      paymentId: String(transaction.provider_payment_id || '').trim() || null,
+      error: String(error),
+      subscription: await getCurrentSubscription(userId),
+    } as const
+  }
+}
+
+export async function syncLatestPendingSubscriptionForUser(userId: string) {
+  const pendingTransaction = await getLatestPendingSubscriptionTransaction(userId)
+  if (!pendingTransaction) {
+    return {
+      synced: false,
+      status: null,
+      transactionId: null,
+      paymentId: null,
+      subscription: await getCurrentSubscription(userId),
+    } as const
+  }
+
+  try {
+    const result = await syncSubscriptionTransaction(pendingTransaction)
+    return {
+      ...result,
+      subscription: await getCurrentSubscription(userId),
+    } as const
+  } catch (error) {
+    return {
+      synced: false,
+      status: classifyPaymentStatus(pendingTransaction.status),
+      transactionId: pendingTransaction.id,
+      paymentId: String(pendingTransaction.provider_payment_id || '').trim() || null,
+      error: String(error),
+      subscription: await getCurrentSubscription(userId),
+    } as const
+  }
+}
+
+export async function getCurrentSubscriptionWithPendingSync(userId: string): Promise<SubscriptionSummary> {
+  const pendingTransaction = await getLatestPendingSubscriptionTransaction(userId)
+  if (!pendingTransaction) {
+    return getCurrentSubscription(userId)
+  }
+
+  try {
+    await syncSubscriptionTransaction(pendingTransaction)
+  } catch {
+    // Keep the subscription page usable even if provider sync fails.
+  }
+
+  return getCurrentSubscription(userId)
 }
 
 export async function startSubscriptionCheckout(input: {
@@ -238,6 +508,11 @@ export async function startSubscriptionCheckout(input: {
 }) {
   if (input.planCode === 'base') {
     throw new Error('Base plan does not require checkout')
+  }
+
+  const locale = normalizeBillingLocale(input.locale)
+  if (locale === 'en') {
+    throw new Error('Subscription payments are not available for the English locale yet')
   }
 
   ensureSupportedCurrency(input.currency)
@@ -269,7 +544,6 @@ export async function startSubscriptionCheckout(input: {
 
   const amount = subscriptionPriceFor(input.planCode, input.currency, input.billingInterval)
   const baseUrl = await resolveAppBaseUrl()
-  const locale = input.locale || 'ru'
   const returnUrl = `${baseUrl}/${locale}/payment/return?source=subscription&plan=${input.planCode}&billing=${input.billingInterval}`
   const kind: SubscriptionTransactionKind = access.planCode === 'base' ? 'initial' : 'change'
   const transaction = await insertTransaction({
@@ -334,6 +608,70 @@ export async function changeSubscriptionPlan(input: {
   }
 }
 
+export async function startCardBindingCheckout(input: {
+  userId: string
+  locale?: string
+}) {
+  const locale = normalizeBillingLocale(input.locale)
+  if (locale === 'en') {
+    throw new Error('Card binding is not available for the English locale yet')
+  }
+
+  const current = await getCurrentSubscriptionRow(input.userId)
+  if (current.plan_code === 'base') {
+    throw new Error('Base plan does not require card binding for renewals')
+  }
+
+  const pendingTransaction = await getLatestPendingCardBindingTransaction(input.userId)
+  if (pendingTransaction?.confirmation_url) {
+    return {
+      confirmationUrl: pendingTransaction.confirmation_url,
+      transactionId: pendingTransaction.id,
+    } as const
+  }
+
+  const baseUrl = await resolveAppBaseUrl()
+  const transaction = await insertTransaction({
+    userId: input.userId,
+    planCode: normalizePlanCode(current.plan_code),
+    billingInterval: normalizeBillingInterval(current.billing_interval),
+    kind: 'card_binding',
+    amount: CARD_BINDING_AMOUNT,
+    currency: 'RUB',
+    returnUrl: null,
+  })
+
+  const returnUrl = `${baseUrl}/${locale}/payment/return?source=card-binding&tx=${transaction.id}`
+  await updateTransaction(transaction.id, { return_url: returnUrl })
+
+  const checkout = await createYooKassaCardBindingCheckout({
+    amount: CARD_BINDING_AMOUNT,
+    currency: 'RUB',
+    returnUrl,
+    userId: input.userId,
+    transactionId: transaction.id,
+    locale,
+  })
+
+  await updateTransaction(transaction.id, {
+    provider_payment_id: checkout.paymentId || null,
+    provider_payment_method_id: checkout.paymentMethodId || null,
+    provider_idempotence_key: checkout.idempotenceKey,
+    confirmation_url: checkout.confirmationUrl || null,
+    payload: checkout.raw,
+    status: classifyPaymentStatus(checkout.status),
+  })
+
+  if (!checkout.confirmationUrl) {
+    throw new Error('YooKassa did not return confirmation_url for card binding')
+  }
+
+  return {
+    confirmationUrl: checkout.confirmationUrl,
+    transactionId: transaction.id,
+  } as const
+}
+
 export async function cancelSubscriptionAtPeriodEnd(userId: string) {
   const admin = createAdminClient()
   const current = await getCurrentSubscriptionRow(userId)
@@ -345,6 +683,11 @@ export async function cancelSubscriptionAtPeriodEnd(userId: string) {
     .from('user_subscriptions')
     .update({
       cancel_at_period_end: true,
+      provider_payment_method_id: null,
+      provider_metadata: mergeJson(current.provider_metadata, {
+        autoRenewDisabledAt: new Date().toISOString(),
+        autoRenewDisabledReason: 'user_requested',
+      }),
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
@@ -364,11 +707,19 @@ export async function resumeSubscription(userId: string) {
   if (current.plan_code === 'base') {
     throw new Error('Base plan does not require resume')
   }
+  if (!String(current.provider_payment_method_id || '').trim()) {
+    throw new Error('No saved card found. Bind a card again to resume auto-renewal.')
+  }
 
   const result = await admin
     .from('user_subscriptions')
     .update({
       cancel_at_period_end: false,
+      provider_metadata: mergeJson(current.provider_metadata, {
+        autoRenewDisabledAt: null,
+        autoRenewDisabledReason: null,
+        autoRenewResumedAt: new Date().toISOString(),
+      }),
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
@@ -431,42 +782,17 @@ export async function syncSubscriptionFromWebhook(payload: Record<string, unknow
     throw new Error(`Subscription transaction not found for payment ${paymentId}`)
   }
 
-  const txStatus = classifyPaymentStatus(payment.status)
-  const amountRecord = payment.amount && typeof payment.amount === 'object'
-    ? (payment.amount as Record<string, unknown>)
-    : {}
-  const amount = Number(amountRecord.value || transaction.amount || 0)
-  const currency = normalizeBillingCurrency(String(amountRecord.currency || transaction.currency || 'RUB'))
-
-  await updateTransaction(transaction.id, {
-    status: txStatus,
+  const result = await syncSubscriptionTransaction({
+    ...transaction,
     provider_payment_id: paymentId,
     provider_payment_method_id: String(paymentMethod.id || transaction.provider_payment_method_id || '') || null,
-    payload: payment,
-    failure_reason: txStatus === 'failed' ? String(payment.cancellation_details || payment.status || 'payment_failed') : null,
-    succeeded_at: txStatus === 'succeeded' ? new Date().toISOString() : transaction.succeeded_at,
-    failed_at: txStatus === 'failed' ? new Date().toISOString() : transaction.failed_at,
-  })
-
-  if (txStatus === 'succeeded') {
-    await activatePaidSubscription({
-      userId: transaction.user_id,
-      planCode: normalizePlanCode(transaction.plan_code),
-      currency,
-      billingInterval: normalizeBillingInterval(transaction.billing_interval || metadata.billingInterval),
-      amount,
-      providerPaymentId: paymentId,
-      providerPaymentMethodId: String(paymentMethod.id || transaction.provider_payment_method_id || '') || null,
-      payload: payment,
-    })
-  } else if (transaction.kind === 'renewal') {
-    await setSubscriptionPastDue(transaction.user_id, String(payment.status || 'renewal_failed'), paymentId)
-  }
+    billing_interval: normalizeBillingInterval(transaction.billing_interval || metadata.billingInterval),
+  } as SubscriptionTransactionRow)
 
   return {
-    transactionId: transaction.id,
-    paymentId,
-    status: txStatus,
+    transactionId: result.transactionId,
+    paymentId: result.paymentId,
+    status: result.status,
   }
 }
 

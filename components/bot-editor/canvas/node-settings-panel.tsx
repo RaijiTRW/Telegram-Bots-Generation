@@ -76,6 +76,10 @@ import {
   VariableAutocompleteInput,
 } from './variable-field-assist'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import {
+  getNodeTemplateGuideKey,
+} from '@/lib/bot-editor/help/help-guide-keys'
+import { resolveNodeHelpTemplateId } from '@/lib/bot-editor/help/node-help-guides'
 
 interface NodeSettingsPanelProps {
   node: Node | null
@@ -168,46 +172,6 @@ function tryTranslate(t: TranslationFn, key: string): string | null {
   }
 }
 
-function resolveHelpTemplateId(nodeType: NodeType, data: Partial<NodeData>): string | null {
-  if (nodeType === 'trigger') {
-    const raw = data as Partial<TriggerNodeData> & {
-      trigger?: string
-      triggerType?: string
-      aiEnabled?: boolean
-    }
-
-    if (Boolean(raw.aiEnabled)) {
-      return 'trigger-ai'
-    }
-
-    const triggerType = String(raw.trigger || raw.triggerType || 'command')
-    if (triggerType === 'text') return 'trigger-text'
-    if (triggerType === 'callbackQuery') return 'trigger-callback'
-    if (triggerType === 'schedule') return 'trigger-schedule'
-    return 'trigger-command'
-  }
-
-  if (nodeType === 'message') {
-    const raw = data as Partial<MessageNodeData> & { aiEnabled?: boolean }
-    return raw.aiEnabled ? 'message-ai' : 'message'
-  }
-
-  if (nodeType === 'condition') {
-    const raw = data as Partial<ConditionNodeData> & { aiEnabled?: boolean }
-    return raw.aiEnabled ? 'condition-ai' : 'condition'
-  }
-
-  if (nodeType === 'replyKeyboard') return 'reply-keyboard'
-  if (nodeType === 'paymentYookassa') return 'payment-yookassa'
-  if (nodeType === 'paymentStripe') return 'payment-stripe'
-  if (nodeType === 'paymentRobokassa') return 'payment-robokassa'
-  if (nodeType === 'paymentStars') return 'payment-stars'
-  if (nodeType === 'wait') return 'scheduler'
-  if (nodeType === 'webhook') return 'webhook'
-
-  return nodeType
-}
-
 function getNodeHelpContent(args: {
   nodeType: NodeType
   data: Partial<NodeData>
@@ -215,7 +179,7 @@ function getNodeHelpContent(args: {
   tCanvas: TranslationFn
 }) {
   const { nodeType, data, tNode, tCanvas } = args
-  const templateId = resolveHelpTemplateId(nodeType, data)
+  const templateId = resolveNodeHelpTemplateId(nodeType, data)
   const translationSuffix = templateId ? TEMPLATE_ID_TO_CANVAS_TRANSLATION_KEY[templateId] : null
 
   const fallbackSummary = tNode('help.summary')
@@ -439,6 +403,8 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
     tNode: t as unknown as TranslationFn,
     tCanvas: tCanvas as unknown as TranslationFn,
   })
+  const nodeHelpTemplateId = resolveNodeHelpTemplateId(nodeType, data as Partial<NodeData>)
+  const nodeHelpGuideKey = getNodeTemplateGuideKey(nodeHelpTemplateId || nodeType)
   const panelTitle =
     typeof (data as Record<string, unknown> | null)?.__label === 'string' &&
       String((data as Record<string, unknown>).__label || '').trim()
@@ -493,6 +459,7 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
               <div className="flex items-center gap-2">
                 <h3 className={`text-white font-semibold ${isDetailedMode ? 'text-base' : ''}`}>{panelTitle}</h3>
                 <HelpGuideButton
+                  guideKey={nodeHelpGuideKey}
                   title={panelTitle}
                   summary={nodeHelp.summary}
                   steps={nodeHelp.steps}

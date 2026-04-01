@@ -1,0 +1,10 @@
+[Unit]
+Description=Run CBTooll analytics digests every hour
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+Unit=analytics-digests.service
+
+[Install]
+WantedBy=timers.target

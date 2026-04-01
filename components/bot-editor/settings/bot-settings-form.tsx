@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useBotState } from '../providers/bot-state-provider'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import { HELP_GUIDE_KEYS } from '@/lib/bot-editor/help/help-guide-keys'
 import type { BotStatus } from '@/lib/bot-editor/types/bot.types'
 import {
   syncTelegramBotStyleAction,
@@ -228,6 +229,7 @@ export function BotSettingsForm() {
           </div>
           {t('basicInfo')}
           <HelpGuideButton
+            guideKey={HELP_GUIDE_KEYS.editorSettingsBasicInfo}
             title={t('basicInfo')}
             summary={t('help.basicSummary')}
             steps={[t('help.basicStep1'), t('help.basicStep2'), t('help.basicStep3')]}
@@ -296,6 +298,7 @@ export function BotSettingsForm() {
           </div>
           {t('profileStyleTitle')}
           <HelpGuideButton
+            guideKey={HELP_GUIDE_KEYS.editorSettingsProfileStyle}
             title={t('profileStyleTitle')}
             summary={t('help.profileSummary')}
             steps={[t('help.profileStep1'), t('help.profileStep2'), t('help.profileStep3')]}
@@ -473,6 +476,7 @@ export function BotSettingsForm() {
           </div>
           {t('telegramIntegration')}
           <HelpGuideButton
+            guideKey={HELP_GUIDE_KEYS.editorSettingsTelegramIntegration}
             title={t('telegramIntegration')}
             summary={t('help.tokenSummary')}
             steps={[t('help.tokenStep1'), t('help.tokenStep2'), t('help.tokenStep3')]}
@@ -486,6 +490,7 @@ export function BotSettingsForm() {
             <div className="flex items-center gap-2">
               <Label htmlFor="telegram-token" className="text-white">{t('botToken')}</Label>
               <HelpGuideButton
+                guideKey={HELP_GUIDE_KEYS.editorSettingsBotToken}
                 title={t('botToken')}
                 summary={t('help.tokenSummary')}
                 steps={[t('help.tokenStep1'), t('help.tokenStep2'), t('help.tokenStep3')]}

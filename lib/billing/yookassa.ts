@@ -80,6 +80,12 @@ export function buildSubscriptionDescription(planCode: PlanCode, billingInterval
   return `${prefix}: Base (${periodLabel})`
 }
 
+export function buildCardBindingDescription(locale = 'ru') {
+  return locale === 'en'
+    ? 'CBTooll: save card for subscription renewals'
+    : 'CBTooll: привязка карты для автопродления подписки'
+}
+
 export async function createYooKassaSubscriptionCheckout(input: {
   amount: number
   currency: BillingCurrency
@@ -111,6 +117,54 @@ export async function createYooKassaSubscriptionCheckout(input: {
         userId: input.userId,
         planCode: input.planCode,
         billingInterval: input.billingInterval,
+        transactionId: input.transactionId,
+      },
+    },
+  })
+
+  const confirmation = body.confirmation && typeof body.confirmation === 'object'
+    ? (body.confirmation as YooKassaRecord)
+    : null
+
+  return {
+    idempotenceKey,
+    paymentId: String(body.id || ''),
+    status: String(body.status || 'pending'),
+    confirmationUrl: String(confirmation?.confirmation_url || ''),
+    paymentMethodId: body.payment_method && typeof body.payment_method === 'object'
+      ? String((body.payment_method as YooKassaRecord).id || '')
+      : '',
+    raw: body,
+  }
+}
+
+export async function createYooKassaCardBindingCheckout(input: {
+  amount: number
+  currency: BillingCurrency
+  returnUrl: string
+  userId: string
+  transactionId: string
+  locale?: string
+}) {
+  const idempotenceKey = randomUUID()
+  const body = await yookassaRequest('/payments', {
+    method: 'POST',
+    idempotenceKey,
+    body: {
+      amount: {
+        value: input.amount.toFixed(2),
+        currency: input.currency,
+      },
+      capture: true,
+      save_payment_method: true,
+      confirmation: {
+        type: 'redirect',
+        return_url: input.returnUrl,
+      },
+      description: buildCardBindingDescription(input.locale),
+      metadata: {
+        scope: 'card-binding',
+        userId: input.userId,
         transactionId: input.transactionId,
       },
     },
@@ -175,6 +229,36 @@ export async function chargeSavedYooKassaPaymentMethod(input: {
     paymentMethodId: body.payment_method && typeof body.payment_method === 'object'
       ? String((body.payment_method as YooKassaRecord).id || '')
       : input.paymentMethodId,
+    raw: body,
+  }
+}
+
+export async function createYooKassaRefund(input: {
+  paymentId: string
+  amount: number
+  currency: BillingCurrency
+  description?: string
+  metadata?: Record<string, unknown>
+}) {
+  const idempotenceKey = randomUUID()
+  const body = await yookassaRequest('/refunds', {
+    method: 'POST',
+    idempotenceKey,
+    body: {
+      payment_id: input.paymentId,
+      amount: {
+        value: input.amount.toFixed(2),
+        currency: input.currency,
+      },
+      ...(input.description ? { description: input.description } : {}),
+      ...(input.metadata ? { metadata: input.metadata } : {}),
+    },
+  })
+
+  return {
+    idempotenceKey,
+    refundId: String(body.id || ''),
+    status: String(body.status || 'pending'),
     raw: body,
   }
 }

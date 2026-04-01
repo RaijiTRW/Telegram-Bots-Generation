@@ -9,6 +9,7 @@ import type {
   PlanEntitlements,
   PendingSubscriptionTransaction,
   PlanStatus,
+  SubscriptionTransactionKind,
   SubscriptionUsage,
   UserRole,
   ViewerAccess,
@@ -21,6 +22,7 @@ import type {
 } from '@/lib/supabase/types'
 
 const ACTIVE_STATUSES = new Set<PlanStatus>(['active'])
+const SUBSCRIPTION_TRANSACTION_KINDS = ['initial', 'renewal', 'change'] as const
 
 function nowIso() {
   return new Date().toISOString()
@@ -149,6 +151,7 @@ function buildFallbackViewerAccess(): ViewerAccess {
     priceAmount: getPlanPrice('base', currency, billingInterval),
     billingInterval,
     billingProvider: 'yookassa',
+    hasSavedPaymentMethod: false,
     cancelAtPeriodEnd: false,
     startedAt: null,
     currentPeriodStart: null,
@@ -244,13 +247,17 @@ export async function getCurrentSubscriptionRow(userId: string): Promise<UserSub
   return ensureUserSubscription(userId)
 }
 
-export async function getLatestPendingSubscriptionTransaction(userId: string): Promise<SubscriptionTransactionRow | null> {
+async function getLatestPendingTransactionByKinds(
+  userId: string,
+  kinds: readonly SubscriptionTransactionKind[]
+): Promise<SubscriptionTransactionRow | null> {
   const admin = createAdminClient()
   const result = await admin
     .from('subscription_transactions')
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'pending')
+    .in('kind', [...kinds])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -260,6 +267,14 @@ export async function getLatestPendingSubscriptionTransaction(userId: string): P
   }
 
   return result.data
+}
+
+export async function getLatestPendingSubscriptionTransaction(userId: string): Promise<SubscriptionTransactionRow | null> {
+  return getLatestPendingTransactionByKinds(userId, SUBSCRIPTION_TRANSACTION_KINDS)
+}
+
+export async function getLatestPendingCardBindingTransaction(userId: string): Promise<SubscriptionTransactionRow | null> {
+  return getLatestPendingTransactionByKinds(userId, ['card_binding'])
 }
 
 export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
@@ -313,6 +328,7 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
     priceAmount: Number(subscriptionRow?.price_amount ?? getPlanPrice(currentPlanCode, currentCurrency, currentBillingInterval)),
     billingInterval: currentBillingInterval,
     billingProvider: 'yookassa',
+    hasSavedPaymentMethod: Boolean(subscriptionRow?.provider_payment_method_id),
     cancelAtPeriodEnd: Boolean(subscriptionRow?.cancel_at_period_end),
     startedAt: subscriptionRow?.started_at || null,
     currentPeriodStart: subscriptionRow?.current_period_start || null,

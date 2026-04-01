@@ -1,10 +1,19 @@
 'use client';
 
+import type { SVGProps } from 'react';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { motion } from '@/components/motion-wrapper';
 import { TFlowLogo } from '@/components/logo';
-import { Github, Twitter } from 'lucide-react';
+import { Instagram, Youtube } from 'lucide-react';
+
+function VkIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M12.785 17.592c-6.314 0-9.914-4.329-10.065-11.53h3.163c.104 5.284 2.432 7.52 4.277 7.981V6.062h2.98v4.556c1.821-.197 3.732-2.27 4.377-4.556h2.98c-.495 2.813-2.568 4.886-4.043 5.739 1.475.691 3.836 2.5 4.735 5.791h-3.28c-.704-2.19-2.453-3.884-4.77-4.116v4.116h-.354z" />
+    </svg>
+  );
+}
 
 export function Footer() {
   const locale = useLocale();
@@ -22,22 +31,32 @@ export function Footer() {
         { label: 'Возможности', href: `/${locale}#features` },
         { label: 'Цены', href: `/${locale}/pricing` },
         { label: 'Документация', href: `/${locale}/docs` },
-        { label: 'API', href: `/${locale}/docs` },
+        // { label: 'API', href: `/${locale}/docs` },
       ]
     : [
         { label: 'Features', href: `/${locale}#features` },
         { label: 'Pricing', href: `/${locale}/pricing` },
         { label: 'Documentation', href: `/${locale}/docs` },
-        { label: 'API', href: `/${locale}/docs` },
+        // { label: 'API', href: `/${locale}/docs` },
       ];
 
   const companyLinks = isRu
-    ? ['О нас', 'Блог', 'Карьера', 'Контакты']
-    : ['About', 'Blog', 'Careers', 'Contact'];
+    ? [{ label: 'Контакты', href: `/${locale}/contact` }]
+    : [{ label: 'Contact', href: `/${locale}/contact` }];
 
   const legalLinks = isRu
-    ? ['Конфиденциальность', 'Условия', 'Безопасность', 'Статус']
-    : ['Privacy', 'Terms', 'Security', 'Status'];
+    ? [
+        { label: 'Конфиденциальность', href: `/${locale}/privacy` },
+        { label: 'Условия', href: `/${locale}/terms` },
+        { label: 'Безопасность', href: `/${locale}/security` },
+        { label: 'Статус', href: `/${locale}/status` },
+      ]
+    : [
+        { label: 'Privacy', href: `/${locale}/privacy` },
+        { label: 'Terms', href: `/${locale}/terms` },
+        { label: 'Security', href: `/${locale}/security` },
+        { label: 'Status', href: `/${locale}/status` },
+      ];
 
   return (
     <footer className="border-t border-white/5 mt-auto relative overflow-hidden cyber-grid">
@@ -166,14 +185,15 @@ export function Footer() {
             <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Компания' : 'Company'}</h4>
             <ul className="space-y-2">
               {companyLinks.map((link) => (
-                <li key={link}>
-                  <motion.a
-                    href="#"
+                <li key={link.label}>
+                  <motion.div whileHover={{ x: 3 }} className="inline-block">
+                    <Link
+                      href={link.href}
                     className="text-sm text-white/60 hover:text-white transition-colors inline-block"
-                    whileHover={{ x: 3 }}
-                  >
-                    {link}
-                  </motion.a>
+                    >
+                      {link.label}
+                    </Link>
+                  </motion.div>
                 </li>
               ))}
             </ul>
@@ -189,14 +209,15 @@ export function Footer() {
             <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Правовая информация' : 'Legal'}</h4>
             <ul className="space-y-2">
               {legalLinks.map((link) => (
-                <li key={link}>
-                  <motion.a
-                    href="#"
+                <li key={link.label}>
+                  <motion.div whileHover={{ x: 3 }} className="inline-block">
+                    <Link
+                      href={link.href}
                     className="text-sm text-white/60 hover:text-white transition-colors inline-block"
-                    whileHover={{ x: 3 }}
-                  >
-                    {link}
-                  </motion.a>
+                    >
+                      {link.label}
+                    </Link>
+                  </motion.div>
                 </li>
               ))}
             </ul>
@@ -223,7 +244,7 @@ export function Footer() {
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Github className="w-5 h-5" />
+              <VkIcon className="w-5 h-5" />
             </motion.a>
             <motion.a
               href="#"
@@ -231,7 +252,15 @@ export function Footer() {
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Twitter className="w-5 h-5" />
+              <Instagram className="w-5 h-5" />
+            </motion.a>
+            <motion.a
+              href="#"
+              className="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+              whileHover={{ scale: 1.1, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Youtube className="w-5 h-5" />
             </motion.a>
           </div>
         </motion.div>

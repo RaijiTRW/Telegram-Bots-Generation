@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import SubscriptionScreen from '@/components/dashboard/screens/subscription-screen'
-import { getViewerAccess } from '@/lib/billing/server'
+import { getCurrentSubscriptionWithPendingSync } from '@/lib/billing/service'
 import { getServerUser } from '@/lib/supabase/server'
 
 export default async function DashboardSubscriptionPage({
@@ -15,7 +15,7 @@ export default async function DashboardSubscriptionPage({
     redirect(`/${locale}/auth/login`)
   }
 
-  const subscription = await getViewerAccess(user.id)
+  const subscription = await getCurrentSubscriptionWithPendingSync(user.id)
 
   return <SubscriptionScreen initialSubscription={subscription} />
 }

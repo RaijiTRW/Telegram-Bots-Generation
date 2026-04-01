@@ -7,8 +7,10 @@ import { CircleHelp, ExternalLink, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { DocsInlineText } from '@/components/docs/docs-inline-text'
+import { useEditorHelpGuides } from '@/components/bot-editor/providers/editor-help-guides-provider'
 
 type HelpGuideButtonProps = {
+  guideKey: string
   title: string
   summary: string
   steps?: string[]
@@ -72,6 +74,7 @@ function resolveDocsHrefWithTopic(docsHref: string | undefined, title: string): 
 }
 
 export function HelpGuideButton({
+  guideKey,
   title,
   summary,
   steps,
@@ -82,12 +85,15 @@ export function HelpGuideButton({
   compact = true,
 }: HelpGuideButtonProps) {
   const t = useTranslations('editor.help')
+  const guides = useEditorHelpGuides()
   const [open, setOpen] = useState(false)
+  const cmsGuide = guides[guideKey]
 
-  const safeSummary = String(summary || '').trim()
-  const safeSteps = normalizeList(steps)
-  const safeNotes = normalizeList(notes)
-  const resolvedDocsHref = resolveDocsHrefWithTopic(docsHref, title)
+  const safeTitle = String(cmsGuide?.title || title || '').trim() || title
+  const safeSummary = String(cmsGuide?.summary || summary || '').trim()
+  const safeSteps = normalizeList(cmsGuide?.steps?.length ? cmsGuide.steps : steps)
+  const safeNotes = normalizeList(cmsGuide?.notes?.length ? cmsGuide.notes : notes)
+  const resolvedDocsHref = resolveDocsHrefWithTopic(docsHref, safeTitle)
 
   useEffect(() => {
     if (!open || typeof document === 'undefined') return
@@ -134,7 +140,7 @@ export function HelpGuideButton({
                 <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
                   <div>
                     <p className="text-[11px] uppercase tracking-wide text-zinc-500">{t('modalTag')}</p>
-                    <h3 className="text-lg font-semibold text-white mt-1">{title}</h3>
+                    <h3 className="text-lg font-semibold text-white mt-1">{safeTitle}</h3>
                   </div>
                   <button
                     type="button"

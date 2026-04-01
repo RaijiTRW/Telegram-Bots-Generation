@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { getServerUser, createServerClientWrapper } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getViewerAccess } from '@/lib/billing/server'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
 import { createBotSecretsService } from '@/lib/bot-editor/services/bot-secrets-service'
@@ -36,9 +37,18 @@ import type {
   BotTechnicalStatsRange,
   BotTechnicalStatsSummary,
   CrmFilters,
+  DashboardGlobalAnomaly,
+  DashboardGlobalBotRankingRow,
+  DashboardGlobalCurrencyTotal,
+  DashboardGlobalMoneySummary,
   DashboardGlobalPaymentItem,
   DashboardGlobalPayments,
   DashboardGlobalPaymentsFilters,
+  DashboardGlobalReportFormat,
+  DashboardGlobalRetentionBlock,
+  DashboardGlobalRetentionCohortRow,
+  DashboardGlobalRetentionWindow,
+  DashboardRetentionWindowKey,
   DashboardGlobalStats,
   DashboardGlobalStatsFilters,
   DashboardGlobalStatsPeriod,
@@ -47,6 +57,8 @@ import type {
   DashboardGlobalSubscribersFilters,
   LeadStage,
 } from '@/lib/bot-editor/types/analytics.types'
+import type { ViewerAccess } from '@/lib/billing/types'
+import { buildBase64CsvPayload, buildBase64XlsxPayload, type DashboardExportSheet } from '@/lib/dashboard-analytics/export'
 import { callTelegramApi, callTelegramApiFormData } from '@/lib/bot-editor/runtime/telegram-api'
 import {
   startTelegramPolling,
@@ -2669,7 +2681,15 @@ type DashboardGlobalSubscriberRow = {
 }
 
 type DashboardGlobalContactRow = {
+  bot_id?: string | null
+  telegram_user_id?: number | null
   created_at: string | null
+}
+
+type DashboardGlobalRetentionSubscriberRow = {
+  bot_id: string | null
+  telegram_user_id: number | null
+  first_seen_at: string | null
 }
 
 type DashboardParsedPaymentRecord = DashboardGlobalPaymentItem & {
@@ -2678,6 +2698,15 @@ type DashboardParsedPaymentRecord = DashboardGlobalPaymentItem & {
 
 type DashboardGlobalPaymentAggregate = DashboardGlobalPaymentItem & {
   latestAtMs: number
+}
+
+type DashboardGlobalPeriodRange = {
+  comparisonAvailable: boolean
+  currentSinceIso: string | null
+  currentSinceMs: number | null
+  previousSinceIso: string | null
+  previousSinceMs: number | null
+  previousUntilMs: number | null
 }
 
 const DASHBOARD_GLOBAL_PERIOD_MS: Record<Exclude<DashboardGlobalStatsPeriod, 'all'>, number> = {
@@ -2698,6 +2727,33 @@ function getDashboardGlobalSinceIso(period: DashboardGlobalStatsPeriod): string 
     return null
   }
   return new Date(Date.now() - DASHBOARD_GLOBAL_PERIOD_MS[period]).toISOString()
+}
+
+function getDashboardGlobalPeriodRange(period: DashboardGlobalStatsPeriod): DashboardGlobalPeriodRange {
+  if (period === 'all') {
+    return {
+      comparisonAvailable: false,
+      currentSinceIso: null,
+      currentSinceMs: null,
+      previousSinceIso: null,
+      previousSinceMs: null,
+      previousUntilMs: null,
+    }
+  }
+
+  const nowMs = Date.now()
+  const durationMs = DASHBOARD_GLOBAL_PERIOD_MS[period]
+  const currentSinceMs = nowMs - durationMs
+  const previousSinceMs = currentSinceMs - durationMs
+
+  return {
+    comparisonAvailable: true,
+    currentSinceIso: new Date(currentSinceMs).toISOString(),
+    currentSinceMs,
+    previousSinceIso: new Date(previousSinceMs).toISOString(),
+    previousSinceMs,
+    previousUntilMs: currentSinceMs,
+  }
 }
 
 function normalizeDashboardGlobalPage(page: number): number {
@@ -2747,6 +2803,16 @@ function roundTo(value: number, digits = 2): number {
   return Number(value.toFixed(digits))
 }
 
+function normalizeDeltaDirection(
+  current: number,
+  previous: number
+): DashboardGlobalStats['comparison']['revenue']['direction'] {
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return 'none'
+  if (current > previous) return 'up'
+  if (current < previous) return 'down'
+  return 'flat'
+}
+
 function divideNumbersSafe(numerator: number, denominator: number, digits = 2): number {
   if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return 0
   return roundTo(numerator / denominator, digits)
@@ -2757,8 +2823,85 @@ function toPercentSafe(numerator: number, denominator: number, digits = 2): numb
   return roundTo((numerator / denominator) * 100, digits)
 }
 
+function buildDashboardGlobalDelta(
+  current: number,
+  previous: number,
+  options: {
+    available?: boolean
+    allowZeroBaseline?: boolean
+    digits?: number
+  } = {}
+): DashboardGlobalStats['comparison']['revenue'] {
+  const available = options.available ?? true
+  const digits = options.digits ?? 2
+
+  if (!available) {
+    return {
+      current: roundTo(current, digits),
+      previous: roundTo(previous, digits),
+      deltaPercent: null,
+      direction: 'none',
+      available: false,
+    }
+  }
+
+  const deltaPercent =
+    previous > 0
+      ? roundTo(((current - previous) / previous) * 100, digits)
+      : options.allowZeroBaseline && current === 0
+        ? 0
+        : null
+
+  return {
+    current: roundTo(current, digits),
+    previous: roundTo(previous, digits),
+    deltaPercent,
+    direction: normalizeDeltaDirection(current, previous),
+    available: true,
+  }
+}
+
+function buildCurrencyTotals(
+  items: Array<{ amount: number | null; currency: string | null | undefined }>
+): DashboardGlobalCurrencyTotal[] {
+  const totals = new Map<string, number>()
+
+  for (const item of items) {
+    if (item.amount === null || !Number.isFinite(item.amount)) continue
+    const currency = toText(item.currency).toUpperCase() || 'UNKNOWN'
+    totals.set(currency, (totals.get(currency) || 0) + item.amount)
+  }
+
+  return Array.from(totals.entries())
+    .map(([currency, amount]) => ({ currency, amount: roundTo(amount, 2) }))
+    .sort((left, right) => right.amount - left.amount)
+}
+
+function buildDashboardMoneySummary(
+  items: Array<{ amount: number | null; currency: string | null | undefined }>
+): DashboardGlobalMoneySummary {
+  return {
+    count: items.length,
+    totalAmount: roundTo(
+      items.reduce((sum, item) => sum + (item.amount !== null && Number.isFinite(item.amount) ? item.amount : 0), 0),
+      2
+    ),
+    currencyTotals: buildCurrencyTotals(items),
+  }
+}
+
+function calculateMedian(values: number[]): number | null {
+  if (!values.length) return null
+  const sorted = [...values].sort((left, right) => left - right)
+  const middleIndex = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) {
+    return roundTo((sorted[middleIndex - 1] + sorted[middleIndex]) / 2, 2)
+  }
+  return roundTo(sorted[middleIndex], 2)
+}
+
 async function getOwnedDashboardBots(
-  supabase: Awaited<ReturnType<typeof createServerClientWrapper>>,
+  supabase: Awaited<ReturnType<typeof createServerClientWrapper>> | ReturnType<typeof createAdminClient>,
   userId: string,
   botId?: string
 ): Promise<DashboardOwnedBot[]> {
@@ -2872,6 +3015,124 @@ function aggregateDashboardPayments(records: DashboardParsedPaymentRecord[]): Da
   return Array.from(aggregated.values()).sort((left, right) => right.latestAtMs - left.latestAtMs)
 }
 
+function filterDashboardPaymentsByRange(
+  items: DashboardGlobalPaymentAggregate[],
+  sinceMs: number | null,
+  untilMs: number | null = null
+): DashboardGlobalPaymentAggregate[] {
+  return items.filter((item) => {
+    if (!Number.isFinite(item.latestAtMs) || item.latestAtMs <= 0) return false
+    if (sinceMs !== null && item.latestAtMs < sinceMs) return false
+    if (untilMs !== null && item.latestAtMs >= untilMs) return false
+    return true
+  })
+}
+
+function buildDashboardGlobalAnomalies(input: {
+  comparison: DashboardGlobalStats['comparison']
+  currentPendingFailedCount: number
+  previousPendingFailedCount: number
+  currentPendingFailedAmount: number
+  previousPendingFailedAmount: number
+  currentNewSubscribers: number
+  previousNewSubscribers: number
+}): DashboardGlobalAnomaly[] {
+  const anomalies: DashboardGlobalAnomaly[] = []
+
+  if (
+    input.comparison.revenue.available &&
+    input.comparison.revenue.previous > 0 &&
+    input.comparison.revenue.current <= input.comparison.revenue.previous * 0.8
+  ) {
+    anomalies.push({
+      key: 'revenue_drop',
+      severity: input.comparison.revenue.current <= input.comparison.revenue.previous * 0.5 ? 'critical' : 'warning',
+      currentValue: input.comparison.revenue.current,
+      previousValue: input.comparison.revenue.previous,
+      deltaPercent: input.comparison.revenue.deltaPercent,
+    })
+  }
+
+  if (
+    input.comparison.conversionPercent.available &&
+    input.comparison.conversionPercent.previous >= 5 &&
+    input.comparison.conversionPercent.current <= input.comparison.conversionPercent.previous * 0.8
+  ) {
+    anomalies.push({
+      key: 'conversion_drop',
+      severity:
+        input.comparison.conversionPercent.current <= input.comparison.conversionPercent.previous * 0.5
+          ? 'critical'
+          : 'warning',
+      currentValue: input.comparison.conversionPercent.current,
+      previousValue: input.comparison.conversionPercent.previous,
+      deltaPercent: input.comparison.conversionPercent.deltaPercent,
+    })
+  }
+
+  const pendingFailedCountGrowth =
+    input.previousPendingFailedCount > 0
+      ? roundTo(((input.currentPendingFailedCount - input.previousPendingFailedCount) / input.previousPendingFailedCount) * 100, 2)
+      : null
+  const pendingFailedAmountGrowth =
+    input.previousPendingFailedAmount > 0
+      ? roundTo(((input.currentPendingFailedAmount - input.previousPendingFailedAmount) / input.previousPendingFailedAmount) * 100, 2)
+      : null
+
+  if (
+    (input.previousPendingFailedCount >= 2 && input.currentPendingFailedCount >= input.previousPendingFailedCount * 1.5) ||
+    (input.previousPendingFailedAmount > 0 && input.currentPendingFailedAmount >= input.previousPendingFailedAmount * 1.5)
+  ) {
+    anomalies.push({
+      key: 'payment_issues_growth',
+      severity:
+        input.previousPendingFailedCount > 0 && input.currentPendingFailedCount >= input.previousPendingFailedCount * 2
+          ? 'critical'
+          : 'warning',
+      currentValue: input.currentPendingFailedCount,
+      previousValue: input.previousPendingFailedCount,
+      deltaPercent: pendingFailedAmountGrowth ?? pendingFailedCountGrowth,
+    })
+  }
+
+  if (
+    input.comparison.activeSubscribers.available &&
+    input.comparison.activeSubscribers.previous >= 10 &&
+    input.comparison.activeSubscribers.current <= input.comparison.activeSubscribers.previous * 0.8
+  ) {
+    anomalies.push({
+      key: 'active_audience_drop',
+      severity:
+        input.comparison.activeSubscribers.current <= input.comparison.activeSubscribers.previous * 0.5
+          ? 'critical'
+          : 'warning',
+      currentValue: input.comparison.activeSubscribers.current,
+      previousValue: input.comparison.activeSubscribers.previous,
+      deltaPercent: input.comparison.activeSubscribers.deltaPercent,
+    })
+  }
+
+  const newSubscribersDelta =
+    input.previousNewSubscribers > 0
+      ? roundTo(((input.currentNewSubscribers - input.previousNewSubscribers) / input.previousNewSubscribers) * 100, 2)
+      : null
+  if (
+    input.previousNewSubscribers >= 5 &&
+    input.currentNewSubscribers <= input.previousNewSubscribers * 0.8
+  ) {
+    anomalies.push({
+      key: 'new_audience_drop',
+      severity:
+        input.currentNewSubscribers <= input.previousNewSubscribers * 0.5 ? 'critical' : 'warning',
+      currentValue: input.currentNewSubscribers,
+      previousValue: input.previousNewSubscribers,
+      deltaPercent: newSubscribersDelta,
+    })
+  }
+
+  return anomalies
+}
+
 function matchesDashboardGlobalPaymentSearch(item: DashboardGlobalPaymentItem, rawSearch: string): boolean {
   const search = rawSearch.trim().toLowerCase()
   if (!search) return true
@@ -2901,6 +3162,15 @@ function resolvePayerIdentity(item: DashboardGlobalPaymentItem): string {
     return `name:${item.payerName.toLowerCase()}`
   }
   return `payment:${item.paymentId || item.id}`
+}
+
+function buildDashboardPayerFrequency(items: DashboardGlobalPaymentItem[]): Map<string, number> {
+  const frequency = new Map<string, number>()
+  for (const item of items) {
+    const key = resolvePayerIdentity(item)
+    frequency.set(key, (frequency.get(key) || 0) + 1)
+  }
+  return frequency
 }
 
 function getDashboardGlobalBucketSizeMs(period: DashboardGlobalStatsPeriod): number {
@@ -2965,19 +3235,242 @@ function buildDashboardGlobalTrend(
     }))
 }
 
-export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStatsFilters = {}) {
-  const user = await getServerUser()
-  if (!user) {
+const RETENTION_WINDOW_DAYS: Record<DashboardRetentionWindowKey, number> = {
+  d1: 1,
+  d3: 3,
+  d7: 7,
+  d30: 30,
+}
+
+function startOfUtcDayMs(valueMs: number) {
+  const date = new Date(valueMs)
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
+
+function startOfUtcWeekMs(valueMs: number) {
+  const dayStartMs = startOfUtcDayMs(valueMs)
+  const date = new Date(dayStartMs)
+  const utcDay = date.getUTCDay()
+  const diffToMonday = utcDay === 0 ? 6 : utcDay - 1
+  return dayStartMs - diffToMonday * 24 * 60 * 60 * 1000
+}
+
+function createEmptyRetentionWindow(
+  key: DashboardRetentionWindowKey,
+  cohortUsers = 0
+): DashboardGlobalRetentionWindow {
+  return {
+    key,
+    label: key.toUpperCase(),
+    retainedUsers: 0,
+    cohortUsers,
+    retentionPercent: 0,
+  }
+}
+
+function createEmptyRetentionBlock(recentOnly = false): DashboardGlobalRetentionBlock {
+  return {
+    available: false,
+    recentOnly,
+    cohortCount: 0,
+    summary: {
+      d1: createEmptyRetentionWindow('d1'),
+      d3: createEmptyRetentionWindow('d3'),
+      d7: createEmptyRetentionWindow('d7'),
+      d30: createEmptyRetentionWindow('d30'),
+    },
+    cohorts: [],
+  }
+}
+
+function buildDashboardRetentionBuckets(
+  period: DashboardGlobalStatsPeriod,
+  range: DashboardGlobalPeriodRange
+) {
+  const nowMs = Date.now()
+
+  if (period === 'all') {
+    const currentWeekStartMs = startOfUtcWeekMs(nowMs)
+    const buckets = Array.from({ length: 8 }, (_item, index) => {
+      const endMs = currentWeekStartMs - index * 7 * 24 * 60 * 60 * 1000
+      const startMs = endMs - 7 * 24 * 60 * 60 * 1000
+      return { startMs, endMs }
+    }).reverse()
+
+    return {
+      recentOnly: true,
+      minStartMs: buckets[0]?.startMs || currentWeekStartMs,
+      maxEndMs: buckets[buckets.length - 1]?.endMs || currentWeekStartMs,
+      buckets,
+    }
+  }
+
+  const startMs = range.currentSinceMs || (nowMs - DASHBOARD_GLOBAL_PERIOD_MS['30d'])
+  const firstBucketStartMs = startOfUtcDayMs(startMs)
+  const endBoundaryMs = nowMs
+  const buckets: Array<{ startMs: number; endMs: number }> = []
+  let cursor = firstBucketStartMs
+
+  while (cursor < endBoundaryMs) {
+    const endMs = cursor + 24 * 60 * 60 * 1000
+    buckets.push({ startMs: cursor, endMs })
+    cursor = endMs
+  }
+
+  return {
+    recentOnly: false,
+    minStartMs: firstBucketStartMs,
+    maxEndMs: endBoundaryMs,
+    buckets,
+  }
+}
+
+function buildDashboardRetentionBlock(input: {
+  period: DashboardGlobalStatsPeriod
+  range: DashboardGlobalPeriodRange
+  subscriberRows: DashboardGlobalRetentionSubscriberRow[]
+  activityEventsByUser: Map<string, number[]>
+  paymentEventsByUserId: Map<number, number[]>
+  mode: 'activity' | 'payment'
+}): DashboardGlobalRetentionBlock {
+  const retentionBuckets = buildDashboardRetentionBuckets(input.period, input.range)
+  const cohortRows = new Map<number, { members: Array<{ userId: number; firstSeenMs: number }> }>()
+
+  for (const bucket of retentionBuckets.buckets) {
+    cohortRows.set(bucket.startMs, { members: [] })
+  }
+
+  for (const row of input.subscriberRows) {
+    const firstSeenMs = parseDashboardTimestampMs(row.first_seen_at)
+    const userId = Number(row.telegram_user_id || 0)
+    const botId = toText(row.bot_id)
+    if (!firstSeenMs || !userId || !botId) continue
+    if (firstSeenMs < retentionBuckets.minStartMs || firstSeenMs >= retentionBuckets.maxEndMs) continue
+
+    const bucket = retentionBuckets.buckets.find((item) => firstSeenMs >= item.startMs && firstSeenMs < item.endMs)
+    if (!bucket) continue
+    const holder = cohortRows.get(bucket.startMs)
+    if (!holder) continue
+    holder.members.push({ userId, firstSeenMs })
+  }
+
+  const summaryCounts: Record<DashboardRetentionWindowKey, { retained: number; cohort: number }> = {
+    d1: { retained: 0, cohort: 0 },
+    d3: { retained: 0, cohort: 0 },
+    d7: { retained: 0, cohort: 0 },
+    d30: { retained: 0, cohort: 0 },
+  }
+
+  const cohorts: DashboardGlobalRetentionCohortRow[] = retentionBuckets.buckets.map((bucket) => {
+    const members = cohortRows.get(bucket.startMs)?.members || []
+    const windows = Object.keys(RETENTION_WINDOW_DAYS).reduce((acc, key) => {
+      const typedKey = key as DashboardRetentionWindowKey
+      const maxWindowMs = RETENTION_WINDOW_DAYS[typedKey] * 24 * 60 * 60 * 1000
+
+      let retainedUsers = 0
+      for (const member of members) {
+        const matched =
+          input.mode === 'activity'
+            ? (input.activityEventsByUser.get(String(member.userId)) || []).some(
+                (eventMs) => eventMs > member.firstSeenMs && eventMs <= member.firstSeenMs + maxWindowMs
+              )
+            : (input.paymentEventsByUserId.get(member.userId) || []).some(
+                (eventMs) => eventMs > member.firstSeenMs && eventMs <= member.firstSeenMs + maxWindowMs
+              )
+
+        if (matched) {
+          retainedUsers += 1
+        }
+      }
+
+      summaryCounts[typedKey].retained += retainedUsers
+      summaryCounts[typedKey].cohort += members.length
+
+      acc[typedKey] = {
+        key: typedKey,
+        label: typedKey.toUpperCase(),
+        retainedUsers,
+        cohortUsers: members.length,
+        retentionPercent: toPercentSafe(retainedUsers, members.length, 2),
+      }
+
+      return acc
+    }, {} as Record<DashboardRetentionWindowKey, DashboardGlobalRetentionWindow>)
+
+    return {
+      cohortStart: new Date(bucket.startMs).toISOString(),
+      cohortEnd: new Date(bucket.endMs).toISOString(),
+      cohortUsers: members.length,
+      windows,
+    }
+  })
+
+  const cohortCount = cohorts.reduce((sum, item) => sum + item.cohortUsers, 0)
+  if (!cohortCount) {
+    return createEmptyRetentionBlock(retentionBuckets.recentOnly)
+  }
+
+  return {
+    available: true,
+    recentOnly: retentionBuckets.recentOnly,
+    cohortCount,
+    summary: {
+      d1: {
+        key: 'd1',
+        label: 'D1',
+        retainedUsers: summaryCounts.d1.retained,
+        cohortUsers: summaryCounts.d1.cohort,
+        retentionPercent: toPercentSafe(summaryCounts.d1.retained, summaryCounts.d1.cohort, 2),
+      },
+      d3: {
+        key: 'd3',
+        label: 'D3',
+        retainedUsers: summaryCounts.d3.retained,
+        cohortUsers: summaryCounts.d3.cohort,
+        retentionPercent: toPercentSafe(summaryCounts.d3.retained, summaryCounts.d3.cohort, 2),
+      },
+      d7: {
+        key: 'd7',
+        label: 'D7',
+        retainedUsers: summaryCounts.d7.retained,
+        cohortUsers: summaryCounts.d7.cohort,
+        retentionPercent: toPercentSafe(summaryCounts.d7.retained, summaryCounts.d7.cohort, 2),
+      },
+      d30: {
+        key: 'd30',
+        label: 'D30',
+        retainedUsers: summaryCounts.d30.retained,
+        cohortUsers: summaryCounts.d30.cohort,
+        retentionPercent: toPercentSafe(summaryCounts.d30.retained, summaryCounts.d30.cohort, 2),
+      },
+    },
+    cohorts,
+  }
+}
+
+export async function getDashboardGlobalStatsAction(
+  filters: DashboardGlobalStatsFilters = {},
+  internal?: { userId?: string; viewerAccess?: ViewerAccess }
+) {
+  const internalUserId = internal?.userId?.trim()
+  const user = internalUserId ? null : await getServerUser()
+  const resolvedUserId = internalUserId || user?.id
+  if (!resolvedUserId) {
     return { success: false, error: 'Not authenticated' as const }
   }
 
   const period = normalizeDashboardGlobalPeriod(filters.period)
-  const sinceIso = getDashboardGlobalSinceIso(period)
+  const range = getDashboardGlobalPeriodRange(period)
 
   try {
-    const viewerAccess = await getViewerAccess(user.id)
+    const viewerAccess = internal?.viewerAccess || await getViewerAccess(resolvedUserId)
     const basicAllowed = viewerAccess.isAdmin || viewerAccess.entitlements.dashboardStatisticsBasic
     const proAllowed = viewerAccess.isAdmin || viewerAccess.entitlements.dashboardStatisticsPro
+    const emptyMoneySummary = (): DashboardGlobalMoneySummary => ({
+      count: 0,
+      totalAmount: 0,
+      currencyTotals: [],
+    })
     const empty: DashboardGlobalStats = {
       period,
       entitlements: {
@@ -3005,6 +3498,46 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
         uniquePayers: 0,
         repeatPayers: 0,
       },
+      comparison: {
+        available: false,
+        revenueComparable: false,
+        revenue: buildDashboardGlobalDelta(0, 0, { available: false }),
+        successfulPayments: buildDashboardGlobalDelta(0, 0, { available: false }),
+        activeSubscribers: buildDashboardGlobalDelta(0, 0, { available: false }),
+        conversionPercent: buildDashboardGlobalDelta(0, 0, { available: false }),
+      },
+      funnel: {
+        firstContactUsers: 0,
+        activeUsers: 0,
+        paidUsers: 0,
+        repeatPayers: 0,
+      },
+      retention: {
+        activity: createEmptyRetentionBlock(),
+        payment: createEmptyRetentionBlock(),
+      },
+      lostRevenue: {
+        pending: emptyMoneySummary(),
+        failed: emptyMoneySummary(),
+        byBot: [],
+        byMethod: [],
+      },
+      repeat: {
+        repeatRevenueAmount: null,
+        repeatRevenueSharePercent: null,
+        repeatRevenueCurrencyTotals: [],
+        repeatPayers: 0,
+        returnedPayers: 0,
+        medianDaysToSecondPayment: null,
+      },
+      rankings: {
+        items: [],
+        bestGrowthBotId: null,
+        worstDeclineBotId: null,
+        bestConversionBotId: null,
+        mostProblematicBotId: null,
+      },
+      anomalies: [],
       trend: [],
       topBots: [],
       methodBreakdown: [],
@@ -3015,8 +3548,8 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
       return { success: true, stats: empty } as const
     }
 
-    const supabase = await createServerClientWrapper()
-    const bots = await getOwnedDashboardBots(supabase, user.id, filters.botId)
+    const supabase = createAdminClient()
+    const bots = await getOwnedDashboardBots(supabase, resolvedUserId, filters.botId)
     if (!bots.length) {
       return { success: true, stats: empty } as const
     }
@@ -3034,34 +3567,66 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
       .select('id', { head: true, count: 'exact' })
       .in('bot_id', botIds)
 
-    let newSubscribersQuery = supabase
+    let currentNewSubscribersQuery = supabase
       .from('bot_subscribers')
       .select('id', { head: true, count: 'exact' })
       .in('bot_id', botIds)
 
-    if (sinceIso) {
-      activeSubscribersQuery = activeSubscribersQuery.gte('last_seen_at', sinceIso)
-      newSubscribersQuery = newSubscribersQuery.gte('first_seen_at', sinceIso)
+    if (range.currentSinceIso) {
+      activeSubscribersQuery = activeSubscribersQuery.gte('last_seen_at', range.currentSinceIso)
+      currentNewSubscribersQuery = currentNewSubscribersQuery.gte('first_seen_at', range.currentSinceIso)
     }
+
+    const previousActiveSubscribersQuery = range.comparisonAvailable
+      ? supabase
+          .from('bot_subscribers')
+          .select('id', { head: true, count: 'exact' })
+          .in('bot_id', botIds)
+          .gte('last_seen_at', range.previousSinceIso!)
+          .lt('last_seen_at', range.currentSinceIso!)
+      : Promise.resolve({ count: 0, error: null } as const)
+
+    const previousNewSubscribersQuery = range.comparisonAvailable
+      ? supabase
+          .from('bot_subscribers')
+          .select('id', { head: true, count: 'exact' })
+          .in('bot_id', botIds)
+          .gte('first_seen_at', range.previousSinceIso!)
+          .lt('first_seen_at', range.currentSinceIso!)
+      : Promise.resolve({ count: 0, error: null } as const)
 
     let contactEventsQuery = supabase
       .from('bot_contact_events')
-      .select('created_at')
+      .select('bot_id, telegram_user_id, created_at')
       .in('bot_id', botIds)
       .order('created_at', { ascending: false })
-      .limit(20000)
+      .limit(40000)
 
-    let paymentsQuery = supabase
+    let retentionSubscribersQuery = supabase
+      .from('bot_subscribers')
+      .select('bot_id, telegram_user_id, first_seen_at')
+      .in('bot_id', botIds)
+      .order('first_seen_at', { ascending: false })
+      .limit(40000)
+
+    const paymentsQuery = supabase
       .from('bot_audit_events')
       .select('id, bot_id, event_type, payload, created_at')
       .in('bot_id', botIds)
       .in('event_type', [...PAYMENT_AUDIT_EVENT_TYPES])
       .order('created_at', { ascending: false })
-      .limit(20000)
+      .limit(40000)
 
-    if (sinceIso) {
-      contactEventsQuery = contactEventsQuery.gte('created_at', sinceIso)
-      paymentsQuery = paymentsQuery.gte('created_at', sinceIso)
+    if (range.currentSinceIso) {
+      contactEventsQuery = contactEventsQuery.gte('created_at', range.currentSinceIso)
+      retentionSubscribersQuery = retentionSubscribersQuery.gte('first_seen_at', range.currentSinceIso)
+    }
+
+    if (period === 'all') {
+      const retentionBounds = buildDashboardRetentionBuckets(period, range)
+      retentionSubscribersQuery = retentionSubscribersQuery
+        .gte('first_seen_at', new Date(retentionBounds.minStartMs).toISOString())
+        .lt('first_seen_at', new Date(retentionBounds.maxEndMs).toISOString())
     }
 
     const activePerBotQueries = botIds.map(async (botId) => {
@@ -3070,8 +3635,8 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
         .select('id', { head: true, count: 'exact' })
         .eq('bot_id', botId)
 
-      if (sinceIso) {
-        query = query.gte('last_seen_at', sinceIso)
+      if (range.currentSinceIso) {
+        query = query.gte('last_seen_at', range.currentSinceIso)
       }
 
       const result = await query
@@ -3081,15 +3646,21 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
     const [
       totalSubscribersResult,
       activeSubscribersResult,
-      newSubscribersResult,
+      currentNewSubscribersResult,
+      previousActiveSubscribersResult,
+      previousNewSubscribersResult,
       contactEventsResult,
+      retentionSubscribersResult,
       paymentsResult,
       ...activePerBotResults
     ] = await Promise.all([
       totalSubscribersQuery,
       activeSubscribersQuery,
-      newSubscribersQuery,
+      currentNewSubscribersQuery,
+      previousActiveSubscribersQuery,
+      previousNewSubscribersQuery,
       contactEventsQuery,
+      retentionSubscribersQuery,
       paymentsQuery,
       ...activePerBotQueries,
     ])
@@ -3100,11 +3671,20 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
     if (activeSubscribersResult.error) {
       return { success: false, error: String(activeSubscribersResult.error) } as const
     }
-    if (newSubscribersResult.error) {
-      return { success: false, error: String(newSubscribersResult.error) } as const
+    if (currentNewSubscribersResult.error) {
+      return { success: false, error: String(currentNewSubscribersResult.error) } as const
+    }
+    if (previousActiveSubscribersResult.error) {
+      return { success: false, error: String(previousActiveSubscribersResult.error) } as const
+    }
+    if (previousNewSubscribersResult.error) {
+      return { success: false, error: String(previousNewSubscribersResult.error) } as const
     }
     if (contactEventsResult.error) {
       return { success: false, error: String(contactEventsResult.error) } as const
+    }
+    if (retentionSubscribersResult.error) {
+      return { success: false, error: String(retentionSubscribersResult.error) } as const
     }
     if (paymentsResult.error) {
       return { success: false, error: String(paymentsResult.error) } as const
@@ -3121,12 +3701,23 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
       .map((row) => parseDashboardPaymentFromAuditRow(row, botNameMap))
       .filter((item): item is DashboardParsedPaymentRecord => Boolean(item))
     const aggregatedPayments = aggregateDashboardPayments(parsedPayments)
+    const currentPayments = filterDashboardPaymentsByRange(aggregatedPayments, range.currentSinceMs)
+    const previousPayments = range.comparisonAvailable
+      ? filterDashboardPaymentsByRange(aggregatedPayments, range.previousSinceMs, range.previousUntilMs)
+      : []
 
-    const successfulPayments = aggregatedPayments.filter((item) => classifyPaymentStatus(item.status) === 'success')
-    const pendingOrFailedPayments = aggregatedPayments.filter((item) => {
+    const successfulPayments = currentPayments.filter((item) => classifyPaymentStatus(item.status) === 'success')
+    const previousSuccessfulPayments = previousPayments.filter((item) => classifyPaymentStatus(item.status) === 'success')
+    const pendingOrFailedPayments = currentPayments.filter((item) => {
       const classification = classifyPaymentStatus(item.status)
       return classification === 'pending' || classification === 'failed'
     })
+    const previousPendingOrFailedPayments = previousPayments.filter((item) => {
+      const classification = classifyPaymentStatus(item.status)
+      return classification === 'pending' || classification === 'failed'
+    })
+    const pendingPayments = currentPayments.filter((item) => classifyPaymentStatus(item.status) === 'pending')
+    const failedPayments = currentPayments.filter((item) => classifyPaymentStatus(item.status) === 'failed')
 
     const revenue = roundTo(
       successfulPayments.reduce((sum, item) => {
@@ -3135,26 +3726,29 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
       }, 0),
       2
     )
+    const previousRevenue = roundTo(
+      previousSuccessfulPayments.reduce((sum, item) => {
+        if (item.amount === null) return sum
+        return sum + item.amount
+      }, 0),
+      2
+    )
     const profit = revenue
     const totalSubscribers = Number(totalSubscribersResult.count || 0)
     const activeSubscribers = Number(activeSubscribersResult.count || 0)
-    const newSubscribers = Number(newSubscribersResult.count || 0)
-    const activityCount = (Array.isArray(contactEventsResult.data) ? contactEventsResult.data : []).length
+    const previousActiveSubscribers = Number(previousActiveSubscribersResult.count || 0)
+    const newSubscribers = Number(currentNewSubscribersResult.count || 0)
+    const previousNewSubscribers = Number(previousNewSubscribersResult.count || 0)
+    const contactEventRows = (Array.isArray(contactEventsResult.data) ? contactEventsResult.data : []) as DashboardGlobalContactRow[]
+    const retentionSubscriberRows = (Array.isArray(retentionSubscribersResult.data) ? retentionSubscribersResult.data : []) as DashboardGlobalRetentionSubscriberRow[]
+    const activityCount = contactEventRows.length
     const avgUserActivity = divideNumbersSafe(activityCount, activeSubscribers, 2)
 
-    const payerFrequency = new Map<string, number>()
-    for (const item of successfulPayments) {
-      const key = resolvePayerIdentity(item)
-      payerFrequency.set(key, (payerFrequency.get(key) || 0) + 1)
-    }
+    const payerFrequency = buildDashboardPayerFrequency(successfulPayments)
+    const previousPayerFrequency = buildDashboardPayerFrequency(previousSuccessfulPayments)
     const uniquePayers = payerFrequency.size
-    const repeatPayers = Array.from(payerFrequency.values()).filter((count) => count > 1).length
-
-    const arpu = divideNumbersSafe(revenue, totalSubscribers, 2)
-    const arppu = divideNumbersSafe(revenue, uniquePayers, 2)
-    const averageCheck = divideNumbersSafe(revenue, successfulPayments.length, 2)
-    const conversionPercent = toPercentSafe(uniquePayers, activeSubscribers, 2)
-    const repeatPayerRatePercent = toPercentSafe(repeatPayers, uniquePayers, 2)
+    const previousUniquePayers = previousPayerFrequency.size
+    const previousConversionPercent = toPercentSafe(previousUniquePayers, previousActiveSubscribers, 2)
 
     const currencySet = new Set(
       successfulPayments
@@ -3164,10 +3758,111 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
     const currencies = Array.from(currencySet).sort((left, right) => left.localeCompare(right))
     const currencyMode: DashboardGlobalStats['currencyMode'] =
       currencies.length === 0 ? 'none' : currencies.length === 1 ? 'single' : 'mixed'
+    const comparisonCurrencies = Array.from(
+      new Set(
+        [...successfulPayments, ...previousSuccessfulPayments]
+          .map((item) => toText(item.currency).toUpperCase())
+          .filter(Boolean)
+      )
+    )
+    const revenueComparable = range.comparisonAvailable && comparisonCurrencies.length <= 1
+
+    const successfulHistoryByPayer = new Map<string, DashboardGlobalPaymentAggregate[]>()
+    for (const item of aggregatedPayments
+      .filter((payment) => classifyPaymentStatus(payment.status) === 'success')
+      .sort((left, right) => left.latestAtMs - right.latestAtMs)) {
+      const key = resolvePayerIdentity(item)
+      const bucket = successfulHistoryByPayer.get(key) || []
+      bucket.push(item)
+      successfulHistoryByPayer.set(key, bucket)
+    }
+
+    const repeatRevenuePayments: DashboardGlobalPaymentAggregate[] = []
+    const returnedPayers = new Set<string>()
+    const secondPaymentIntervalsDays: number[] = []
+    for (const [payerKey, history] of successfulHistoryByPayer.entries()) {
+      if (history.length >= 2) {
+        secondPaymentIntervalsDays.push((history[1].latestAtMs - history[0].latestAtMs) / (24 * 60 * 60 * 1000))
+      }
+
+      history.forEach((payment, index) => {
+        if (range.currentSinceMs !== null && payment.latestAtMs < range.currentSinceMs) {
+          return
+        }
+        if (index > 0) {
+          repeatRevenuePayments.push(payment)
+          returnedPayers.add(payerKey)
+        }
+      })
+    }
+
+    const repeatRevenueCurrencyTotals = buildCurrencyTotals(repeatRevenuePayments)
+    const repeatRevenueAmountComparable = currencyMode !== 'mixed'
+    const repeatRevenueAmount = repeatRevenueAmountComparable
+      ? roundTo(
+          repeatRevenuePayments.reduce((sum, item) => sum + (item.amount !== null ? item.amount : 0), 0),
+          2
+        )
+      : null
+    const repeatRevenueSharePercent = repeatRevenueAmountComparable
+      ? toPercentSafe(repeatRevenueAmount || 0, revenue, 2)
+      : null
+    const repeatPayers = returnedPayers.size
+
+    const arpu = divideNumbersSafe(revenue, totalSubscribers, 2)
+    const arppu = divideNumbersSafe(revenue, uniquePayers, 2)
+    const averageCheck = divideNumbersSafe(revenue, successfulPayments.length, 2)
+    const conversionPercent = toPercentSafe(uniquePayers, activeSubscribers, 2)
+    const repeatPayerRatePercent = toPercentSafe(repeatPayers, uniquePayers, 2)
+
+    const activityEventsByUser = new Map<string, number[]>()
+    for (const row of contactEventRows) {
+      const userId = Number(row.telegram_user_id || 0)
+      const createdAtMs = parseDashboardTimestampMs(row.created_at)
+      if (!userId || !createdAtMs) continue
+      const bucket = activityEventsByUser.get(String(userId)) || []
+      bucket.push(createdAtMs)
+      activityEventsByUser.set(String(userId), bucket)
+    }
+    for (const bucket of activityEventsByUser.values()) {
+      bucket.sort((left, right) => left - right)
+    }
+
+    const paymentEventsByUserId = new Map<number, number[]>()
+    for (const item of aggregatedPayments) {
+      if (classifyPaymentStatus(item.status) !== 'success') continue
+      const payerId = Number(item.payerId || 0)
+      if (!payerId) continue
+      const bucket = paymentEventsByUserId.get(payerId) || []
+      bucket.push(item.latestAtMs)
+      paymentEventsByUserId.set(payerId, bucket)
+    }
+    for (const bucket of paymentEventsByUserId.values()) {
+      bucket.sort((left, right) => left - right)
+    }
+
+    const retention = {
+      activity: buildDashboardRetentionBlock({
+        period,
+        range,
+        subscriberRows: retentionSubscriberRows,
+        activityEventsByUser,
+        paymentEventsByUserId,
+        mode: 'activity',
+      }),
+      payment: buildDashboardRetentionBlock({
+        period,
+        range,
+        subscriberRows: retentionSubscriberRows,
+        activityEventsByUser,
+        paymentEventsByUserId,
+        mode: 'payment',
+      }),
+    }
 
     const methodMap = new Map<string, { count: number; revenue: number }>()
     const statusMap = new Map<string, number>()
-    for (const item of aggregatedPayments) {
+    for (const item of currentPayments) {
       const methodRecord = methodMap.get(item.method) || { count: 0, revenue: 0 }
       methodRecord.count += 1
       if (classifyPaymentStatus(item.status) === 'success' && item.amount !== null) {
@@ -3221,6 +3916,201 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
       })
       .slice(0, 8)
 
+    const lostRevenueByBotMap = new Map<string, { pending: DashboardGlobalPaymentAggregate[]; failed: DashboardGlobalPaymentAggregate[] }>()
+    const lostRevenueByMethodMap = new Map<string, { pending: DashboardGlobalPaymentAggregate[]; failed: DashboardGlobalPaymentAggregate[] }>()
+    for (const item of pendingPayments) {
+      const byBot = lostRevenueByBotMap.get(item.botId) || { pending: [], failed: [] }
+      byBot.pending.push(item)
+      lostRevenueByBotMap.set(item.botId, byBot)
+      const byMethod = lostRevenueByMethodMap.get(item.method) || { pending: [], failed: [] }
+      byMethod.pending.push(item)
+      lostRevenueByMethodMap.set(item.method, byMethod)
+    }
+    for (const item of failedPayments) {
+      const byBot = lostRevenueByBotMap.get(item.botId) || { pending: [], failed: [] }
+      byBot.failed.push(item)
+      lostRevenueByBotMap.set(item.botId, byBot)
+      const byMethod = lostRevenueByMethodMap.get(item.method) || { pending: [], failed: [] }
+      byMethod.failed.push(item)
+      lostRevenueByMethodMap.set(item.method, byMethod)
+    }
+
+    const lostRevenue = {
+      pending: buildDashboardMoneySummary(pendingPayments),
+      failed: buildDashboardMoneySummary(failedPayments),
+      byBot: Array.from(lostRevenueByBotMap.entries())
+        .map(([botId, value]) => ({
+          botId,
+          botName: botNameMap.get(botId) || botId,
+          pending: buildDashboardMoneySummary(value.pending),
+          failed: buildDashboardMoneySummary(value.failed),
+        }))
+        .sort(
+          (left, right) =>
+            (right.pending.count + right.failed.count) - (left.pending.count + left.failed.count)
+        ),
+      byMethod: Array.from(lostRevenueByMethodMap.entries())
+        .map(([method, value]) => ({
+          method,
+          pending: buildDashboardMoneySummary(value.pending),
+          failed: buildDashboardMoneySummary(value.failed),
+        }))
+        .sort(
+          (left, right) =>
+            (right.pending.count + right.failed.count) - (left.pending.count + left.failed.count)
+        ),
+    }
+
+    const rankingMap = new Map<string, {
+      currentRevenue: number
+      previousRevenue: number
+      successfulPayments: number
+      previousSuccessfulPayments: number
+      currentPayers: Set<string>
+      pendingCount: number
+      failedCount: number
+      pendingAmount: number
+      failedAmount: number
+    }>()
+
+    for (const bot of bots) {
+      rankingMap.set(bot.id, {
+        currentRevenue: 0,
+        previousRevenue: 0,
+        successfulPayments: 0,
+        previousSuccessfulPayments: 0,
+        currentPayers: new Set<string>(),
+        pendingCount: 0,
+        failedCount: 0,
+        pendingAmount: 0,
+        failedAmount: 0,
+      })
+    }
+
+    for (const item of successfulPayments) {
+      const bucket = rankingMap.get(item.botId)
+      if (!bucket) continue
+      bucket.successfulPayments += 1
+      bucket.currentPayers.add(resolvePayerIdentity(item))
+      if (item.amount !== null) {
+        bucket.currentRevenue += item.amount
+      }
+    }
+
+    for (const item of previousSuccessfulPayments) {
+      const bucket = rankingMap.get(item.botId)
+      if (!bucket) continue
+      bucket.previousSuccessfulPayments += 1
+      if (item.amount !== null) {
+        bucket.previousRevenue += item.amount
+      }
+    }
+
+    for (const item of pendingPayments) {
+      const bucket = rankingMap.get(item.botId)
+      if (!bucket) continue
+      bucket.pendingCount += 1
+      if (item.amount !== null) {
+        bucket.pendingAmount += item.amount
+      }
+    }
+
+    for (const item of failedPayments) {
+      const bucket = rankingMap.get(item.botId)
+      if (!bucket) continue
+      bucket.failedCount += 1
+      if (item.amount !== null) {
+        bucket.failedAmount += item.amount
+      }
+    }
+
+    const rankingItems: DashboardGlobalBotRankingRow[] = Array.from(rankingMap.entries())
+      .map(([botId, value]) => {
+        const activeCount = activeSubscribersByBot.get(botId) || 0
+        return {
+          botId,
+          botName: botNameMap.get(botId) || botId,
+          currentRevenue: roundTo(value.currentRevenue, 2),
+          previousRevenue: roundTo(value.previousRevenue, 2),
+          revenueDeltaPercent:
+            value.previousRevenue > 0
+              ? roundTo(((value.currentRevenue - value.previousRevenue) / value.previousRevenue) * 100, 2)
+              : null,
+          successfulPayments: value.successfulPayments,
+          previousSuccessfulPayments: value.previousSuccessfulPayments,
+          uniquePayers: value.currentPayers.size,
+          activeSubscribers: activeCount,
+          conversionPercent: toPercentSafe(value.currentPayers.size, activeCount, 2),
+          pendingCount: value.pendingCount,
+          failedCount: value.failedCount,
+          pendingAmount: roundTo(value.pendingAmount, 2),
+          failedAmount: roundTo(value.failedAmount, 2),
+        }
+      })
+      .sort((left, right) => {
+        if (right.currentRevenue !== left.currentRevenue) return right.currentRevenue - left.currentRevenue
+        return right.conversionPercent - left.conversionPercent
+      })
+
+    const growthCandidates = rankingItems.filter((item) => item.revenueDeltaPercent !== null)
+    const bestGrowthBotId = growthCandidates.length
+      ? [...growthCandidates].sort((left, right) => (right.revenueDeltaPercent || 0) - (left.revenueDeltaPercent || 0))[0].botId
+      : null
+    const declineCandidates = growthCandidates.filter((item) => (item.revenueDeltaPercent || 0) < 0)
+    const worstDeclineBotId = declineCandidates.length
+      ? [...declineCandidates].sort((left, right) => (left.revenueDeltaPercent || 0) - (right.revenueDeltaPercent || 0))[0].botId
+      : null
+    const conversionCandidates = rankingItems.filter((item) => item.activeSubscribers > 0)
+    const bestConversionBotId = conversionCandidates.length
+      ? [...conversionCandidates].sort((left, right) => right.conversionPercent - left.conversionPercent)[0].botId
+      : null
+    const problemCandidates = rankingItems.filter((item) => item.pendingCount > 0 || item.failedCount > 0)
+    const mostProblematicBotId = problemCandidates.length
+      ? [...problemCandidates].sort((left, right) => {
+          const rightScore = right.failedCount * 2 + right.pendingCount
+          const leftScore = left.failedCount * 2 + left.pendingCount
+          if (rightScore !== leftScore) return rightScore - leftScore
+          return (right.failedAmount + right.pendingAmount) - (left.failedAmount + left.pendingAmount)
+        })[0].botId
+      : null
+
+    const comparison = {
+      available: range.comparisonAvailable,
+      revenueComparable,
+      revenue: buildDashboardGlobalDelta(revenue, previousRevenue, {
+        available: range.comparisonAvailable && revenueComparable,
+        allowZeroBaseline: true,
+      }),
+      successfulPayments: buildDashboardGlobalDelta(successfulPayments.length, previousSuccessfulPayments.length, {
+        available: range.comparisonAvailable,
+        allowZeroBaseline: true,
+      }),
+      activeSubscribers: buildDashboardGlobalDelta(activeSubscribers, previousActiveSubscribers, {
+        available: range.comparisonAvailable,
+        allowZeroBaseline: true,
+      }),
+      conversionPercent: buildDashboardGlobalDelta(conversionPercent, previousConversionPercent, {
+        available: range.comparisonAvailable,
+        allowZeroBaseline: true,
+      }),
+    }
+
+    const anomalies = buildDashboardGlobalAnomalies({
+      comparison,
+      currentPendingFailedCount: pendingOrFailedPayments.length,
+      previousPendingFailedCount: previousPendingOrFailedPayments.length,
+      currentPendingFailedAmount: roundTo(
+        pendingOrFailedPayments.reduce((sum, item) => sum + (item.amount !== null ? item.amount : 0), 0),
+        2
+      ),
+      previousPendingFailedAmount: roundTo(
+        previousPendingOrFailedPayments.reduce((sum, item) => sum + (item.amount !== null ? item.amount : 0), 0),
+        2
+      ),
+      currentNewSubscribers: newSubscribers,
+      previousNewSubscribers,
+    })
+
     const stats: DashboardGlobalStats = {
       period,
       entitlements: { basic: basicAllowed, pro: proAllowed },
@@ -3245,11 +4135,36 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
         uniquePayers,
         repeatPayers,
       },
+      comparison,
+      funnel: {
+        firstContactUsers: totalSubscribers,
+        activeUsers: activeSubscribers,
+        paidUsers: uniquePayers,
+        repeatPayers,
+      },
+      retention,
+      lostRevenue,
+      repeat: {
+        repeatRevenueAmount,
+        repeatRevenueSharePercent,
+        repeatRevenueCurrencyTotals,
+        repeatPayers,
+        returnedPayers: repeatPayers,
+        medianDaysToSecondPayment: calculateMedian(secondPaymentIntervalsDays),
+      },
+      rankings: {
+        items: rankingItems,
+        bestGrowthBotId,
+        worstDeclineBotId,
+        bestConversionBotId,
+        mostProblematicBotId,
+      },
+      anomalies,
       trend: buildDashboardGlobalTrend(
-        aggregatedPayments,
-        (Array.isArray(contactEventsResult.data) ? contactEventsResult.data : []) as DashboardGlobalContactRow[],
+        currentPayments,
+        contactEventRows,
         period,
-        sinceIso
+        range.currentSinceIso
       ),
       topBots,
       methodBreakdown: Array.from(methodMap.entries())
@@ -3273,10 +4188,13 @@ export async function getDashboardGlobalStatsAction(filters: DashboardGlobalStat
 export async function getDashboardGlobalPaymentsAction(
   filters: DashboardGlobalPaymentsFilters = {},
   page = 1,
-  pageSize = 25
+  pageSize = 25,
+  internal?: { userId?: string; viewerAccess?: ViewerAccess }
 ) {
-  const user = await getServerUser()
-  if (!user) {
+  const internalUserId = internal?.userId?.trim()
+  const user = internalUserId ? null : await getServerUser()
+  const resolvedUserId = internalUserId || user?.id
+  if (!resolvedUserId) {
     return { success: false, error: 'Not authenticated' as const }
   }
 
@@ -3289,13 +4207,13 @@ export async function getDashboardGlobalPaymentsAction(
   const statusFilter = normalizePaymentStatus(filters.status)
 
   try {
-    const viewerAccess = await getViewerAccess(user.id)
+    const viewerAccess = internal?.viewerAccess || await getViewerAccess(resolvedUserId)
     if (!(viewerAccess.isAdmin || viewerAccess.entitlements.dashboardStatisticsBasic)) {
       return { success: false, error: 'Dashboard statistics are not available on the current plan' as const }
     }
 
-    const supabase = await createServerClientWrapper()
-    const bots = await getOwnedDashboardBots(supabase, user.id, filters.botId)
+    const supabase = createAdminClient()
+    const bots = await getOwnedDashboardBots(supabase, resolvedUserId, filters.botId)
     if (!bots.length) {
       const empty: DashboardGlobalPayments = {
         period,
@@ -3418,10 +4336,13 @@ export async function getDashboardGlobalPaymentsAction(
 export async function getDashboardGlobalSubscribersAction(
   filters: DashboardGlobalSubscribersFilters = {},
   page = 1,
-  pageSize = 25
+  pageSize = 25,
+  internal?: { userId?: string; viewerAccess?: ViewerAccess }
 ) {
-  const user = await getServerUser()
-  if (!user) {
+  const internalUserId = internal?.userId?.trim()
+  const user = internalUserId ? null : await getServerUser()
+  const resolvedUserId = internalUserId || user?.id
+  if (!resolvedUserId) {
     return { success: false, error: 'Not authenticated' as const }
   }
 
@@ -3433,13 +4354,13 @@ export async function getDashboardGlobalSubscribersAction(
   const sinceIso = getDashboardGlobalSinceIso(period)
 
   try {
-    const viewerAccess = await getViewerAccess(user.id)
+    const viewerAccess = internal?.viewerAccess || await getViewerAccess(resolvedUserId)
     if (!(viewerAccess.isAdmin || viewerAccess.entitlements.dashboardStatisticsBasic)) {
       return { success: false, error: 'Dashboard statistics are not available on the current plan' as const }
     }
 
-    const supabase = await createServerClientWrapper()
-    const bots = await getOwnedDashboardBots(supabase, user.id, filters.botId)
+    const supabase = createAdminClient()
+    const bots = await getOwnedDashboardBots(supabase, resolvedUserId, filters.botId)
     if (!bots.length) {
       const empty: DashboardGlobalSubscribers = {
         period,
@@ -3618,6 +4539,466 @@ export async function getDashboardGlobalSubscribersAction(
     }
 
     return { success: true, data } as const
+  } catch (error) {
+    return { success: false, error: String(error) } as const
+  }
+}
+
+async function collectDashboardGlobalPaymentsForExport(
+  filters: DashboardGlobalPaymentsFilters,
+  internal?: { userId?: string; viewerAccess?: ViewerAccess }
+) {
+  const firstPage = await getDashboardGlobalPaymentsAction(filters, 1, 100, internal)
+  if (!firstPage.success || !firstPage.history) {
+    return firstPage
+  }
+
+  const items = [...firstPage.history.items]
+  const totalPages = Math.max(1, Math.ceil(firstPage.history.total / firstPage.history.pageSize))
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const nextPage = await getDashboardGlobalPaymentsAction(filters, page, 100, internal)
+    if (!nextPage.success || !nextPage.history) {
+      return nextPage
+    }
+    items.push(...nextPage.history.items)
+  }
+
+  return {
+    success: true as const,
+    history: {
+      ...firstPage.history,
+      page: 1,
+      pageSize: items.length || firstPage.history.pageSize,
+      total: items.length,
+      items,
+    },
+  }
+}
+
+async function collectDashboardGlobalSubscribersForExport(
+  filters: DashboardGlobalSubscribersFilters,
+  internal?: { userId?: string; viewerAccess?: ViewerAccess }
+) {
+  const firstPage = await getDashboardGlobalSubscribersAction(filters, 1, 100, internal)
+  if (!firstPage.success || !firstPage.data) {
+    return firstPage
+  }
+
+  const items = [...firstPage.data.items]
+  const totalPages = Math.max(1, Math.ceil(firstPage.data.total / firstPage.data.pageSize))
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const nextPage = await getDashboardGlobalSubscribersAction(filters, page, 100, internal)
+    if (!nextPage.success || !nextPage.data) {
+      return nextPage
+    }
+    items.push(...nextPage.data.items)
+  }
+
+  return {
+    success: true as const,
+    data: {
+      ...firstPage.data,
+      page: 1,
+      pageSize: items.length || firstPage.data.pageSize,
+      total: items.length,
+      items,
+    },
+  }
+}
+
+function formatCsvCurrencyTotals(currencyTotals: DashboardGlobalCurrencyTotal[]): string {
+  if (!currencyTotals.length) return ''
+  return currencyTotals.map((item) => `${item.currency} ${item.amount}`).join(' | ')
+}
+
+function buildDashboardRetentionSheetRows(
+  block: DashboardGlobalRetentionBlock
+): Array<Array<string | number | null | undefined>> {
+  return block.cohorts.map((item) => [
+    item.cohortStart,
+    item.cohortEnd,
+    item.cohortUsers,
+    item.windows.d1.retainedUsers,
+    item.windows.d1.retentionPercent,
+    item.windows.d3.retainedUsers,
+    item.windows.d3.retentionPercent,
+    item.windows.d7.retainedUsers,
+    item.windows.d7.retentionPercent,
+    item.windows.d30.retainedUsers,
+    item.windows.d30.retentionPercent,
+  ])
+}
+
+function buildDashboardWorkbookSheets(input: {
+  stats: DashboardGlobalStats
+  payments: DashboardGlobalPayments
+  subscribers: DashboardGlobalSubscribers
+}): DashboardExportSheet[] {
+  return [
+    {
+      name: 'Payments',
+      headers: ['Bot', 'Payer', 'Payment ID', 'Amount', 'Currency', 'Method', 'Status', 'Created At'],
+      rows: input.payments.items.map((item) => [
+        item.botName,
+        item.payerName || (item.payerUsername ? `@${item.payerUsername}` : item.payerId || ''),
+        item.paymentId || item.id,
+        item.amount,
+        item.currency,
+        item.method,
+        item.status,
+        item.createdAt,
+      ]),
+    },
+    {
+      name: 'Subscribers',
+      headers: ['Bot', 'User', 'User ID', 'Language', 'Source', 'First Seen', 'Last Seen'],
+      rows: input.subscribers.items.map((item) => [
+        item.botName,
+        [item.firstName, item.lastName].filter(Boolean).join(' ').trim() || (item.username ? `@${item.username}` : ''),
+        item.telegramUserId || '',
+        item.languageCode,
+        item.source,
+        item.firstSeenAt,
+        item.lastSeenAt,
+      ]),
+    },
+    {
+      name: 'Lost revenue by bot',
+      headers: [
+        'Bot',
+        'Pending count',
+        'Pending amount',
+        'Pending currency totals',
+        'Failed count',
+        'Failed amount',
+        'Failed currency totals',
+      ],
+      rows: input.stats.lostRevenue.byBot.map((item) => [
+        item.botName,
+        item.pending.count,
+        item.pending.totalAmount,
+        formatCsvCurrencyTotals(item.pending.currencyTotals),
+        item.failed.count,
+        item.failed.totalAmount,
+        formatCsvCurrencyTotals(item.failed.currencyTotals),
+      ]),
+    },
+    {
+      name: 'Lost revenue by method',
+      headers: [
+        'Method',
+        'Pending count',
+        'Pending amount',
+        'Pending currency totals',
+        'Failed count',
+        'Failed amount',
+        'Failed currency totals',
+      ],
+      rows: input.stats.lostRevenue.byMethod.map((item) => [
+        item.method,
+        item.pending.count,
+        item.pending.totalAmount,
+        formatCsvCurrencyTotals(item.pending.currencyTotals),
+        item.failed.count,
+        item.failed.totalAmount,
+        formatCsvCurrencyTotals(item.failed.currencyTotals),
+      ]),
+    },
+    {
+      name: 'Bot rankings',
+      headers: [
+        'Bot',
+        'Current revenue',
+        'Previous revenue',
+        'Revenue delta %',
+        'Successful payments',
+        'Previous successful payments',
+        'Unique payers',
+        'Active subscribers',
+        'Conversion %',
+        'Pending count',
+        'Failed count',
+      ],
+      rows: input.stats.rankings.items.map((item) => [
+        item.botName,
+        item.currentRevenue,
+        item.previousRevenue,
+        item.revenueDeltaPercent,
+        item.successfulPayments,
+        item.previousSuccessfulPayments,
+        item.uniquePayers,
+        item.activeSubscribers,
+        item.conversionPercent,
+        item.pendingCount,
+        item.failedCount,
+      ]),
+    },
+    {
+      name: 'Retention activity',
+      headers: [
+        'Cohort start',
+        'Cohort end',
+        'Cohort users',
+        'D1 retained',
+        'D1 %',
+        'D3 retained',
+        'D3 %',
+        'D7 retained',
+        'D7 %',
+        'D30 retained',
+        'D30 %',
+      ],
+      rows: buildDashboardRetentionSheetRows(input.stats.retention.activity),
+    },
+    {
+      name: 'Retention payment',
+      headers: [
+        'Cohort start',
+        'Cohort end',
+        'Cohort users',
+        'D1 retained',
+        'D1 %',
+        'D3 retained',
+        'D3 %',
+        'D7 retained',
+        'D7 %',
+        'D30 retained',
+        'D30 %',
+      ],
+      rows: buildDashboardRetentionSheetRows(input.stats.retention.payment),
+    },
+  ]
+}
+
+export async function exportDashboardGlobalAnalyticsCsvAction(
+  kind: 'payments' | 'subscribers' | 'lost_revenue_bots' | 'lost_revenue_methods' | 'rankings',
+  filters: {
+    period?: DashboardGlobalStatsPeriod
+    botId?: string
+    paymentSearch?: string
+    paymentMethod?: string
+    paymentStatus?: string
+    subscriberSearch?: string
+    subscriberSource?: BotSubscribersSource | 'all'
+  } = {},
+  format: DashboardGlobalReportFormat = 'csv',
+  internal?: { userId?: string; viewerAccess?: ViewerAccess }
+) {
+  const internalUserId = internal?.userId?.trim()
+  const user = internalUserId ? null : await getServerUser()
+  const resolvedUserId = internalUserId || user?.id
+  if (!resolvedUserId) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const sharedFilters = {
+      period: filters.period,
+      botId: filters.botId,
+    }
+
+    if (format === 'xlsx') {
+      const [statsResult, paymentsResult, subscribersResult] = await Promise.all([
+        getDashboardGlobalStatsAction(sharedFilters, internal ? { userId: resolvedUserId, viewerAccess: internal.viewerAccess } : undefined),
+        collectDashboardGlobalPaymentsForExport(
+          {
+            period: filters.period,
+            botId: filters.botId,
+            search: filters.paymentSearch,
+            method: filters.paymentMethod,
+            status: filters.paymentStatus,
+          },
+          internal ? { userId: resolvedUserId, viewerAccess: internal.viewerAccess } : undefined
+        ),
+        collectDashboardGlobalSubscribersForExport(
+          {
+            period: filters.period,
+            botId: filters.botId,
+            search: filters.subscriberSearch,
+            source: filters.subscriberSource,
+          },
+          internal ? { userId: resolvedUserId, viewerAccess: internal.viewerAccess } : undefined
+        ),
+      ])
+
+      if (!statsResult.success || !statsResult.stats) {
+        return { success: false, error: statsResult.error || 'Failed to export analytics' } as const
+      }
+      if (!paymentsResult.success || !paymentsResult.history) {
+        return { success: false, error: paymentsResult.error || 'Failed to export payments' } as const
+      }
+      if (!subscribersResult.success || !subscribersResult.data) {
+        return { success: false, error: subscribersResult.error || 'Failed to export subscribers' } as const
+      }
+
+      return {
+        success: true as const,
+        ...buildBase64XlsxPayload(
+          `dashboard-analytics-${statsResult.stats.period}.xlsx`,
+          buildDashboardWorkbookSheets({
+            stats: statsResult.stats,
+            payments: paymentsResult.history,
+            subscribers: subscribersResult.data,
+          })
+        ),
+      }
+    }
+
+    if (kind === 'payments') {
+      const result = await collectDashboardGlobalPaymentsForExport({
+        period: filters.period,
+        botId: filters.botId,
+        search: filters.paymentSearch,
+        method: filters.paymentMethod,
+        status: filters.paymentStatus,
+      }, internal ? { userId: resolvedUserId, viewerAccess: internal.viewerAccess } : undefined)
+
+      if (!result.success || !result.history) {
+        return { success: false, error: result.error || 'Failed to export payments' } as const
+      }
+
+      return {
+        success: true as const,
+        ...buildBase64CsvPayload(
+          `dashboard-payments-${result.history.period}.csv`,
+          ['Bot', 'Payer', 'Payment ID', 'Amount', 'Currency', 'Method', 'Status', 'Created At'],
+          result.history.items.map((item) => [
+            item.botName,
+            item.payerName || (item.payerUsername ? `@${item.payerUsername}` : item.payerId || ''),
+            item.paymentId || item.id,
+            item.amount,
+            item.currency,
+            item.method,
+            item.status,
+            item.createdAt,
+          ])
+        ),
+      }
+    }
+
+    if (kind === 'subscribers') {
+      const result = await collectDashboardGlobalSubscribersForExport({
+        period: filters.period,
+        botId: filters.botId,
+        search: filters.subscriberSearch,
+        source: filters.subscriberSource,
+      }, internal ? { userId: resolvedUserId, viewerAccess: internal.viewerAccess } : undefined)
+
+      if (!result.success || !result.data) {
+        return { success: false, error: result.error || 'Failed to export subscribers' } as const
+      }
+
+      return {
+        success: true as const,
+        ...buildBase64CsvPayload(
+          `dashboard-subscribers-${result.data.period}.csv`,
+          ['Bot', 'User', 'User ID', 'Language', 'Source', 'First Seen', 'Last Seen'],
+          result.data.items.map((item) => [
+            item.botName,
+            [item.firstName, item.lastName].filter(Boolean).join(' ').trim() || (item.username ? `@${item.username}` : ''),
+            item.telegramUserId || '',
+            item.languageCode,
+            item.source,
+            item.firstSeenAt,
+            item.lastSeenAt,
+          ])
+        ),
+      }
+    }
+
+    const statsResult = await getDashboardGlobalStatsAction(sharedFilters, internal ? { userId: resolvedUserId, viewerAccess: internal.viewerAccess } : undefined)
+    if (!statsResult.success || !statsResult.stats) {
+      return { success: false, error: statsResult.error || 'Failed to export analytics' } as const
+    }
+
+    if (kind === 'lost_revenue_bots') {
+      return {
+        success: true as const,
+        ...buildBase64CsvPayload(
+          `dashboard-lost-revenue-bots-${statsResult.stats.period}.csv`,
+          [
+            'Bot',
+            'Pending count',
+            'Pending amount',
+            'Pending currency totals',
+            'Failed count',
+            'Failed amount',
+            'Failed currency totals',
+          ],
+          statsResult.stats.lostRevenue.byBot.map((item) => [
+            item.botName,
+            item.pending.count,
+            item.pending.totalAmount,
+            formatCsvCurrencyTotals(item.pending.currencyTotals),
+            item.failed.count,
+            item.failed.totalAmount,
+            formatCsvCurrencyTotals(item.failed.currencyTotals),
+          ])
+        ),
+      }
+    }
+
+    if (kind === 'lost_revenue_methods') {
+      return {
+        success: true as const,
+        ...buildBase64CsvPayload(
+          `dashboard-lost-revenue-methods-${statsResult.stats.period}.csv`,
+          [
+            'Method',
+            'Pending count',
+            'Pending amount',
+            'Pending currency totals',
+            'Failed count',
+            'Failed amount',
+            'Failed currency totals',
+          ],
+          statsResult.stats.lostRevenue.byMethod.map((item) => [
+            item.method,
+            item.pending.count,
+            item.pending.totalAmount,
+            formatCsvCurrencyTotals(item.pending.currencyTotals),
+            item.failed.count,
+            item.failed.totalAmount,
+            formatCsvCurrencyTotals(item.failed.currencyTotals),
+          ])
+        ),
+      }
+    }
+
+    return {
+      success: true as const,
+      ...buildBase64CsvPayload(
+        `dashboard-rankings-${statsResult.stats.period}.csv`,
+        [
+          'Bot',
+          'Current revenue',
+          'Previous revenue',
+          'Revenue delta %',
+          'Successful payments',
+          'Previous successful payments',
+          'Unique payers',
+          'Active subscribers',
+          'Conversion %',
+          'Pending count',
+          'Failed count',
+        ],
+        statsResult.stats.rankings.items.map((item) => [
+          item.botName,
+          item.currentRevenue,
+          item.previousRevenue,
+          item.revenueDeltaPercent,
+          item.successfulPayments,
+          item.previousSuccessfulPayments,
+          item.uniquePayers,
+          item.activeSubscribers,
+          item.conversionPercent,
+          item.pendingCount,
+          item.failedCount,
+        ])
+      ),
+    }
   } catch (error) {
     return { success: false, error: String(error) } as const
   }

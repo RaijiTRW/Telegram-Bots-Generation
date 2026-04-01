@@ -5,6 +5,7 @@ import { Settings } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { BotSettingsForm } from '@/components/bot-editor/settings/bot-settings-form'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import { HELP_GUIDE_KEYS } from '@/lib/bot-editor/help/help-guide-keys'
 
 export default function SettingsPage() {
   const tNav = useTranslations('editor.nav')
@@ -24,6 +25,7 @@ export default function SettingsPage() {
           <Settings className="w-4 h-4 text-[#24A1DE] shrink-0" />
           <h1 className="text-white font-semibold">{tNav('settings')}</h1>
           <HelpGuideButton
+            guideKey={HELP_GUIDE_KEYS.editorSettingsOverview}
             title={tNav('settings')}
             summary={tHelp('overviewSummary')}
             steps={[tHelp('overviewStep1'), tHelp('overviewStep2'), tHelp('overviewStep3')]}

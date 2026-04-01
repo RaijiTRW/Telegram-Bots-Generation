@@ -41,6 +41,10 @@ import { Button } from '@/components/ui/button'
 import { NodeSettingsPanel } from './node-settings-panel'
 import { useLocale, useTranslations } from 'next-intl'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import {
+  HELP_GUIDE_KEYS,
+  getCanvasPaletteGuideKey,
+} from '@/lib/bot-editor/help/help-guide-keys'
 import type { NodeData } from '@/lib/bot-editor/types/component-schemas'
 import { DEFAULT_NODE_DATA, NODE_CONFIGS } from '@/lib/bot-editor/types/component-schemas'
 import {
@@ -1399,6 +1403,7 @@ function FlowCanvasInner({
           <Panel position="top-right" className="!transform-none !right-4 !top-4">
             <div className="flex items-center gap-2">
               <HelpGuideButton
+                guideKey={HELP_GUIDE_KEYS.editorCanvasOverview}
                 title={t('nodes')}
                 summary={t('helpSummary')}
                 steps={[t('helpStep1'), t('helpStep2'), t('helpStep3')]}
@@ -1563,6 +1568,7 @@ function FlowCanvasInner({
                                         onDragStart={(event) => event.preventDefault()}
                                       >
                                         <HelpGuideButton
+                                          guideKey={getCanvasPaletteGuideKey(node.id)}
                                           title={node.label}
                                           summary={fullDescription}
                                           steps={helpSteps}

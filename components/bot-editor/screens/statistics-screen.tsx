@@ -89,16 +89,29 @@ export default function StatisticsPage() {
             }}
             className="space-y-4"
           >
-            <TabsList className="grid w-full max-w-[620px] grid-cols-3 bg-zinc-900/60 border border-white/10">
+            <TabsList className="grid w-full max-w-[620px] grid-cols-3 overflow-visible bg-zinc-900/60 border border-white/10">
               <TabsTrigger value="technical" className="w-full">{t('tabs.technical')}</TabsTrigger>
               <TabsTrigger value="payments" className="w-full">{t('tabs.payments')}</TabsTrigger>
-              <TabsTrigger
-                value="subscribers"
-                className={subscribersEnabled ? 'w-full' : 'w-full cursor-not-allowed opacity-50'}
-                aria-disabled={!subscribersEnabled}
-              >
-                {t('tabs.subscribers')}
-              </TabsTrigger>
+              <div className="relative w-full group/subscribers">
+                <TabsTrigger
+                  value="subscribers"
+                  className={subscribersEnabled ? 'w-full' : 'w-full cursor-not-allowed opacity-50'}
+                  aria-disabled={!subscribersEnabled}
+                >
+                  {t('tabs.subscribers')}
+                </TabsTrigger>
+
+                {!subscribersEnabled ? (
+                  <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-[280px] -translate-x-1/2 rounded-xl border border-amber-500/20 bg-zinc-950/95 px-4 py-3 text-left shadow-2xl shadow-black/40 opacity-0 backdrop-blur-md transition-all duration-150 group-hover/subscribers:translate-y-0 group-hover/subscribers:opacity-100 group-focus-within/subscribers:translate-y-0 group-focus-within/subscribers:opacity-100">
+                    <div className="text-sm font-medium text-amber-200">
+                      {t('tabs.subscribersDisabledTitle')}
+                    </div>
+                    <div className="mt-1 text-xs leading-relaxed text-zinc-300">
+                      {t('tabs.subscribersDisabledHint')}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </TabsList>
             <TabsContent value="technical">
               <TechnicalStatsPanel />

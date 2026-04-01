@@ -1,0 +1,9 @@
+[Unit]
+Description=CBTooll analytics digests runner
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/cbtooll
+EnvironmentFile=/var/www/cbtooll/.env.local
+ExecStart=/bin/bash /var/www/cbtooll/scripts/run-analytics-digests.sh

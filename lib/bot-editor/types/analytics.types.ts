@@ -205,6 +205,95 @@ export type DashboardGlobalStatsPro = {
   repeatPayers: number
 }
 
+export type DashboardGlobalStatsDelta = {
+  current: number
+  previous: number
+  deltaPercent: number | null
+  direction: 'up' | 'down' | 'flat' | 'none'
+  available: boolean
+}
+
+export type DashboardGlobalStatsComparison = {
+  available: boolean
+  revenueComparable: boolean
+  revenue: DashboardGlobalStatsDelta
+  successfulPayments: DashboardGlobalStatsDelta
+  activeSubscribers: DashboardGlobalStatsDelta
+  conversionPercent: DashboardGlobalStatsDelta
+}
+
+export type DashboardGlobalFunnel = {
+  firstContactUsers: number
+  activeUsers: number
+  paidUsers: number
+  repeatPayers: number
+}
+
+export type DashboardRetentionWindowKey = 'd1' | 'd3' | 'd7' | 'd30'
+
+export type DashboardGlobalRetentionWindow = {
+  key: DashboardRetentionWindowKey
+  label: string
+  retainedUsers: number
+  cohortUsers: number
+  retentionPercent: number
+}
+
+export type DashboardGlobalRetentionCohortRow = {
+  cohortStart: string
+  cohortEnd: string
+  cohortUsers: number
+  windows: Record<DashboardRetentionWindowKey, DashboardGlobalRetentionWindow>
+}
+
+export type DashboardGlobalRetentionBlock = {
+  available: boolean
+  recentOnly: boolean
+  cohortCount: number
+  summary: Record<DashboardRetentionWindowKey, DashboardGlobalRetentionWindow>
+  cohorts: DashboardGlobalRetentionCohortRow[]
+}
+
+export type DashboardGlobalCurrencyTotal = {
+  currency: string
+  amount: number
+}
+
+export type DashboardGlobalMoneySummary = {
+  count: number
+  totalAmount: number
+  currencyTotals: DashboardGlobalCurrencyTotal[]
+}
+
+export type DashboardGlobalLostRevenueBotSlice = {
+  botId: string
+  botName: string
+  pending: DashboardGlobalMoneySummary
+  failed: DashboardGlobalMoneySummary
+}
+
+export type DashboardGlobalLostRevenueMethodSlice = {
+  method: string
+  pending: DashboardGlobalMoneySummary
+  failed: DashboardGlobalMoneySummary
+}
+
+export type DashboardGlobalLostRevenue = {
+  pending: DashboardGlobalMoneySummary
+  failed: DashboardGlobalMoneySummary
+  byBot: DashboardGlobalLostRevenueBotSlice[]
+  byMethod: DashboardGlobalLostRevenueMethodSlice[]
+}
+
+export type DashboardGlobalRepeatMetrics = {
+  repeatRevenueAmount: number | null
+  repeatRevenueSharePercent: number | null
+  repeatRevenueCurrencyTotals: DashboardGlobalCurrencyTotal[]
+  repeatPayers: number
+  returnedPayers: number
+  medianDaysToSecondPayment: number | null
+}
+
 export type DashboardGlobalStatsTrendPoint = {
   bucketStart: string
   revenue: number
@@ -232,6 +321,50 @@ export type DashboardGlobalStatusSlice = {
   count: number
 }
 
+export type DashboardGlobalBotRankingRow = {
+  botId: string
+  botName: string
+  currentRevenue: number
+  previousRevenue: number
+  revenueDeltaPercent: number | null
+  successfulPayments: number
+  previousSuccessfulPayments: number
+  uniquePayers: number
+  activeSubscribers: number
+  conversionPercent: number
+  pendingCount: number
+  failedCount: number
+  pendingAmount: number
+  failedAmount: number
+}
+
+export type DashboardGlobalRankings = {
+  items: DashboardGlobalBotRankingRow[]
+  bestGrowthBotId: string | null
+  worstDeclineBotId: string | null
+  bestConversionBotId: string | null
+  mostProblematicBotId: string | null
+}
+
+export type DashboardGlobalAnomalyKey =
+  | 'revenue_drop'
+  | 'conversion_drop'
+  | 'payment_issues_growth'
+  | 'active_audience_drop'
+  | 'new_audience_drop'
+
+export type DashboardGlobalAnomaly = {
+  key: DashboardGlobalAnomalyKey
+  severity: 'warning' | 'critical'
+  currentValue: number
+  previousValue: number
+  deltaPercent: number | null
+}
+
+export type DashboardGlobalReportFormat = 'csv' | 'xlsx'
+
+export type DashboardAnalyticsEmailKind = 'weekly_digest' | 'monthly_summary' | 'anomaly_alert'
+
 export type DashboardGlobalStats = {
   period: DashboardGlobalStatsPeriod
   entitlements: DashboardGlobalStatsEntitlements
@@ -239,6 +372,16 @@ export type DashboardGlobalStats = {
   currencies: string[]
   basic: DashboardGlobalStatsBasic
   pro: DashboardGlobalStatsPro
+  comparison: DashboardGlobalStatsComparison
+  funnel: DashboardGlobalFunnel
+  retention: {
+    activity: DashboardGlobalRetentionBlock
+    payment: DashboardGlobalRetentionBlock
+  }
+  lostRevenue: DashboardGlobalLostRevenue
+  repeat: DashboardGlobalRepeatMetrics
+  rankings: DashboardGlobalRankings
+  anomalies: DashboardGlobalAnomaly[]
   trend: DashboardGlobalStatsTrendPoint[]
   topBots: DashboardGlobalTopBot[]
   methodBreakdown: DashboardGlobalMethodSlice[]
