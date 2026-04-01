@@ -1,0 +1,17 @@
+[Unit]
+Description=CBTooll Next.js App (green)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/var/www/cbtooll-green
+Environment=NODE_ENV=production
+Environment=PORT=3001
+ExecStart=/usr/bin/npm run start -- -H 127.0.0.1 -p 3001
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

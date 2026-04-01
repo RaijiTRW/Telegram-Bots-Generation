@@ -1,0 +1,55 @@
+name: Deploy To VDS
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: production-vds
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        env:
+          VDS_SSH_KEY: ${{ secrets.VDS_SSH_KEY }}
+          VDS_HOST: ${{ secrets.VDS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VDS_SSH_KEY" > ~/.ssh/vds_key
+          chmod 600 ~/.ssh/vds_key
+          ssh-keyscan -H "$VDS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload release bundle
+        env:
+          VDS_HOST: ${{ secrets.VDS_HOST }}
+          VDS_PORT: ${{ secrets.VDS_PORT }}
+          VDS_USER: ${{ secrets.VDS_USER }}
+        run: |
+          REMOTE_PORT="${VDS_PORT:-22}"
+          RELEASE_ID="${GITHUB_SHA}"
+          ssh -i ~/.ssh/vds_key -p "$REMOTE_PORT" "$VDS_USER@$VDS_HOST" "mkdir -p /var/www/cbtooll-shared/uploads/$RELEASE_ID"
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'node_modules' \
+            --exclude '.next' \
+            -e "ssh -i ~/.ssh/vds_key -p $REMOTE_PORT" \
+            ./ "$VDS_USER@$VDS_HOST:/var/www/cbtooll-shared/uploads/$RELEASE_ID/"
+
+      - name: Run blue green deploy
+        env:
+          VDS_HOST: ${{ secrets.VDS_HOST }}
+          VDS_PORT: ${{ secrets.VDS_PORT }}
+          VDS_USER: ${{ secrets.VDS_USER }}
+        run: |
+          REMOTE_PORT="${VDS_PORT:-22}"
+          ssh -i ~/.ssh/vds_key -p "$REMOTE_PORT" "$VDS_USER@$VDS_HOST" "sudo /usr/local/bin/cbtooll-deploy ${GITHUB_SHA}"
