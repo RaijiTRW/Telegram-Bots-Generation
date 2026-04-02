@@ -5,6 +5,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from './lib/supabase/types';
 import { getSupabasePublicEnv, hasSupabasePublicEnv } from '@/lib/supabase/config';
+import {
+  createDefaultAppAccessControls,
+  getManagedDashboardSectionFromPath,
+  getPathLocale,
+  maintenanceScopeApplies,
+  parseAppAccessControls,
+  resolveDashboardSectionAccess,
+  shouldBypassMaintenancePath,
+} from '@/lib/admin-access/config';
 
 const LOCALE_COOKIE_NAME = 'NEXT_LOCALE';
 const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -48,14 +57,32 @@ function isPrefetchRequest(request: NextRequest) {
   return request.headers.has('next-router-prefetch') || request.headers.get('purpose') === 'prefetch';
 }
 
-async function getUserLocale(request: NextRequest, userId?: string | null): Promise<string | null> {
+function copySupabaseResponseState(source: NextResponse, target: NextResponse) {
+  for (const cookie of source.cookies.getAll()) {
+    target.cookies.set(cookie)
+  }
+
+  const middlewareUserId = source.headers.get('x-user-id')
+  const middlewareUserEmail = source.headers.get('x-user-email')
+  if (middlewareUserId) {
+    target.headers.set('x-user-id', middlewareUserId)
+  }
+  if (middlewareUserEmail) {
+    target.headers.set('x-user-email', middlewareUserEmail)
+  }
+}
+
+async function getUserProfileContext(
+  request: NextRequest,
+  userId?: string | null
+): Promise<{ language: string | null; role: 'user' | 'admin' | null }> {
   if (!userId) {
-    return null;
+    return { language: null, role: null };
   }
 
   const { url, anonKey, isConfigured } = getSupabasePublicEnv();
   if (!isConfigured || !url || !anonKey) {
-    return null;
+    return { language: null, role: null };
   }
 
   try {
@@ -76,18 +103,56 @@ async function getUserLocale(request: NextRequest, userId?: string | null): Prom
 
     const { data } = await supabase
       .from('profiles')
-      .select('language')
+      .select('language, role')
       .eq('id', userId)
-      .single() as { data: { language: string } | null };
+      .single() as { data: { language: string | null; role: 'user' | 'admin' | null } | null };
 
-    if (data?.language && locales.includes(data.language as (typeof locales)[number])) {
-      return data.language;
-    }
+    return {
+      language:
+        data?.language && locales.includes(data.language as (typeof locales)[number])
+          ? data.language
+          : null,
+      role: data?.role || null,
+    };
   } catch {
     // Silently fail if we can't get user locale
   }
 
-  return null;
+  return { language: null, role: null };
+}
+
+async function getAppAccessControlsFromRequest(request: NextRequest) {
+  const { url, anonKey, isConfigured } = getSupabasePublicEnv();
+  if (!isConfigured || !url || !anonKey) {
+    return createDefaultAppAccessControls();
+  }
+
+  try {
+    const supabase = createServerClient<Database>(
+      url,
+      anonKey,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll() {
+            // Middleware only reads global access controls.
+          },
+        },
+      }
+    );
+
+    const { data } = await supabase
+      .from('app_access_controls')
+      .select('registration_open, maintenance_scope, maintenance_title, maintenance_message, dashboard_overrides')
+      .eq('id', 1)
+      .maybeSingle();
+
+    return parseAppAccessControls(data);
+  } catch {
+    return createDefaultAppAccessControls();
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -107,6 +172,8 @@ export async function middleware(request: NextRequest) {
     !isServerActionRequest && !isPrefetch && hasSessionCookie && isProtectedPath(pathname)
   const shouldLookupUserLocale =
     !isMutationRequest && !isServerActionRequest && !isPrefetch && !cookiePreferredLocale && hasSessionCookie
+  const shouldReadUserProfile =
+    !isMutationRequest && !isServerActionRequest && !isPrefetch && hasSessionCookie
   const shouldRunSupabaseMiddleware =
     supabaseConfigured && (shouldRefreshProtectedSession || shouldLookupUserLocale)
 
@@ -124,31 +191,74 @@ export async function middleware(request: NextRequest) {
 
   if (studioRoute) {
     const response = NextResponse.next({ request: { headers: request.headers } })
-
-    for (const cookie of supabaseResponse.cookies.getAll()) {
-      response.cookies.set(cookie)
-    }
-
-    const middlewareUserId = supabaseResponse.headers.get('x-user-id')
-    const middlewareUserEmail = supabaseResponse.headers.get('x-user-email')
-    if (middlewareUserId) {
-      response.headers.set('x-user-id', middlewareUserId)
-    }
-    if (middlewareUserEmail) {
-      response.headers.set('x-user-email', middlewareUserEmail)
-    }
-
+    copySupabaseResponseState(supabaseResponse, response)
     return response
   }
 
   const userIdFromMiddleware = supabaseResponse.headers.get('x-user-id');
+  const shouldReadRuntimeAccess =
+    !isMutationRequest && !isServerActionRequest && !isPrefetch
+  const [userProfileContext, runtimeAccess] = await Promise.all([
+    shouldReadUserProfile
+      ? getUserProfileContext(request, userIdFromMiddleware)
+      : Promise.resolve({ language: null, role: null }),
+    shouldReadRuntimeAccess
+      ? getAppAccessControlsFromRequest(request)
+      : Promise.resolve(createDefaultAppAccessControls()),
+  ])
+  const isAdmin = userProfileContext.role === 'admin'
+  const normalizedPathname = getLocaleAgnosticPathname(pathname)
+  const requestLocale =
+    userProfileContext.language === 'en' || cookiePreferredLocale === 'en'
+      ? 'en'
+      : getPathLocale(pathname)
+
+  if (shouldReadRuntimeAccess && !isAdmin) {
+    if (
+      runtimeAccess.maintenanceScope !== 'none' &&
+      maintenanceScopeApplies(runtimeAccess.maintenanceScope, normalizedPathname) &&
+      !shouldBypassMaintenancePath(normalizedPathname)
+    ) {
+      const url = request.nextUrl.clone()
+      url.pathname = `/${requestLocale}/maintenance`
+      const redirectResponse = NextResponse.redirect(url)
+      copySupabaseResponseState(supabaseResponse, redirectResponse)
+      return redirectResponse
+    }
+
+    if (!runtimeAccess.registrationOpen && normalizedPathname.startsWith('/auth/signup')) {
+      const url = request.nextUrl.clone()
+      url.pathname = `/${requestLocale}/auth/login`
+      const redirectResponse = NextResponse.redirect(url)
+      copySupabaseResponseState(supabaseResponse, redirectResponse)
+      return redirectResponse
+    }
+
+    const managedDashboardSection = getManagedDashboardSectionFromPath(normalizedPathname)
+    if (managedDashboardSection) {
+      const sectionAccess = resolveDashboardSectionAccess(
+        managedDashboardSection,
+        runtimeAccess,
+        false,
+        requestLocale
+      )
+
+      if (!sectionAccess.accessible) {
+        const url = request.nextUrl.clone()
+        url.pathname = `/${requestLocale}/dashboard`
+        const redirectResponse = NextResponse.redirect(url)
+        copySupabaseResponseState(supabaseResponse, redirectResponse)
+        return redirectResponse
+      }
+    }
+  }
 
   // Get user's stored language preference only for navigational requests.
   // Redirecting POST / Server Actions breaks Next.js action responses.
   const userLocale =
     isMutationRequest || isServerActionRequest || isPrefetch || cookiePreferredLocale
       ? null
-      : await getUserLocale(request, userIdFromMiddleware);
+      : userProfileContext.language;
 
   // Use cookie locale if no user locale from database
   const effectiveLocale = userLocale || cookiePreferredLocale;
@@ -156,17 +266,9 @@ export async function middleware(request: NextRequest) {
   const response = intlMiddleware(request);
 
   // Preserve cookies/headers set by Supabase middleware response.
-  for (const cookie of supabaseResponse.cookies.getAll()) {
-    response.cookies.set(cookie);
-  }
+  copySupabaseResponseState(supabaseResponse, response)
   const middlewareUserId = supabaseResponse.headers.get('x-user-id');
   const middlewareUserEmail = supabaseResponse.headers.get('x-user-email');
-  if (middlewareUserId) {
-    response.headers.set('x-user-id', middlewareUserId);
-  }
-  if (middlewareUserEmail) {
-    response.headers.set('x-user-email', middlewareUserEmail);
-  }
   if (effectiveLocale && cookiePreferredLocale !== effectiveLocale) {
     response.cookies.set(LOCALE_COOKIE_NAME, effectiveLocale, {
       path: '/',
@@ -186,9 +288,7 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = newPath;
       const redirectResponse = NextResponse.redirect(url);
-      for (const cookie of supabaseResponse.cookies.getAll()) {
-        redirectResponse.cookies.set(cookie);
-      }
+      copySupabaseResponseState(supabaseResponse, redirectResponse)
       if (middlewareUserId) {
         redirectResponse.headers.set('x-user-id', middlewareUserId);
       }

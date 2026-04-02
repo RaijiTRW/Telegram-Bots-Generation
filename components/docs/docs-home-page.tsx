@@ -50,10 +50,10 @@ export function DocsHomePage({
               </Link>
             </Button>
             <Button asChild variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10">
-              <Link href={`/${locale}/dashboard`}>{content.hero.actions.openDashboard}</Link>
+              <Link href={`/${locale}/pricing`}>{content.hero.actions.openDashboard}</Link>
             </Button>
             <Button asChild variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10">
-              <Link href={`/${locale}/dashboard/bots`}>{content.hero.actions.createBot}</Link>
+              <Link href={`/${locale}/auth/signup`}>{content.hero.actions.createBot}</Link>
             </Button>
           </div>
 
@@ -64,6 +64,29 @@ export function DocsHomePage({
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-white/10 bg-zinc-900/40 backdrop-blur-xl p-6 md:p-8 mt-6">
+        <h2 className="text-2xl md:text-3xl font-semibold text-white">
+          {isRu ? 'Документация для быстрого запуска Telegram-бота' : 'Documentation for a faster Telegram bot launch'}
+        </h2>
+        <p className="mt-3 max-w-4xl text-base leading-7 text-zinc-300">
+          {isRu
+            ? 'Если вы ищете, как создать Telegram-бота для заявок, записи, FAQ, автоворонок и запуска без тяжёлой разработки, начните с этого раздела. Здесь собраны шаги по настройке, логике, тестированию, публикации и безопасной работе с данными.'
+            : 'If you are looking for a practical way to create a Telegram bot for leads, booking, FAQ, funnels, and no-code launch, start here. This section covers setup, logic, testing, publishing, and safe handling of data.'}
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Button asChild variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10">
+            <Link href={`/${locale}/telegram-bot-builder`}>
+              {isRu ? 'Открыть обзор конструктора' : 'Open builder overview'}
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10">
+            <Link href={`/${locale}/create-telegram-bot`}>
+              {isRu ? 'Как создать бота' : 'How to create a bot'}
+            </Link>
+          </Button>
         </div>
       </section>
 

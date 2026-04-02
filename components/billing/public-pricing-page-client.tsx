@@ -53,12 +53,12 @@ export function PublicPricingPageClient({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl space-y-2">
           <h1 className="text-3xl font-semibold text-white">
-            {isRu ? 'Выберите удобный биллинг-период' : 'Choose the billing period that fits you'}
+            {isRu ? 'Цены на конструктор Telegram-ботов для бизнеса' : 'Pricing for a business Telegram bot builder'}
           </h1>
           <p className="text-sm leading-6 text-zinc-400">
             {isRu
-              ? 'Годовая оплата даёт скидку 75% от текущей месячной цены на все 12 месяцев. Таблица и карточки ниже сразу пересчитываются под выбранный период.'
-              : 'Annual billing gives a 75% discount from the current monthly price across all 12 months. The cards and comparison table below recalculate instantly for the selected period.'}
+              ? 'Сравните стоимость запуска Telegram-бота: бесплатный старт, Business для заявок и роста, Enterprise для расширенной аналитики и лимитов. При оплате за год цена пересчитывается сразу.'
+              : 'Compare the cost of launching a Telegram bot: free start, Business for growth, and Enterprise for stronger analytics and higher limits. Annual billing recalculates instantly.'}
           </p>
         </div>
 

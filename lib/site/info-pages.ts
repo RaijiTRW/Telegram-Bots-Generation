@@ -205,30 +205,31 @@ const INFO_PAGES: Record<Locale, Record<InfoPageSlug, InfoPageContent>> = {
       slug: 'contact',
       eyebrow: 'Компания',
       title: 'Контакты',
-      description: 'Страница для общих, юридических и продуктовых обращений. Публичные каналы связи будут расширяться по мере развития сервиса.',
+      description: 'Контакты для продуктовых, юридических и общих вопросов по сервису создания Telegram-ботов CBTooll.',
       updatedAt: RU_UPDATED_AT,
       callout: {
-        title: 'Текущее состояние',
-        description: 'Публичные контактные каналы ещё формируются. Пока эту страницу используем как точку информации о том, куда направлять разные типы вопросов.',
+        title: 'Что важно',
+        description: 'Эта страница помогает понять, куда направлять продуктовые, юридические и технические вопросы. По мере расширения публичных каналов связи они будут появляться здесь.',
       },
       sections: [
         {
           title: 'Продуктовые вопросы',
           paragraphs: [
-            'Если вопрос касается того, как работает сервис, логики редактора или доступных функций, сначала проверьте документацию и статус сервиса.',
-            'По мере запуска публичных support-каналов они будут добавлены на эту страницу отдельно.',
+            'Если вопрос касается того, как работает сервис, логики редактора, тарифов или доступных функций, сначала проверьте документацию, страницу тарифов и статус сервиса.',
+            'Когда публичные support-каналы будут закреплены как основные, они будут опубликованы здесь отдельно.',
           ],
         },
         {
           title: 'Юридические и платёжные вопросы',
           paragraphs: [
-            'Для вопросов о правилах использования, конфиденциальности, безопасности и статусе сервиса ориентируйтесь на соответствующие публичные страницы в этом разделе.',
-            'Если появятся выделенные юридические или платёжные контакты, они будут опубликованы здесь дополнительно.',
+            'Для вопросов о правилах использования, конфиденциальности, безопасности, платежах и статусе сервиса ориентируйтесь на соответствующие публичные страницы в этом разделе.',
+            'Если появятся выделенные юридические или платёжные контакты, эта страница станет точкой входа и для таких обращений.',
           ],
         },
         {
-          title: 'Публичные обновления',
+          title: 'Как быстрее найти ответ',
           paragraphs: [
+            'Для быстрого старта по созданию Telegram-бота откройте документацию и страницы с описанием сценариев сервиса. Они помогают понять, как подойти к заявкам, записи, FAQ, автоворонкам и запуску без тяжёлой разработки.',
             'Публичные обновления о сервисе, запуске новых модулей и изменениях статуса будут появляться на сайте и в официальных каналах, когда они будут закреплены как основные.',
           ],
         },
@@ -413,30 +414,31 @@ const INFO_PAGES: Record<Locale, Record<InfoPageSlug, InfoPageContent>> = {
       slug: 'contact',
       eyebrow: 'Company',
       title: 'Contact',
-      description: 'A public page for general, legal, and product-related inquiries. Public contact channels will expand as the service grows.',
+      description: 'Contacts for product, legal, and general questions about the CBTooll Telegram bot platform.',
       updatedAt: EN_UPDATED_AT,
       callout: {
-        title: 'Current state',
-        description: 'Public contact channels are still being formalized. For now, this page explains where different categories of questions belong.',
+        title: 'What to know',
+        description: 'This page helps route product, legal, and technical questions. As public contact channels become official, they will appear here.',
       },
       sections: [
         {
           title: 'Product questions',
           paragraphs: [
-            'If your question is about how the service works, editor behavior, or available features, start with the documentation and the service status page.',
-            'Once public support channels are finalized, they will be added here.',
+            'If your question is about product behavior, editor logic, pricing, or available features, start with the documentation, pricing page, and service status.',
+            'As official public support channels go live, they will be listed here.',
           ],
         },
         {
           title: 'Legal and billing questions',
           paragraphs: [
-            'For privacy, terms, security, or service availability questions, use the corresponding public pages in this section as the current source of truth.',
-            'If dedicated legal or billing contacts are published later, this page will be updated accordingly.',
+            'For privacy, terms, security, billing, and service availability questions, use the related public pages in this section as the current source of truth.',
+            'If dedicated legal or billing contacts become available, this page will serve as the public entry point for them as well.',
           ],
         },
         {
-          title: 'Public updates',
+          title: 'Where to start faster',
           paragraphs: [
+            'If you are evaluating how to create a Telegram bot for leads, booking, FAQ, funnels, or no-code launch, start with the documentation and the scenario pages across the public site.',
             'Public updates about the service, new module launches, and status changes will be published on the site and official channels once those channels are locked in as primary.',
           ],
         },

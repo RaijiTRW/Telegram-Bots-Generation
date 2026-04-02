@@ -1,4 +1,5 @@
 import { AuthEntryPage } from '@/components/auth/auth-entry-page'
+import { getAppAccessControls } from '@/lib/admin-access/server'
 
 type AuthMode = 'login' | 'signup'
 
@@ -15,6 +16,17 @@ export default async function AuthPage({
   params: Promise<{ locale: string; mode?: string[] }>
 }) {
   const { mode } = await params
+  const requestedMode = resolveInitialMode(mode)
+  const accessControls = await getAppAccessControls()
+  const initialMode = !accessControls.registrationOpen && requestedMode === 'signup'
+    ? 'login'
+    : requestedMode
 
-  return <AuthEntryPage initialMode={resolveInitialMode(mode)} />
+  return (
+    <AuthEntryPage
+      initialMode={initialMode}
+      requestedMode={requestedMode}
+      registrationOpen={accessControls.registrationOpen}
+    />
+  )
 }

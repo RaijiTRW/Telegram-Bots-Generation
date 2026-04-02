@@ -1,19 +1,61 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
+import { Inter, Geist, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { PerformanceMode } from "@/components/performance/performance-mode";
 import { ScrollRestoration } from "@/components/scroll/scroll-restoration";
 import { AbortErrorSuppressor } from "@/components/supabase/abort-error-suppressor";
+import { PUBLIC_SITE } from "@/lib/site/public-config";
+import { absoluteUrl } from "@/lib/site/seo";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin", "cyrillic"],
 });
 
+const geist = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin", "cyrillic"],
+});
+
+const jetBrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin", "cyrillic"],
+});
+
 export const metadata: Metadata = {
-  title: "TFlow — Telegram Bot Builder with AI",
-  description: "Create Telegram bots in 60 seconds with AI. No code, no servers, just describe what you need.",
+  metadataBase: new URL(PUBLIC_SITE.siteUrl),
+  title: PUBLIC_SITE.brandName,
+  applicationName: PUBLIC_SITE.brandName,
+  description: "Create Telegram bots for leads, booking, FAQ, payments, and funnels without a heavy custom build.",
+  keywords: [
+    "telegram bot builder",
+    "создание telegram ботов",
+    "create telegram bot",
+    "конструктор telegram ботов",
+    "telegram bot for business",
+    "cbtooll",
+  ],
+  openGraph: {
+    title: PUBLIC_SITE.brandName,
+    description: "Create Telegram bots for business without code: leads, booking, FAQ, funnels, and analytics.",
+    url: absoluteUrl(),
+    siteName: PUBLIC_SITE.siteName,
+    type: "website",
+    images: [absoluteUrl("/opengraph-image")],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: PUBLIC_SITE.brandName,
+    description: "Create Telegram bots for business without code: leads, booking, FAQ, funnels, and analytics.",
+    images: [absoluteUrl("/twitter-image")],
+  },
+  icons: {
+    icon: [{ url: '/icon.png', type: 'image/png' }],
+    shortcut: [{ url: '/icon.png', type: 'image/png' }],
+    apple: [{ url: '/apple-icon.png', type: 'image/png' }],
+  },
 };
 
 const performanceModeBootstrapScript = `
@@ -57,21 +99,23 @@ const scrollRestorationBootstrapScript = `
 })();
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get('NEXT_LOCALE')?.value === 'en' ? 'en' : 'ru';
+
   return (
-    <html data-performance="full" suppressHydrationWarning>
+    <html lang={locale} data-performance="full" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: performanceModeBootstrapScript }} />
         <script dangerouslySetInnerHTML={{ __html: scrollRestorationBootstrapScript }} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+        <link rel="icon" href="/icon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${inter.variable} ${geist.variable} ${jetBrainsMono.variable} antialiased`}>
         <PerformanceMode />
         <AbortErrorSuppressor />
         <Suspense fallback={null}>

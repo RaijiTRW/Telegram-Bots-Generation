@@ -21,7 +21,7 @@ interface AuthSplitLayoutProps {
   title: string
   subtitle: string
   homeHref: string
-  footerLink: {
+  footerLink?: {
     label: string
     href: string
     linkLabel: string
@@ -134,23 +134,25 @@ export function AuthSplitLayout({
               {children}
             </div>
 
-            <p className="text-sm text-zinc-400">
-              {footerLink.label}{' '}
-              <Link
-                href={footerLink.href}
-                onClick={
-                  footerLink.onClick
-                    ? (event) => {
-                        event.preventDefault()
-                        footerLink.onClick?.()
-                      }
-                    : undefined
-                }
-                className="font-medium text-[#5EC8FF] hover:text-[#80d7ff] transition-colors"
-              >
-                {footerLink.linkLabel}
-              </Link>
-            </p>
+            {footerLink ? (
+              <p className="text-sm text-zinc-400">
+                {footerLink.label}{' '}
+                <Link
+                  href={footerLink.href}
+                  onClick={
+                    footerLink.onClick
+                      ? (event) => {
+                          event.preventDefault()
+                          footerLink.onClick?.()
+                        }
+                      : undefined
+                  }
+                  className="font-medium text-[#5EC8FF] hover:text-[#80d7ff] transition-colors"
+                >
+                  {footerLink.linkLabel}
+                </Link>
+              </p>
+            ) : null}
           </div>
         </div>
 

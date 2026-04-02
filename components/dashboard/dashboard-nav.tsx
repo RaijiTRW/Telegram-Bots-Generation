@@ -11,9 +11,15 @@ import { CompactLogo } from '@/components/logo'
 import type { ViewerAccess } from '@/lib/billing/types'
 import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
 import { preloadDashboardSection, type DashboardSection } from '@/components/dashboard/layout/dashboard-section-viewport'
+import {
+  type AppAccessControls,
+  type ManagedDashboardSection,
+  resolveDashboardSectionAccess,
+} from '@/lib/admin-access/config'
 
 interface DashboardNavProps {
   viewerAccess: ViewerAccess
+  accessControls: AppAccessControls
   activeSection?: DashboardSection | 'docs' | null
   onSectionChange?: (section: DashboardSection, href: string) => void
 }
@@ -23,13 +29,19 @@ type DashboardNavItem = {
   icon: ComponentType<{ className?: string }>
   label: string
   section?: DashboardSection
+  managedSection?: ManagedDashboardSection
   localeAgnostic?: boolean
   disabled?: boolean
   locked?: boolean
   badge?: string
 }
 
-export function DashboardNav({ viewerAccess, activeSection = null, onSectionChange }: DashboardNavProps) {
+export function DashboardNav({
+  viewerAccess,
+  accessControls,
+  activeSection = null,
+  onSectionChange,
+}: DashboardNavProps) {
   const t = useTranslations()
   const pathname = usePathname()
   const router = useRouter()
@@ -37,40 +49,87 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
 
   // Get locale from pathname
   const locale = pathname?.split('/')[1] || 'ru'
+  const navLocale = locale === 'en' ? 'en' : 'ru'
 
   const navItems = useMemo<DashboardNavItem[]>(() => {
-    const crmNavItem: DashboardNavItem = {
-      href: '/dashboard/crm',
-      icon: Users,
-      label: 'dashboard.nav.crm',
-      section: 'crm',
-      disabled: !isAdmin,
-      locked: true,
-      badge: 'dashboard.nav.soon',
-    }
-    const statsNavItem: DashboardNavItem = {
-      href: '/dashboard/statistics',
-      icon: BarChart3,
-      label: 'dashboard.nav.statistics',
-      section: 'statistics',
-    }
-    const subscriptionNavItem: DashboardNavItem = {
-      href: '/dashboard/subscription',
-      icon: CreditCard,
-      label: 'dashboard.nav.subscription',
-      section: 'subscription',
+    const applyManagedSectionAccess = (item: DashboardNavItem): DashboardNavItem | null => {
+      if (!item.managedSection) {
+        return item
+      }
+
+      const access = resolveDashboardSectionAccess(
+        item.managedSection,
+        accessControls,
+        isAdmin,
+        navLocale
+      )
+
+      if (!access.visible) {
+        return null
+      }
+
+      return {
+        ...item,
+        disabled: item.disabled || !access.accessible,
+        locked: access.mode !== 'default',
+        badge: access.badge || undefined,
+      }
     }
 
-    const baseItems: DashboardNavItem[] = [
+    const rawBaseItems: DashboardNavItem[] = [
       { href: '/dashboard', icon: Home, label: 'dashboard.nav.home', section: 'home' },
-      { href: '/dashboard/bots', icon: Bot, label: 'dashboard.nav.bots', section: 'bots' },
-      statsNavItem,
-      subscriptionNavItem,
-      crmNavItem,
-      { href: '/dashboard/docs', icon: BookOpen, label: 'dashboard.nav.docs' },
-      { href: '/dashboard/profile', icon: User, label: 'dashboard.nav.profile', section: 'profile' },
-      { href: '/dashboard/settings', icon: Settings, label: 'dashboard.nav.settings', section: 'settings' },
+      {
+        href: '/dashboard/bots',
+        icon: Bot,
+        label: 'dashboard.nav.bots',
+        section: 'bots',
+        managedSection: 'bots',
+      },
+      {
+        href: '/dashboard/statistics',
+        icon: BarChart3,
+        label: 'dashboard.nav.statistics',
+        section: 'statistics',
+        managedSection: 'statistics',
+      },
+      {
+        href: '/dashboard/subscription',
+        icon: CreditCard,
+        label: 'dashboard.nav.subscription',
+        section: 'subscription',
+        managedSection: 'subscription',
+      },
+      {
+        href: '/dashboard/crm',
+        icon: Users,
+        label: 'dashboard.nav.crm',
+        section: 'crm',
+        managedSection: 'crm',
+      },
+      {
+        href: '/dashboard/docs',
+        icon: BookOpen,
+        label: 'dashboard.nav.docs',
+        managedSection: 'docs',
+      },
+      {
+        href: '/dashboard/profile',
+        icon: User,
+        label: 'dashboard.nav.profile',
+        section: 'profile',
+        managedSection: 'profile',
+      },
+      {
+        href: '/dashboard/settings',
+        icon: Settings,
+        label: 'dashboard.nav.settings',
+        section: 'settings',
+        managedSection: 'settings',
+      },
     ]
+    const baseItems = rawBaseItems
+      .map(applyManagedSectionAccess)
+      .filter(Boolean) as DashboardNavItem[]
 
     if (!isAdmin) {
       return baseItems
@@ -88,7 +147,7 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
       baseItems[6],
       baseItems[7],
     ]
-  }, [isAdmin])
+  }, [accessControls, isAdmin, navLocale])
 
   useEffect(() => {
     for (const item of navItems) {
@@ -132,10 +191,10 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
 
       <div className="relative z-10 flex flex-col h-full">
         {/* Logo area with gradient accent */}
-        <Link href={`/${locale}`} className="mb-8 px-4 py-3 rounded-xl bg-linear-to-r from-blue-500/10 to-purple-500/10 border border-white/10 hover:from-blue-500/20 hover:to-purple-500/20 transition-colors">
-          <div className="flex items-center gap-3">
-            <CompactLogo className="w-10 h-8 shrink-0" idPrefix="dashboard-nav-logo" />
-            <h1 className="text-xl font-bold text-white tracking-tight">CBTooll</h1>
+        <Link href={`/${locale}`} className="mb-8 rounded-xl border border-white/10 bg-linear-to-r from-blue-500/10 to-purple-500/10 px-4 py-3 hover:from-blue-500/20 hover:to-purple-500/20 transition-colors">
+          <div className="flex min-h-[56px] items-center gap-3.5">
+            <CompactLogo className="size-12 shrink-0" idPrefix="dashboard-nav-logo" />
+            <h1 className="text-[2.15rem] font-bold leading-none text-white tracking-tight">CBTooll</h1>
           </div>
         </Link>
 
@@ -171,7 +230,7 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
                     {item.locked ? <Lock className="w-3.5 h-3.5 ml-2 text-zinc-400" /> : null}
                     {item.badge ? (
                       <span className="ml-auto rounded border border-white/15 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
-                        {t(item.badge)}
+                        {item.badge}
                       </span>
                     ) : null}
                   </span>
@@ -203,7 +262,7 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
                     {item.locked ? <Lock className="w-3.5 h-3.5 ml-2 text-zinc-400" /> : null}
                     {item.badge ? (
                       <span className="ml-auto rounded border border-white/15 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
-                        {t(item.badge)}
+                        {item.badge}
                       </span>
                     ) : null}
                   </span>
@@ -234,7 +293,7 @@ export function DashboardNav({ viewerAccess, activeSection = null, onSectionChan
                   {item.locked ? <Lock className="w-3.5 h-3.5 ml-2 text-zinc-400" /> : null}
                   {item.badge ? (
                     <span className="ml-auto rounded border border-white/15 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
-                      {t(item.badge)}
+                      {item.badge}
                     </span>
                   ) : null}
                 </Link>

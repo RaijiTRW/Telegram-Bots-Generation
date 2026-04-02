@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 
 const ACTIVE_DOT_FILL = '#22C55E'
 const ACTIVE_DOT_STROKE = 'rgba(255, 255, 255, 0.95)'
-const DEFAULT_FAVICON_PATH = '/favicon.ico'
+const DEFAULT_FAVICON_PATH = '/icon.png'
 
 function ensureFaviconLink(): HTMLLinkElement {
   const existing = document.querySelector<HTMLLinkElement>('link[rel="icon"]')

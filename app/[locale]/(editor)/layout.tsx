@@ -1,5 +1,11 @@
 import { redirect } from 'next/navigation'
 import { getServerUser } from '@/lib/supabase/server'
+import { buildNoIndexMetadata } from '@/lib/site/seo'
+
+export const metadata = buildNoIndexMetadata(
+  'CBTooll Editor',
+  'Private bot editor for CBTooll users.'
+)
 
 export default async function EditorLayout({
   children,

@@ -150,7 +150,7 @@ export function Features() {
           className="text-center mb-16"
         >
           <motion.span
-            className="inline-block px-4 py-2 rounded-full glass-panel text-sm text-white/60 mb-4 font-mono"
+            className="inline-block rounded-full glass-panel px-4 py-2 text-sm font-medium text-white/82 mb-4"
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={enterViewport}
@@ -175,7 +175,7 @@ export function Features() {
               </>
             )}
           </h2>
-          <p className="text-lg text-white/60 max-w-2xl mx-auto">
+          <p className="text-lg text-white/74 max-w-2xl mx-auto">
             {isRu
               ? 'Запуск, размещение, аналитика и контроль собраны в одном контуре. Меньше ручной сборки, меньше разрозненных сервисов и быстрее путь от идеи до рабочего бота.'
               : 'Launch, hosting, analytics, and control sit in one workflow. Less manual setup, fewer disconnected tools, and a faster path from idea to a working bot.'}
@@ -241,7 +241,7 @@ export function Features() {
                       <h3 className="text-base md:text-lg font-bold mb-1">
                         {title}
                       </h3>
-                      <p className="text-white/60 text-xs leading-relaxed">
+                      <p className="text-white/74 text-xs leading-relaxed">
                         {description}
                       </p>
                     </div>
@@ -271,7 +271,7 @@ export function Features() {
                               <div className="truncate text-sm font-semibold text-white">
                                 {isRu ? 'Готовый бот' : 'Ready bot'}
                               </div>
-                              <div className="truncate text-[11px] text-white/45">
+                              <div className="truncate text-xs font-medium text-white/70">
                                 {isRu ? 'Остаётся на платформе' : 'Stays on-platform'}
                               </div>
                             </div>
@@ -293,7 +293,7 @@ export function Features() {
                               <div className="truncate text-sm font-semibold text-white">
                                 {isRu ? 'ZIP-архив' : 'ZIP archive'}
                               </div>
-                              <div className="truncate text-[11px] text-white/50">
+                              <div className="truncate text-xs font-medium text-white/72">
                                 {isRu ? 'Скачать при необходимости' : 'Export when needed'}
                               </div>
                             </div>
@@ -328,7 +328,7 @@ export function Features() {
                       <div className="text-xs font-semibold text-white mb-1">
                         {isRu ? 'Защита данных' : 'Protected data'}
                       </div>
-                      <div className="text-[10px] text-white/40">
+                      <div className="text-xs font-medium text-white/68">
                         {isRu ? 'Secure-by-default' : 'Secure-by-default'}
                       </div>
                     </div>
@@ -339,43 +339,7 @@ export function Features() {
           })}
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_1.95fr]">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={enterViewport}
-            transition={{ duration: 0.38, delay: 0.06 }}
-            className="rounded-3xl border border-white/8 bg-white/[0.03] p-6 backdrop-blur-xl"
-          >
-            <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-mono uppercase tracking-[0.24em] text-white/55">
-              {isRu ? 'Почему это важно' : 'Why it matters'}
-            </span>
-            <h3 className="mt-5 text-2xl font-semibold text-white md:text-3xl">
-              {isRu
-                ? 'Бот остаётся частью системы, а не отдельным экспериментом'
-                : 'Your bot stays part of the system, not a one-off experiment'}
-            </h3>
-            <p className="mt-4 text-sm leading-7 text-white/65 md:text-base">
-              {isRu
-                ? 'Когда сценарии, размещение, платежи и аналитика уже связаны между собой, команде проще запускать новые потоки, быстрее принимать решения и не тратить время на ручную склейку процессов.'
-                : 'When flows, hosting, payments, and analytics already work together, the team can launch faster, make decisions sooner, and spend less time stitching tools together.'}
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              {(isRu
-                ? ['Быстрый запуск', 'Меньше ручной рутины', 'Есть запас для роста']
-                : ['Faster launch', 'Less manual work', 'Room to grow']
-              ).map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/70"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </motion.div>
-
+        <div className="mt-8">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {platformOutcomes.map((item, index) => {
               const Icon = item.icon;
@@ -395,7 +359,7 @@ export function Features() {
                     <Icon className="h-5 w-5" />
                   </div>
                   <h3 className="text-lg font-semibold text-white">{title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-white/60">{description}</p>
+                  <p className="mt-3 text-sm leading-6 text-white/74">{description}</p>
                 </motion.div>
               );
             })}

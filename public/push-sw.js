@@ -13,8 +13,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'CBTooll'
   const options = {
     body: payload.body || '',
-    icon: payload.icon || '/logo-icon.svg',
-    badge: payload.badge || '/logo-icon.svg',
+    icon: payload.icon || '/icon.png',
+    badge: payload.badge || '/icon.png',
     tag: payload.tag || 'cbtooll-browser-push',
     requireInteraction: Boolean(payload.requireInteraction),
     data: {

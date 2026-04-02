@@ -107,8 +107,8 @@ export function InfoPageShell({ locale, content, statusHistory = null }: InfoPag
                 </div>
                 <p className="mt-2 text-sm text-zinc-400">
                   {isRu
-                    ? 'Вы можете вернуться на главную, открыть документацию или перейти к текущему статусу сервиса.'
-                    : 'You can return to the homepage, open the documentation, or check the current service status.'}
+                    ? 'Вы можете вернуться на главную, открыть документацию, посмотреть тарифы или сразу перейти к созданию Telegram-бота.'
+                    : 'You can return to the homepage, open the documentation, compare pricing, or go straight to Telegram bot creation.'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -125,10 +125,16 @@ export function InfoPageShell({ locale, content, statusHistory = null }: InfoPag
                   {isRu ? 'Документация' : 'Documentation'}
                 </Link>
                 <Link
-                  href={`/${locale}/status`}
+                  href={`/${locale}/pricing`}
+                  className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-200 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  {isRu ? 'Тарифы' : 'Pricing'}
+                </Link>
+                <Link
+                  href={`/${locale}/auth/signup`}
                   className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#24A1DE] to-[#00E676] px-4 py-2 text-sm font-medium text-white"
                 >
-                  {isRu ? 'Статус сервиса' : 'Service status'}
+                  {isRu ? 'Создать бота' : 'Create a bot'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </div>

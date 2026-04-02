@@ -1,12 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { getSafeClientUser } from '@/lib/supabase/client-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { AdminAccessControlsCard } from '@/components/admin/admin-access-controls-card'
+import {
+  type AppAccessControls,
+  createDefaultAppAccessControls,
+  parseAppAccessControls,
+  serializeAppAccessControls,
+} from '@/lib/admin-access/config'
 import {
   AlertTriangle,
   Eye,
@@ -46,9 +54,22 @@ type AdminStats = {
   landingViewsToday: number
 }
 
+type AppAccessControlsTableClient = {
+  upsert: (
+    values: Record<string, unknown>
+  ) => {
+    select: (
+      columns: string
+    ) => {
+      single: () => Promise<{ data: Record<string, unknown> | null; error: { message?: string } | null }>
+    }
+  }
+}
+
 export function DashboardAdminPageClient() {
   const t = useTranslations('dashboard.admin')
   const supabase = createClient()
+  const router = useRouter()
 
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -57,6 +78,8 @@ export function DashboardAdminPageClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [status, setStatus] = useState<Notice>(null)
   const [savingProfileId, setSavingProfileId] = useState<string | null>(null)
+  const [accessControls, setAccessControls] = useState<AppAccessControls>(createDefaultAppAccessControls())
+  const [isSavingAccessControls, setIsSavingAccessControls] = useState(false)
   const [stats, setStats] = useState<AdminStats>({
     onlineNow: 0,
     registeredToday: 0,
@@ -122,11 +145,16 @@ export function DashboardAdminPageClient() {
 
       setCurrentUserId(user.id)
 
-      const [profilesResult] = await Promise.all([
+      const [profilesResult, accessControlsResult] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, email, full_name, role, created_at, updated_at')
           .order('created_at', { ascending: false }),
+        supabase
+          .from('app_access_controls')
+          .select('registration_open, maintenance_scope, maintenance_title, maintenance_message, dashboard_overrides')
+          .eq('id', 1)
+          .maybeSingle(),
       ])
 
       if (profilesResult.error) {
@@ -134,11 +162,13 @@ export function DashboardAdminPageClient() {
       }
 
       setProfiles((profilesResult.data || []) as ProfileRow[])
+      setAccessControls(parseAppAccessControls(accessControlsResult.data || null))
       await fetchStats()
     } catch (error) {
       console.error('Failed to load admin profiles:', error)
       setStatus({ type: 'error', text: t('loadError') })
       setProfiles([])
+      setAccessControls(createDefaultAppAccessControls())
       setStats({
         onlineNow: 0,
         registeredToday: 0,
@@ -211,6 +241,45 @@ export function DashboardAdminPageClient() {
 
   const adminsCount = profiles.filter((profile) => profile.role === 'admin').length
   const usersCount = profiles.length - adminsCount
+
+  const handleSaveAccessControls = async () => {
+    if (!currentUserId || isSavingAccessControls) {
+      return
+    }
+
+    setIsSavingAccessControls(true)
+    setStatus(null)
+
+    try {
+      const appAccessControlsTable = supabase.from('app_access_controls') as unknown as AppAccessControlsTableClient
+      const payload = {
+        ...serializeAppAccessControls(accessControls),
+        updated_by: currentUserId,
+      }
+      const { data, error } = await appAccessControlsTable
+        .upsert(payload)
+        .select('registration_open, maintenance_scope, maintenance_title, maintenance_message, dashboard_overrides')
+        .single()
+
+      if (error) {
+        throw error
+      }
+
+      setAccessControls(parseAppAccessControls(data))
+      setStatus({ type: 'success', text: t('accessSaveSuccess') })
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to save access controls:', error)
+      const message =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message || '')
+          : ''
+      const suffix = message ? ` (${message})` : ''
+      setStatus({ type: 'error', text: `${t('accessSaveError')}${suffix}` })
+    } finally {
+      setIsSavingAccessControls(false)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -329,6 +398,13 @@ export function DashboardAdminPageClient() {
               </CardContent>
             </Card>
           </div>
+
+          <AdminAccessControlsCard
+            value={accessControls}
+            isSaving={isSavingAccessControls}
+            onChange={setAccessControls}
+            onSave={() => void handleSaveAccessControls()}
+          />
 
           <Card className="bg-zinc-900/50 border-zinc-800">
             <CardHeader>

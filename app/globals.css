@@ -282,7 +282,7 @@ svg {
     background: #05070A;
     background-color: #05070A;
     color: #FFFFFF;
-    font-family: 'Geist', var(--font-inter), system-ui, -apple-system, sans-serif;
+    font-family: var(--font-geist-sans), var(--font-inter), system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
     overscroll-behavior-y: none;
   }
@@ -302,8 +302,8 @@ html[data-scroll-restore-pending='1'] body {
 
   /* Typography variables */
   :root {
-    --font-geist: 'Geist', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-geist: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+    --font-mono: var(--font-jetbrains-mono), 'Fira Code', monospace;
   }
 }
 

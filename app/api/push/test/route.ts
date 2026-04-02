@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
             body: getBody(locale),
             tag: 'cbtooll-browser-push-test',
             url: targetUrl,
-            icon: '/logo-icon.svg',
-            badge: '/logo-icon.svg',
+            icon: '/icon.png',
+            badge: '/icon.png',
           },
         })
       )

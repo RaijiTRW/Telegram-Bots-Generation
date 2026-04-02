@@ -81,10 +81,24 @@ export default function CanvasPage() {
     if (!botId) return
     if (!force && typeof document !== 'undefined' && document.visibilityState !== 'visible') return
 
-    const result = await getBotTestLogsAction(botId, {
-      sinceTs: reset ? undefined : (latestLogTsRef.current ?? undefined),
-      limit: 200,
-    })
+    let result:
+      | Awaited<ReturnType<typeof getBotTestLogsAction>>
+      | null = null
+
+    try {
+      result = await getBotTestLogsAction(botId, {
+        sinceTs: reset ? undefined : (latestLogTsRef.current ?? undefined),
+        limit: 200,
+      })
+    } catch (actionError) {
+      setLogsFetchError(
+        actionError instanceof Error
+          ? actionError.message || 'logs_error'
+          : 'logs_error'
+      )
+      setLogsFetchErrorTs(Date.now())
+      return
+    }
 
     if (!result.success) {
       setLogsFetchError(('error' in result ? result.error : null) || 'logs_error')

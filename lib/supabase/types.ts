@@ -240,6 +240,50 @@ export interface Database {
           },
         ]
       }
+      app_access_controls: {
+        Row: {
+          id: number
+          registration_open: boolean
+          maintenance_scope: 'none' | 'site' | 'editor' | 'dashboard_editor'
+          maintenance_title: string | null
+          maintenance_message: string | null
+          dashboard_overrides: Json
+          updated_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          registration_open?: boolean
+          maintenance_scope?: 'none' | 'site' | 'editor' | 'dashboard_editor'
+          maintenance_title?: string | null
+          maintenance_message?: string | null
+          dashboard_overrides?: Json
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          registration_open?: boolean
+          maintenance_scope?: 'none' | 'site' | 'editor' | 'dashboard_editor'
+          maintenance_title?: string | null
+          maintenance_message?: string | null
+          dashboard_overrides?: Json
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'app_access_controls_updated_by_fkey'
+            columns: ['updated_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       browser_push_subscriptions: {
         Row: {
           id: string

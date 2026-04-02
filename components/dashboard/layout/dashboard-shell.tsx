@@ -6,9 +6,11 @@ import { DashboardNav } from '@/components/dashboard/dashboard-nav'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { DashboardSectionViewport, type DashboardSection } from './dashboard-section-viewport'
 import type { ViewerAccess } from '@/lib/billing/types'
+import type { AppAccessControls } from '@/lib/admin-access/config'
 
 interface DashboardShellProps {
   viewerAccess: ViewerAccess
+  accessControls: AppAccessControls
   children: React.ReactNode
 }
 
@@ -47,7 +49,7 @@ const getDashboardSectionFromPathname = (pathname: string | null): DashboardRout
   }
 }
 
-export function DashboardShell({ viewerAccess, children }: DashboardShellProps) {
+export function DashboardShell({ viewerAccess, accessControls, children }: DashboardShellProps) {
   const pathname = usePathname()
   const currentSection = getDashboardSectionFromPathname(pathname)
   const [pendingNavigation, setPendingNavigation] = useState<PendingDashboardNavigation>(null)
@@ -68,6 +70,7 @@ export function DashboardShell({ viewerAccess, children }: DashboardShellProps) 
     <div className="flex h-screen overflow-hidden bg-[#05070A]">
       <DashboardNav
         viewerAccess={viewerAccess}
+        accessControls={accessControls}
         activeSection={displayedSection}
         onSectionChange={(section, href) => {
           setPendingNavigation({ section, href })

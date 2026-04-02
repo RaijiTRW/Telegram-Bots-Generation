@@ -305,7 +305,53 @@
       "updating": "Updating...",
       "saveSuccess": "Role updated: {email}",
       "saveError": "Failed to update role.",
-      "safetyHint": "You cannot remove the last administrator. The system enforces this automatically."
+      "safetyHint": "You cannot remove the last administrator. The system enforces this automatically.",
+      "accessTitle": "Access controls",
+      "accessDesc": "Manage signup availability, maintenance mode, and dashboard section access for regular users.",
+      "registrationTitle": "Registration",
+      "registrationDesc": "Open or close new account creation on the public auth page.",
+      "registrationOpenState": "New users can create accounts.",
+      "registrationClosedState": "Registration is closed. Users will only see sign in for existing accounts.",
+      "maintenanceTitle": "Maintenance mode",
+      "maintenanceDesc": "Choose which part of the product is temporarily unavailable for users. Admins keep full access.",
+      "maintenanceScopeLabel": "Area to close",
+      "maintenanceCustomTitle": "Custom title",
+      "maintenanceCustomTitlePlaceholder": "For example: Dashboard is temporarily unavailable",
+      "maintenanceCustomMessage": "Custom message",
+      "maintenanceCustomMessagePlaceholder": "For example: We are updating the system and will be back soon.",
+      "maintenanceScope": {
+        "none": "Do not close anything",
+        "site": "Entire site",
+        "editor": "Bot editor only",
+        "dashboard_editor": "Dashboard and bot editor"
+      },
+      "sectionsTitle": "Dashboard sections",
+      "sectionsDesc": "Each section can stay open, stay visible but locked, or be fully hidden from users.",
+      "sectionsModeLabel": "Section mode",
+      "sectionsLabelInput": "User-facing badge",
+      "sectionsLabelPlaceholder": "Soon / In progress / Closed",
+      "sectionMode": {
+        "default": "Open",
+        "locked": "Visible but locked",
+        "hidden": "Hidden from users"
+      },
+      "adminViewTitle": "Admin sees",
+      "adminViewText": "Admins always see the section and can still open it, even when users cannot.",
+      "userViewTitle": "User sees",
+      "userViewDefault": "The section is visible and can be opened.",
+      "userViewLocked": "The section is visible but cannot be opened. The selected badge is shown next to it.",
+      "userViewHidden": "The section is completely hidden in the dashboard.",
+      "accessSave": "Save access controls",
+      "accessSaving": "Saving...",
+      "accessSaveSuccess": "Access controls saved.",
+      "accessSaveError": "Failed to save access controls.",
+      "sectionBots": "Bots",
+      "sectionStatistics": "Statistics",
+      "sectionSubscription": "Subscription",
+      "sectionCrm": "CRM",
+      "sectionDocs": "Documentation",
+      "sectionProfile": "Profile",
+      "sectionSettings": "Settings"
     },
     "settings": {
       "title": "Settings",
@@ -1841,7 +1887,7 @@
     }
   },
   "header": {
-    "logo": "TFlow",
+    "logo": "CBTooll",
     "welcomeBack": "Welcome back",
     "switchLanguage": "Switch language",
     "appVersionAria": "Application version {version}",
@@ -2024,7 +2070,7 @@
   },
   "cta": {
     "title": "Ready to see the magic in action?",
-    "subtitle": "Join thousands of entrepreneurs who have already automated their business with TFlow",
+    "subtitle": "Join thousands of entrepreneurs who have already automated their business with CBTooll",
     "emailPlaceholder": "Enter your email",
     "button": "Start Free",
     "note": "No credit card required"
@@ -2096,6 +2142,6 @@
         ]
       }
     },
-    "copyright": "© 2024 TFlow. Built for those who value speed."
+    "copyright": "© 2024 CBTooll. Built for those who value speed."
   }
 }

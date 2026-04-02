@@ -95,14 +95,14 @@ export function Footer() {
           >
             {/* Expanding glow effect on hover */}
             <Link
-              href={`/${locale}/dashboard`}
+              href={`/${locale}/auth/signup`}
               className="relative px-16 py-6 rounded-full text-xl font-bold text-white shadow-2xl inline-flex items-center gap-4"
               style={{
                 background: 'linear-gradient(135deg, #1E88E5, #00E676)',
               }}
             >
               <span className="drop-shadow-[0_0_18px_rgba(255,255,255,0.2)]">
-                {isRu ? 'Развернуть первого бота сейчас' : 'Deploy your first bot now'}
+                {isRu ? 'Создать первого Telegram-бота' : 'Create your first Telegram bot'}
               </span>
               <motion.div
                 animate={{ x: [0, 5, 0] }}
@@ -143,11 +143,11 @@ export function Footer() {
           viewport={enterViewport}
           transition={{ duration: 0.34 }}
         >
-            <Link href={`/${locale}`} className="flex items-center gap-2 mb-4 group">
-              <TFlowLogo className="w-32 h-10" showText={false} idPrefix="site-footer-logo" />
+            <Link href={`/${locale}`} className="flex items-center gap-3 mb-4 group">
+              <TFlowLogo className="h-10" idPrefix="site-footer-logo" />
             </Link>
             <p className="text-sm text-white/60 leading-relaxed">
-              {isRu ? 'Создавайте Telegram ботов за 60 секунд с помощью ИИ. Без кода, без серверов.' : 'Create Telegram bots in 60 seconds with AI. No code, no servers.'}
+              {isRu ? 'Создание Telegram-ботов для заявок, записи, FAQ, прогрева и продаж без тяжёлой разработки.' : 'Build Telegram bots for leads, booking, FAQ, funnels, and sales without a heavy custom build.'}
             </p>
           </motion.div>
 

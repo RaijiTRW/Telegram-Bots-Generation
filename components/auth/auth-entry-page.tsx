@@ -10,6 +10,8 @@ type AuthMode = 'login' | 'signup'
 
 interface AuthEntryPageProps {
   initialMode: AuthMode
+  requestedMode?: AuthMode
+  registrationOpen?: boolean
 }
 
 function resolveModeFromPathname(pathname: string, locale: string): AuthMode {
@@ -26,7 +28,11 @@ function resolveModeFromPathname(pathname: string, locale: string): AuthMode {
   return 'login'
 }
 
-export function AuthEntryPage({ initialMode }: AuthEntryPageProps) {
+export function AuthEntryPage({
+  initialMode,
+  requestedMode = initialMode,
+  registrationOpen = true,
+}: AuthEntryPageProps) {
   const locale = useLocale()
   const tLogin = useTranslations('auth.login')
   const tSignup = useTranslations('auth.signup')
@@ -42,7 +48,8 @@ export function AuthEntryPage({ initialMode }: AuthEntryPageProps) {
 
   useEffect(() => {
     const syncFromUrl = () => {
-      setMode(resolveModeFromPathname(window.location.pathname, locale))
+      const nextMode = resolveModeFromPathname(window.location.pathname, locale)
+      setMode(!registrationOpen && nextMode === 'signup' ? 'login' : nextMode)
     }
 
     syncFromUrl()
@@ -51,9 +58,13 @@ export function AuthEntryPage({ initialMode }: AuthEntryPageProps) {
     return () => {
       window.removeEventListener('popstate', syncFromUrl)
     }
-  }, [locale])
+  }, [locale, registrationOpen])
 
   const switchMode = (nextMode: AuthMode) => {
+    if (!registrationOpen && nextMode === 'signup') {
+      return
+    }
+
     if (nextMode === mode) {
       return
     }
@@ -67,18 +78,30 @@ export function AuthEntryPage({ initialMode }: AuthEntryPageProps) {
   }
 
   const isSignup = mode === 'signup'
+  const showRegistrationClosedNotice = !registrationOpen && requestedMode === 'signup'
+  const isRu = locale !== 'en'
+  const registrationClosedTitle = isRu
+    ? 'Регистрация временно закрыта'
+    : 'Registration is temporarily closed'
+  const registrationClosedDescription = isRu
+    ? 'Создание новых аккаунтов сейчас отключено. Попробуйте зайти позже или войдите в существующий аккаунт.'
+    : 'New account creation is currently disabled. Please try again later or sign in with an existing account.'
 
   return (
     <AuthSplitLayout
       title={isSignup ? tSignup('title') : tLogin('title')}
       subtitle={isSignup ? tSignup('subtitle') : tLogin('subtitle')}
       homeHref={`/${locale}`}
-      footerLink={{
-        href: isSignup ? loginHref : signupHref,
-        label: isSignup ? tSignup('hasAccount') : tLogin('noAccount'),
-        linkLabel: isSignup ? tSignup('signIn') : tLogin('signUp'),
-        onClick: () => switchMode(isSignup ? 'login' : 'signup'),
-      }}
+      footerLink={
+        registrationOpen
+          ? {
+              href: isSignup ? loginHref : signupHref,
+              label: isSignup ? tSignup('hasAccount') : tLogin('noAccount'),
+              linkLabel: isSignup ? tSignup('signIn') : tLogin('signUp'),
+              onClick: () => switchMode(isSignup ? 'login' : 'signup'),
+            }
+          : undefined
+      }
       side={{
         tagline: tSide('tagline'),
         benefitsTitle: tSide('benefitsTitle'),
@@ -117,7 +140,13 @@ export function AuthEntryPage({ initialMode }: AuthEntryPageProps) {
         ],
       }}
     >
-      {isSignup ? <SignupForm /> : <LoginForm />}
+      {showRegistrationClosedNotice ? (
+        <div className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <div className="font-medium text-amber-100">{registrationClosedTitle}</div>
+          <div className="mt-1 text-amber-200/80">{registrationClosedDescription}</div>
+        </div>
+      ) : null}
+      {isSignup && registrationOpen ? <SignupForm /> : <LoginForm />}
     </AuthSplitLayout>
   )
 }

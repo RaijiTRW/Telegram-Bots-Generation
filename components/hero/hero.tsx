@@ -68,8 +68,8 @@ export function Hero() {
   const [activeNodes, setActiveNodes] = useState<number[]>([]);
   const exampleTimeoutRef = useRef<number | null>(null);
 
-  const examplePrompt = locale === 'ru' ? 'Создать бота продаж для моего магазина...' : 'Create a sales bot for my online store...';
-  const placeholderPrompt = locale === 'ru' ? 'Опишите вашего бота...' : 'Describe your bot...';
+  const examplePrompt = locale === 'ru' ? 'Создать Telegram-бота для заявок и FAQ моего бизнеса...' : 'Create a Telegram bot for leads and FAQ in my business...';
+  const placeholderPrompt = locale === 'ru' ? 'Опишите Telegram-бота для бизнеса...' : 'Describe the business Telegram bot you need...';
   const visiblePrompt = isTyping ? examplePrompt.slice(0, typedLength) : placeholderPrompt;
 
   // Simulate node tree building
@@ -116,15 +116,15 @@ export function Hero() {
   ];
 
   const handleScrollToFeatures = () => {
-    const target = document.getElementById('features');
+    const target = document.getElementById('business-advantage');
 
     if (!target) {
-      window.location.hash = 'features';
+      window.location.hash = 'business-advantage';
       return;
     }
 
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.history.replaceState(null, '', `/${locale}#features`);
+    window.history.replaceState(null, '', `/${locale}#business-advantage`);
   };
 
   return (
@@ -162,16 +162,16 @@ export function Hero() {
               <h1 className="mb-4 text-4xl font-bold leading-[0.95] tracking-[-0.03em] sm:text-5xl md:mb-5 md:text-[3.35rem] xl:text-[3.9rem]">
                 {locale === 'ru' ? (
                   <>
-                    Создавайте ботов со{' '}
+                    Создавайте Telegram-ботов для бизнеса{' '}
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF]">
-                      скоростью мысли.
+                      без тяжёлой разработки.
                     </span>
                   </>
                 ) : (
                   <>
-                    Build bots at the{' '}
+                    Build Telegram bots for business{' '}
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF]">
-                      speed of thought.
+                      without a heavy custom build.
                     </span>
                   </>
                 )}
@@ -179,9 +179,9 @@ export function Hero() {
 
               <p className="max-w-lg text-base leading-relaxed text-white/60 md:text-lg">
                 {locale === 'ru' ? (
-                  <>Опишите вашего бота простым языком. Наблюдайте, как ИИ строит логику, настраивает функции и разворачивает — всё в реальном времени.</>
+                  <>Собирайте Telegram-ботов для заявок, записи, FAQ, прогрева и продаж без кода. Быстрый запуск, понятная логика и путь от идеи до рабочего сценария без отдельного backend на старте.</>
                 ) : (
-                  <>Describe your bot in plain language. Watch as AI constructs the logic, configures features, and deploys — all in real-time.</>
+                  <>Build Telegram bots for leads, booking, FAQ, funnels, and sales without code. Launch faster with clear logic and without a separate backend on day one.</>
                 )}
               </p>
             </motion.div>
@@ -267,12 +267,12 @@ export function Hero() {
                   {/* Console footer */}
                   <div className="flex items-center justify-between border-t border-white/5 px-3.5 py-2.5 md:px-4 md:py-3">
                     <Link
-                      href={`/${locale}/dashboard`}
+                      href={`/${locale}/auth/signup`}
                       onClick={() => setIsTyping(true)}
                       className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF] px-3.5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                     >
                       <Zap className="w-4 h-4" />
-                      <span>{locale === 'ru' ? 'Сгенерировать и запустить' : 'Generate & Launch'}</span>
+                      <span>{locale === 'ru' ? 'Создать и запустить бота' : 'Create & launch a bot'}</span>
                     </Link>
 
                     <button
@@ -365,7 +365,7 @@ export function Hero() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 1 }}
-        className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-1 text-white/45 transition-colors hover:text-white/75 md:bottom-5"
+        className="absolute bottom-1 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-2 text-white/45 transition-colors hover:text-white/75 md:bottom-2"
       >
         <span className="text-[9px] font-mono uppercase tracking-[0.34em]">
           {locale === 'ru' ? 'Возможности' : 'Features'}

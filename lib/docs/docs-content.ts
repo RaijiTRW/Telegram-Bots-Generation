@@ -210,8 +210,8 @@ const ruContent: DocsContent = {
     ],
     actions: {
       quickStart: 'Перейти к быстрому старту',
-      openDashboard: 'Открыть дашборд',
-      createBot: 'Открыть список ботов',
+      openDashboard: 'Посмотреть тарифы',
+      createBot: 'Создать бота',
     },
   },
   tocTitle: 'Разделы документации',
@@ -1478,8 +1478,8 @@ const enContent: DocsContent = {
     ],
     actions: {
       quickStart: 'Go to Quick Start',
-      openDashboard: 'Open Dashboard',
-      createBot: 'Open Bots List',
+      openDashboard: 'View pricing',
+      createBot: 'Create a bot',
     },
   },
   tocTitle: 'Documentation Sections',
