@@ -42,7 +42,6 @@ jobs:
             --human-readable \
             --partial \
             --timeout=60 \
-            --contimeout=20 \
             --info=progress2,stats2 \
             --exclude '.git' \
             --exclude '.github' \
