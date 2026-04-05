@@ -108,7 +108,6 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
     : 'Deployment on our managed hosting will be available later.'
   const latestBotIdRef = useRef(botId)
   const hasSentAutoStopSignalRef = useRef(false)
-  const allowUnmountAutoStopRef = useRef(false)
 
   useBotActivityFavicon(isBotActive)
 
@@ -135,7 +134,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
     'python3 main.py',
   ]
 
-  const sendAutoStopTestSignal = useCallback((reason: 'editor_exit' | 'route_leave' | 'pagehide' | 'beforeunload') => {
+  const sendAutoStopTestSignal = useCallback((reason: 'editor_exit') => {
     const currentBotId = String(latestBotIdRef.current || '').trim()
     if (!currentBotId || hasSentAutoStopSignalRef.current) {
       return
@@ -143,18 +142,6 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
 
     hasSentAutoStopSignalRef.current = true
     const payload = JSON.stringify({ botId: currentBotId, reason })
-
-    if (
-      (reason === 'beforeunload' || reason === 'pagehide') &&
-      typeof navigator !== 'undefined' &&
-      typeof navigator.sendBeacon === 'function'
-    ) {
-      const beaconPayload = new Blob([payload], { type: 'application/json' })
-      const sent = navigator.sendBeacon(AUTO_STOP_TEST_ENDPOINT, beaconPayload)
-      if (sent) {
-        return
-      }
-    }
 
     void fetch(AUTO_STOP_TEST_ENDPOINT, {
       method: 'POST',
@@ -326,39 +313,6 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
     setPendingSection(null)
     setActiveSection(currentSection)
   }, [currentSection, setActiveSection])
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      sendAutoStopTestSignal('beforeunload')
-    }
-    const handlePageHide = () => {
-      sendAutoStopTestSignal('pagehide')
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    window.addEventListener('pagehide', handlePageHide)
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      window.removeEventListener('pagehide', handlePageHide)
-    }
-  }, [sendAutoStopTestSignal])
-
-  useEffect(() => {
-    allowUnmountAutoStopRef.current = false
-    const activateTimer = window.setTimeout(() => {
-      allowUnmountAutoStopRef.current = true
-    }, 0)
-
-    return () => {
-      window.clearTimeout(activateTimer)
-      if (!allowUnmountAutoStopRef.current) {
-        // Ignore React StrictMode development test-unmount cycle.
-        return
-      }
-      sendAutoStopTestSignal('route_leave')
-    }
-  }, [sendAutoStopTestSignal])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
