@@ -36,13 +36,19 @@ jobs:
         run: |
           REMOTE_PORT="${VDS_PORT:-22}"
           RELEASE_ID="${GITHUB_SHA}"
-          ssh -i ~/.ssh/vds_key -p "$REMOTE_PORT" "$VDS_USER@$VDS_HOST" "mkdir -p /var/www/cbtooll-shared/uploads/$RELEASE_ID"
-          rsync -az --delete \
+          SSH_OPTS="-i ~/.ssh/vds_key -p $REMOTE_PORT -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=20"
+          ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "mkdir -p /var/www/cbtooll-shared/uploads/$RELEASE_ID"
+          rsync -a --delete \
+            --human-readable \
+            --partial \
+            --timeout=60 \
+            --contimeout=20 \
+            --info=progress2,stats2 \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'node_modules' \
             --exclude '.next' \
-            -e "ssh -i ~/.ssh/vds_key -p $REMOTE_PORT" \
+            -e "ssh $SSH_OPTS" \
             ./ "$VDS_USER@$VDS_HOST:/var/www/cbtooll-shared/uploads/$RELEASE_ID/"
 
       - name: Run blue green deploy
