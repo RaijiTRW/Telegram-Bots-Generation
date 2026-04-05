@@ -265,13 +265,16 @@ export default function CanvasPage() {
 
     if (isTestActive) {
       setTestTransition('stopping')
-      const stopResult = await stopBotTestAction(botId)
+      const stopResult = await stopBotTestAction(botId, {
+        source: 'canvas_button',
+      })
       setIsTesting(false)
       setTestTransition(null)
       await fetchLogs(false)
 
       if (!stopResult.success) {
-        setError(('error' in stopResult ? stopResult.error : null) || t('errorStopFallback'))
+        const actionError = ('error' in stopResult ? stopResult.error : null) || ''
+        setError(actionError || t('errorStopFallback'))
         return
       }
 
@@ -314,7 +317,9 @@ export default function CanvasPage() {
 
     const deepLink = result.success && 'deepLink' in result ? result.deepLink : null
     if (deepLink && autoOpenTelegramAfterTest) {
-      window.open(deepLink, '_blank', 'noopener,noreferrer')
+      window.setTimeout(() => {
+        window.open(deepLink, '_blank', 'noopener,noreferrer')
+      }, 250)
     }
   }, [botId, config.variables, config.version, isTestActive, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, t])
 
@@ -472,10 +477,11 @@ export default function CanvasPage() {
             initialNodes={(config.nodes || []) as Node[]}
             initialEdges={(config.edges || []) as Edge[]}
             onChange={handleCanvasChange}
-            onTest={handleTest}
+            onStartTest={handleTest}
+            onStopTest={handleTest}
             onSave={handleSaveCanvas}
-            testButtonLabel={isTestActive ? t('stop') : t('test')}
             isTestActive={isTestActive}
+            isTestButtonDisabled={isTesting}
             isAdmin={canUseAiNodes}
           />
         </div>

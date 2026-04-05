@@ -13,6 +13,7 @@ type MonitorState = {
   ownerChatId: number | null
   lastUpdateId: number
   lastHealthState: 'healthy' | 'down'
+  lastCriticalLogCheckAt: number
   alerts: Record<string, number>
 }
 
@@ -44,6 +45,7 @@ const DEFAULT_STATE: MonitorState = {
   ownerChatId: null,
   lastUpdateId: 0,
   lastHealthState: 'healthy',
+  lastCriticalLogCheckAt: 0,
   alerts: {},
 }
 
@@ -111,6 +113,10 @@ function getCriticalLogCommand() {
   return env('TELEGRAM_MONITOR_CRITICAL_LOG_COMMAND', DEFAULT_CRITICAL_LOG_COMMAND)
 }
 
+function getCriticalLogOverlapMs() {
+  return intEnv('TELEGRAM_MONITOR_CRITICAL_LOG_OVERLAP_MS', 5_000)
+}
+
 function getServicesList() {
   return env('TELEGRAM_MONITOR_SERVICES', 'cbtooll-green.service,cbtooll-blue.service,nginx')
     .split(',')
@@ -174,6 +180,9 @@ async function loadState(): Promise<MonitorState> {
       ownerChatId: typeof parsed.ownerChatId === 'number' ? parsed.ownerChatId : null,
       lastUpdateId: Number.isFinite(parsed.lastUpdateId) ? Number(parsed.lastUpdateId) : 0,
       lastHealthState: parsed.lastHealthState === 'down' ? 'down' : 'healthy',
+      lastCriticalLogCheckAt: Number.isFinite(parsed.lastCriticalLogCheckAt)
+        ? Number(parsed.lastCriticalLogCheckAt)
+        : 0,
       alerts: parsed.alerts && typeof parsed.alerts === 'object' ? parsed.alerts : {},
     }
   } catch {
@@ -198,6 +207,39 @@ function purgeExpiredAlerts(state: MonitorState) {
 
 function hashFingerprint(input: string) {
   return createHash('sha1').update(input).digest('hex')
+}
+
+function shellQuote(value: string) {
+  return `'${value.replace(/'/g, `'\\''`)}'`
+}
+
+function buildCriticalLogCommand(sinceIso: string | null) {
+  const command = getCriticalLogCommand()
+  if (!sinceIso) {
+    return command
+  }
+
+  if (command.includes('{{since}}')) {
+    return command.replaceAll('{{since}}', shellQuote(sinceIso))
+  }
+
+  if (/^\s*journalctl\b/i.test(command)) {
+    return `${command} --since ${shellQuote(sinceIso)}`
+  }
+
+  return command
+}
+
+function normalizeLogLineForFingerprint(line: string) {
+  return line
+    .replace(/^\d{4}-\d{2}-\d{2}T[^\s]+\s+\S+\s+/, '')
+    .replace(/\[\d+\]/g, '')
+    .replace(/\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/gi, '<uuid>')
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '<date>')
+    .replace(/\b\d{2}:\d{2}:\d{2}\b/g, '<time>')
+    .replace(/\b\d{3,}\b/g, '<n>')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 async function runShellCommand(command: string) {
@@ -271,8 +313,8 @@ async function collectSiteLogs() {
   return runShellCommand(getLogCommand())
 }
 
-async function collectCriticalLogSnippet() {
-  const output = await runShellCommand(getCriticalLogCommand())
+async function collectCriticalLogSnippet(sinceIso: string | null) {
+  const output = await runShellCommand(buildCriticalLogCommand(sinceIso))
   const lines = output.split(/\r?\n/)
   let matchIndex = -1
 
@@ -292,7 +334,7 @@ async function collectCriticalLogSnippet() {
   const snippet = lines.slice(start, end).join('\n').trim()
   const line = lines[matchIndex] || 'Critical log entry'
   return {
-    fingerprint: hashFingerprint(line),
+    fingerprint: hashFingerprint(normalizeLogLineForFingerprint(line)),
     line,
     snippet,
   }
@@ -352,8 +394,8 @@ async function checkHealth(): Promise<ScenarioAlert | null> {
   }
 }
 
-async function checkCriticalLogs(): Promise<ScenarioAlert | null> {
-  const match = await collectCriticalLogSnippet()
+async function checkCriticalLogs(sinceIso: string | null): Promise<ScenarioAlert | null> {
+  const match = await collectCriticalLogSnippet(sinceIso)
   if (!match) {
     return null
   }
@@ -543,6 +585,11 @@ async function runMonitor() {
   let nextLogScanAt = 0
   let previousHealthWasDown = state.lastHealthState === 'down'
 
+  if (!state.lastCriticalLogCheckAt) {
+    state.lastCriticalLogCheckAt = Date.now()
+    await saveState(state)
+  }
+
   while (true) {
     try {
       await processUpdates(state)
@@ -569,7 +616,11 @@ async function runMonitor() {
       }
 
       if (now >= nextLogScanAt) {
-        const logAlert = await checkCriticalLogs()
+        const scanStartedAt = Date.now()
+        const overlapStartAt = Math.max(0, state.lastCriticalLogCheckAt - getCriticalLogOverlapMs())
+        const logAlert = await checkCriticalLogs(new Date(overlapStartAt).toISOString())
+        state.lastCriticalLogCheckAt = scanStartedAt
+        await saveState(state)
         await maybeSendAlert(state, logAlert)
         nextLogScanAt = now + getLogScanIntervalMs()
       }

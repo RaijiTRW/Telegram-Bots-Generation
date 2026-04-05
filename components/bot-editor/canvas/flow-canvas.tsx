@@ -61,10 +61,11 @@ interface FlowCanvasProps {
   initialNodes?: Node[]
   initialEdges?: Edge[]
   onChange?: (nodes: Node[], edges: Edge[]) => void
-  onTest?: (nodes: Node[], edges: Edge[]) => void
+  onStartTest?: (nodes: Node[], edges: Edge[]) => void
+  onStopTest?: (nodes: Node[], edges: Edge[]) => void
   onSave?: (nodes: Node[], edges: Edge[]) => Promise<boolean> | boolean
-  testButtonLabel?: string
   isTestActive?: boolean
+  isTestButtonDisabled?: boolean
   isAdmin?: boolean
 }
 
@@ -596,10 +597,11 @@ function FlowCanvasInner({
   initialNodes = [],
   initialEdges = [],
   onChange,
-  onTest,
+  onStartTest,
+  onStopTest,
   onSave,
-  testButtonLabel = 'Тест',
   isTestActive = false,
+  isTestButtonDisabled = false,
   isAdmin = false,
 }: FlowCanvasProps) {
   const t = useTranslations('editor.canvas')
@@ -1492,17 +1494,27 @@ function FlowCanvasInner({
                 <Trash2 className="w-4 h-4" />
                 {t('clearCanvas')}
               </Button>
-              <Button
-                size="sm"
-                className={`gap-2 ${isTestActive
-                  ? 'bg-red-600 hover:bg-red-600/85'
-                  : 'bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80'
-                  }`}
-                onClick={() => onTest?.(nodes, edges)}
-              >
-                <Play className="w-4 h-4" />
-                {testButtonLabel}
-              </Button>
+              {isTestActive ? (
+                <Button
+                  size="sm"
+                  className="gap-2 bg-red-600 hover:bg-red-600/85"
+                  disabled={isTestButtonDisabled}
+                  onClick={() => onStopTest?.(nodes, edges)}
+                >
+                  <Play className="w-4 h-4" />
+                  {t('stop')}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  className="gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80"
+                  disabled={isTestButtonDisabled}
+                  onClick={() => onStartTest?.(nodes, edges)}
+                >
+                  <Play className="w-4 h-4" />
+                  {t('test')}
+                </Button>
+              )}
             </div>
           </Panel>
 

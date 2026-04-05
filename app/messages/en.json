@@ -786,6 +786,7 @@
     "canvas": {
       "test": "Test",
       "stop": "Stop",
+      "openTelegramNow": "Open Telegram",
       "testStarted": "Test started",
       "runningLocally": "polling (locally)",
       "openBot": "Open bot:",
@@ -803,6 +804,7 @@
       "errorStop": "Failed to stop test",
       "errorStartFallback": "Failed to start test",
       "errorStopFallback": "Failed to stop test",
+      "stopLockedMessage": "The test just started. Open Telegram and send /start.",
       "errorSaveFallback": "Failed to save changes",
       "clearCanvas": "Clear canvas",
       "clearConfirm": "Are you sure you want to clear the canvas?",

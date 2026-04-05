@@ -786,6 +786,7 @@
     "canvas": {
       "test": "Тест",
       "stop": "Стоп",
+      "openTelegramNow": "Откройте Telegram",
       "testStarted": "Тест запущен",
       "runningLocally": "опрос (локально)",
       "openBot": "Откройте бота:",
@@ -803,6 +804,7 @@
       "errorStop": "Не удалось остановить тест",
       "errorStartFallback": "Не удалось запустить тест",
       "errorStopFallback": "Не удалось остановить тест",
+      "stopLockedMessage": "Тест только что запущен. Перейдите в Telegram и отправьте /start.",
       "errorSaveFallback": "Не удалось сохранить изменения",
       "clearCanvas": "Очистить холст",
       "clearConfirm": "Вы уверены, что хотите очистить холст?",

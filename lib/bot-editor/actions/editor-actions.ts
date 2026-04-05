@@ -1581,7 +1581,12 @@ export async function startBotTestAction(
   }
 }
 
-export async function stopBotTestAction(botId: string) {
+export async function stopBotTestAction(
+  botId: string,
+  input?: {
+    source?: string
+  }
+) {
   const user = await getServerUser()
   if (!user) {
     return { success: false, error: 'Not authenticated' }
@@ -1597,8 +1602,10 @@ export async function stopBotTestAction(botId: string) {
       return { success: false, error: 'Bot not found' }
     }
 
+    const stopSource = String(input?.source || 'unknown').trim() || 'unknown'
+
     setBotTestLogRunContext(botId, String(bot.metadata?.testRunId || ''))
-    appendBotTestLog(botId, 'system', 'Остановка теста бота...')
+    appendBotTestLog(botId, 'system', `Остановка теста бота... [source=${stopSource}]`)
 
     stopTelegramPolling(botId)
     clearRuntimeSessionsForBot(botId)
@@ -1638,6 +1645,7 @@ export async function stopBotTestAction(botId: string) {
       eventType: 'test.stopped',
       payload: {
         previousRunId: String(bot.metadata?.testRunId || '') || null,
+        source: stopSource,
       },
     })
 
