@@ -834,6 +834,10 @@ function canUseWebhook(baseUrl: string | null): boolean {
   }
 }
 
+function shouldUseWebhookForEditorTest(baseUrl: string | null): boolean {
+  return process.env.BOT_EDITOR_TEST_USE_WEBHOOK === '1' && canUseWebhook(baseUrl)
+}
+
 function toPlainServerActionPayload<T>(value: T): T {
   if (value === undefined) {
     return value
@@ -1445,7 +1449,7 @@ export async function startBotTestAction(
 
     const baseUrl = await resolveBaseUrlSafe()
 
-    if (canUseWebhook(baseUrl)) {
+    if (shouldUseWebhookForEditorTest(baseUrl)) {
       stopTelegramPolling(botId)
 
       const webhookUrl = `${baseUrl}/api/telegram/webhook/${botId}`
@@ -1532,7 +1536,7 @@ export async function startBotTestAction(
       metadata: pollingRuntimeMetadata,
       testRunId,
     })
-    appendBotTestLog(botId, 'runtime', 'Тест запущен в polling-режиме (локально)')
+    appendBotTestLog(botId, 'runtime', 'Тест запущен в polling-режиме')
 
     const updatedBot = await botService.getBot(botId)
 
@@ -1554,7 +1558,7 @@ export async function startBotTestAction(
       deepLink: `https://t.me/${me.username}?start=test`,
       botUsername: me.username,
       webhookUrl: '',
-      info: 'Локальный тест запущен в polling-режиме',
+      info: 'Тест запущен в polling-режиме',
       bot: updatedBot,
     })
   } catch (error) {
