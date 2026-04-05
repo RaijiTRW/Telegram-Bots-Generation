@@ -50,6 +50,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { getLocaleFlag } from '@/lib/i18n/locale-flags'
 
 type Notice = {
   type: 'success' | 'error' | 'warning' | 'info'
@@ -81,7 +82,7 @@ const DEFAULT_SEO: DocsSeo = {}
 const CMS_TEXT = {
   ru: {
     localeLabel: 'Язык документации',
-    localeDescription: 'RU и EN редактируются отдельно.',
+    localeDescription: '🇷🇺 и 🇺🇸 редактируются отдельно.',
     pagesTitle: 'Страницы',
     newPage: 'Новая страница',
     newPageTitle: 'Название',
@@ -153,7 +154,7 @@ const CMS_TEXT = {
   },
   en: {
     localeLabel: 'Documentation language',
-    localeDescription: 'RU and EN are edited separately.',
+    localeDescription: '🇷🇺 and 🇺🇸 are edited separately.',
     pagesTitle: 'Pages',
     newPage: 'New page',
     newPageTitle: 'Title',
@@ -874,15 +875,17 @@ export function DocsCmsEditor() {
               size="sm"
               variant={locale === 'ru' ? 'default' : 'outline'}
               onClick={() => setLocale('ru')}
+              aria-label="Русский"
             >
-              RU
+              {getLocaleFlag('ru')}
             </Button>
             <Button
               size="sm"
               variant={locale === 'en' ? 'default' : 'outline'}
               onClick={() => setLocale('en')}
+              aria-label="English"
             >
-              EN
+              {getLocaleFlag('en')}
             </Button>
           </div>
         </div>

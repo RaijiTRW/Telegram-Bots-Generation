@@ -64,8 +64,8 @@ export const helpGuideType = defineType({
       initialValue: 'ru',
       options: {
         list: [
-          { title: 'RU', value: 'ru' },
-          { title: 'EN', value: 'en' },
+          { title: '🇷🇺 Russian', value: 'ru' },
+          { title: '🇺🇸 English', value: 'en' },
         ],
         layout: 'radio',
       },
@@ -142,7 +142,7 @@ export const helpGuideType = defineType({
       guideKey: 'guideKey',
     },
     prepare({ title, locale, section, guideKey }) {
-      const localeLabel = typeof locale === 'string' ? locale.toUpperCase() : 'RU'
+      const localeLabel = locale === 'en' ? '🇺🇸' : '🇷🇺'
       const safeSection = typeof section === 'string' && section.trim() ? section.trim() : 'Editor'
       const safeGuideKey = typeof guideKey === 'string' && guideKey.trim() ? guideKey.trim() : 'missing-key'
 

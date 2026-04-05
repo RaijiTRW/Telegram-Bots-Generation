@@ -8,6 +8,7 @@ import { setUserLocale } from '@/app/actions/locale'
 import { type Locale } from '@/app/i18n'
 import { useTransition } from 'react'
 import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
+import { getAlternateLocale, getLocaleFlag } from '@/lib/i18n/locale-flags'
 
 export function LanguageSwitcher() {
   const locale = useLocale()
@@ -15,9 +16,10 @@ export function LanguageSwitcher() {
   const router = useRouter()
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
+  const nextLocale = getAlternateLocale(locale as Locale)
 
   const switchLocale = () => {
-    const newLocale: Locale = locale === 'ru' ? 'en' : 'ru'
+    const newLocale = nextLocale
     // Remove current locale from path and add new one
     let pathWithoutLocale = pathname
     if (pathname.startsWith(`/${locale}`)) {
@@ -25,8 +27,6 @@ export function LanguageSwitcher() {
     }
 
     const nextHref = `/${newLocale}${pathWithoutLocale}`
-    const maxAge = 60 * 60 * 24 * 365
-    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=${maxAge}; SameSite=Lax`
     prefetchHrefOnce(router, nextHref)
 
     startTransition(() => {
@@ -34,7 +34,7 @@ export function LanguageSwitcher() {
     })
 
     void setUserLocale(newLocale).catch(() => {
-      // Locale cookie already updates the UI path immediately.
+      // The route already changes immediately; this only persists preference.
     })
   }
 
@@ -48,9 +48,7 @@ export function LanguageSwitcher() {
       whileTap={{ scale: isPending ? 1 : 0.95 }}
     >
       <Globe className="w-4 h-4" />
-      <span className="text-sm font-medium">
-        {locale === 'ru' ? 'RU' : 'EN'}
-      </span>
+      <span className="text-base leading-none">{getLocaleFlag(nextLocale)}</span>
     </motion.button>
   )
 }

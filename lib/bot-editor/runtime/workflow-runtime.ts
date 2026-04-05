@@ -201,6 +201,14 @@ type ReplyKeyboardButtonRuntime = {
   iconCustomEmojiId?: string
 }
 
+type MessageDraftsRuntimeConfig = {
+  enabled: boolean
+}
+
+const MESSAGE_DRAFT_MIN_CHARACTERS = 18
+const MESSAGE_DRAFT_MAX_FRAMES = 5
+const MESSAGE_DRAFT_DELAY_MS = 170
+
 function readAutoReactionsRuntimeConfig(
   metadata: Record<string, unknown> | null | undefined
 ): AutoReactionsRuntimeConfig | null {
@@ -283,6 +291,30 @@ function sanitizeReplyKeyboardRowsRuntime(value: unknown): ReplyKeyboardButtonRu
     if (rows.length >= 12) break
   }
   return rows
+}
+
+function readMessageDraftsRuntimeConfig(
+  metadata: Record<string, unknown> | null | undefined
+): MessageDraftsRuntimeConfig | null {
+  if (!metadata || typeof metadata !== 'object') {
+    return null
+  }
+
+  const features =
+    metadata.features && typeof metadata.features === 'object'
+      ? (metadata.features as Record<string, unknown>)
+      : null
+  if (!features) return null
+
+  const raw =
+    features.messageDrafts && typeof features.messageDrafts === 'object'
+      ? (features.messageDrafts as Record<string, unknown>)
+      : null
+  if (!raw) return null
+
+  return {
+    enabled: Boolean(raw.enabled),
+  }
 }
 
 function readReplyKeyboardRuntimeConfig(
@@ -1948,6 +1980,7 @@ async function sendMessage(
     inputPlaceholder?: string
     disableWebPagePreview?: boolean
     disableNotification?: boolean
+    useTypingDraft?: boolean
   },
   telegramUserId?: number | null,
   templateVariables?: Record<string, unknown>
@@ -1961,6 +1994,16 @@ async function sendMessage(
   if (normalizedParseMode) {
     payload.parse_mode = normalizedParseMode
   }
+
+  const shouldUseTypingDraft =
+    Boolean(options?.useTypingDraft) &&
+    !normalizedParseMode &&
+    typeof text === 'string' &&
+    Array.from(text.trim()).length >= MESSAGE_DRAFT_MIN_CHARACTERS &&
+    Number.isFinite(chatId) &&
+    Number.isFinite(Number(telegramUserId)) &&
+    chatId > 0 &&
+    Number(telegramUserId) === chatId
 
   if (typeof options?.disableWebPagePreview === 'boolean') {
     const shouldDisablePreview = options.disableWebPagePreview
@@ -2008,11 +2051,33 @@ async function sendMessage(
         hasReplyMarkup: Boolean(payload.reply_markup),
         forceReply: Boolean(options?.forceReply),
         disableNotification: Boolean(options?.disableNotification),
+        usedMessageDraft: shouldUseTypingDraft,
       },
     })
   }
 
   try {
+    if (shouldUseTypingDraft) {
+      try {
+        const draftId = Math.max(
+          1,
+          Math.min(2147483647, Math.round(Date.now() % 2147483647) || 1)
+        )
+        const frames = buildMessageDraftFrames(text)
+        for (const frame of frames) {
+          await callTelegramApi(token, 'sendMessageDraft', {
+            chat_id: chatId,
+            draft_id: draftId,
+            text: frame,
+          })
+          await new Promise((resolve) => setTimeout(resolve, MESSAGE_DRAFT_DELAY_MS))
+        }
+        appendBotTestLog(botId, 'telegram', 'sendMessageDraft preview ok', 'debug')
+      } catch (draftError) {
+        appendBotTestLog(botId, 'telegram', `sendMessageDraft skipped: ${String(draftError)}`, 'warn')
+      }
+    }
+
     await callTelegramApi(token, 'sendMessage', payload)
     appendBotTestLog(
       botId,
@@ -2096,6 +2161,55 @@ async function sendMessage(
 
     throw error
   }
+}
+
+function buildMessageDraftFrames(text: string): string[] {
+  const characters = Array.from(String(text || ''))
+  if (characters.length < MESSAGE_DRAFT_MIN_CHARACTERS) {
+    return []
+  }
+
+  const desiredFrames = Math.max(
+    2,
+    Math.min(MESSAGE_DRAFT_MAX_FRAMES, Math.ceil(characters.length / 90))
+  )
+  const frames: string[] = []
+  let lastCut = 0
+
+  for (let index = 1; index <= desiredFrames; index += 1) {
+    const rawTarget = Math.floor((characters.length * index) / (desiredFrames + 1))
+    const cut = findMessageDraftCut(characters, rawTarget, lastCut + 1)
+    if (cut <= lastCut || cut >= characters.length) {
+      continue
+    }
+
+    const frame = characters.slice(0, cut).join('').trimEnd()
+    if (frame && frame !== frames[frames.length - 1]) {
+      frames.push(frame)
+      lastCut = cut
+    }
+  }
+
+  return frames
+}
+
+function findMessageDraftCut(characters: string[], target: number, minIndex: number): number {
+  const safeTarget = Math.max(minIndex, Math.min(target, characters.length - 1))
+  const maxOffset = 14
+
+  for (let offset = 0; offset <= maxOffset; offset += 1) {
+    const rightIndex = safeTarget + offset
+    if (rightIndex < characters.length && /[\s.,!?;:)\]]/.test(characters[rightIndex] || '')) {
+      return rightIndex + 1
+    }
+
+    const leftIndex = safeTarget - offset
+    if (leftIndex > minIndex && /[\s.,!?;:)\]]/.test(characters[leftIndex] || '')) {
+      return leftIndex + 1
+    }
+  }
+
+  return safeTarget
 }
 
 async function sendMediaMessage(
@@ -2914,6 +3028,7 @@ async function executePaymentNode(args: {
   botToken: string
   botId: string
   chatId: number
+  metadata?: Record<string, unknown> | null
   telegramUserId?: number | null
   telegramUser?: TelegramUser | null
 }): Promise<void> {
@@ -2924,6 +3039,7 @@ async function executePaymentNode(args: {
     botToken,
     botId,
     chatId,
+    metadata,
     telegramUserId,
     telegramUser,
   } = args
@@ -2984,7 +3100,10 @@ async function executePaymentNode(args: {
       undefined,
       undefined,
       undefined,
-      { disableWebPagePreview: false },
+      {
+        disableWebPagePreview: false,
+        useTypingDraft: Boolean(readMessageDraftsRuntimeConfig(metadata)?.enabled),
+      },
       telegramUserId,
       {
         ...contextVariables,
@@ -3453,6 +3572,7 @@ async function executeFromNode(args: {
 }): Promise<WorkflowRunState> {
   const { botId, botToken, chatId, config, metadata, session, sessionKey, update, user } = args
   const nodeMap = buildNodeMap(config)
+  const messageDraftsEnabledGlobally = Boolean(readMessageDraftsRuntimeConfig(metadata)?.enabled)
 
   let currentNodeId: string | null = args.startNodeId
   let steps = 0
@@ -3538,6 +3658,7 @@ async function executeFromNode(args: {
             {
               disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
               disableNotification: normalizeBoolean(data.disableNotification),
+              useTypingDraft: messageDraftsEnabledGlobally || Boolean(data.typingDraft),
             },
             user?.id,
             contextVariables
@@ -3552,12 +3673,13 @@ async function executeFromNode(args: {
           resolveNodeParseMode(data),
           resolveKeyboardData(data),
           systemReplyMarkup,
-          {
-            disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
-            disableNotification: normalizeBoolean(data.disableNotification),
-          },
-          user?.id,
-          contextVariables
+            {
+              disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
+              disableNotification: normalizeBoolean(data.disableNotification),
+              useTypingDraft: messageDraftsEnabledGlobally || Boolean(data.typingDraft),
+            },
+            user?.id,
+            contextVariables
         )
       }
       currentNodeId = getDefaultNextNodeId(config, node.id)
@@ -3580,6 +3702,7 @@ async function executeFromNode(args: {
       const messageOptions = {
         disableWebPagePreview: normalizeBoolean(data.disableWebPagePreview),
         disableNotification: normalizeBoolean(data.disableNotification),
+        useTypingDraft: messageDraftsEnabledGlobally,
       }
 
       if (shouldUseForceReply) {
@@ -3818,16 +3941,17 @@ async function executeFromNode(args: {
       node.type === 'paymentStars'
     ) {
       appendBotTestLog(botId, 'workflow', `Node ${node.type} -> ${node.id}`, 'debug')
-      await executePaymentNode({
-        node,
-        session,
-        contextVariables,
-        botToken,
-        botId,
-        chatId,
-        telegramUserId: user?.id,
-        telegramUser: user || null,
-      })
+        await executePaymentNode({
+          node,
+          session,
+          contextVariables,
+          botToken,
+          botId,
+          chatId,
+          metadata,
+          telegramUserId: user?.id,
+          telegramUser: user || null,
+        })
       currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
     }

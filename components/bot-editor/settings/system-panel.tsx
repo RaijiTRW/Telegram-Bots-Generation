@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { Cpu, Zap, Database, Code2, Info, Keyboard, Plus, Trash2, ChevronDown, Users } from 'lucide-react'
+import { Cpu, Zap, Database, Code2, Info, Keyboard, Plus, Trash2, ChevronDown, Users, MessageSquare } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { VariablesTable } from './variables-table'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
@@ -22,6 +22,10 @@ type AutoReactionsConfig = {
   enabled: boolean
   cooldownSeconds: number
   onlyTextMessages: boolean
+}
+
+type MessageDraftsConfig = {
+  enabled: boolean
 }
 
 type SubscriberModeConfig = {
@@ -907,6 +911,24 @@ function getAutoReactionsConfig(metadata: Record<string, unknown> | undefined | 
   }
 }
 
+function getMessageDraftsConfig(
+  metadata: Record<string, unknown> | undefined | null
+): MessageDraftsConfig {
+  const features =
+    metadata && typeof metadata.features === 'object' && metadata.features
+      ? (metadata.features as Record<string, unknown>)
+      : {}
+
+  const raw =
+    features.messageDrafts && typeof features.messageDrafts === 'object'
+      ? (features.messageDrafts as Record<string, unknown>)
+      : {}
+
+  return {
+    enabled: Boolean(raw.enabled),
+  }
+}
+
 function getSubscriberModeConfig(
   metadata: Record<string, unknown> | undefined | null
 ): SubscriberModeConfig {
@@ -972,6 +994,7 @@ export function SystemPanel() {
   ]
 
   const autoReactions = getAutoReactionsConfig((bot?.metadata || {}) as Record<string, unknown>)
+  const messageDrafts = getMessageDraftsConfig((bot?.metadata || {}) as Record<string, unknown>)
   const replyKeyboard = getReplyKeyboardConfig((bot?.metadata || {}) as Record<string, unknown>)
   const subscriberMode = getSubscriberModeConfig((bot?.metadata || {}) as Record<string, unknown>)
 
@@ -1034,6 +1057,32 @@ export function SystemPanel() {
             isPersistent: patch.isPersistent ?? replyKeyboard.isPersistent,
             baseRows: patch.baseRows ?? replyKeyboard.baseRows,
             rules: patch.rules ?? replyKeyboard.rules,
+          },
+        },
+      },
+    })
+  }
+
+  const updateMessageDrafts = (patch: Partial<MessageDraftsConfig>) => {
+    if (!bot) return
+
+    const currentMetadata = (bot.metadata || {}) as Record<string, unknown>
+    const currentFeatures =
+      currentMetadata.features && typeof currentMetadata.features === 'object'
+        ? (currentMetadata.features as Record<string, unknown>)
+        : {}
+    const currentMessageDrafts =
+      currentFeatures.messageDrafts && typeof currentFeatures.messageDrafts === 'object'
+        ? (currentFeatures.messageDrafts as Record<string, unknown>)
+        : {}
+
+    updateBotDraft({
+      metadata: {
+        features: {
+          ...currentFeatures,
+          messageDrafts: {
+            ...currentMessageDrafts,
+            enabled: patch.enabled ?? messageDrafts.enabled,
           },
         },
       },
@@ -1150,6 +1199,61 @@ export function SystemPanel() {
           {/* Variables Section */}
           <section className="rounded-xl bg-zinc-900/50 border border-white/10 p-6 backdrop-blur-sm">
             <VariablesTable />
+          </section>
+
+          <section className="rounded-xl bg-zinc-900/50 border border-white/10 p-6 backdrop-blur-sm">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-[#24A1DE]" />
+                  {t('messageDrafts.title')}
+                  <HelpGuideButton
+                    guideKey={HELP_GUIDE_KEYS.editorSystemMessageDrafts}
+                    title={t('messageDrafts.title')}
+                    summary={t('messageDrafts.description')}
+                    steps={[
+                      t('messageDrafts.privateOnlyHint'),
+                      t('messageDrafts.plainTextHint'),
+                      t('messageDrafts.nodeOverrideHint'),
+                    ]}
+                    notes={[t('messageDrafts.fallbackHint')]}
+                    docsHref={docsNodes}
+                    className="ml-1"
+                  />
+                </h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  {t('messageDrafts.description')}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className={`text-sm ${messageDrafts.enabled ? 'text-emerald-300' : 'text-zinc-400'}`}>
+                  {messageDrafts.enabled ? t('messageDrafts.enabled') : t('messageDrafts.disabled')}
+                </span>
+                <Switch
+                  checked={messageDrafts.enabled}
+                  onCheckedChange={(checked) => updateMessageDrafts({ enabled: checked })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                <div className="text-sm text-zinc-300">{t('messageDrafts.privateOnlyTitle')}</div>
+                <p className="text-xs text-zinc-500 mt-2">{t('messageDrafts.privateOnlyHint')}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                <div className="text-sm text-zinc-300">{t('messageDrafts.plainTextTitle')}</div>
+                <p className="text-xs text-zinc-500 mt-2">{t('messageDrafts.plainTextHint')}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                <div className="text-sm text-zinc-300">{t('messageDrafts.nodeOverrideTitle')}</div>
+                <p className="text-xs text-zinc-500 mt-2">{t('messageDrafts.nodeOverrideHint')}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-[#24A1DE]/20 bg-[#24A1DE]/5 p-4">
+              <p className="text-xs text-zinc-300">{t('messageDrafts.fallbackHint')}</p>
+            </div>
           </section>
 
           <section className="rounded-xl bg-zinc-900/50 border border-white/10 p-6 backdrop-blur-sm">

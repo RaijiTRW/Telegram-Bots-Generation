@@ -64,8 +64,8 @@ export const docsPageType = defineType({
       initialValue: 'ru',
       options: {
         list: [
-          { title: 'RU', value: 'ru' },
-          { title: 'EN', value: 'en' },
+          { title: '🇷🇺 Russian', value: 'ru' },
+          { title: '🇺🇸 English', value: 'en' },
         ],
         layout: 'radio',
       },
@@ -199,7 +199,7 @@ export const docsPageType = defineType({
       slug: 'slug.current',
     },
     prepare({ title, summary, locale, isHome, slug }) {
-      const localeLabel = typeof locale === 'string' ? locale.toUpperCase() : 'RU'
+      const localeLabel = locale === 'en' ? '🇺🇸' : '🇷🇺'
       const pathLabel = isHome ? '/docs' : slug ? `/docs/${slug}` : '/docs'
 
       return {

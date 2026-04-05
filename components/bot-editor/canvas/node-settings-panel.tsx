@@ -816,6 +816,19 @@ function MessageSettings({
   const [isAttachmentDragActive, setIsAttachmentDragActive] = useState(false)
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
   const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null)
+  const messageDraftsEnabledGlobally = Boolean(
+    bot?.metadata &&
+      typeof bot.metadata === 'object' &&
+      bot.metadata.features &&
+      typeof bot.metadata.features === 'object' &&
+      (bot.metadata.features as Record<string, unknown>).messageDrafts &&
+      typeof (bot.metadata.features as Record<string, unknown>).messageDrafts === 'object' &&
+      Boolean(
+        (
+          (bot.metadata.features as Record<string, unknown>).messageDrafts as Record<string, unknown>
+        ).enabled
+      )
+  )
 
   const currentParseMode = (data.parseMode || 'None') as ParseMode | 'None'
   const formatActions = getMessageFormattingActions(currentParseMode, tm)
@@ -1115,6 +1128,29 @@ function MessageSettings({
             <SelectItem value="HTML">{tm('html')}</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="rounded-lg border border-white/10 bg-zinc-800/20 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm text-zinc-300">{tm('typingDraftTitle')}</div>
+            <p className="text-xs text-zinc-500 mt-1">
+              {messageDraftsEnabledGlobally
+                ? tm('typingDraftGlobalHint')
+                : tm('typingDraftHint')}
+            </p>
+          </div>
+          <Switch
+            id="msg-typing-draft"
+            checked={Boolean(data.typingDraft)}
+            onCheckedChange={(checked) => onUpdate({ typingDraft: checked })}
+          />
+        </div>
+        <p className="text-[11px] text-zinc-600 mt-2">
+          {messageDraftsEnabledGlobally
+            ? tm('typingDraftGlobalStatus')
+            : tm('typingDraftNodeOnlyHint')}
+        </p>
       </div>
 
       <div className="space-y-3">

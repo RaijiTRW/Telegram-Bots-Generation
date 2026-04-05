@@ -385,8 +385,8 @@
       "saveSettings": "Save settings",
       "resetSettings": "Reset",
       "timezonePreview": "Current time in selected timezone",
-      "languageRu": "Russian (RU)",
-      "languageEn": "English (EN)",
+      "languageRu": "🇷🇺 Russian",
+      "languageEn": "🇺🇸 English",
       "passwordSettings": "Account password",
       "passwordSettingsDesc": "Change the password used to sign in",
       "newPassword": "New password",
@@ -628,15 +628,15 @@
   "editor": {
     "nav": {
       "canvas": "Canvas",
-      "canvasDesc": "Visual workflow editor",
-      "aiAssistant": "AI Assistant",
-      "aiAssistantDesc": "AI assistant section is coming soon",
+      "canvasDesc": "Flow editor",
+      "aiAssistant": "AI Chat",
+      "aiAssistantDesc": "Coming soon",
       "system": "System",
-      "systemDesc": "Bot logic and triggers",
+      "systemDesc": "Logic and triggers",
       "statistics": "Statistics",
-      "statisticsDesc": "Load, errors, and system events",
+      "statisticsDesc": "Errors and events",
       "settings": "Settings",
-      "settingsDesc": "Configuration and options",
+      "settingsDesc": "Bot settings",
       "botEditor": "Bot Editor",
       "helpSummary": "Main bot workspace: design flow on Canvas, configure System and Settings, then validate in Test mode.",
       "helpStep1": "Canvas: build node chains and ensure each branch has a valid continuation.",
@@ -821,6 +821,22 @@
       "helpStep2": "After each structural change, click Save before Test so runtime uses the latest version.",
       "helpStep3": "Use logs to confirm the executed path and fix one issue per cycle.",
       "helpNote": "Practical loop: `edit -> Save -> Test -> logs -> fix`.",
+      "issues": {
+        "modalKicker": "Editor issues",
+        "whatToDoTitle": "What to do",
+        "goToSettings": "Open settings",
+        "closeButton": "Close",
+        "closeModal": "Close issues modal",
+        "openModalAriaLabel": "Open issue: {title}",
+        "missingToken": {
+          "title": "Telegram token is not connected",
+          "compactTitle": "No Telegram token",
+          "description": "This bot does not have a Telegram token connected yet. Without it, test mode, launch, and real replies in Telegram will not work.",
+          "step1": "Open the Settings section in the bot editor.",
+          "step2": "Paste the token from @BotFather into the Telegram token field.",
+          "step3": "Save changes and run Test again."
+        }
+      },
       "controls": {
         "title": "Canvas controls",
         "selectionStatusActive": "Selection mode is active",
@@ -1253,6 +1269,19 @@
       "regexPlaceholder": "regex pattern",
       "inlineQueryTemplatePlaceholder": "@bot query",
       "notAvailable": "N/A",
+      "messageDrafts": {
+        "title": "Animated text drafting",
+        "description": "Telegram will animate the reply before the final message is sent. This is a regular text effect, not an AI-only feature.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "privateOnlyTitle": "Private chats only",
+        "privateOnlyHint": "Draft animation works only in Telegram private chats. In groups or channels the bot falls back to a regular message.",
+        "plainTextTitle": "Plain text only",
+        "plainTextHint": "It works best for plain text without Markdown/HTML and without media. Other cases automatically fall back to regular sending.",
+        "nodeOverrideTitle": "Per node override",
+        "nodeOverrideHint": "Inside the `Message` node you can enable the effect only for one specific text, even when the global System mode is off.",
+        "fallbackHint": "If Telegram rejects the draft or the chat does not support the API restriction, runtime falls back to a regular `sendMessage` without breaking the flow."
+      },
       "autoReactions": {
         "title": "Extra Feature: Telegram Reactions",
         "description": "The bot will react to incoming user messages using rule-based logic (without AI).",
@@ -1554,6 +1583,11 @@
         "formatCode": "Code",
         "formatSpoiler": "Spoiler",
         "formatLink": "Link",
+        "typingDraftTitle": "Animated text drafting",
+        "typingDraftHint": "Shows Telegram draft animation before this message is sent. Works for regular text too, not only for AI output.",
+        "typingDraftGlobalHint": "The global mode is already enabled in System. This switch is only needed when you want per-node behavior while the global mode is off.",
+        "typingDraftGlobalStatus": "The effect is already applied globally to all text messages where Telegram supports it.",
+        "typingDraftNodeOnlyHint": "If you enable this switch, the effect will work only for this node even when the global mode is disabled.",
         "disablePreview": "Disable link preview",
         "silentMode": "Silent mode (no sound)",
         "attachments": "Attachments",
@@ -1965,6 +1999,10 @@
     "subtitleSecond": "We monitor uptime 24/7. If Telegram changes API — your bot updates automatically.",
     "statusTitle": "All Systems Go",
     "statusSubtitle": "5 bots operational",
+    "cta": {
+      "label": "Launch with monitoring included",
+      "note": "After launch, the service keeps watching uptime, errors, and API updates automatically."
+    },
     "features": {
       "updates": "Automatic API updates",
       "uptime": "Real-time uptime monitoring",

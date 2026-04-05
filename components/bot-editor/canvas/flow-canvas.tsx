@@ -30,17 +30,20 @@ import {
   Zap,
   Trash2,
   Lock,
+  AlertCircle,
   MessageSquare,
   Sparkles,
   GitBranch,
   Database,
   CreditCard,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NodeSettingsPanel } from './node-settings-panel'
 import { useLocale, useTranslations } from 'next-intl'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import {
   HELP_GUIDE_KEYS,
   getCanvasPaletteGuideKey,
@@ -81,7 +84,16 @@ type CanvasContextMenuState = {
   flowPosition: { x: number; y: number }
 }
 
+type EditorIssue = {
+  id: string
+  title: string
+  compactTitle: string
+  description: string
+  steps: string[]
+}
+
 const CANVAS_CONTEXT_MENU_DRAG_THRESHOLD = 6
+const PALETTE_ISSUE_AUTO_COLLAPSE_MS = 10_000
 
 const createUniqueNodeId = (existingNodes: Node[]): string => {
   let id = `node_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
@@ -593,6 +605,7 @@ function FlowCanvasInner({
   const t = useTranslations('editor.canvas')
   const translateCanvas = t as unknown as (key: string, values?: Record<string, unknown>) => string
   const locale = useLocale()
+  const { bot, setActiveSection } = useBotState()
   const docsBasePath = `/${locale}/dashboard/docs`
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
   const { screenToFlowPosition, getZoom, zoomTo } = useReactFlow()
@@ -614,6 +627,8 @@ function FlowCanvasInner({
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null)
   const [contextMenuCategory, setContextMenuCategory] = useState<PaletteCategoryId | null>(null)
   const [isSelectionModifierPressed, setIsSelectionModifierPressed] = useState(false)
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false)
+  const [isPaletteIssueExpanded, setIsPaletteIssueExpanded] = useState(false)
   const historyRef = useRef<CanvasHistorySnapshot[]>([])
   const historyIndexRef = useRef(-1)
   const skipNextHistoryCaptureRef = useRef(false)
@@ -623,10 +638,66 @@ function FlowCanvasInner({
   const contextMenuPanelRef = useRef<HTMLDivElement | null>(null)
   const rightClickOriginRef = useRef<{ x: number; y: number } | null>(null)
   const suppressNextCanvasContextMenuRef = useRef(false)
+  const issueCollapseTimerRef = useRef<number | null>(null)
+
+  const hasTelegramToken = Boolean(
+    (bot?.metadata && typeof bot.metadata === 'object' && (bot.metadata as Record<string, unknown>).hasTelegramToken) ||
+    String((bot?.metadata && typeof bot.metadata === 'object' && (bot.metadata as Record<string, unknown>).telegramToken) || '').trim()
+  )
+
+  const editorIssues = useMemo<EditorIssue[]>(() => {
+    if (hasTelegramToken) {
+      return []
+    }
+
+    return [
+      {
+        id: 'missing-telegram-token',
+        title: t('issues.missingToken.title'),
+        compactTitle: t('issues.missingToken.compactTitle'),
+        description: t('issues.missingToken.description'),
+        steps: [
+          t('issues.missingToken.step1'),
+          t('issues.missingToken.step2'),
+          t('issues.missingToken.step3'),
+        ],
+      },
+    ]
+  }, [hasTelegramToken, t])
+
+  const primaryEditorIssue = editorIssues[0] || null
 
   useEffect(() => {
     onChange?.(nodes, edges)
   }, [nodes, edges, onChange])
+
+  useEffect(() => {
+    if (issueCollapseTimerRef.current !== null) {
+      window.clearTimeout(issueCollapseTimerRef.current)
+      issueCollapseTimerRef.current = null
+    }
+
+    if (!primaryEditorIssue) {
+      return
+    }
+
+    const expandTimer = window.setTimeout(() => {
+      setIsPaletteIssueExpanded(true)
+    }, 0)
+
+    issueCollapseTimerRef.current = window.setTimeout(() => {
+      setIsPaletteIssueExpanded(false)
+      issueCollapseTimerRef.current = null
+    }, PALETTE_ISSUE_AUTO_COLLAPSE_MS)
+
+    return () => {
+      window.clearTimeout(expandTimer)
+      if (issueCollapseTimerRef.current !== null) {
+        window.clearTimeout(issueCollapseTimerRef.current)
+        issueCollapseTimerRef.current = null
+      }
+    }
+  }, [bot?.id, primaryEditorIssue])
 
   useEffect(() => {
     const syncSelectionModifier = (event: KeyboardEvent) => {
@@ -1439,9 +1510,31 @@ function FlowCanvasInner({
           <Panel position="top-left" className="!transform-none !left-4 !top-4">
             <div
               className={`${isPaletteExpanded ? 'w-[328px] sm:w-[360px]' : 'w-[136px]'
-                } max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-2.5 transition-[width] duration-200`}
+                } relative max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-2.5 transition-[width] duration-200`}
             >
-              <h3 className="text-xs font-semibold text-white mb-2.5">{t('nodes')}</h3>
+              <div className="relative mb-2.5">
+                <h3 className="text-xs font-semibold text-white">{t('nodes')}</h3>
+                {primaryEditorIssue && (
+                  <button
+                    type="button"
+                    onClick={() => setIsIssueModalOpen(true)}
+                    aria-label={t('issues.openModalAriaLabel', { title: primaryEditorIssue.title })}
+                    title={primaryEditorIssue.title}
+                    className={`absolute left-full top-1/2 z-20 -translate-y-1/2 ml-2 flex h-8 items-center overflow-hidden rounded-full border border-red-500/30 bg-zinc-950/95 text-left shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition-[width,padding,background-color] duration-300 ${isPaletteIssueExpanded ? 'w-[220px] px-1.5' : 'w-8 px-0'
+                      }`}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/18 text-red-300">
+                      <AlertCircle className="h-4 w-4" />
+                    </span>
+                    <span
+                      className={`ml-2 pr-2 whitespace-nowrap text-[11px] font-medium text-red-100 transition-opacity duration-200 ${isPaletteIssueExpanded ? 'opacity-100' : 'opacity-0'
+                        }`}
+                    >
+                      {primaryEditorIssue.compactTitle}
+                    </span>
+                  </button>
+                )}
+              </div>
               <div
                 className={`grid ${isPaletteExpanded ? 'grid-cols-[74px_minmax(0,1fr)]' : 'grid-cols-1'} gap-2.5`}
                 onMouseLeave={() => setHoveredPaletteCategory(null)}
@@ -1615,6 +1708,79 @@ function FlowCanvasInner({
               </div>
             </div>
           </Panel>
+
+          {isIssueModalOpen && primaryEditorIssue && (
+            <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
+              <button
+                type="button"
+                aria-label={t('issues.closeModal')}
+                onClick={() => setIsIssueModalOpen(false)}
+                className="absolute inset-0"
+              />
+
+              <div className="relative z-[141] w-full max-w-lg rounded-3xl border border-white/10 bg-zinc-950/95 p-6 shadow-2xl shadow-black/50">
+                <button
+                  type="button"
+                  onClick={() => setIsIssueModalOpen(false)}
+                  aria-label={t('issues.closeModal')}
+                  className="absolute right-4 top-4 rounded-full border border-white/10 bg-white/5 p-2 text-zinc-400 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                <div className="flex items-start gap-4">
+                  <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3">
+                    <AlertCircle className="h-6 w-6 text-red-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium uppercase tracking-[0.24em] text-red-300/80">
+                      {t('issues.modalKicker')}
+                    </div>
+                    <h2 className="mt-1 text-xl font-semibold text-white">
+                      {primaryEditorIssue.title}
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-zinc-300">
+                      {primaryEditorIssue.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-white/10 bg-zinc-900/60 p-4">
+                  <div className="text-xs font-medium uppercase tracking-[0.22em] text-zinc-400">
+                    {t('issues.whatToDoTitle')}
+                  </div>
+                  <ol className="mt-3 space-y-2 text-sm text-zinc-200">
+                    {primaryEditorIssue.steps.map((step, index) => (
+                      <li key={`${primaryEditorIssue.id}-${index}`} className="flex items-start gap-3">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-[11px] font-semibold text-red-200">
+                          {index + 1}
+                        </span>
+                        <span className="leading-6">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                <div className="mt-6 flex items-center justify-end gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsIssueModalOpen(false)}
+                  >
+                    {t('issues.closeButton')}
+                  </Button>
+                  <Button
+                    className="bg-red-600 text-white hover:bg-red-600/85"
+                    onClick={() => {
+                      setIsIssueModalOpen(false)
+                      setActiveSection('settings')
+                    }}
+                  >
+                    {t('issues.goToSettings')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {contextMenu && activeContextMenuCategory && (
             <div className="fixed inset-0 z-[120]">

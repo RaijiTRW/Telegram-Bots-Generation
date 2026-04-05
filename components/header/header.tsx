@@ -13,6 +13,7 @@ import { getSafeClientUser } from '@/lib/supabase/client-auth';
 import { setUserLocale } from '@/app/actions/locale';
 import type { Locale } from '@/app/i18n';
 import { prefetchHrefOnce } from '@/lib/navigation/prefetch';
+import { getAlternateLocale, getLocaleFlag } from '@/lib/i18n/locale-flags';
 
 export function Header() {
   const t = useTranslations('header');
@@ -22,6 +23,8 @@ export function Header() {
   const [isLocalePending, startLocaleTransition] = useTransition();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<{ userName: string; userEmail: string; avatarUrl: string | null } | null>(null);
+  const nextLocale = getAlternateLocale(locale as Locale);
+  const nextLocaleFlag = getLocaleFlag(nextLocale);
 
   useEffect(() => {
     const supabase = createClient();
@@ -194,7 +197,7 @@ export function Header() {
           <div className="hidden md:flex items-center gap-4">
             {/* Language Switcher */}
             <motion.button
-              onClick={() => switchLocale(locale === 'ru' ? 'en' : 'ru')}
+              onClick={() => switchLocale(nextLocale)}
               disabled={isLocalePending}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
               aria-label={t('switchLanguage')}
@@ -202,9 +205,7 @@ export function Header() {
               whileTap={{ scale: isLocalePending ? 1 : 0.95 }}
             >
               <Globe className="w-4 h-4 text-white/60" />
-              <span className="text-sm font-medium">
-                {locale === 'ru' ? 'EN' : 'RU'}
-              </span>
+              <span className="text-base leading-none">{nextLocaleFlag}</span>
             </motion.button>
 
             {user ? (
@@ -276,15 +277,15 @@ export function Header() {
                 transition={{ duration: 0.2, delay: 0.2 }}
               >
                 <button
-                  onClick={() => switchLocale(locale === 'ru' ? 'en' : 'ru')}
+                  onClick={() => switchLocale(nextLocale)}
                   disabled={isLocalePending}
                   className="flex items-center gap-2 w-full px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
                 >
                   <Globe className="w-4 h-4" />
                   <span>
                     {locale === 'ru'
-                      ? 'Переключить на английский'
-                      : 'Switch to Russian'}
+                      ? `${nextLocaleFlag} Переключить на английский`
+                      : `${nextLocaleFlag} Switch to Russian`}
                   </span>
                 </button>
 

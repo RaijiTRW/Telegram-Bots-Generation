@@ -382,6 +382,17 @@ function sanitizeAutoReactionsFeatureConfig(value: unknown): Record<string, unkn
   }
 }
 
+function sanitizeMessageDraftsFeatureConfig(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const raw = value as Record<string, unknown>
+  return {
+    enabled: Boolean(raw.enabled),
+  }
+}
+
 function sanitizeSubscriberModeFeatureConfig(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object') {
     return null
@@ -660,6 +671,9 @@ function sanitizeSettingsMetadataPatch(input: unknown): Record<string, unknown> 
   const autoReactions = featureRecord
     ? sanitizeAutoReactionsFeatureConfig(featureRecord.autoReactions)
     : null
+  const messageDrafts = featureRecord
+    ? sanitizeMessageDraftsFeatureConfig(featureRecord.messageDrafts)
+    : null
   const replyKeyboard = featureRecord
     ? sanitizeReplyKeyboardFeatureConfig(featureRecord.replyKeyboard)
     : null
@@ -667,15 +681,16 @@ function sanitizeSettingsMetadataPatch(input: unknown): Record<string, unknown> 
     ? sanitizeSubscriberModeFeatureConfig(featureRecord.subscriberMode)
     : null
 
-  if (!autoReactions && !replyKeyboard && !subscriberMode && !profileStyle) {
+  if (!autoReactions && !messageDrafts && !replyKeyboard && !subscriberMode && !profileStyle) {
     return {}
   }
 
   return {
-    ...(autoReactions || replyKeyboard || subscriberMode
+    ...(autoReactions || messageDrafts || replyKeyboard || subscriberMode
       ? {
           features: {
             ...(autoReactions ? { autoReactions } : {}),
+            ...(messageDrafts ? { messageDrafts } : {}),
             ...(replyKeyboard ? { replyKeyboard } : {}),
             ...(subscriberMode ? { subscriberMode } : {}),
           },

@@ -123,7 +123,7 @@ export default async function HomePage({
       <Header />
       <main className="flex-1">
         <Hero />
-        <SeoIntentSection locale={safeLocale} />
+        <SeoIntentSection locale={safeLocale} semanticOnly />
         <DeferredSection
           className="content-visibility-auto"
           placeholder={<SectionPlaceholder heightClass="h-[820px] md:h-[760px]" />}

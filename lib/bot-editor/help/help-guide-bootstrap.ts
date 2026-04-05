@@ -184,6 +184,18 @@ const STATIC_GUIDE_SPECS: HelpGuideSeedSpec[] = [
     ],
   },
   {
+    guideKey: HELP_GUIDE_KEYS.editorSystemMessageDrafts,
+    section: 'System',
+    title: text('editor.system.messageDrafts.title'),
+    summary: text('editor.system.messageDrafts.description'),
+    steps: [
+      text('editor.system.messageDrafts.privateOnlyHint'),
+      text('editor.system.messageDrafts.plainTextHint'),
+      text('editor.system.messageDrafts.nodeOverrideHint'),
+    ],
+    notes: [text('editor.system.messageDrafts.fallbackHint')],
+  },
+  {
     guideKey: HELP_GUIDE_KEYS.editorSystemAutoReactions,
     section: 'System',
     title: text('editor.system.autoReactions.title'),

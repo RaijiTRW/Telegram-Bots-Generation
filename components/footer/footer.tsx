@@ -60,59 +60,7 @@ export function Footer() {
 
   return (
     <footer className="border-t border-white/5 mt-auto relative overflow-hidden cyber-grid">
-      <div className="max-w-7xl mx-auto px-4 py-24 relative z-10">
-        {/* Main CTA Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={enterViewport}
-          transition={{ duration: 0.42 }}
-          className="text-center mb-20"
-        >
-          <h2 className="text-4xl md:text-6xl font-bold mb-8">
-            {isRu ? (
-              <>
-                Готовы создать своего{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1E88E5] to-[#00E676]">
-                  первого бота?
-                </span>
-              </>
-            ) : (
-              <>
-                Ready to build your{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1E88E5] to-[#00E676]">
-                  first bot?
-                </span>
-              </>
-            )}
-          </h2>
-
-          {/* Huge CTA Button with expanding glow */}
-          <motion.div
-            className="relative inline-block"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {/* Expanding glow effect on hover */}
-            <Link
-              href={`/${locale}/auth/signup`}
-              className="relative px-16 py-6 rounded-full text-xl font-bold text-white shadow-2xl inline-flex items-center gap-4"
-              style={{
-                background: 'linear-gradient(135deg, #1E88E5, #00E676)',
-              }}
-            >
-              <span className="drop-shadow-[0_0_18px_rgba(255,255,255,0.2)]">
-                {isRu ? 'Создать первого Telegram-бота' : 'Create your first Telegram bot'}
-              </span>
-              <motion.div
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                →
-              </motion.div>
-            </Link>
-          </motion.div>
-        </motion.div>
+      <div className="max-w-7xl mx-auto px-4 py-16 relative z-10 md:py-20">
 
         {/* System Status Indicator */}
         <motion.div

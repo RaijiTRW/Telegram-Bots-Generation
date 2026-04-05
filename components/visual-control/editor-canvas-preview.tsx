@@ -5,8 +5,7 @@ import { useLocale } from 'next-intl';
 import { Play } from 'lucide-react';
 import { useInView, useReducedMotion } from 'framer-motion';
 
-const PREVIEW_VIDEO_SRC = '/videos/editor-canvas-preview.mp4';
-const PREVIEW_VIDEO_POSTER = '/videos/editor-canvas-preview-poster.webp';
+const PREVIEW_VIDEO_SRC = '/videos/1.mp4';
 
 export function EditorCanvasPreview() {
   const locale = useLocale();
@@ -58,7 +57,6 @@ export function EditorCanvasPreview() {
               loop
               playsInline
               preload="metadata"
-              poster={PREVIEW_VIDEO_POSTER}
               onError={() => setHasVideoError(true)}
             >
               <source src={PREVIEW_VIDEO_SRC} type="video/mp4" />

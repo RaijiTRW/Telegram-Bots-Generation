@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from '@/components/motion-wrapper';
-import { useTranslations } from 'next-intl';
-import { Shield, Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
+import { Shield, Activity, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react';
 import { BorderBeam } from '@/components/ui/border-beam';
 export function Monitoring() {
   const t = useTranslations('monitoring');
+  const locale = useLocale();
   const enterViewport = {
     once: true,
     amount: 0.12,
@@ -84,6 +86,25 @@ export function Monitoring() {
                 );
               })}
             </div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={enterViewport}
+              transition={{ duration: 0.34, delay: 0.12 }}
+              className="mt-8"
+            >
+              <Link
+                href={`/${locale}/auth/signup`}
+                className="inline-flex items-center gap-3 rounded-full bg-[linear-gradient(135deg,#1E88E5,#00E676)] px-6 py-3.5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(30,136,229,0.22)] transition-transform hover:translate-y-[-1px]"
+              >
+                <span>{t('cta.label')}</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <p className="mt-3 max-w-md text-sm leading-6 text-white/56">
+                {t('cta.note')}
+              </p>
+            </motion.div>
           </motion.div>
 
           <motion.div

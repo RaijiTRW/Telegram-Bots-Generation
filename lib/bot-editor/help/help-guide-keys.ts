@@ -8,6 +8,7 @@ export const HELP_GUIDE_KEYS = {
   editorSettingsTelegramIntegration: 'editor.settings.telegram-integration',
   editorSettingsBotToken: 'editor.settings.bot-token',
   editorSystemOverview: 'editor.system.overview',
+  editorSystemMessageDrafts: 'editor.system.message-drafts',
   editorSystemAutoReactions: 'editor.system.auto-reactions',
   editorSystemAutoReactionsCooldown: 'editor.system.auto-reactions.cooldown',
   editorSystemAutoReactionsOnlyText: 'editor.system.auto-reactions.only-text',

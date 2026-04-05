@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   useEffect,
   useMemo,
@@ -12,6 +13,7 @@ import { useLocale } from 'next-intl';
 import { useReducedMotion } from 'framer-motion';
 import { motion, AnimatePresence } from '@/components/motion-wrapper';
 import {
+  ArrowRight,
   BadgeCheck,
   CalendarClock,
   CircleHelp,
@@ -773,9 +775,12 @@ const scenarios: Scenario[] = [
 const sectionCopy = {
   ru: {
     badge: 'Решения под задачи',
-    title: 'Как это работает в реальном Telegram-сценарии',
+    title: 'Как это работает в чате',
     subtitle:
-      'Выбираете задачу, проходите сценарий внутри чата и сразу видите, как бот доводит человека до результата.',
+      'Выбираете задачу, проходите сценарий в чате и сразу видите итог для бизнеса.',
+    ctaTitle: 'Запустите свой первый рабочий сценарий без долгой сборки.',
+    ctaButton: 'Создать бота',
+    ctaNote: 'Подойдёт для заявок, записи, FAQ и мини-воронок.',
     leftEyebrow: 'Что делает бот',
     rightEyebrow: 'Что получает бизнес',
     phoneBadge: 'Telegram-сценарий',
@@ -786,9 +791,12 @@ const sectionCopy = {
   },
   en: {
     badge: 'Solutions by use case',
-    title: 'How this works in a real Telegram flow',
+    title: 'How it works in chat',
     subtitle:
-      'Pick the task, go through the flow right inside the chat, and see how the bot moves people to a real outcome.',
+      'Pick a use case, walk through the chat flow, and see the business outcome right away.',
+    ctaTitle: 'Launch your first working flow without a long build cycle.',
+    ctaButton: 'Create a bot',
+    ctaNote: 'Built for leads, booking, FAQ, and mini funnels.',
     leftEyebrow: 'What the bot does',
     rightEyebrow: 'What the business gets',
     phoneBadge: 'Telegram flow',
@@ -819,21 +827,23 @@ export function Solutions() {
   const rightCopy = activeScenario.rightCopy.map((item) => (isRu ? item.ru : item.en));
 
   return (
-    <section className="relative overflow-hidden px-4 py-20 md:py-24 cyber-grid">
+    <section className="relative overflow-hidden px-4 py-12 md:py-14 cyber-grid">
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={enterViewport}
           transition={{ duration: 0.42 }}
-          className="mx-auto max-w-4xl text-center"
+          className="mx-auto max-w-3xl text-center"
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-medium text-white/82">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-white/82">
             <BadgeCheck className="h-4 w-4 text-[#38BDF8]" />
             <span>{copy.badge}</span>
           </div>
-          <h2 className="mt-5 text-3xl font-bold md:text-5xl">{copy.title}</h2>
-          <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-white/74">
+          <h2 className="mt-4 text-3xl font-bold md:text-[2.55rem] md:leading-[1.06]">
+            {copy.title}
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-white/74 md:text-[17px]">
             {copy.subtitle}
           </p>
         </motion.div>
@@ -843,14 +853,14 @@ export function Solutions() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={enterViewport}
           transition={{ duration: 0.38 }}
-          className="relative mt-12 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,22,0.96),rgba(7,10,17,0.98))] p-5 md:p-8"
+          className="relative mt-8 overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,22,0.96),rgba(7,10,17,0.98))] p-4 md:p-6"
         >
           <div
             className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${activeScenario.accent.glow}`}
           />
 
           <div className="relative">
-            <div className="flex flex-wrap justify-center gap-2.5">
+            <div className="flex flex-wrap justify-center gap-2">
               {scenarios.map((item) => {
                 const label = isRu ? item.label.ru : item.label.en;
                 const isActive = item.id === activeId;
@@ -860,7 +870,7 @@ export function Solutions() {
                     key={item.id}
                     type="button"
                     onClick={() => setActiveId(item.id)}
-                    className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                    className={`rounded-full border px-3.5 py-1.5 text-xs transition-colors md:px-4 md:text-sm ${
                       isActive
                         ? `${item.accent.ring} ${item.accent.tint} ${item.accent.text}`
                         : 'border-white/10 bg-white/[0.03] text-white/78 hover:bg-white/[0.05]'
@@ -872,7 +882,7 @@ export function Solutions() {
               })}
             </div>
 
-            <div className="mt-8 grid gap-8 lg:grid-cols-[0.92fr_minmax(320px,0.9fr)_0.92fr] lg:items-center">
+            <div className="mt-6 grid gap-5 lg:grid-cols-[0.82fr_minmax(290px,0.72fr)_0.82fr] lg:items-center">
               <ScenarioCopyPanel
                 className="order-2 lg:order-1"
                 accent={activeScenario.accent}
@@ -916,6 +926,33 @@ export function Solutions() {
             </div>
           </div>
         </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={enterViewport}
+          transition={{ duration: 0.34, delay: 0.06 }}
+          className="mt-5"
+        >
+          <div className="flex flex-col gap-4 rounded-[24px] border border-white/10 bg-white/[0.03] px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6">
+            <div className="max-w-2xl">
+              <p className="text-lg font-semibold leading-7 text-white md:text-[1.18rem]">
+                {copy.ctaTitle}
+              </p>
+              <p className="mt-1.5 text-sm leading-6 text-white/60">
+                {copy.ctaNote}
+              </p>
+            </div>
+
+            <Link
+              href={`/${locale}/auth/signup`}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1E88E5,#00E676)] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(30,136,229,0.2)] transition-transform hover:translate-y-[-1px]"
+            >
+              <span>{copy.ctaButton}</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -942,7 +979,7 @@ function ScenarioCopyPanel({
 }) {
   return (
     <div className={className}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/62">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/62">
         {eyebrow}
       </div>
 
@@ -953,26 +990,26 @@ function ScenarioCopyPanel({
           animate={{ opacity: 1, y: 0 }}
           exit={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -10 }}
           transition={{ duration: shouldReduceMotion ? 0.01 : 0.24 }}
-          className="mt-4"
+          className="mt-3"
         >
           <div className="flex items-start gap-3">
             <div
-              className={`mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] border border-white/8 ${accent.soft} ${accent.text}`}
+              className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-white/8 ${accent.soft} ${accent.text}`}
             >
               {icon}
             </div>
-            <h3 className="text-[1.38rem] font-semibold leading-[1.2] text-white md:text-[1.65rem]">
+            <h3 className="text-[1.16rem] font-semibold leading-[1.18] text-white md:text-[1.34rem]">
               {title}
             </h3>
           </div>
 
-          <div className="mt-6 divide-y divide-white/8 overflow-hidden rounded-[26px] border border-white/8 bg-white/[0.03]">
+          <div className="mt-4 divide-y divide-white/8 overflow-hidden rounded-[22px] border border-white/8 bg-white/[0.03]">
             {lines.map((line, index) => (
-              <div key={line} className="flex items-start gap-3 px-4 py-4 md:px-5">
+              <div key={line} className="flex items-start gap-3 px-4 py-3 md:px-4.5">
                 <div
-                  className={`mt-[0.55rem] h-2.5 w-2.5 shrink-0 rounded-full bg-gradient-to-r ${accent.line}`}
+                  className={`mt-[0.45rem] h-2.5 w-2.5 shrink-0 rounded-full bg-gradient-to-r ${accent.line}`}
                 />
-                <p className="text-sm leading-7 text-white/78 md:text-[15px]">{line}</p>
+                <p className="text-sm leading-6 text-white/78 md:text-[14px]">{line}</p>
                 <span className="ml-auto shrink-0 pl-3 text-[11px] font-medium text-white/24">
                   0{index + 1}
                 </span>
@@ -1093,40 +1130,40 @@ function SolutionPhonePreview({
   }, [conversation, currentChoices.length, shouldReduceMotion]);
 
   return (
-    <div className="mx-auto w-full max-w-[372px]">
+    <div className="mx-auto w-full max-w-[316px] md:max-w-[324px]">
       <div className="relative aspect-[390/844] w-full">
         <div className="pointer-events-none absolute left-[-3px] top-[146px] h-16 w-[3px] rounded-r-full bg-white/14" />
         <div className="pointer-events-none absolute left-[-3px] top-[224px] h-24 w-[3px] rounded-r-full bg-white/14" />
         <div className="pointer-events-none absolute right-[-3px] top-[198px] h-28 w-[3px] rounded-l-full bg-white/16" />
 
-        <div className="absolute inset-0 rounded-[58px] bg-[linear-gradient(180deg,#191C24_0%,#08090D_100%)] shadow-[0_42px_120px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.16)]" />
-        <div className="absolute inset-[1.5px] rounded-[57px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,11,16,0.98),rgba(5,6,10,1))]" />
-        <div className="absolute inset-[10px] overflow-hidden rounded-[48px] border border-white/10 bg-[#080B12] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+        <div className="absolute inset-0 rounded-[52px] bg-[linear-gradient(180deg,#191C24_0%,#08090D_100%)] shadow-[0_28px_80px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.16)]" />
+        <div className="absolute inset-[1.5px] rounded-[51px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,11,16,0.98),rgba(5,6,10,1))]" />
+        <div className="absolute inset-[9px] overflow-hidden rounded-[42px] border border-white/10 bg-[#080B12] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
           <div
             className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${accent.glow}`}
           />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.028)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.028)_1px,transparent_1px)] bg-[size:22px_22px]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(36,161,222,0.08),transparent_28%),radial-gradient(circle_at_bottom,rgba(124,77,255,0.08),transparent_26%)]" />
 
-          <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex h-8 w-[134px] -translate-x-1/2 items-center justify-center rounded-full bg-black/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex h-7 w-[118px] -translate-x-1/2 items-center justify-center rounded-full bg-black/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             <div className="h-[5px] w-14 rounded-full bg-white/10" />
             <div className="ml-3 h-2.5 w-2.5 rounded-full bg-white/10" />
           </div>
 
           <div className="relative flex h-full min-h-0 flex-col">
-            <div className="relative border-b border-white/6 px-4 pb-3 pt-14">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-white/68">
+            <div className="relative border-b border-white/6 px-3.5 pb-2.5 pt-12">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1 text-[10px] font-medium text-white/68">
                 <span>{badge}</span>
                 <span className={accent.text}>• {label}</span>
               </div>
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${accent.soft} ${accent.text}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${accent.soft} ${accent.text}`}
                 >
-                  <div className={`h-5 w-5 rounded-full bg-gradient-to-r ${accent.line}`} />
+                  <div className={`h-4.5 w-4.5 rounded-full bg-gradient-to-r ${accent.line}`} />
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-base font-semibold text-white">{header}</div>
+                  <div className="truncate text-[15px] font-semibold text-white">{header}</div>
                   <div className="text-xs text-white/54">{status}</div>
                 </div>
               </div>
@@ -1134,7 +1171,7 @@ function SolutionPhonePreview({
 
             <div
               ref={messagesRef}
-              className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               <AnimatePresence mode="wait">
                 <motion.div
@@ -1143,7 +1180,7 @@ function SolutionPhonePreview({
                   animate={{ opacity: 1, y: 0 }}
                   exit={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -10 }}
                   transition={{ duration: shouldReduceMotion ? 0.01 : 0.22 }}
-                  className="space-y-3 pb-4"
+                  className="space-y-2.5 pb-3"
                 >
                   {conversation.map((message, index) => {
                     const isBot = message.from === 'bot';
@@ -1154,7 +1191,7 @@ function SolutionPhonePreview({
                         className={`flex ${isBot ? 'justify-start' : 'justify-end'}`}
                       >
                         <div
-                          className={`max-w-[84%] rounded-[22px] border px-4 py-3 text-[13px] leading-6 text-white/84 shadow-[0_12px_34px_rgba(0,0,0,0.18)] ${
+                          className={`max-w-[84%] rounded-[20px] border px-3.5 py-2.5 text-[12px] leading-5 text-white/84 shadow-[0_10px_28px_rgba(0,0,0,0.18)] ${
                             isBot ? accent.botBubble : accent.userBubble
                           }`}
                         >
@@ -1167,7 +1204,7 @@ function SolutionPhonePreview({
               </AnimatePresence>
             </div>
 
-            <div className="relative border-t border-white/6 px-4 pb-4 pt-4 backdrop-blur-sm">
+            <div className="relative border-t border-white/6 px-3.5 pb-3.5 pt-3 backdrop-blur-sm">
               {!isCompleted ? (
                 <div className="flex flex-wrap gap-2">
                   {currentChoices.map((choice, index) => (
@@ -1175,7 +1212,7 @@ function SolutionPhonePreview({
                       key={`${choice}-${index}`}
                       type="button"
                       onClick={() => handleChoice(index)}
-                      className={`rounded-full border px-3 py-2 text-[12px] font-medium transition-colors ${accent.action} ${accent.actionText} hover:bg-white/[0.06]`}
+                      className={`rounded-full border px-3 py-2 text-[11px] font-medium transition-colors ${accent.action} ${accent.actionText} hover:bg-white/[0.06]`}
                     >
                       {choice}
                     </button>
@@ -1185,26 +1222,26 @@ function SolutionPhonePreview({
                 <button
                   type="button"
                   onClick={() => setSelectedChoices([])}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] font-medium text-white/72 transition-colors hover:bg-white/[0.06]"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] font-medium text-white/72 transition-colors hover:bg-white/[0.06]"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   <span>{resetLabel}</span>
                 </button>
               )}
 
-              <div className="mt-4 rounded-[22px] border border-white/8 bg-black/20 px-4 py-3">
+              <div className="mt-3 rounded-[18px] border border-white/8 bg-black/20 px-3.5 py-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/52">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/52">
                     {outcomeLabel}
                   </div>
-                  <div className="text-[11px] text-white/40">{footerText}</div>
+                  <div className="text-[10px] text-white/40">{footerText}</div>
                 </div>
-                <div className="mt-2 text-sm font-medium text-white/82">{outcome}</div>
+                <div className="mt-2 text-[13px] font-medium leading-5 text-white/82">{outcome}</div>
               </div>
             </div>
           </div>
 
-          <div className="pointer-events-none absolute bottom-2 left-1/2 h-1.5 w-28 -translate-x-1/2 rounded-full bg-white/16" />
+          <div className="pointer-events-none absolute bottom-2 left-1/2 h-1.5 w-24 -translate-x-1/2 rounded-full bg-white/16" />
         </div>
       </div>
     </div>

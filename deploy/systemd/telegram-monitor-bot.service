@@ -1,0 +1,15 @@
+[Unit]
+Description=CBTooll Telegram monitor bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/cbtooll-shared/live-release
+EnvironmentFile=/var/www/cbtooll-shared/.env.local
+ExecStart=/bin/bash /var/www/cbtooll-shared/live-release/scripts/run-telegram-monitor-bot.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 {
   "name": "cbtooll",
-  "version": "0.9.9",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:nodes": "node ./scripts/check-bot-node-consistency.mjs",
+    "monitor-bot:start": "tsx scripts/telegram-monitor-bot.ts",
     "sanity:import:docs": "tsx scripts/import-docs-to-sanity.ts",
     "sanity:normalize:docs": "tsx scripts/normalize-sanity-docs-pages.ts",
     "sanity:repair:drafts": "tsx scripts/repair-sanity-docs-drafts.ts",

@@ -18,7 +18,25 @@ This setup uses GitHub Actions plus a blue/green deployment strategy on the VDS.
 - shared data: `/var/www/cbtooll-shared`
 - shared env: `/var/www/cbtooll-shared/.env.local`
 - active color marker: `/var/www/cbtooll-shared/active-color`
+- active live symlink: `/var/www/cbtooll-shared/live-release`
 - deploy script: `/usr/local/bin/cbtooll-deploy`
+
+## Telegram monitor bot
+
+There is also a separate persistent Telegram monitor bot service template:
+
+- unit file: `deploy/systemd/telegram-monitor-bot.service`
+- runtime entrypoint: `scripts/run-telegram-monitor-bot.sh`
+
+The bot expects these variables in the shared env:
+
+- `TELEGRAM_MONITOR_BOT_TOKEN`
+- `TELEGRAM_MONITOR_SITE_HEALTH_URL`
+- `TELEGRAM_MONITOR_OWNER_CHAT_ID` (optional, first `/start` can claim the chat if omitted)
+- `TELEGRAM_MONITOR_STATE_PATH` (recommended: `/var/www/cbtooll-shared/telegram-monitor-bot-state.json`)
+- `TELEGRAM_MONITOR_LOG_COMMAND` (optional, defaults to combined journalctl logs)
+- `TELEGRAM_MONITOR_CRITICAL_LOG_COMMAND` (optional)
+- `TELEGRAM_MONITOR_SERVICES` (optional, comma-separated systemd service names)
 
 ## Required GitHub Secrets
 

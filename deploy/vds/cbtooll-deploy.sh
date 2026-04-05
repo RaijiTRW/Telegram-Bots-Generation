@@ -16,6 +16,7 @@ UPLOADS_DIR="$SHARED_DIR/uploads"
 UPLOAD_DIR="$UPLOADS_DIR/$RELEASE_ID"
 ACTIVE_FILE="$SHARED_DIR/active-color"
 UPSTREAM_FILE="/etc/nginx/snippets/cbtooll-upstream.conf"
+LIVE_RELEASE_LINK="$SHARED_DIR/live-release"
 
 log() {
   printf '[deploy] %s\n' "$*"
@@ -96,10 +97,16 @@ sudo nginx -t
 sudo systemctl reload nginx
 
 printf '%s\n' "$TARGET_COLOR" | sudo tee "$ACTIVE_FILE" >/dev/null
+ln -sfn "$TARGET_DIR" "$LIVE_RELEASE_LINK"
 
 if sudo systemctl is-active --quiet "$PREVIOUS_SERVICE"; then
   log "Stopping previous service $PREVIOUS_SERVICE"
   sudo systemctl stop "$PREVIOUS_SERVICE"
+fi
+
+if sudo systemctl list-unit-files | grep -q '^telegram-monitor-bot.service'; then
+  log "Restarting telegram-monitor-bot.service"
+  sudo systemctl restart telegram-monitor-bot.service || true
 fi
 
 log "Cleaning upload dir"

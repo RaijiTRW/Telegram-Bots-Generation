@@ -86,6 +86,7 @@ export interface MessageNodeData extends BaseNodeData {
   type: 'message'
   text: string
   parseMode?: ParseMode
+  typingDraft?: boolean
   disableWebPagePreview?: boolean
   disableNotification?: boolean
   keyboard?: KeyboardData
@@ -483,6 +484,7 @@ export const DEFAULT_NODE_DATA: Record<string, Partial<NodeData>> = {
   message: {
     text: '',
     parseMode: 'None',
+    typingDraft: false,
     disableWebPagePreview: false,
     disableNotification: false,
     attachments: [],

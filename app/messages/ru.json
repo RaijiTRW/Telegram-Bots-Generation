@@ -385,8 +385,8 @@
       "saveSettings": "Сохранить настройки",
       "resetSettings": "Сбросить",
       "timezonePreview": "Текущее время в выбранном часовом поясе",
-      "languageRu": "Русский (RU)",
-      "languageEn": "English (EN)",
+      "languageRu": "🇷🇺 Русский",
+      "languageEn": "🇺🇸 English",
       "passwordSettings": "Пароль аккаунта",
       "passwordSettingsDesc": "Изменение пароля для входа в аккаунт",
       "newPassword": "Новый пароль",
@@ -628,15 +628,15 @@
   "editor": {
     "nav": {
       "canvas": "Холст",
-      "canvasDesc": "Визуальный редактор рабочих процессов",
-      "aiAssistant": "AI Ассистент",
-      "aiAssistantDesc": "Раздел AI-ассистента скоро откроется",
+      "canvasDesc": "Редактор сценария",
+      "aiAssistant": "AI Чат",
+      "aiAssistantDesc": "Скоро откроется",
       "system": "Система",
-      "systemDesc": "Логика бота и триггеры",
+      "systemDesc": "Логика и триггеры",
       "statistics": "Статистика",
-      "statisticsDesc": "Нагрузка, ошибки и системные события",
+      "statisticsDesc": "Ошибки и события",
       "settings": "Настройки",
-      "settingsDesc": "Конфигурация и опции",
+      "settingsDesc": "Параметры бота",
       "botEditor": "Редактор бота",
       "helpSummary": "Главный экран сборки бота: сначала проектируете логику на Canvas, затем проверяете System и Settings, после этого запускаете Test.",
       "helpStep1": "Canvas: соберите цепочку нод и проверьте, что у каждой ветки есть продолжение.",
@@ -823,6 +823,22 @@
       "helpStep2": "После каждой структурной правки нажимайте «Сохранить», и только потом запускайте Test.",
       "helpStep3": "По логам проверяйте фактический путь выполнения и исправляйте по одной проблеме за цикл.",
       "helpNote": "Рабочий цикл: `правка -> Сохранить -> Test -> логи -> правка`.",
+      "issues": {
+        "modalKicker": "Ошибки редактора",
+        "whatToDoTitle": "Что нужно сделать",
+        "goToSettings": "Открыть настройки",
+        "closeButton": "Закрыть",
+        "closeModal": "Закрыть окно ошибок",
+        "openModalAriaLabel": "Открыть ошибку: {title}",
+        "missingToken": {
+          "title": "Telegram token не подключён",
+          "compactTitle": "Нет Telegram token",
+          "description": "У этого бота пока не подключён Telegram token. Без него тест, запуск и ответы пользователям в Telegram не будут работать.",
+          "step1": "Откройте раздел «Настройки» в редакторе бота.",
+          "step2": "Вставьте token от @BotFather в поле Telegram token.",
+          "step3": "Сохраните изменения и снова запустите Test."
+        }
+      },
       "controls": {
         "title": "Управление холстом",
         "selectionStatusActive": "Режим выделения активен",
@@ -1253,6 +1269,19 @@
       "regexPlaceholder": "regex шаблон",
       "inlineQueryTemplatePlaceholder": "@bot query",
       "notAvailable": "N/A",
+      "messageDrafts": {
+        "title": "Красивый набор текста",
+        "description": "Telegram будет плавно дорисовывать ответ до отправки финального сообщения. Это обычный текстовый эффект, не AI-функция.",
+        "enabled": "Включено",
+        "disabled": "Выключено",
+        "privateOnlyTitle": "Только личные чаты",
+        "privateOnlyHint": "Эффект draft работает только в private-диалогах Telegram. В группах и каналах бот просто отправит обычное сообщение.",
+        "plainTextTitle": "Обычный текст",
+        "plainTextHint": "Лучше всего работает для обычного текста без Markdown/HTML и без вложений. Для остальных кейсов бот автоматически откатится к обычной отправке.",
+        "nodeOverrideTitle": "Точечно по ноде",
+        "nodeOverrideHint": "В ноде `Message` можно включить эффект только для конкретного текста, даже если глобальный режим в System выключен.",
+        "fallbackHint": "Если Telegram не примет draft или чат не подходит под ограничение API, runtime просто отправит обычный `sendMessage` без падения сценария."
+      },
       "autoReactions": {
         "title": "Доп. функция: Реакции Telegram",
         "description": "Бот будет ставить реакцию на входящие сообщения пользователя через правило-ориентированную логику (без AI).",
@@ -1554,6 +1583,11 @@
         "formatCode": "Код",
         "formatSpoiler": "Спойлер",
         "formatLink": "Ссылка",
+        "typingDraftTitle": "Красивый набор текста",
+        "typingDraftHint": "Показывает draft-анимацию перед отправкой этого сообщения.",
+        "typingDraftGlobalHint": "Глобальный режим уже включён в разделе «Система». Этот переключатель нужен только для точечного режима.",
+        "typingDraftGlobalStatus": "Эффект уже включён глобально для поддерживаемых текстовых сообщений.",
+        "typingDraftNodeOnlyHint": "Эффект будет работать только для этой ноды.",
         "disablePreview": "Отключить превью ссылок",
         "silentMode": "Тихий режим (без звука)",
         "attachments": "Вложения",
@@ -1965,6 +1999,10 @@
     "subtitleSecond": "Мы следим за аптаймом 24/7. Если Telegram изменит API — ваш бот обновится автоматически.",
     "statusTitle": "Все системы работают",
     "statusSubtitle": "ботов в сети",
+    "cta": {
+      "label": "Запустить бота с мониторингом",
+      "note": "После запуска сервис сам следит за аптаймом, ошибками и обновлениями API."
+    },
     "features": {
       "updates": "Автоматические обновления API",
       "uptime": "Мониторинг аптайма в реальном времени",

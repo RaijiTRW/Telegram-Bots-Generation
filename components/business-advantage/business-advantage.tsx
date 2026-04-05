@@ -14,21 +14,21 @@ const audienceChips = {
 
 const starterSummary = {
   ru: {
-    eyebrow: 'Почему это удобно на старте',
-    title: 'Вы не тратите недели на ТЗ, созвоны и бесконечные правки.',
+    eyebrow: 'Что обычно теряют на старте',
+    title: 'На чужой разработке вы чаще всего теряете время, деньги и контроль.',
     body: [
-      'Сначала быстро собираете рабочий сценарий и смотрите, даёт ли он заявки, запись или оплату.',
-      'Если сценарий работает, вы развиваете его дальше без постоянной зависимости от подрядчика.',
-      'Если не работает, вы это понимаете рано и не сливаете бюджет в тяжёлый кастом.',
+      'Недели уходят на ТЗ, созвоны и согласования до первого рабочего сценария.',
+      'Деньги тратятся ещё до того, как вы вообще понимаете, даёт ли бот заявки, запись или оплату.',
+      'Каждое следующее изменение снова завязано на подрядчика, а не на вашу команду.',
     ],
   },
   en: {
-    eyebrow: 'Why it works for an early launch',
-    title: 'You do not spend weeks on specs, calls, and endless revisions.',
+    eyebrow: 'What usually gets lost at the start',
+    title: 'With outside development, teams usually lose time, money, and control first.',
     body: [
-      'First you launch a working scenario and check whether it drives leads, bookings, or payments.',
-      'If it works, you keep improving it without constant dependence on a contractor.',
-      'If it does not, you learn that early and avoid sinking budget into heavy custom work.',
+      'Weeks go into specs, calls, and approvals before the first working flow appears.',
+      'Budget gets spent before you even know whether the bot drives leads, bookings, or payments.',
+      'Every next change depends on the contractor again instead of staying inside your team.',
     ],
   },
 } as const;
@@ -499,9 +499,17 @@ export function BusinessAdvantage() {
                 <p className="max-w-4xl text-lg font-semibold leading-8 text-white md:text-xl">
                   {summary.title}
                 </p>
-                <div className="mt-4 space-y-3 max-w-4xl text-sm leading-7 text-white/76 md:text-base">
-                  {summary.body.map((line) => (
-                    <p key={line}>{line}</p>
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  {summary.body.map((line, index) => (
+                    <div
+                      key={line}
+                      className="rounded-[18px] border border-white/8 bg-black/20 px-4 py-4"
+                    >
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-200/70">
+                        {isRu ? `Потеря ${index + 1}` : `Loss ${index + 1}`}
+                      </div>
+                      <p className="mt-2 text-sm leading-7 text-white/78 md:text-[15px]">{line}</p>
+                    </div>
                   ))}
                 </div>
               </motion.div>

@@ -9,16 +9,19 @@ export const structure: StructureResolver = (S) =>
     .title('Content')
     .items([
       S.listItem()
+        .id('documentation-root')
         .title('Documentation')
         .child(
           S.list()
+            .id('documentation-list')
             .title('Documentation')
             .items([
               S.listItem()
-                .title('RU documentation')
+                .id('documentation-ru')
+                .title('🇷🇺 Documentation')
                 .child(
                   S.documentTypeList('docsPage')
-                    .title('RU documentation')
+                    .title('🇷🇺 Documentation')
                     .filter('_type == "docsPage" && locale == $locale')
                     .params({ locale: 'ru' })
                     .defaultOrdering([
@@ -27,10 +30,11 @@ export const structure: StructureResolver = (S) =>
                     ])
                 ),
               S.listItem()
-                .title('EN documentation')
+                .id('documentation-en')
+                .title('🇺🇸 Documentation')
                 .child(
                   S.documentTypeList('docsPage')
-                    .title('EN documentation')
+                    .title('🇺🇸 Documentation')
                     .filter('_type == "docsPage" && locale == $locale')
                     .params({ locale: 'en' })
                     .defaultOrdering([
@@ -41,30 +45,54 @@ export const structure: StructureResolver = (S) =>
             ])
         ),
       S.listItem()
+        .id('help-guides-root')
         .title('Help Guides')
         .child(
           S.list()
+            .id('help-guides-list')
             .title('Help Guides')
             .items([
               S.listItem()
-                .title('RU help guides')
+                .id('help-guides-all')
+                .title('All help guides')
                 .child(
-                  S.documentTypeList('helpGuide')
-                    .title('RU help guides')
-                    .filter('_type == "helpGuide" && locale == $locale')
-                    .params({ locale: 'ru' })
+                  S.documentList()
+                    .id('help-guides-all-documents')
+                    .title('All help guides')
+                    .schemaType('helpGuide')
+                    .filter('_type == $type')
+                    .params({ type: 'helpGuide' })
+                    .defaultOrdering([
+                      { field: 'locale', direction: 'asc' },
+                      { field: 'section', direction: 'asc' },
+                      { field: 'guideKey', direction: 'asc' },
+                    ])
+                ),
+              S.listItem()
+                .id('help-guides-ru')
+                .title('🇷🇺 Help guides')
+                .child(
+                  S.documentList()
+                    .id('help-guides-ru-documents')
+                    .title('🇷🇺 Help guides')
+                    .schemaType('helpGuide')
+                    .filter('_type == $type && locale == $locale')
+                    .params({ type: 'helpGuide', locale: 'ru' })
                     .defaultOrdering([
                       { field: 'section', direction: 'asc' },
                       { field: 'guideKey', direction: 'asc' },
                     ])
                 ),
               S.listItem()
-                .title('EN help guides')
+                .id('help-guides-en')
+                .title('🇺🇸 Help guides')
                 .child(
-                  S.documentTypeList('helpGuide')
-                    .title('EN help guides')
-                    .filter('_type == "helpGuide" && locale == $locale')
-                    .params({ locale: 'en' })
+                  S.documentList()
+                    .id('help-guides-en-documents')
+                    .title('🇺🇸 Help guides')
+                    .schemaType('helpGuide')
+                    .filter('_type == $type && locale == $locale')
+                    .params({ type: 'helpGuide', locale: 'en' })
                     .defaultOrdering([
                       { field: 'section', direction: 'asc' },
                       { field: 'guideKey', direction: 'asc' },

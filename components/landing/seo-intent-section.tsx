@@ -78,9 +78,33 @@ const content = {
   },
 } as const
 
-export function SeoIntentSection({ locale }: { locale: Locale }) {
+export function SeoIntentSection({
+  locale,
+  semanticOnly = false,
+}: {
+  locale: Locale
+  semanticOnly?: boolean
+}) {
   const isRu = locale === 'ru'
   const copy = isRu ? content.ru : content.en
+
+  if (semanticOnly) {
+    return (
+      <section className="sr-only" aria-label={copy.title}>
+        <h2>{copy.title}</h2>
+        <p>{copy.subtitle}</p>
+        <ul>
+          {copy.cards.map((card) => (
+            <li key={card.title}>
+              <h3>{card.title}</h3>
+              <p>{card.body}</p>
+              <Link href={`/${locale}${card.href}`}>{card.label}</Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 
   return (
     <section className="relative px-4 py-12 md:py-16">
@@ -123,4 +147,3 @@ export function SeoIntentSection({ locale }: { locale: Locale }) {
     </section>
   )
 }
-
