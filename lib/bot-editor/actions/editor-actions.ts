@@ -155,7 +155,7 @@ function isTelegramApiReachabilityError(error: unknown): boolean {
 
 function toTelegramTestStartErrorMessage(error: unknown): string {
   if (isTelegramApiReachabilityError(error)) {
-    return 'Сервер не может подключиться к Telegram Bot API (api.telegram.org:443). Это проблема сети или хостинга, а не Bot Token. Разрешите исходящие HTTPS-подключения к Telegram на сервере или используйте сервер/прокси без блокировки Telegram.'
+    return 'Сервер не может подключиться к Telegram Bot API (api.telegram.org:443). Это проблема сети или хостинга, а не Bot Token. Разрешите исходящие HTTPS-подключения к Telegram на сервере или укажите TELEGRAM_PROXY_URL на сервере, чтобы пустить Telegram через прокси.'
   }
 
   return String(error)

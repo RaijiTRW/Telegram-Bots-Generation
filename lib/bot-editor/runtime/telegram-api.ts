@@ -1,5 +1,7 @@
 import { request as httpsRequest } from 'node:https'
 
+import { hasTelegramProxy, withTelegramDispatcher } from '@/lib/telegram/network'
+
 const TELEGRAM_API_BASE_URL = 'https://api.telegram.org'
 const TELEGRAM_REQUEST_TIMEOUT_MS = 15_000
 const TELEGRAM_GET_UPDATES_GRACE_MS = 10_000
@@ -252,11 +254,14 @@ async function requestTelegramApi(
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
     try {
-      const response = await fetch(url, {
-        ...init,
-        cache: 'no-store',
-        signal: controller.signal,
-      })
+      const response = await fetch(
+        url,
+        withTelegramDispatcher({
+          ...init,
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+      )
 
       if (shouldRetryByStatus(response.status) && attempt < TELEGRAM_MAX_ATTEMPTS - 1) {
         await sleep(resolveRetryDelayMs(response, attempt))
@@ -266,7 +271,11 @@ async function requestTelegramApi(
       return response
     } catch (error) {
       lastNetworkError = formatNetworkError(method, error)
-      if (TELEGRAM_DIRECT_IP_FALLBACKS.length > 0 && isTelegramReachabilityError(lastNetworkError)) {
+      if (
+        !hasTelegramProxy() &&
+        TELEGRAM_DIRECT_IP_FALLBACKS.length > 0 &&
+        isTelegramReachabilityError(lastNetworkError)
+      ) {
         try {
           return await requestTelegramApiWithDirectIpFallback(token, method, init, timeoutMs)
         } catch (fallbackError) {

@@ -5,6 +5,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
+import { withTelegramDispatcher } from '../lib/telegram/network'
+
 const exec = promisify(execCallback)
 
 type MonitorState = {
@@ -217,10 +219,13 @@ async function runShellCommand(command: string) {
 
 async function telegramApi<T>(method: string, body?: BodyInit) {
   const token = getBotToken()
-  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: body ? 'POST' : 'GET',
-    body,
-  })
+  const response = await fetch(
+    `https://api.telegram.org/bot${token}/${method}`,
+    withTelegramDispatcher({
+      method: body ? 'POST' : 'GET',
+      body,
+    })
+  )
 
   const payload = (await response.json()) as TelegramApiResponse<T>
   if (!payload.ok) {

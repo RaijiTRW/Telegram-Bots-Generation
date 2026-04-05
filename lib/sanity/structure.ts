@@ -56,12 +56,9 @@ export const structure: StructureResolver = (S) =>
                 .id('help-guides-all')
                 .title('All help guides')
                 .child(
-                  S.documentList()
-                    .id('help-guides-all-documents')
+                  S.documentTypeList('helpGuide')
                     .title('All help guides')
-                    .schemaType('helpGuide')
-                    .filter('_type == $type')
-                    .params({ type: 'helpGuide' })
+                    .filter('_type == "helpGuide"')
                     .defaultOrdering([
                       { field: 'locale', direction: 'asc' },
                       { field: 'section', direction: 'asc' },
@@ -72,12 +69,10 @@ export const structure: StructureResolver = (S) =>
                 .id('help-guides-ru')
                 .title('🇷🇺 Help guides')
                 .child(
-                  S.documentList()
-                    .id('help-guides-ru-documents')
+                  S.documentTypeList('helpGuide')
                     .title('🇷🇺 Help guides')
-                    .schemaType('helpGuide')
-                    .filter('_type == $type && locale == $locale')
-                    .params({ type: 'helpGuide', locale: 'ru' })
+                    .filter('_type == "helpGuide" && locale == $locale')
+                    .params({ locale: 'ru' })
                     .defaultOrdering([
                       { field: 'section', direction: 'asc' },
                       { field: 'guideKey', direction: 'asc' },
@@ -87,12 +82,10 @@ export const structure: StructureResolver = (S) =>
                 .id('help-guides-en')
                 .title('🇺🇸 Help guides')
                 .child(
-                  S.documentList()
-                    .id('help-guides-en-documents')
+                  S.documentTypeList('helpGuide')
                     .title('🇺🇸 Help guides')
-                    .schemaType('helpGuide')
-                    .filter('_type == $type && locale == $locale')
-                    .params({ type: 'helpGuide', locale: 'en' })
+                    .filter('_type == "helpGuide" && locale == $locale')
+                    .params({ locale: 'en' })
                     .defaultOrdering([
                       { field: 'section', direction: 'asc' },
                       { field: 'guideKey', direction: 'asc' },
