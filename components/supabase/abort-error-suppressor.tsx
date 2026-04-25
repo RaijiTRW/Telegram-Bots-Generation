@@ -3,7 +3,16 @@
 import { useEffect } from 'react'
 
 function isAbortLikeError(reason: unknown): boolean {
-  if (!reason || typeof reason !== 'object') return false
+  if (!reason) return false
+  if (typeof reason === 'string') {
+    return (
+      reason.includes('AbortError') ||
+      reason.includes('signal is aborted without reason') ||
+      reason.includes('The operation was aborted') ||
+      reason.includes('This operation was aborted')
+    )
+  }
+  if (typeof reason !== 'object') return false
   const record = reason as { name?: unknown; message?: unknown; code?: unknown }
   const name = String(record.name || '')
   const message = String(record.message || '')
@@ -19,13 +28,22 @@ function isAbortLikeError(reason: unknown): boolean {
 
 export function AbortErrorSuppressor() {
   useEffect(() => {
-    const handler = (event: PromiseRejectionEvent) => {
+    const rejectionHandler = (event: PromiseRejectionEvent) => {
       if (!isAbortLikeError(event.reason)) return
       event.preventDefault()
     }
 
-    window.addEventListener('unhandledrejection', handler)
-    return () => window.removeEventListener('unhandledrejection', handler)
+    const errorHandler = (event: ErrorEvent) => {
+      if (!isAbortLikeError(event.error) && !isAbortLikeError(event.message)) return
+      event.preventDefault()
+    }
+
+    window.addEventListener('unhandledrejection', rejectionHandler)
+    window.addEventListener('error', errorHandler)
+    return () => {
+      window.removeEventListener('unhandledrejection', rejectionHandler)
+      window.removeEventListener('error', errorHandler)
+    }
   }, [])
 
   return null

@@ -9,12 +9,12 @@ import {
   Terminal,
   GitBranch,
   Zap,
-  Code,
   Sparkles,
   ChevronsDown,
+  CheckCircle2,
 } from 'lucide-react';
 
-// Logic node visualization component
+// Business flow visualization component
 function LogicNode({
   label,
   delay,
@@ -53,7 +53,7 @@ function LogicNode({
           }`}
       >
         <div className="flex items-center gap-2">
-          <Code className="w-3 h-3 text-[#1E88E5]" />
+          <Zap className="w-3 h-3 text-[#1E88E5]" />
           <span className="font-mono text-[11px] text-white/80 md:text-xs">{label}</span>
         </div>
       </div>
@@ -112,11 +112,23 @@ export function Hero() {
   }, []);
 
   const nodes = [
-    { label: '/start', delay: 0.1 },
-    { label: 'menu_flow', delay: 0.3 },
-    { label: 'catalog_view', delay: 0.5 },
-    { label: 'order_handler', delay: 0.7 },
+    { label: locale === 'ru' ? 'Старт в Telegram' : 'Telegram start', delay: 0.1 },
+    { label: locale === 'ru' ? 'Выбор задачи' : 'Need selection', delay: 0.3 },
+    { label: locale === 'ru' ? 'Сбор контакта' : 'Contact capture', delay: 0.5 },
+    { label: locale === 'ru' ? 'Заявка в CRM' : 'Lead to CRM', delay: 0.7 },
   ];
+
+  const previewResults = locale === 'ru'
+    ? [
+        'Бот сразу отвечает и ведёт по сценарию.',
+        'Контакт и запрос собираются без ручной переписки.',
+        'Менеджер получает уже готовую заявку.',
+      ]
+    : [
+        'The bot replies instantly and moves the user through the flow.',
+        'Contact data and request are captured without manual back-and-forth.',
+        'The manager gets a ready-to-handle lead.',
+      ];
 
   const handleScrollToFeatures = () => {
     const target = document.getElementById('business-advantage');
@@ -310,11 +322,11 @@ export function Hero() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <GitBranch className="h-4 w-4 text-[#1E88E5] md:h-5 md:w-5" />
-                  <h3 className="text-sm font-semibold md:text-base">{locale === 'ru' ? 'Дерево логики' : 'Logic Tree'}</h3>
+                  <h3 className="text-sm font-semibold md:text-base">{locale === 'ru' ? 'Сценарий клиента' : 'Customer flow'}</h3>
                 </div>
                 <div className="flex items-center gap-1.5 rounded border border-[#00E676]/20 bg-[#00E676]/10 px-2 py-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse" />
-                  <span className="text-xs font-mono text-[#00E676]">LIVE</span>
+                  <span className="text-xs font-mono text-[#00E676]">{locale === 'ru' ? 'Сбор заявок' : 'Lead flow'}</span>
                 </div>
               </div>
 
@@ -330,28 +342,24 @@ export function Hero() {
                 ))}
               </div>
 
-              {/* Tree preview code snippet */}
+              {/* Business summary */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                className="mt-4 rounded-lg border border-white/5 bg-black/30 p-3 font-mono text-[11px] md:p-3.5 md:text-xs"
+                className="mt-4 rounded-lg border border-white/5 bg-black/30 p-3 md:p-3.5"
               >
-                <pre className="text-white/70 leading-relaxed">
-                  <span className="text-[#7C4DFF]">const</span> bot = {'{'}
-                  <br />
-                  <span className="ml-4 text-[#1E88E5]">handlers</span>: [
-                  <br />
-                  <span className="ml-8">startHandler,</span>
-                  <br />
-                  <span className="ml-8">menuFlow,</span>
-                  <br />
-                  <span className="ml-8">catalogView</span>
-                  <br />
-                  <span className="ml-4">]</span>
-                  <br />
-                  {'}'};
-                </pre>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45 md:text-xs">
+                  {locale === 'ru' ? 'Результат для бизнеса' : 'Business outcome'}
+                </div>
+                <div className="mt-3 space-y-2.5">
+                  {previewResults.map((item) => (
+                    <div key={item} className="flex items-start gap-2.5 text-sm leading-6 text-white/74">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#38BDF8]" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
               </motion.div>
             </div>
           </motion.div>

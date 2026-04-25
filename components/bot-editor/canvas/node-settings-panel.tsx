@@ -75,6 +75,7 @@ import {
   TemplateVariableTextarea,
   VariableAutocompleteInput,
 } from './variable-field-assist'
+import { BOT_SYSTEM_VARIABLE_NAMES } from '@/lib/bot-editor/system-variables'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 import {
   getNodeTemplateGuideKey,
@@ -109,6 +110,8 @@ const ICONS: Record<string, LucideIcon> = {
   script: Code2,
   comment: MessageCircle,
 }
+
+const NODE_LABEL_MAX_LENGTH = 48
 
 function getNodeHelpDocsHref(args: { locale: string; nodeType: NodeType }): string {
   const { locale, nodeType } = args
@@ -326,11 +329,21 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
   const [hasChanges, setHasChanges] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDetailedMode, setIsDetailedMode] = useState(false)
+  const [isEditingLabel, setIsEditingLabel] = useState(false)
+  const [labelDraft, setLabelDraft] = useState('')
+  const labelInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (node) {
       setData(node.data as NodeData)
       setHasChanges(false)
+      const nodeDataRecord = (node.data || {}) as Record<string, unknown>
+      const visibleLabel =
+        typeof nodeDataRecord.__label === 'string' && nodeDataRecord.__label.trim()
+          ? nodeDataRecord.__label.trim()
+          : ''
+      setLabelDraft(visibleLabel)
+      setIsEditingLabel(false)
     }
   }, [node])
 
@@ -356,6 +369,15 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
       document.body.style.overflow = previousOverflow
     }
   }, [isDetailedMode])
+
+  useEffect(() => {
+    if (!isEditingLabel) {
+      return
+    }
+
+    labelInputRef.current?.focus()
+    labelInputRef.current?.select()
+  }, [isEditingLabel])
 
   const yookassaAutoReturnUrl = useMemo(
     () => buildYookassaAutoReturnUrl({ locale, botId: bot?.id }),
@@ -411,6 +433,31 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
       ? String((data as Record<string, unknown>).__label)
       : config.label
 
+  const commitNodeLabel = () => {
+    const trimmed = labelDraft.trim().slice(0, NODE_LABEL_MAX_LENGTH)
+    const currentCustomLabel =
+      typeof (data as Record<string, unknown> | null)?.__label === 'string'
+        ? String((data as Record<string, unknown>).__label || '').trim()
+        : ''
+    const nextLabel =
+      !currentCustomLabel && trimmed === panelTitle.trim()
+        ? ''
+        : trimmed
+
+    handleUpdate({ __label: nextLabel })
+    setLabelDraft(nextLabel)
+    setIsEditingLabel(false)
+  }
+
+  const resetNodeLabelEdit = () => {
+    const currentLabel =
+      typeof (data as Record<string, unknown> | null)?.__label === 'string'
+        ? String((data as Record<string, unknown>).__label || '').trim()
+        : ''
+    setLabelDraft(currentLabel)
+    setIsEditingLabel(false)
+  }
+
   const handleUpdate = (newData: Partial<NodeData>) => {
     const updatedData = {
       ...(data as Record<string, unknown>),
@@ -457,7 +504,43 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className={`text-white font-semibold ${isDetailedMode ? 'text-base' : ''}`}>{panelTitle}</h3>
+                {isEditingLabel ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={labelInputRef}
+                      value={labelDraft}
+                      maxLength={NODE_LABEL_MAX_LENGTH}
+                      onChange={(event) => setLabelDraft(event.target.value.slice(0, NODE_LABEL_MAX_LENGTH))}
+                      onBlur={commitNodeLabel}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          commitNodeLabel()
+                        }
+                        if (event.key === 'Escape') {
+                          event.preventDefault()
+                          resetNodeLabelEdit()
+                        }
+                      }}
+                      placeholder={config.label}
+                      className="h-8 min-w-[180px] max-w-[260px] border-white/10 bg-zinc-950/80 px-2.5 text-sm font-semibold text-white"
+                    />
+                    <span className="text-[11px] text-zinc-500">
+                      {labelDraft.length}/{NODE_LABEL_MAX_LENGTH}
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLabelDraft(panelTitle)
+                      setIsEditingLabel(true)
+                    }}
+                    className={`rounded-md text-left font-semibold text-white transition-colors hover:text-[#7fd6ff] ${isDetailedMode ? 'text-base' : ''}`}
+                  >
+                    {panelTitle}
+                  </button>
+                )}
                 <HelpGuideButton
                   guideKey={nodeHelpGuideKey}
                   title={panelTitle}
@@ -1464,11 +1547,7 @@ function ConditionSettings({
     new Set(
       [
         ...variables,
-        'user.id',
-        'user.username',
-        'user.firstName',
-        'user.lastName',
-        'user.languageCode',
+        ...BOT_SYSTEM_VARIABLE_NAMES,
       ]
         .map((value) => String(value || '').trim())
         .map((value) => {
@@ -2689,7 +2768,7 @@ function HttpSettings({
                 id="http-body"
                 value={typeof data.body === 'string' ? data.body : JSON.stringify(data.body || {}, null, 2)}
                 onValueChange={(value) => onUpdate({ body: value })}
-                placeholder={th('bodyPlaceholder')}
+                placeholder={'{"key": "value"}'}
                 rows={5}
                 className="mt-1.5 bg-zinc-800/50 border-white/10 font-mono text-sm"
                 variables={variables}

@@ -28,13 +28,13 @@ export function Footer() {
 
   const productLinks = isRu
     ? [
-        { label: 'Возможности', href: `/${locale}#features` },
+        { label: 'Возможности', href: `/${locale}#business-advantage` },
         { label: 'Цены', href: `/${locale}/pricing` },
         { label: 'Документация', href: `/${locale}/docs` },
         // { label: 'API', href: `/${locale}/docs` },
       ]
     : [
-        { label: 'Features', href: `/${locale}#features` },
+        { label: 'Features', href: `/${locale}#business-advantage` },
         { label: 'Pricing', href: `/${locale}/pricing` },
         { label: 'Documentation', href: `/${locale}/docs` },
         // { label: 'API', href: `/${locale}/docs` },
@@ -61,26 +61,6 @@ export function Footer() {
   return (
     <footer className="border-t border-white/5 mt-auto relative overflow-hidden cyber-grid">
       <div className="max-w-7xl mx-auto px-4 py-16 relative z-10 md:py-20">
-
-        {/* System Status Indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={enterViewport}
-          transition={{ duration: 0.34, delay: 0.08 }}
-          className="flex items-center justify-center gap-4 mb-16"
-        >
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{
-              background: '#00E676',
-              boxShadow: '0 0 14px rgba(0, 230, 118, 0.28)',
-            }}
-          />
-          <span className="text-white/60 font-mono text-sm">{isRu ? 'Статус системы: ' : 'System Status: '}</span>
-          <span className="text-[#00E676] font-semibold">{isRu ? 'Работает' : 'Operational'}</span>
-        </motion.div>
-
         {/* Footer Links Grid */}
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand Column */}

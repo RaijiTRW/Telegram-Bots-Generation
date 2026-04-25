@@ -1,16 +1,22 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react'
-import type { Bot, BotConfig, EditorSection, BotState } from '@/lib/bot-editor/types/bot.types'
+import type { Bot, BotConfig, EditorSection, BotState, AiAgentRunSnapshot } from '@/lib/bot-editor/types/bot.types'
 import type { ViewerAccess } from '@/lib/billing/types'
 import {
   serializeWorkflowEdges,
   serializeWorkflowNodes,
 } from '@/lib/bot-editor/utils/workflow-serialization'
 
+interface EditorViewerProfile {
+  fullName: string | null
+  avatarUrl: string | null
+}
+
 interface BotStateContextValue extends BotState {
   isAdmin: boolean
   viewerAccess: ViewerAccess
+  currentUserProfile: EditorViewerProfile
   setBot: (bot: Bot | null) => void
   updateBotDraft: (patch: Partial<Bot>) => void
   setConfig: (config: BotConfig) => void
@@ -20,6 +26,14 @@ interface BotStateContextValue extends BotState {
   updateEdge: (edgeId: string, data: Record<string, unknown>) => void
   addVariable: (variable: Omit<import('@/lib/bot-editor/types/bot.types').BotVariable, 'id'>) => void
   removeVariable: (variableId: string) => void
+  syncServerState: (args: {
+    botPatch?: Partial<Bot>
+    config?: BotConfig
+  }) => void
+  agentRun: AiAgentRunSnapshot | null
+  isAgentRunActive: boolean
+  testLaunchMode: 'telegram' | 'live-preview'
+  setTestLaunchMode: (value: 'telegram' | 'live-preview') => void
   autoOpenTelegramAfterTest: boolean
   setAutoOpenTelegramAfterTest: (value: boolean) => void
 }
@@ -35,7 +49,7 @@ const initialConfig: BotConfig = {
 const initialState: BotState = {
   bot: null,
   config: initialConfig,
-  activeSection: 'canvas',
+  activeSection: 'ai-chat',
   isDirty: false,
   isLoading: false,
   error: null,
@@ -43,30 +57,37 @@ const initialState: BotState = {
 }
 
 const AUTO_OPEN_TELEGRAM_AFTER_TEST_STORAGE_KEY = 'tflow.editor.autoOpenTelegramAfterTest'
+const TEST_LAUNCH_MODE_STORAGE_KEY = 'tflow.editor.testLaunchMode'
 
-function readAutoOpenTelegramAfterTestPreference(): boolean {
+function readTestLaunchModePreference(): 'telegram' | 'live-preview' {
   if (typeof window === 'undefined') {
-    return true
+    return 'telegram'
   }
 
   try {
+    const storedMode = window.localStorage.getItem(TEST_LAUNCH_MODE_STORAGE_KEY)
+    if (storedMode === 'telegram' || storedMode === 'live-preview') {
+      return storedMode
+    }
+
     const stored = window.localStorage.getItem(AUTO_OPEN_TELEGRAM_AFTER_TEST_STORAGE_KEY)
-    if (stored === null) return true
-    return stored === '1'
+    if (stored === null) return 'telegram'
+    return stored === '1' ? 'telegram' : 'live-preview'
   } catch {
-    return true
+    return 'telegram'
   }
 }
 
-function writeAutoOpenTelegramAfterTestPreference(value: boolean) {
+function writeTestLaunchModePreference(value: 'telegram' | 'live-preview') {
   if (typeof window === 'undefined') {
     return
   }
 
   try {
+    window.localStorage.setItem(TEST_LAUNCH_MODE_STORAGE_KEY, value)
     window.localStorage.setItem(
       AUTO_OPEN_TELEGRAM_AFTER_TEST_STORAGE_KEY,
-      value ? '1' : '0'
+      value === 'telegram' ? '1' : '0'
     )
   } catch {
     // ignore localStorage access issues
@@ -140,13 +161,42 @@ function getBotDraftComparableSnapshot(bot: Bot | null): string {
   return stableStringify(getComparableBotDraft(bot))
 }
 
+function getAgentRun(bot: Bot | null | undefined): AiAgentRunSnapshot | null {
+  if (!bot?.metadata?.aiAgent || typeof bot.metadata.aiAgent !== 'object') {
+    return null
+  }
+
+  const currentRun = (bot.metadata.aiAgent as { currentRun?: AiAgentRunSnapshot | null }).currentRun
+  return currentRun || null
+}
+
+function isAgentRunActiveStatus(status?: AiAgentRunSnapshot['status'] | null): boolean {
+  return status === 'planning' || status === 'running' || status === 'verifying'
+}
+
+type AgentRunStatusResponse = {
+  success: boolean
+  snapshot: AiAgentRunSnapshot | null
+  config: BotConfig
+  metadata?: Bot['metadata']
+}
+
 interface BotStateProviderProps {
   children: ReactNode
   initialBot?: Bot | null
   viewerAccess: ViewerAccess
+  initialViewerProfile?: EditorViewerProfile
 }
 
-export function BotStateProvider({ children, initialBot = null, viewerAccess }: BotStateProviderProps) {
+export function BotStateProvider({
+  children,
+  initialBot = null,
+  viewerAccess,
+  initialViewerProfile = {
+    fullName: null,
+    avatarUrl: null,
+  },
+}: BotStateProviderProps) {
   const botBaselineSnapshotRef = useRef(getBotDraftComparableSnapshot(initialBot))
   const configBaselineSnapshotRef = useRef(getConfigComparableSnapshot(initialBot?.config ?? initialConfig))
   const [state, setState] = useState<BotState>({
@@ -154,24 +204,27 @@ export function BotStateProvider({ children, initialBot = null, viewerAccess }: 
     bot: initialBot,
     config: initialBot?.config ?? initialConfig,
   })
-  const [autoOpenTelegramAfterTest, setAutoOpenTelegramAfterTestState] = useState(
-    readAutoOpenTelegramAfterTestPreference
-  )
+  const [testLaunchMode, setTestLaunchModeState] = useState<'telegram' | 'live-preview'>('telegram')
+  const autoOpenTelegramAfterTest = testLaunchMode === 'telegram'
 
   useEffect(() => {
     // Rehydrate from localStorage after mount to avoid SSR/default-value drift.
-    const nextValue = readAutoOpenTelegramAfterTestPreference()
+    const nextValue = readTestLaunchModePreference()
     const timer = window.setTimeout(() => {
-      setAutoOpenTelegramAfterTestState(nextValue)
+      setTestLaunchModeState(nextValue)
     }, 0)
 
     return () => window.clearTimeout(timer)
   }, [])
 
-  const setAutoOpenTelegramAfterTest = useCallback((value: boolean) => {
-    setAutoOpenTelegramAfterTestState(value)
-    writeAutoOpenTelegramAfterTestPreference(value)
+  const setTestLaunchMode = useCallback((value: 'telegram' | 'live-preview') => {
+    setTestLaunchModeState(value)
+    writeTestLaunchModePreference(value)
   }, [])
+
+  const setAutoOpenTelegramAfterTest = useCallback((value: boolean) => {
+    setTestLaunchMode(value ? 'telegram' : 'live-preview')
+  }, [setTestLaunchMode])
 
   const getIsDirtyAgainstBaseline = useCallback((bot: Bot | null, config: BotConfig) => {
     if (getBotDraftComparableSnapshot(bot) !== botBaselineSnapshotRef.current) {
@@ -313,10 +366,102 @@ export function BotStateProvider({ children, initialBot = null, viewerAccess }: 
     })
   }, [getIsDirtyAgainstBaseline])
 
+  const syncServerState = useCallback((args: {
+    botPatch?: Partial<Bot>
+    config?: BotConfig
+  }) => {
+    setState((prev) => {
+      const nextBot = prev.bot
+        ? {
+            ...prev.bot,
+            ...(args.botPatch || {}),
+            metadata: {
+              ...(prev.bot.metadata || {}),
+              ...(((args.botPatch?.metadata as Record<string, unknown> | undefined) || {})),
+            },
+          }
+        : prev.bot
+      const nextConfig = args.config ?? prev.config
+
+      botBaselineSnapshotRef.current = getBotDraftComparableSnapshot(nextBot)
+      configBaselineSnapshotRef.current = getConfigComparableSnapshot(nextConfig)
+
+      return {
+        ...prev,
+        bot: nextBot,
+        config: nextConfig,
+        isDirty: false,
+      }
+    })
+  }, [])
+
+  const activeAgentRun = getAgentRun(state.bot)
+  const isAgentRunActive = isAgentRunActiveStatus(activeAgentRun?.status)
+
+  useEffect(() => {
+    const botId = String(state.bot?.id || '').trim()
+    const runId = activeAgentRun?.runId
+
+    if (!botId || !runId || !isAgentRunActive) {
+      return
+    }
+
+    let cancelled = false
+    let inFlight = false
+
+    const poll = async () => {
+      if (inFlight) return
+      inFlight = true
+
+      try {
+        const response = await fetch(`/api/bot-agent-runs/${encodeURIComponent(botId)}/status`, {
+          method: 'GET',
+          cache: 'no-store',
+        })
+        if (cancelled || !response.ok) {
+          return
+        }
+
+        const result = (await response.json()) as AgentRunStatusResponse
+        if (cancelled || !result.success) {
+          return
+        }
+
+        syncServerState({
+          config: result.config,
+          botPatch: {
+            metadata: {
+              ...(((result.metadata as Record<string, unknown> | undefined) || {})),
+              aiAgent: {
+                ...(((result.metadata?.aiAgent as Record<string, unknown> | undefined) || {})),
+                currentRun: result.snapshot || null,
+              },
+            },
+          },
+        })
+      } catch {
+        // Background status polling should not break the editor UI.
+      } finally {
+        inFlight = false
+      }
+    }
+
+    void poll()
+    const interval = window.setInterval(() => {
+      void poll()
+    }, 900)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [activeAgentRun?.runId, isAgentRunActive, state.bot?.id, syncServerState, activeAgentRun?.status])
+
   const value: BotStateContextValue = {
     ...state,
     isAdmin: viewerAccess.isAdmin,
     viewerAccess,
+    currentUserProfile: initialViewerProfile,
     setBot,
     updateBotDraft,
     setConfig,
@@ -326,6 +471,11 @@ export function BotStateProvider({ children, initialBot = null, viewerAccess }: 
     updateEdge,
     addVariable,
     removeVariable,
+    syncServerState,
+    agentRun: activeAgentRun,
+    isAgentRunActive,
+    testLaunchMode,
+    setTestLaunchMode,
     autoOpenTelegramAfterTest,
     setAutoOpenTelegramAfterTest,
   }

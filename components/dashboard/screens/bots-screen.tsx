@@ -32,7 +32,7 @@ export default function BotsPage() {
   // Get locale from pathname
   const locale = pathname.split('/')[1] || 'ru'
   const getEditorHref = useCallback(
-    (botId: string) => `/${locale}/dashboard/bots/${botId}/editor/canvas`,
+    (botId: string) => `/${locale}/dashboard/bots/${botId}/editor`,
     [locale]
   )
   const getActionErrorMessage = useCallback((error: unknown, fallback: string) => {

@@ -99,6 +99,34 @@ const scrollRestorationBootstrapScript = `
 })();
 `;
 
+const abortErrorSuppressorBootstrapScript = `
+(() => {
+  const isAbortLike = (value) => {
+    if (!value) return false;
+    const text = typeof value === 'string'
+      ? value
+      : [value.name, value.code, value.message].filter(Boolean).join(' ');
+    return (
+      text.includes('AbortError') ||
+      text.includes('ABORT_ERR') ||
+      text.includes('signal is aborted without reason') ||
+      text.includes('The operation was aborted') ||
+      text.includes('This operation was aborted')
+    );
+  };
+
+  window.addEventListener('unhandledrejection', (event) => {
+    if (!isAbortLike(event.reason)) return;
+    event.preventDefault();
+  });
+
+  window.addEventListener('error', (event) => {
+    if (!isAbortLike(event.error) && !isAbortLike(event.message)) return;
+    event.preventDefault();
+  });
+})();
+`;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -110,6 +138,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} data-performance="full" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: abortErrorSuppressorBootstrapScript }} />
         <script dangerouslySetInnerHTML={{ __html: performanceModeBootstrapScript }} />
         <script dangerouslySetInnerHTML={{ __html: scrollRestorationBootstrapScript }} />
         <link rel="icon" href="/icon.png" type="image/png" />

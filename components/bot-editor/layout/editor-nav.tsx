@@ -3,12 +3,13 @@
 import { startTransition, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { MessageSquare, Workflow, Settings, Cpu, BarChart3, Lock } from 'lucide-react'
+import { BarChart3, Bot, Cpu, Loader2, Settings, Workflow } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { EditorSection as EditorSectionType } from '@/lib/bot-editor/types/bot.types'
 import type { ViewerAccess } from '@/lib/billing/types'
 import { preloadEditorSection } from './editor-section-viewport'
 import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
+import { AiSectionIcon } from '@/components/bot-editor/chat/ai-section-icon'
 
 export type EditorSection = EditorSectionType
 
@@ -18,6 +19,7 @@ interface EditorNavProps {
   activeSection: EditorSection
   onSectionChange: (section: EditorSection) => void
   isDirty?: boolean
+  isAiAssistantWorking?: boolean
   mode?: 'full' | 'compact'
   className?: string
 }
@@ -33,12 +35,16 @@ interface NavItem {
 
 const staticNavItems: Omit<NavItem, 'labelKey' | 'descKey'>[] = [
   {
-    id: 'canvas',
-    icon: Workflow,
+    id: 'ai-chat',
+    icon: AiSectionIcon,
   },
   {
-    id: 'ai-chat',
-    icon: MessageSquare,
+    id: 'ai-agents',
+    icon: Bot,
+  },
+  {
+    id: 'canvas',
+    icon: Workflow,
   },
   {
     id: 'system',
@@ -63,6 +69,7 @@ export function EditorNav({
   activeSection,
   onSectionChange,
   isDirty = false,
+  isAiAssistantWorking = false,
   mode = 'full',
   className,
 }: EditorNavProps) {
@@ -70,7 +77,6 @@ export function EditorNav({
   const locale = useLocale()
   const router = useRouter()
   const isCompact = mode === 'compact'
-  const canUseAiChat = viewerAccess.isAdmin
   type NavTranslationKey = Parameters<typeof t>[0]
 
   const navItems = useMemo(() => {
@@ -82,6 +88,10 @@ export function EditorNav({
         case 'canvas':
           labelKey = 'canvas'
           descKey = 'canvasDesc'
+          break
+        case 'ai-agents':
+          labelKey = 'aiAgents'
+          descKey = 'aiAgentsDesc'
           break
         case 'ai-chat':
           labelKey = 'aiAssistant'
@@ -105,16 +115,17 @@ export function EditorNav({
         ...item,
         labelKey,
         descKey,
-        disabled: item.id === 'ai-chat' && !canUseAiChat,
-        badgeKey: item.id === 'ai-chat' ? 'soonBadge' : undefined,
+        disabled: item.id === 'ai-agents' ? !viewerAccess.isAdmin : false,
+        badgeKey: item.id === 'ai-agents' && !viewerAccess.isAdmin ? 'soonBadge' : undefined,
       }
     })
-  }, [canUseAiChat])
+  }, [viewerAccess.isAdmin])
 
   const sectionHrefs = useMemo<Record<EditorSection, string>>(
     () => ({
-      canvas: buildSectionHref(locale, botId, 'canvas'),
       'ai-chat': buildSectionHref(locale, botId, 'ai-chat'),
+      'ai-agents': buildSectionHref(locale, botId, 'ai-agents'),
+      canvas: buildSectionHref(locale, botId, 'canvas'),
       system: buildSectionHref(locale, botId, 'system'),
       statistics: buildSectionHref(locale, botId, 'statistics'),
       settings: buildSectionHref(locale, botId, 'settings'),
@@ -132,17 +143,11 @@ export function EditorNav({
   }, [navItems])
 
   const prefetchSection = (section: EditorSection) => {
-    if (section === 'ai-chat' && !canUseAiChat) {
-      return
-    }
     prefetchHrefOnce(router, sectionHrefs[section])
     void preloadEditorSection(section)
   }
 
   const handleSectionChange = (section: EditorSection) => {
-    if (section === 'ai-chat' && !canUseAiChat) {
-      return
-    }
     onSectionChange(section)
     const targetHref = sectionHrefs[section]
     prefetchSection(section)
@@ -154,13 +159,13 @@ export function EditorNav({
   return (
     <nav
       className={cn(
-        'h-full min-h-0 p-4 flex flex-col bg-zinc-950/50 backdrop-blur-xl',
+        'flex h-full min-h-0 flex-col overflow-hidden bg-zinc-950/50 p-4 backdrop-blur-xl',
         isCompact ? 'items-center px-2' : 'px-4',
         className
       )}
     >
       {/* Header */}
-      <div className={cn('mb-6', isCompact ? 'w-full px-0' : 'px-2')}>
+      <div className={cn('mb-6 shrink-0', isCompact ? 'w-full px-0' : 'px-2')}>
         {isDirty && (
           isCompact ? (
             <div className="mt-2 flex items-center justify-center">
@@ -181,19 +186,24 @@ export function EditorNav({
       </div>
 
       {/* Navigation items */}
-      <div className={cn('flex-1 space-y-1 w-full', isCompact ? 'px-0' : 'px-2')}>
+      <div
+        className={cn(
+          'flex-1 min-h-0 w-full space-y-1 overflow-y-auto [scrollbar-gutter:stable] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5',
+          isCompact ? 'px-0' : 'px-2 pr-1'
+        )}
+      >
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = activeSection === item.id
           const isDisabled = Boolean(item.disabled)
           const label = t(item.labelKey as NavTranslationKey)
           const description = t(item.descKey as NavTranslationKey)
-          const disabledHint =
-            item.id === 'ai-chat' && isDisabled
-              ? t('soonLocked')
-              : isDisabled
-                ? t('subscriptionRequired')
-                : undefined
+          const isAiAssistantItemWorking = item.id === 'ai-chat' && isAiAssistantWorking
+          const disabledHint = isDisabled
+            ? item.id === 'ai-agents'
+              ? t('aiAgentsLocked')
+              : t('subscriptionRequired')
+            : undefined
 
           return (
             <button
@@ -240,26 +250,29 @@ export function EditorNav({
                   )} />
                 </div>
                 {!isCompact && (
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{label}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="line-clamp-2 text-sm font-medium leading-5">{label}</div>
+                      {isAiAssistantItemWorking ? (
+                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#24A1DE]/25 bg-[#24A1DE]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-[#8ED8FF]">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {t('workingBadge' as NavTranslationKey)}
+                        </span>
+                      ) : null}
+                      {item.badgeKey && (
+                        <span className="inline-flex shrink-0 items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-400">
+                          {t(item.badgeKey as NavTranslationKey)}
+                        </span>
+                      )}
+                    </div>
                     <div
                       className={cn(
-                        'text-xs mt-0.5',
+                        'mt-0.5 line-clamp-3 text-xs leading-5',
                         isActive ? 'text-zinc-300/90' : 'text-zinc-500 group-hover:text-zinc-400'
                       )}
                     >
                       {description}
                     </div>
-                  </div>
-                )}
-                {(isDisabled || (!isCompact && item.badgeKey)) && (
-                  <div className="flex items-center gap-1.5 ml-2">
-                    {isDisabled ? <Lock className="w-3.5 h-3.5 text-zinc-500" /> : null}
-                    {!isCompact && item.badgeKey && (
-                      <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">
-                        {t(item.badgeKey as NavTranslationKey)}
-                      </span>
-                    )}
                   </div>
                 )}
                 {isActive && !isCompact && (
@@ -270,6 +283,9 @@ export function EditorNav({
                     )}
                   />
                 )}
+                {isAiAssistantItemWorking && isCompact ? (
+                  <Loader2 className="absolute right-1 top-1 h-3 w-3 animate-spin text-[#8ED8FF]" />
+                ) : null}
               </div>
             </button>
           )
@@ -278,13 +294,13 @@ export function EditorNav({
 
       {/* Footer info */}
       {!isCompact ? (
-        <div className="pt-4 border-t border-white/10 px-2">
-          <div className="text-xs text-zinc-500 text-center">
+        <div className="shrink-0 border-t border-white/10 px-2 pt-4">
+          <div className="flex flex-wrap items-center justify-center gap-1.5 text-center text-xs text-zinc-500">
             {t('press')} <kbd className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">Cmd/Ctrl+S</kbd> {t('toSave')}
           </div>
         </div>
       ) : (
-        <div className="pt-4 border-t border-white/10 w-full flex items-center justify-center">
+        <div className="flex w-full shrink-0 items-center justify-center border-t border-white/10 pt-4">
           <kbd
             className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 text-[10px]"
             title={t('saveShortcutTitle')}

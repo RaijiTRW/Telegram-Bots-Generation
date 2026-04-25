@@ -7,11 +7,6 @@ import { Briefcase } from 'lucide-react';
 import { useInView, useReducedMotion } from 'framer-motion';
 import { BorderBeam } from '@/components/ui/border-beam';
 
-const audienceChips = {
-  ru: ['Заявки', 'Запись', 'FAQ', 'Прогрев', 'Выдача материалов', 'Мини-воронки'],
-  en: ['Leads', 'Booking', 'FAQ', 'Warm-up flows', 'Content delivery', 'Mini funnels'],
-};
-
 const starterSummary = {
   ru: {
     eyebrow: 'Что обычно теряют на старте',
@@ -408,26 +403,27 @@ export function BusinessAdvantage() {
               <>
                 Не бот ради бота, а{' '}
                 <span className="bg-gradient-to-r from-[#1E88E5] via-[#38BDF8] to-[#7C4DFF] bg-clip-text text-transparent">
-                  быстрый запуск задачи
+                  быстрый запуск
                 </span>
               </>
             ) : (
               <>
                 Not a bot for the sake of a bot, but a{' '}
                 <span className="bg-gradient-to-r from-[#1E88E5] via-[#38BDF8] to-[#7C4DFF] bg-clip-text text-transparent">
-                  faster business launch
+                  faster launch
                 </span>
               </>
             )}
           </h2>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-white/74">
             {isRu
-              ? 'CBTooll нужен бизнесу, которому надо быстро запустить Telegram-бота для заявок, записи, FAQ, прогрева или выдачи материалов без долгой кастомной разработки и без тех. боли на старте.'
-              : 'CBTooll is for teams that need to launch Telegram bots for leads, booking, FAQ, warm-up flows, or content delivery without long custom development or early technical overhead.'}
+              ? 'Запустите Telegram-бота под задачу без долгой кастомной разработки и лишней тех. боли на старте.'
+              : 'Launch a Telegram bot for the job without a long custom build or early technical overhead.'}
           </p>
         </motion.div>
 
-        <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-12">
+          <div className="grid gap-8 md:grid-cols-2 md:gap-x-16 md:gap-y-10 xl:grid-cols-4 xl:gap-x-14">
           {proofStats.map((item, index) => {
             const title = isRu ? item.title.ru : item.title.en;
 
@@ -438,12 +434,9 @@ export function BusinessAdvantage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={enterViewport}
                 transition={{ duration: 0.34, delay: 0.06 + index * 0.05 }}
-                className="rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-6 backdrop-blur-xl"
+                className="px-0"
               >
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-white/72">
-                  {isRu ? 'Ориентир по запуску' : 'Launch benchmark'}
-                </div>
-                <div className="mt-5 overflow-hidden text-4xl font-bold text-white md:text-5xl">
+                <div className="overflow-hidden text-5xl font-bold tracking-tight text-white md:text-6xl">
                   <AnimatedMetric
                     value={item.value}
                     startValue={item.startValue}
@@ -451,12 +444,13 @@ export function BusinessAdvantage() {
                     suffix={item.suffix}
                   />
                 </div>
-                <div className="mt-4 text-lg font-semibold leading-7 text-white">
+                <div className="mt-3 max-w-[15ch] text-base font-medium leading-6 text-white/74 md:text-lg md:leading-7">
                   {title}
                 </div>
               </motion.div>
             );
           })}
+          </div>
         </div>
 
         <div className="mt-8">
@@ -472,18 +466,7 @@ export function BusinessAdvantage() {
             </div>
 
             <div className="relative">
-              <div className="flex flex-wrap gap-2">
-                {(isRu ? audienceChips.ru : audienceChips.en).map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-6">
+              <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-white/72">
                   {summary.eyebrow}
                 </div>

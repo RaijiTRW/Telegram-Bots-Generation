@@ -23,24 +23,27 @@ interface EditorSectionViewportProps {
 }
 
 const EDITOR_SECTION_ORDER: EditorSection[] = [
-  'canvas',
   'ai-chat',
+  'ai-agents',
+  'canvas',
   'system',
   'statistics',
   'settings',
 ]
 
 const EDITOR_SECTION_LABELS: Record<EditorSection, string> = {
-  canvas: 'Canvas',
-  'ai-chat': 'AI Assistant',
-  system: 'System',
-  statistics: 'Statistics',
-  settings: 'Settings',
+  'ai-chat': 'Business Start',
+  'ai-agents': 'AI Agents',
+  canvas: 'Advanced Editor',
+  system: 'Telegram & Launch',
+  statistics: 'Analytics',
+  settings: 'Bot',
 }
 
 const editorSectionLoaders: Record<EditorSection, () => Promise<EditorSectionModule>> = {
-  canvas: () => import('@/components/bot-editor/screens/canvas-screen'),
   'ai-chat': () => import('@/components/bot-editor/screens/ai-chat-screen'),
+  'ai-agents': () => import('@/components/bot-editor/screens/ai-agents-screen'),
+  canvas: () => import('@/components/bot-editor/screens/canvas-screen'),
   system: () => import('@/components/bot-editor/screens/system-screen'),
   statistics: () => import('@/components/bot-editor/screens/statistics-screen'),
   settings: () => import('@/components/bot-editor/screens/settings-screen'),

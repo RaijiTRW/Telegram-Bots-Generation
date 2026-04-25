@@ -30,12 +30,43 @@ export default async function BotEditorLayout({
     redirect(`/${locale}/dashboard/bots`)
   }
   const viewerAccess = await getViewerAccess(user.id)
+  const userMetadata =
+    user.user_metadata && typeof user.user_metadata === 'object'
+      ? (user.user_metadata as Record<string, unknown>)
+      : {}
+  const fallbackFullName =
+    typeof userMetadata.full_name === 'string' && userMetadata.full_name.trim()
+      ? userMetadata.full_name.trim()
+      : user.email?.split('@')[0] || null
+  const fallbackAvatarUrl =
+    typeof userMetadata.avatar_url === 'string' && userMetadata.avatar_url.trim()
+      ? userMetadata.avatar_url.trim()
+      : null
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('full_name, avatar_url')
+    .eq('id', user.id)
+    .maybeSingle()
   const helpGuideLocale: HelpGuideLocale = locale === 'en' ? 'en' : 'ru'
   const helpGuides = await getPublishedSanityHelpGuideMap(helpGuideLocale)
+  const initialViewerProfile = {
+    fullName:
+      typeof profileRow?.full_name === 'string' && profileRow.full_name.trim()
+        ? profileRow.full_name.trim()
+        : fallbackFullName,
+    avatarUrl:
+      typeof profileRow?.avatar_url === 'string' && profileRow.avatar_url.trim()
+        ? profileRow.avatar_url.trim()
+        : fallbackAvatarUrl,
+  }
 
   return (
     <EditorHelpGuidesProvider guides={helpGuides}>
-      <BotStateProvider initialBot={bot} viewerAccess={viewerAccess}>
+      <BotStateProvider
+        initialBot={bot}
+        viewerAccess={viewerAccess}
+        initialViewerProfile={initialViewerProfile}
+      >
         <EditorShell botId={botId} viewerAccess={viewerAccess}>
           {children}
         </EditorShell>

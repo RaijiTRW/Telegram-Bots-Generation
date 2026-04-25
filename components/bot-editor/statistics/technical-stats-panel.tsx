@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Activity, AlertTriangle, Gauge, Users, Bug, RefreshCcw } from 'lucide-react'
+import { Activity, AlertTriangle, Gauge, Users, Bug, RefreshCcw, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import { getBotTechnicalStatsAction } from '@/lib/bot-editor/actions/editor-actions'
 import type { BotTechnicalStats, BotTechnicalStatsRange } from '@/lib/bot-editor/types/analytics.types'
@@ -27,6 +28,7 @@ export function TechnicalStatsPanel() {
   const [stats, setStats] = useState<BotTechnicalStats | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isAuditExpanded, setIsAuditExpanded] = useState(false)
 
   const loadStats = useCallback(async (nextRange: BotTechnicalStatsRange) => {
     if (!botId) return
@@ -99,6 +101,9 @@ export function TechnicalStatsPanel() {
     if (!stats?.timeline.length) return 1
     return Math.max(...stats.timeline.map((point) => point.total), 1)
   }, [stats])
+
+  const recentAuditEvents = stats?.recentAuditEvents || []
+  const hasExpandableAuditList = recentAuditEvents.length > 5
 
   const formatDateTime = useCallback((value: string) => {
     if (!value) return '—'
@@ -220,16 +225,52 @@ export function TechnicalStatsPanel() {
 
         <Card className="border-white/10 bg-zinc-950/40">
           <CardHeader className="pb-3">
-            <CardTitle className="text-white text-base">{t('auditTitle')}</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-white text-base">{t('auditTitle')}</CardTitle>
+              {hasExpandableAuditList ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsAuditExpanded((prev) => !prev)}
+                  className="h-8 rounded-full border border-white/10 bg-white/[0.03] px-3 text-xs text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                >
+                  {isAuditExpanded ? (
+                    <ChevronUp className="mr-1.5 h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {isAuditExpanded
+                    ? t('auditCollapse')
+                    : t('auditExpand', { count: recentAuditEvents.length })}
+                </Button>
+              ) : null}
+            </div>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {stats?.recentAuditEvents.length ? (
-              stats.recentAuditEvents.map((event) => (
-                <div key={event.id} className="rounded-lg border border-white/10 px-3 py-2">
-                  <div className="text-sm text-white">{event.eventType}</div>
-                  <div className="text-xs text-zinc-400 mt-1">{formatDateTime(event.createdAt)}</div>
+          <CardContent>
+            {recentAuditEvents.length ? (
+              <div className="relative">
+                <div
+                  className={cn(
+                    'space-y-2 overflow-y-auto pr-1 [scrollbar-gutter:stable] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5',
+                    hasExpandableAuditList
+                      ? isAuditExpanded
+                        ? 'max-h-[32rem]'
+                        : 'max-h-[19rem]'
+                      : ''
+                  )}
+                >
+                  {recentAuditEvents.map((event) => (
+                    <div key={event.id} className="rounded-lg border border-white/10 px-3 py-2">
+                      <div className="text-sm text-white">{event.eventType}</div>
+                      <div className="mt-1 text-xs text-zinc-400">{formatDateTime(event.createdAt)}</div>
+                    </div>
+                  ))}
                 </div>
-              ))
+                {hasExpandableAuditList && !isAuditExpanded ? (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-zinc-950/95 via-zinc-950/70 to-transparent" />
+                ) : null}
+              </div>
             ) : (
               <div className="text-sm text-zinc-400">{t('noAuditEvents')}</div>
             )}

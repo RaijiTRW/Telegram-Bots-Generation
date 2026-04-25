@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { CreditCard, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BillingIntervalToggle } from '@/components/billing/billing-interval-toggle'
 import { PaymentSoonModal } from '@/components/billing/payment-soon-modal'
@@ -50,16 +49,11 @@ export function PublicPricingPageClient({
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="max-w-2xl space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
           <h1 className="text-3xl font-semibold text-white">
-            {isRu ? 'Цены на конструктор Telegram-ботов для бизнеса' : 'Pricing for a business Telegram bot builder'}
+            {isRu ? 'Тарифы' : 'Pricing'}
           </h1>
-          <p className="text-sm leading-6 text-zinc-400">
-            {isRu
-              ? 'Сравните стоимость запуска Telegram-бота: бесплатный старт, Business для заявок и роста, Enterprise для расширенной аналитики и лимитов. При оплате за год цена пересчитывается сразу.'
-              : 'Compare the cost of launching a Telegram bot: free start, Business for growth, and Enterprise for stronger analytics and higher limits. Annual billing recalculates instantly.'}
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -75,54 +69,6 @@ export function PublicPricingPageClient({
                 </Button>
               ))
             : null}
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-6">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
-              <Sparkles className="h-5 w-5 text-[#24A1DE]" />
-            </div>
-            <div>
-              <div className="text-sm font-medium text-white">{isRu ? 'Base' : 'Base'}</div>
-              <div className="text-sm text-zinc-400">
-                {isRu ? 'Старт без оплаты, до 3 ботов и ZIP-экспорт.' : 'Free start, up to 3 bots and ZIP export.'}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-3xl border border-[#24A1DE]/25 bg-gradient-to-br from-[#24A1DE]/12 via-zinc-950/85 to-[#8B5CF6]/12 p-6 shadow-[0_16px_50px_rgba(36,161,222,0.14)]">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl border border-[#24A1DE]/25 bg-[#24A1DE]/15 p-2.5">
-              <CreditCard className="h-5 w-5 text-[#9EDFFF]" />
-            </div>
-            <div>
-              <div className="text-sm font-medium text-white">{isRu ? 'Business — основной выбор' : 'Business — default choice'}</div>
-              <div className="text-sm text-zinc-300">
-                {billingInterval === 'year'
-                  ? isRu
-                    ? 'При оплате за год этот тариф считается со скидкой 75% на все 12 месяцев.'
-                    : 'With annual billing this plan is charged with a 75% discount across all 12 months.'
-                  : isRu
-                    ? 'CRM, AI-ноды, dashboard-аналитика и размещение на нашем хостинге в одном тарифе.'
-                    : 'CRM, AI nodes, dashboard analytics, and managed hosting in one plan.'}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-6">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
-              <Sparkles className="h-5 w-5 text-[#8B5CF6]" />
-            </div>
-            <div>
-              <div className="text-sm font-medium text-white">{isRu ? 'Enterprise' : 'Enterprise'}</div>
-              <div className="text-sm text-zinc-400">
-                {isRu ? 'Полная аналитика, AI Chat (скоро) и максимальные лимиты.' : 'Full analytics, AI Chat (coming soon), and the highest limits.'}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType, CSSProperties } from 'react'
-import { Handle, Position, NodeProps, useUpdateNodeInternals } from 'reactflow'
+import { Handle, Position, NodeProps, useStore, useUpdateNodeInternals } from 'reactflow'
 import { useTranslations } from 'next-intl'
 import {
   MessageSquare,
@@ -18,7 +18,8 @@ import {
   CreditCard,
   Star,
   Trash2,
-  Settings
+  Settings,
+  Plus,
 } from 'lucide-react'
 
 // Base node styles
@@ -135,6 +136,8 @@ const getNodeColor = (type: string) => {
   }
 }
 
+const DEFAULT_SOURCE_HANDLE_KEY = '__default__'
+
 interface RouterCasePreview {
   id: string
   label: string
@@ -183,16 +186,118 @@ const getTriggerNodeLabel = (data: Record<string, unknown>): string => {
   }
 }
 
+type InsertMenuDirection = 'top' | 'bottom' | 'right'
+
+type InsertMenuRequest = {
+  clientX: number
+  clientY: number
+  nodeId: string
+  direction: InsertMenuDirection
+  sourceHandle?: string | null
+}
+
+type InsertMenuOpener = (request: InsertMenuRequest) => void
+
+function getInsertButtonPositionStyle(
+  direction: InsertMenuDirection,
+  anchorStyle?: CSSProperties
+): CSSProperties {
+  const baseStyle = { ...(anchorStyle || {}) }
+
+  if (direction === 'top') {
+    return {
+      ...baseStyle,
+      left: baseStyle.left ?? '50%',
+      top: baseStyle.top ?? 0,
+      transform: 'translate(-50%, calc(-100% - 10px))',
+    }
+  }
+
+  if (direction === 'right') {
+    return {
+      ...baseStyle,
+      left: '100%',
+      transform: 'translate(10px, -50%)',
+    }
+  }
+
+  return {
+    ...baseStyle,
+    left: baseStyle.left ?? '50%',
+    top: '100%',
+    transform: 'translate(-50%, 10px)',
+  }
+}
+
+interface HandleInsertButtonProps {
+  nodeId: string
+  direction: InsertMenuDirection
+  nodeColor: string
+  ariaLabel: string
+  onOpen?: InsertMenuOpener
+  style?: CSSProperties
+  sourceHandle?: string | null
+}
+
+function HandleInsertButton({
+  nodeId,
+  direction,
+  nodeColor,
+  ariaLabel,
+  onOpen,
+  style,
+  sourceHandle,
+}: HandleInsertButtonProps) {
+  if (!onOpen) {
+    return null
+  }
+
+  return (
+    <button
+      type="button"
+      className="nodrag nopan absolute z-30 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white/15 bg-black/90 text-white/75 shadow-[0_6px_18px_rgba(0,0,0,0.28)] transition-all duration-150 hover:scale-105 hover:text-white"
+      style={{
+        ...getInsertButtonPositionStyle(direction, style),
+        boxShadow: `0 0 0 1px ${nodeColor}25, 0 8px 20px rgba(0, 0, 0, 0.28)`,
+      }}
+      aria-label={ariaLabel}
+      onMouseDown={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        const bounds = event.currentTarget.getBoundingClientRect()
+        onOpen({
+          clientX: bounds.left + bounds.width / 2,
+          clientY: bounds.top + bounds.height / 2,
+          nodeId,
+          direction,
+          sourceHandle,
+        })
+      }}
+    >
+      <Plus className="h-2.5 w-2.5" />
+    </button>
+  )
+}
+
 // Base Custom Node Component
 const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const tCanvas = useTranslations('editor.canvas')
   const updateNodeInternals = useUpdateNodeInternals()
+  const edges = useStore((state) => state.edges)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const routerCaseRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [routerCaseHandleTops, setRouterCaseHandleTops] = useState<Record<string, number>>({})
   const nodeColor = getNodeColor(type || data.type)
   const normalizedType = type || data.type
   const dataRecord = data as Record<string, unknown>
+  const openInsertMenu =
+    typeof dataRecord.onOpenInsertMenu === 'function'
+      ? (dataRecord.onOpenInsertMenu as InsertMenuOpener)
+      : undefined
   const actionType =
     normalizedType === 'action' && dataRecord.action && typeof dataRecord.action === 'object'
       ? String((dataRecord.action as Record<string, unknown>).type || '')
@@ -210,11 +315,29 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'router'
       ? routerCases.map((routerCase) => `${routerCase.id}:${routerCase.label}:${routerCase.value}`).join('|')
       : ''
+  const hasIncomingConnection = useMemo(
+    () => edges.some((edge) => edge.target === id),
+    [edges, id]
+  )
+  const connectedSourceHandles = useMemo(() => {
+    const connectedHandles = new Set<string>()
+    for (const edge of edges) {
+      if (edge.source !== id) continue
+      connectedHandles.add(edge.sourceHandle ?? DEFAULT_SOURCE_HANDLE_KEY)
+    }
+    return connectedHandles
+  }, [edges, id])
+  const hasSourceConnection = useCallback(
+    (handleId?: string | null) => connectedSourceHandles.has(handleId ?? DEFAULT_SOURCE_HANDLE_KEY),
+    [connectedSourceHandles]
+  )
 
-  const nodeLabel =
+  const customNodeLabel = String(dataRecord.__label || '').trim()
+  const nodeLabel = customNodeLabel || (
     normalizedType === 'trigger'
       ? getTriggerNodeLabel(dataRecord)
-      : String(dataRecord.__label ?? dataRecord.label ?? normalizedType)
+      : String(dataRecord.label ?? normalizedType)
+  )
   const commentPreview =
     normalizedType === 'comment'
       ? String(dataRecord.text || '').trim()
@@ -223,6 +346,25 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'wait'
       ? String(dataRecord.waitFor || '').trim()
       : ''
+  const executionState = String(dataRecord.__executionState || '').trim()
+  const isExecutionActive = executionState === 'active' || executionState === 'waiting'
+  const isExecutionRecent = executionState === 'recent'
+  const executionNodeClassName =
+    executionState === 'waiting'
+      ? 'border-emerald-300/60 shadow-[0_0_0_1px_rgba(52,211,153,0.34),0_0_24px_rgba(16,185,129,0.16)]'
+      : executionState === 'active'
+        ? 'border-cyan-300/65 shadow-[0_0_0_1px_rgba(103,232,249,0.36),0_0_26px_rgba(56,189,248,0.18)]'
+        : executionState === 'recent'
+          ? 'border-sky-300/45 shadow-[0_0_0_1px_rgba(56,189,248,0.2),0_0_16px_rgba(36,161,222,0.12)]'
+          : ''
+  const executionDotClassName =
+    executionState === 'waiting'
+      ? 'bg-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)] animate-pulse'
+      : executionState === 'active'
+        ? 'bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.55)] animate-pulse'
+        : executionState === 'recent'
+          ? 'bg-sky-300/90 shadow-[0_0_8px_rgba(56,189,248,0.35)]'
+          : ''
 
   const setRouterCaseRowRef = useCallback((caseId: string, element: HTMLDivElement | null) => {
     routerCaseRowRefs.current[caseId] = element
@@ -279,16 +421,39 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   return (
     <div
       ref={rootRef}
-      className={`${getNodeStyles(normalizedType)} ${selected ? 'ring-2 ring-white/50' : ''}`}
+      className={`${getNodeStyles(normalizedType)} group/node ${selected ? 'ring-2 ring-white/50' : ''} ${executionNodeClassName}`}
     >
+      {(isExecutionActive || isExecutionRecent) && (
+        <div
+          className={`pointer-events-none absolute inset-0 rounded-lg ${
+            executionState === 'waiting'
+              ? 'bg-emerald-400/6'
+              : executionState === 'active'
+                ? 'bg-cyan-400/6'
+                : 'bg-sky-400/5'
+          }`}
+        />
+      )}
+
       {/* Input Handle */}
       {type !== 'trigger' && type !== 'comment' && (
-        <Handle
-          type="target"
-          position={Position.Top}
-          className="!w-2 !h-2 !border-2 !border-white/20 !bg-transparent"
-          style={{ background: 'transparent' }}
-        />
+        <>
+          <Handle
+            type="target"
+            position={Position.Top}
+            className="!w-2 !h-2 !border-2 !border-white/20 !bg-transparent"
+            style={{ background: 'transparent' }}
+          />
+          {!hasIncomingConnection && (
+            <HandleInsertButton
+              nodeId={id}
+              direction="top"
+              nodeColor={nodeColor}
+              ariaLabel={tCanvas('insertNodeHere')}
+              onOpen={openInsertMenu}
+            />
+          )}
+        </>
       )}
 
       {/* Node Header */}
@@ -302,6 +467,9 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
         <div className="text-xs font-medium text-white capitalize truncate">
           {nodeLabel}
         </div>
+        {(isExecutionActive || isExecutionRecent) && (
+          <span className={`ml-auto h-2 w-2 shrink-0 rounded-full ${executionDotClassName}`} />
+        )}
       </div>
 
       {normalizedType === 'wait' && waitPreview && (
@@ -368,6 +536,15 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             className="!w-2 !h-2 !border-2 !border-white/20"
             style={{ background: 'transparent' }}
           />
+          {!hasSourceConnection() && (
+            <HandleInsertButton
+              nodeId={id}
+              direction="bottom"
+              nodeColor={nodeColor}
+              ariaLabel={tCanvas('insertNodeHere')}
+              onOpen={openInsertMenu}
+            />
+          )}
         </>
       )}
 
@@ -381,8 +558,19 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             className="!w-2 !h-2 !border-2 !border-sky-300/70"
             style={{ background: 'rgba(56, 189, 248, 0.9)', left: '38%' }}
           />
+          {!hasSourceConnection('a') && (
+            <HandleInsertButton
+              nodeId={id}
+              direction="bottom"
+              nodeColor={nodeColor}
+              ariaLabel={tCanvas('insertNodeHere')}
+              onOpen={openInsertMenu}
+              style={{ left: '38%' }}
+              sourceHandle="a"
+            />
+          )}
           <div
-            className="pointer-events-none absolute z-20 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-sky-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.12)]"
+            className="pointer-events-none absolute z-20 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-sky-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.12)]"
             style={{ left: '38%' }}
           >
             A
@@ -396,8 +584,19 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             className="!w-2 !h-2 !border-2 !border-violet-300/70"
             style={{ background: 'rgba(167, 139, 250, 0.9)', left: '62%' }}
           />
+          {!hasSourceConnection('b') && (
+            <HandleInsertButton
+              nodeId={id}
+              direction="bottom"
+              nodeColor={nodeColor}
+              ariaLabel={tCanvas('insertNodeHere')}
+              onOpen={openInsertMenu}
+              style={{ left: '62%' }}
+              sourceHandle="b"
+            />
+          )}
           <div
-            className="pointer-events-none absolute z-20 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-violet-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-violet-300 shadow-[0_0_10px_rgba(167,139,250,0.12)]"
+            className="pointer-events-none absolute z-20 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-violet-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-violet-300 shadow-[0_0_10px_rgba(167,139,250,0.12)]"
             style={{ left: '62%' }}
           >
             B
@@ -414,6 +613,15 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             className="!w-2 !h-2 !border-2 !border-zinc-300/60"
             style={{ background: 'rgba(161, 161, 170, 0.9)' }}
           />
+          {!hasSourceConnection() && (
+            <HandleInsertButton
+              nodeId={id}
+              direction="bottom"
+              nodeColor={nodeColor}
+              ariaLabel={tCanvas('insertNodeHere')}
+              onOpen={openInsertMenu}
+            />
+          )}
           {routerCases.map((routerCase, index) => {
             const fallbackTopPercent =
               routerCases.length === 1
@@ -437,8 +645,21 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
                     top: measuredTopPx != null ? `${measuredTopPx}px` : `${fallbackTopPercent}%`,
                   }}
                 />
+                {!hasSourceConnection(`case:${routerCase.id}`) && (
+                  <HandleInsertButton
+                    nodeId={id}
+                    direction="right"
+                    nodeColor={nodeColor}
+                    ariaLabel={tCanvas('insertNodeHere')}
+                    onOpen={openInsertMenu}
+                    style={{
+                      top: measuredTopPx != null ? `${measuredTopPx}px` : `${fallbackTopPercent}%`,
+                    }}
+                    sourceHandle={`case:${routerCase.id}`}
+                  />
+                )}
                 <div
-                  className="pointer-events-none absolute z-20 left-full ml-2 -translate-y-1/2 max-w-[130px] truncate whitespace-nowrap rounded bg-black/85 border border-cyan-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-cyan-300 shadow-[0_0_10px_rgba(36,161,222,0.12)]"
+                  className="pointer-events-none absolute z-20 left-full ml-8 -translate-y-1/2 max-w-[124px] truncate whitespace-nowrap rounded bg-black/85 border border-cyan-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-cyan-300 shadow-[0_0_10px_rgba(36,161,222,0.12)]"
                   style={{ top: measuredTopPx != null ? `${measuredTopPx}px` : `${fallbackTopPercent}%` }}
                   title={caseTooltip}
                 >
@@ -448,7 +669,7 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             )
           })}
           <div
-            className="pointer-events-none absolute z-20 left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-zinc-400/20 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-zinc-300 shadow-[0_0_10px_rgba(255,255,255,0.04)]"
+            className="pointer-events-none absolute z-20 left-1/2 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-zinc-400/20 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-zinc-300 shadow-[0_0_10px_rgba(255,255,255,0.04)]"
             title={routerDefaultLabel}
           >
             {routerDefaultLabel}
@@ -466,8 +687,18 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             className="!w-2 !h-2 !border-2 !border-emerald-300/70"
             style={{ background: 'rgba(16, 185, 129, 0.9)', left: '38%' }}
           />
+          {!hasSourceConnection() && (
+            <HandleInsertButton
+              nodeId={id}
+              direction="bottom"
+              nodeColor={nodeColor}
+              ariaLabel={tCanvas('insertNodeHere')}
+              onOpen={openInsertMenu}
+              style={{ left: '38%' }}
+            />
+          )}
           <div
-            className="pointer-events-none absolute z-20 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-emerald-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.12)]"
+            className="pointer-events-none absolute z-20 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-emerald-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.12)]"
             style={{ left: '38%' }}
           >
             {tCanvas('nodeDescriptions.condition.true')}
@@ -480,8 +711,19 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             className="!w-2 !h-2 !border-2 !border-rose-300/70"
             style={{ background: 'rgba(244, 63, 94, 0.9)', left: '62%' }}
           />
+          {!hasSourceConnection('false') && (
+            <HandleInsertButton
+              nodeId={id}
+              direction="bottom"
+              nodeColor={nodeColor}
+              ariaLabel={tCanvas('insertNodeHere')}
+              onOpen={openInsertMenu}
+              style={{ left: '62%' }}
+              sourceHandle="false"
+            />
+          )}
           <div
-            className="pointer-events-none absolute z-20 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-rose-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.12)]"
+            className="pointer-events-none absolute z-20 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-rose-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.12)]"
             style={{ left: '62%' }}
           >
             {tCanvas('nodeDescriptions.condition.false')}

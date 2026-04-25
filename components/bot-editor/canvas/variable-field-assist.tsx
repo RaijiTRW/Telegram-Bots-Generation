@@ -10,14 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import type { VariableType } from '@/lib/bot-editor/types/bot.types'
-
-const SYSTEM_VARIABLES = [
-  'user.id',
-  'user.username',
-  'user.firstName',
-  'user.lastName',
-  'user.languageCode',
-] as const
+import {
+  BOT_SYSTEM_VARIABLES,
+  getBotSystemVariableDefinition,
+  isReservedBotVariableName,
+} from '@/lib/bot-editor/system-variables'
 
 type VariableSuggestionKind = 'system' | 'custom' | 'external'
 
@@ -120,6 +117,11 @@ function VariableCreateModalContent({
     const variableName = normalizeName(name)
     if (!variableName) {
       setError(t('errors.nameRequired'))
+      return
+    }
+
+    if (isReservedBotVariableName(variableName)) {
+      setError(t('errors.reservedName'))
       return
     }
 
@@ -277,20 +279,10 @@ function VariableSuggestions({
 
   const filtered = getFilteredVariables(variables, query)
   const getSystemDescription = (name: string) => {
-    switch (name) {
-      case 'user.id':
-        return t('suggestions.systemDescriptions.userId')
-      case 'user.username':
-        return t('suggestions.systemDescriptions.username')
-      case 'user.firstName':
-        return t('suggestions.systemDescriptions.firstName')
-      case 'user.lastName':
-        return t('suggestions.systemDescriptions.lastName')
-      case 'user.languageCode':
-        return t('suggestions.systemDescriptions.languageCode')
-      default:
-        return t('suggestions.systemDescriptionFallback')
-    }
+    const systemVariable = getBotSystemVariableDefinition(name)
+    return systemVariable
+      ? t(`suggestions.systemDescriptions.${systemVariable.descriptionKey}`)
+      : t('suggestions.systemDescriptionFallback')
   }
 
   const getDescriptionMeta = (variable: VariableSuggestionItem) => {
@@ -436,9 +428,9 @@ function useAvailableVariables(extraVariables?: string[]) {
   return useMemo(() => {
     const mapped = new Map<string, VariableSuggestionItem>()
 
-    for (const name of SYSTEM_VARIABLES) {
-      mapped.set(name, {
-        name,
+    for (const variable of BOT_SYSTEM_VARIABLES) {
+      mapped.set(variable.name, {
+        name: variable.name,
         kind: 'system',
       })
     }

@@ -19,8 +19,8 @@ export function DashboardHeader() {
   useEffect(() => {
     const supabase = createClient()
 
-    const setUserPreview = async (user?: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']) => {
-      const resolvedUser = user ?? await getSafeClientUser(supabase)
+    const setUserPreview = async (user?: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] | null) => {
+      const resolvedUser = user === undefined ? await getSafeClientUser(supabase) : user
 
       if (!resolvedUser) {
         setUserName('')
@@ -69,7 +69,9 @@ export function DashboardHeader() {
     void setUserPreview()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      void setUserPreview(session?.user ?? undefined)
+      window.setTimeout(() => {
+        void setUserPreview(session?.user ?? null)
+      }, 0)
     })
 
     const handleProfileUpdated = (event: Event) => {

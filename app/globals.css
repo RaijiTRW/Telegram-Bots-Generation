@@ -558,6 +558,32 @@ html[data-performance='lite'] .react-flow__edge:focus-visible .react-flow__edge-
   }
 }
 
+@keyframes agent-card-shine {
+  0% {
+    transform: translateX(-120%) skewX(-16deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.42;
+  }
+  58% {
+    opacity: 0.18;
+  }
+  100% {
+    transform: translateX(135%) skewX(-16deg);
+    opacity: 0;
+  }
+}
+
+@keyframes agent-text-shimmer {
+  0% {
+    background-position: 180% 50%;
+  }
+  100% {
+    background-position: -80% 50%;
+  }
+}
+
 @keyframes float {
   0%, 100% {
     transform: translateY(0px);
@@ -679,6 +705,38 @@ html[data-performance='lite'] .react-flow__edge:focus-visible .react-flow__edge-
     transparent 100%
   );
   background-size: 1000px 100%;
+}
+
+.ai-agent-card-shine::before {
+  content: "";
+  position: absolute;
+  inset: -20% auto -20% -30%;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(142, 216, 255, 0.04) 24%,
+    rgba(142, 216, 255, 0.2) 50%,
+    rgba(139, 92, 246, 0.08) 72%,
+    transparent 100%
+  );
+  filter: blur(1px);
+  animation: agent-card-shine 2.35s ease-in-out infinite;
+}
+
+.ai-agent-text-shimmer {
+  display: inline-block;
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    rgba(113, 113, 122, 0.82) 0%,
+    rgba(244, 244, 245, 0.74) 42%,
+    rgba(113, 113, 122, 0.82) 76%
+  );
+  background-size: 240% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: agent-text-shimmer 1.7s linear infinite;
 }
 
 .animate-float {

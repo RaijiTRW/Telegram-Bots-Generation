@@ -259,7 +259,7 @@ const ruContent: DocsContent = {
           'Откройте `Dashboard -> Bots`.',
           'Нажмите `Новый бот` / `Create first bot`.',
           'Введите имя и короткое описание (можно черновик).',
-          'После создания перейдите в редактор (`/editor/canvas`).',
+          'После создания откройте редактор (`/editor`) и заполните мастер быстрого запуска или перейдите в продвинутый редактор.',
         ],
         systemBehavior: [
           'Создаётся карточка бота во внутреннем хранилище проекта.',
@@ -1526,7 +1526,7 @@ const enContent: DocsContent = {
           'Open `Dashboard -> Bots`.',
           'Click `New Bot` / `Create first bot`.',
           'Enter a name and short description.',
-          'Open the editor (`/editor/canvas`).',
+          'Open the editor (`/editor`) and complete the quick start wizard or switch to the advanced editor.',
         ],
         systemBehavior: [
           'Bot base record is created in internal project storage.',

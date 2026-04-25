@@ -33,13 +33,6 @@ const VisualControl = dynamic(
   }
 );
 
-const Features = dynamic(
-  () => import('@/components/features/features').then((module) => module.Features),
-  {
-    loading: () => <SectionPlaceholder />,
-  }
-);
-
 const BusinessAdvantage = dynamic(
   () => import('@/components/business-advantage/business-advantage').then((module) => module.BusinessAdvantage),
   {
@@ -158,13 +151,6 @@ export default async function HomePage({
           rootMargin="1600px 0px"
         >
           <Testimonials />
-        </DeferredSection>
-        <DeferredSection
-          className="content-visibility-auto"
-          placeholder={<SectionPlaceholder heightClass="h-[960px] md:h-[900px]" />}
-          rootMargin="1600px 0px"
-        >
-          <Features />
         </DeferredSection>
         <DeferredSection
           className="content-visibility-auto"

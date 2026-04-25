@@ -7,6 +7,7 @@ import type {
   PricingFeatureGroup,
   PricingFeatureRow,
 } from '@/lib/billing/types'
+import { formatAiChatLimit, getAiChatLimit } from '@/lib/billing/ai-limits'
 
 export const PLAN_ORDER: PlanCode[] = ['base', 'business', 'enterprise']
 export const YEARLY_BILLING_DISCOUNT_PERCENT = 75
@@ -22,7 +23,9 @@ const PLAN_ENTITLEMENTS: Record<PlanCode, PlanEntitlements> = {
     dashboardStatisticsBasic: false,
     dashboardStatisticsPro: false,
     aiNodes: false,
-    aiChat: false,
+    aiChat: true,
+    aiChatLimitRequests: getAiChatLimit('base').requests,
+    aiChatLimitWindowHours: getAiChatLimit('base').windowHours,
     ownAiApiKeys: false,
     tokenTopUps: false,
     hosting: false,
@@ -40,7 +43,9 @@ const PLAN_ENTITLEMENTS: Record<PlanCode, PlanEntitlements> = {
     dashboardStatisticsBasic: true,
     dashboardStatisticsPro: false,
     aiNodes: true,
-    aiChat: false,
+    aiChat: true,
+    aiChatLimitRequests: getAiChatLimit('business').requests,
+    aiChatLimitWindowHours: getAiChatLimit('business').windowHours,
     ownAiApiKeys: true,
     tokenTopUps: false,
     hosting: true,
@@ -59,6 +64,8 @@ const PLAN_ENTITLEMENTS: Record<PlanCode, PlanEntitlements> = {
     dashboardStatisticsPro: true,
     aiNodes: true,
     aiChat: true,
+    aiChatLimitRequests: getAiChatLimit('enterprise').requests,
+    aiChatLimitWindowHours: getAiChatLimit('enterprise').windowHours,
     ownAiApiKeys: true,
     tokenTopUps: true,
     hosting: true,
@@ -121,8 +128,8 @@ export function getPlanDefinition(planCode: PlanCode, locale: string): PlanDefin
         : 'Free plan for building and exporting bots without managed hosting or business analytics.',
       ...shared,
       spotlightFeatures: ru
-        ? ['До 3 ботов', 'ZIP-экспорт кода', 'Canvas + System + Settings']
-        : ['Up to 3 bots', 'ZIP code export', 'Canvas + System + Settings'],
+        ? ['До 3 ботов', 'AI Chat: 10 запросов / 24 ч', 'ZIP-экспорт кода']
+        : ['Up to 3 bots', 'AI Chat: 10 requests / 24h', 'ZIP code export'],
     }
   }
 
@@ -139,8 +146,8 @@ export function getPlanDefinition(planCode: PlanCode, locale: string): PlanDefin
       popular: true,
       ...shared,
       spotlightFeatures: ru
-        ? ['До 10 ботов', 'CRM и базовая dashboard-статистика', 'Хостинг до 5 ботов']
-        : ['Up to 10 bots', 'CRM and basic dashboard analytics', 'Hosting for up to 5 bots'],
+        ? ['До 10 ботов', 'AI Chat: 60 запросов / 5 ч', 'Хостинг до 5 ботов']
+        : ['Up to 10 bots', 'AI Chat: 60 requests / 5h', 'Hosting for up to 5 bots'],
     }
   }
 
@@ -149,12 +156,12 @@ export function getPlanDefinition(planCode: PlanCode, locale: string): PlanDefin
     name: ru ? 'Enterprise' : 'Enterprise',
     tagline: ru ? 'Максимум возможностей и лимитов' : 'Maximum access and scale',
     description: ru
-      ? 'Расширенный тариф с retention-аналитикой, XLSX-отчетами, email-алертами по аномалиям, AI Chat (скоро) и повышенными лимитами.'
-      : 'Advanced plan with retention analytics, XLSX reports, anomaly alert emails, AI Chat (coming soon), and higher limits.',
+      ? 'Расширенный тариф с retention-аналитикой, XLSX-отчетами, email-алертами по аномалиям и повышенными лимитами.'
+      : 'Advanced plan with retention analytics, XLSX reports, anomaly alert emails, and higher limits.',
     ...shared,
     spotlightFeatures: ru
-      ? ['До 20 ботов', 'Retention, XLSX-отчеты и email-алерты', 'AI Chat и докупка токенов (скоро)']
-      : ['Up to 20 bots', 'Retention, XLSX reports, and email alerts', 'AI Chat and token top-ups (coming soon)'],
+      ? ['До 20 ботов', 'AI Chat: 140 запросов / 5 ч', 'Retention и XLSX-отчеты']
+      : ['Up to 20 bots', 'AI Chat: 140 requests / 5h', 'Retention and XLSX reports'],
   }
 }
 
@@ -254,16 +261,21 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           enterprise: { kind: 'included' },
         }, { soon: true }),
         featureRow('ai-chat', locale, { ru: 'AI Chat', en: 'AI Chat' }, {
-          base: { kind: 'excluded' },
-          business: { kind: 'excluded' },
+          base: { kind: 'included' },
+          business: { kind: 'included' },
           enterprise: { kind: 'included' },
-        }, { soon: true }),
+        }),
+        featureRow('ai-chat-limit', locale, { ru: 'Лимит AI Chat', en: 'AI Chat limit' }, {
+          base: { kind: 'limit', value: formatAiChatLimit('base', locale) },
+          business: { kind: 'limit', value: formatAiChatLimit('business', locale) },
+          enterprise: { kind: 'limit', value: formatAiChatLimit('enterprise', locale) },
+        }),
         featureRow('own-ai-keys', locale, { ru: 'Подключение своего AI через API-ключи', en: 'Bring your own AI API keys' }, {
           base: { kind: 'excluded' },
           business: { kind: 'included' },
           enterprise: { kind: 'included' },
         }, { soon: true }),
-        featureRow('token-topups', locale, { ru: 'Докупка токенов для AI', en: 'AI token top-ups' }, {
+        featureRow('token-topups', locale, { ru: 'Докупка AI-кредитов', en: 'AI credit top-ups' }, {
           base: { kind: 'excluded' },
           business: { kind: 'excluded' },
           enterprise: { kind: 'included' },

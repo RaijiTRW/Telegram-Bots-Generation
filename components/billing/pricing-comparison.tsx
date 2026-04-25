@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode } from 'react'
 import Link from 'next/link'
-import { Loader2, Lock, Check, X } from 'lucide-react'
+import { Check, Loader2, Lock, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -60,31 +60,23 @@ function formatPerYear(locale: string) {
   return locale === 'en' ? '/ year' : '/ год'
 }
 
-function renderCell(cell: PricingFeatureCell, locale: string) {
+function renderComparisonCell(cell: PricingFeatureCell, locale: string) {
   switch (cell.kind) {
     case 'included':
-      return (
-        <span className="inline-flex items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/10 p-1.5">
-          <Check className="h-4 w-4 text-emerald-300" />
-        </span>
-      )
+      return <Check className="mx-auto h-4 w-4 text-emerald-300" />
     case 'excluded':
-      return (
-        <span className="inline-flex items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 p-1.5">
-          <X className="h-4 w-4 text-red-300" />
-        </span>
-      )
+      return <X className="mx-auto h-4 w-4 text-zinc-600" />
     case 'soon':
       return (
-        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-zinc-300">
+        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
           {locale === 'en' ? 'Soon' : 'Скоро'}
         </span>
       )
     case 'limit':
     case 'text':
-      return <span className="text-sm font-medium text-white">{cell.value}</span>
+      return <span className="text-sm font-semibold text-white">{cell.value}</span>
     default:
-      return <span className="text-sm text-zinc-500">-</span>
+      return <span className="text-zinc-600">-</span>
   }
 }
 
@@ -113,7 +105,7 @@ export function PricingComparison({
       {headerControl ? <div className="flex justify-center">{headerControl}</div> : null}
 
       <div className="overflow-hidden rounded-[28px] border border-white/10 bg-zinc-950/70 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-        <div className="border-b border-white/10 p-4 md:p-6">
+        <div className="p-4 md:p-6">
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {PLAN_ORDER.map((planCode) => {
               const plan = plans.find((item) => item.code === planCode)
@@ -187,10 +179,6 @@ export function PricingComparison({
                     </div>
                   ) : null}
 
-                  <p className="mt-4 min-h-[72px] text-sm leading-6 text-zinc-300">
-                    {plan.description}
-                  </p>
-
                   <ul className="mt-4 space-y-2">
                     {plan.spotlightFeatures.map((feature) => (
                       <li key={feature} className="flex items-start gap-2 text-sm text-zinc-200">
@@ -228,72 +216,69 @@ export function PricingComparison({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-[980px] w-full border-collapse">
-            <thead>
-              <tr className="border-b border-white/10 bg-white/[0.02] align-middle">
-                <th className="w-[280px] px-6 py-4 text-left text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">
-                  {locale === 'en' ? 'Feature' : 'Функция'}
-                </th>
-                {PLAN_ORDER.map((planCode) => {
-                  const plan = plans.find((item) => item.code === planCode)
-                  if (!plan) return null
+        <div className="border-t border-white/10 bg-black/10 px-4 py-5 md:px-6">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold text-white">
+                {locale === 'en' ? 'Feature comparison' : 'Сравнение функций'}
+              </div>
+              <div className="mt-1 text-sm text-zinc-500">
+                {locale === 'en' ? 'A compact table for quick plan matching.' : 'Короткая таблица, чтобы быстро сравнить тарифы по строкам.'}
+              </div>
+            </div>
+          </div>
 
-                  return (
-                    <th key={plan.code} className="px-4 py-4 text-center align-middle">
-                      <div className="inline-flex flex-wrap items-center justify-center gap-2">
+          <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#0B0D12]/80">
+            <table className="min-w-[880px] w-full border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 bg-white/[0.03]">
+                  <th className="w-[320px] px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.14em] text-zinc-400">
+                    {locale === 'en' ? 'Feature' : 'Функция'}
+                  </th>
+                  {PLAN_ORDER.map((planCode) => {
+                    const plan = plans.find((item) => item.code === planCode)
+                    if (!plan) return null
+
+                    return (
+                      <th key={`table-head-${plan.code}`} className="px-4 py-3 text-center">
                         <span className="text-sm font-semibold text-white">{plan.name}</span>
-                        {plan.badge ? (
-                          <span className="rounded-full border border-[#24A1DE]/20 bg-[#24A1DE]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[#9EDFFF]">
-                            {plan.badge}
-                          </span>
-                        ) : null}
-                        {plan.recommendedBadge ? (
-                          <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">
-                            {plan.recommendedBadge}
-                          </span>
-                        ) : null}
-                      </div>
-                    </th>
-                  )
-                })}
-              </tr>
-            </thead>
-
-            <tbody>
-              {groups.map((group) => (
-                <Fragment key={group.id}>
-                  <tr className="border-y border-white/10 bg-white/[0.02]">
-                    <td colSpan={PLAN_ORDER.length + 1} className="px-6 py-3 text-xs font-medium uppercase tracking-[0.18em] text-zinc-400">
-                      {group.label}
-                    </td>
-                  </tr>
-                      {group.rows.map((row) => (
-                    <tr key={row.id} className="border-b border-white/[0.06] align-middle">
-                      <td className="px-6 py-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-sm font-medium text-white">{row.label}</div>
-                          {row.soon ? (
-                            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
-                              {locale === 'en' ? 'Soon' : 'Скоро'}
-                            </span>
-                          ) : null}
-                        </div>
-                        {row.description ? (
-                          <div className="mt-1 text-xs text-zinc-500">{row.description}</div>
-                        ) : null}
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((group) => (
+                  <Fragment key={`table-group-${group.id}`}>
+                    <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                      <td colSpan={PLAN_ORDER.length + 1} className="px-4 py-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#8ED8FF]/80">
+                        {group.label}
                       </td>
-                      {PLAN_ORDER.map((planCode) => (
-                        <td key={`${row.id}-${planCode}`} className="px-4 py-4 text-center">
-                          {renderCell(row.values[planCode], locale)}
-                        </td>
-                      ))}
                     </tr>
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+                    {group.rows.map((row) => (
+                      <tr key={`table-row-${row.id}`} className="border-b border-white/[0.06] last:border-b-0">
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-zinc-100">{row.label}</span>
+                            {row.soon ? (
+                              <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-zinc-300">
+                                {locale === 'en' ? 'Soon' : 'Скоро'}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        {PLAN_ORDER.map((planCode) => (
+                          <td key={`table-cell-${row.id}-${planCode}`} className="px-4 py-3 text-center">
+                            {renderComparisonCell(row.values[planCode], locale)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 border-t border-white/10 px-6 py-4 text-xs text-zinc-500">

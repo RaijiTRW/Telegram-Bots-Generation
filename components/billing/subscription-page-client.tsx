@@ -458,10 +458,10 @@ export function SubscriptionPageClient({
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr_0.85fr]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <Card className="border-white/10 bg-zinc-950/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex flex-wrap items-center gap-3 text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-white">
               <span>{isRu ? 'Текущий тариф' : 'Current plan'}</span>
               <span className={cn('rounded-full border px-2.5 py-1 text-xs font-medium uppercase tracking-wide', statusMeta.className)}>
                 {statusMeta.label}
@@ -473,84 +473,69 @@ export function SubscriptionPageClient({
               ) : null}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-wrap items-start gap-4">
-              <div>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+              <div className="min-w-0">
                 <div className="text-3xl font-bold text-white">{currentPlan.name}</div>
-                <div className="mt-2 text-sm text-zinc-400">{currentPlan.description}</div>
               </div>
-              <div className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right">
-                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  {isRu ? 'Стоимость за период' : 'Price per billing period'}
-                </div>
-                <div className="mt-1 text-xs text-zinc-500">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 lg:min-w-[260px] lg:text-right">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">
                   {getBillingIntervalLabel(locale, subscription.billingInterval)}
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-white">
+                <div className="mt-1 text-2xl font-semibold text-white">
                   {formatAmount(locale, subscription.priceAmount, subscription.currency)}
                   <span className="ml-2 text-sm font-medium text-zinc-400">{currentPlanPriceSuffix}</span>
                 </div>
                 {subscription.billingInterval === 'year' && subscription.priceAmount > 0 ? (
-                  <div className="mt-2 flex items-center justify-end gap-2 text-xs text-zinc-400">
-                    <span>{isRu ? 'Эквивалент' : 'Equivalent'}</span>
-                    <span className="text-white">
-                      {formatAmount(locale, subscription.priceAmount / 12, subscription.currency)}
-                    </span>
-                    <span>{isRu ? '/ мес' : '/ month'}</span>
+                  <div className="mt-1 text-xs text-zinc-400">
+                    {isRu ? 'Эквивалент' : 'Equivalent'}{' '}
+                    <span className="text-white">{formatAmount(locale, subscription.priceAmount / 12, subscription.currency)}</span>
+                    {isRu ? ' / мес' : ' / month'}
                   </div>
                 ) : null}
               </div>
             </div>
 
-            <div className={cn('grid grid-cols-1 gap-3', subscription.planCode !== 'base' ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+            <div className={cn('grid grid-cols-1 gap-2', subscription.planCode !== 'base' ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                   {isRu ? 'Следующая дата' : 'Next billing date'}
                 </div>
-                <div className="mt-2 text-sm font-medium text-white">
+                <div className="mt-1 text-sm font-semibold text-white">
                   {nextBillingDateLabel}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                   {isRu ? 'Боты' : 'Bots'}
                 </div>
-                <div className="mt-2 text-sm font-medium text-white">
+                <div className="mt-1 text-sm font-semibold text-white">
                   {subscription.usage.bots} / {visiblePlan.entitlements.maxBots}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                   {isRu ? 'Хостинг-слоты' : 'Hosting slots'}
                 </div>
-                <div className="mt-2 text-sm font-medium text-white">
+                <div className="mt-1 text-sm font-semibold text-white">
                   {subscription.usage.hostedBots} / {visiblePlan.entitlements.maxHostedBots}
                 </div>
               </div>
               {subscription.planCode !== 'base' ? (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                     {isRu ? 'Карта для автопродления' : 'Saved card for renewals'}
                   </div>
-                  <div className="mt-2 text-sm font-medium text-white">
+                  <div className="mt-1 text-sm font-semibold text-white">
                     {subscription.hasSavedPaymentMethod
                       ? isRu ? 'Привязана' : 'Saved'
                       : isRu ? 'Не привязана' : 'Not saved'}
-                  </div>
-                  <div className="mt-1 text-xs leading-5 text-zinc-400">
-                    {subscription.hasSavedPaymentMethod
-                      ? isRu
-                        ? 'Эта карта будет использоваться для будущих продлений.'
-                        : 'This card will be used for future renewals.'
-                      : isRu
-                        ? 'Чтобы снова включить автопродление, привяжите карту заново.'
-                        : 'Bind a card again to enable auto-renewal.'}
                   </div>
                 </div>
               ) : null}
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {subscription.planCode !== 'base' && !subscription.cancelAtPeriodEnd ? (
                 <Button
                   type="button"
@@ -591,7 +576,7 @@ export function SubscriptionPageClient({
             </div>
 
             {subscription.planCode !== 'base' ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm leading-5 text-zinc-300">
                 {isRu
                   ? 'Для повторной привязки мы спишем 1 ₽ и вернем его после того, как YooKassa сохранит карту для будущих продлений.'
                   : 'To save the card again we will charge a test 1 RUB payment and refund it after YooKassa stores the card for future renewals.'}
@@ -601,7 +586,7 @@ export function SubscriptionPageClient({
         </Card>
 
         <Card className="border-white/10 bg-zinc-950/50">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-white">
               <ShieldCheck className="h-5 w-5 text-[#24A1DE]" />
               {subscription.isAdmin
@@ -609,9 +594,9 @@ export function SubscriptionPageClient({
                 : isRu ? 'Что доступно сейчас' : 'Included right now'}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2">
             {visiblePlan.spotlightFeatures.map((feature) => (
-              <div key={feature} className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-zinc-200">
+              <div key={feature} className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm leading-5 text-zinc-200">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-300" />
                 <span>{feature}</span>
               </div>

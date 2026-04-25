@@ -10,6 +10,7 @@ import { appendBotTestLog } from '@/lib/bot-editor/runtime/test-log-store'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { appendOutboundContactEvent } from '@/lib/bot-editor/services/bot-crm-service'
 import { appendBotAuditEventSafe } from '@/lib/bot-editor/services/bot-audit-service'
+import { isReservedBotVariableName } from '@/lib/bot-editor/system-variables'
 
 interface TelegramUser {
   id: number
@@ -652,12 +653,13 @@ function cleanupExpiredSessions() {
 }
 
 function resetSessionState(session: RuntimeSession, sessionKey?: string) {
+  const preservedVariables = preserveSessionSystemVariables(session.variables)
   if (sessionKey) {
     clearScheduledResumeTimer(sessionKey, session)
   } else {
     session.scheduledResumeAtMs = undefined
   }
-  session.variables = {}
+  session.variables = preservedVariables
   session.waitingForNodeId = undefined
   session.updatedAt = Date.now()
 }
@@ -679,6 +681,73 @@ function getOrCreateSession(key: string): RuntimeSession {
 
 function getOutgoingEdges(config: BotConfig, nodeId: string): BotEdge[] {
   return config.edges.filter((edge) => edge.source === nodeId)
+}
+
+function preserveSessionSystemVariables(
+  variables: Record<string, unknown>
+): Record<string, unknown> {
+  const persistedCallbackData = readPersistedCallbackData(variables)
+  if (persistedCallbackData === undefined) {
+    return {}
+  }
+
+  return {
+    callback: {
+      data: persistedCallbackData,
+    },
+  }
+}
+
+function readPersistedCallbackData(
+  variables: Record<string, unknown>
+): string | undefined {
+  const callback = variables.callback
+  if (!callback || typeof callback !== 'object' || Array.isArray(callback)) {
+    return undefined
+  }
+
+  const data = (callback as Record<string, unknown>).data
+  return typeof data === 'string' ? data : undefined
+}
+
+function writePersistedCallbackData(
+  session: RuntimeSession,
+  callbackData: string
+) {
+  const current =
+    session.variables.callback &&
+    typeof session.variables.callback === 'object' &&
+    !Array.isArray(session.variables.callback)
+      ? (session.variables.callback as Record<string, unknown>)
+      : {}
+
+  session.variables.callback = {
+    ...current,
+    data: callbackData,
+  }
+  session.updatedAt = Date.now()
+}
+
+function setSessionVariable(args: {
+  session: RuntimeSession
+  name: string
+  value: unknown
+  botId?: string
+}) {
+  const variableName = normalizeText(args.name)
+  if (!variableName) {
+    return
+  }
+
+  if (isReservedBotVariableName(variableName)) {
+    if (args.botId) {
+      appendBotTestLog(args.botId, 'workflow', `Запись в системную переменную запрещена: ${variableName}`, 'warn')
+    }
+    return
+  }
+
+  args.session.variables[variableName] = args.value
+  args.session.updatedAt = Date.now()
 }
 
 function getDefaultNextNodeId(config: BotConfig, nodeId: string): string | null {
@@ -1659,7 +1728,10 @@ function findMatchingTrigger(config: BotConfig, update: TelegramUpdate): BotNode
       const data = (trigger.data || {}) as Record<string, unknown>
       const pattern = normalizeText(data.pattern)
       if (!pattern) {
-        // Strict mode: empty callback pattern is ignored.
+        matches.push({
+          node: trigger,
+          score: 50,
+        })
         continue
       }
 
@@ -2426,7 +2498,12 @@ async function executeActionNode(
         ? interpolateTemplate(rawValue, contextVariables)
         : rawValue
 
-    session.variables[variableName] = value
+    setSessionVariable({
+      session,
+      name: variableName,
+      value,
+      botId,
+    })
     return null
   }
 
@@ -2462,7 +2539,12 @@ async function executeActionNode(
 
     const saveToVariable = normalizeText(action.saveToVariable)
     if (saveToVariable) {
-      session.variables[saveToVariable] = selectedHandle.toUpperCase()
+      setSessionVariable({
+        session,
+        name: saveToVariable,
+        value: selectedHandle.toUpperCase(),
+        botId,
+      })
     }
 
     if (botId) {
@@ -2479,7 +2561,7 @@ async function executeActionNode(
 
   // Legacy compatibility: old flows may still have HTTP inside Action node.
   if (actionType === 'httpRequest') {
-    await executeHttpRequestData(action, session, contextVariables)
+    await executeHttpRequestData(action, session, contextVariables, botId)
   }
 
   return null
@@ -2488,7 +2570,8 @@ async function executeActionNode(
 async function executeHttpRequestData(
   data: Record<string, unknown>,
   session: RuntimeSession,
-  contextVariables: Record<string, unknown>
+  contextVariables: Record<string, unknown>,
+  botId?: string
 ): Promise<void> {
   const urlTemplate = normalizeText(data.url || data.endpoint)
   if (!urlTemplate) return
@@ -2527,7 +2610,12 @@ async function executeHttpRequestData(
 
     const saveToVariable = normalizeText(data.saveToVariable)
     if (saveToVariable) {
-      session.variables[saveToVariable] = responseText
+      setSessionVariable({
+        session,
+        name: saveToVariable,
+        value: responseText,
+        botId,
+      })
     }
   } finally {
     clearTimeout(timer)
@@ -2537,10 +2625,11 @@ async function executeHttpRequestData(
 async function executeHttpNode(
   node: BotNode,
   session: RuntimeSession,
-  contextVariables: Record<string, unknown>
+  contextVariables: Record<string, unknown>,
+  botId?: string
 ): Promise<void> {
   const data = (node.data || {}) as Record<string, unknown>
-  await executeHttpRequestData(data, session, contextVariables)
+  await executeHttpRequestData(data, session, contextVariables, botId)
 }
 
 type PaymentProvider = 'yookassa' | 'stripe' | 'robokassa' | 'telegram_stars'
@@ -3060,7 +3149,12 @@ async function executePaymentNode(args: {
 
   const saveToVariable = normalizeText(data.saveToVariable || '')
   if (saveToVariable) {
-    session.variables[saveToVariable] = result
+    setSessionVariable({
+      session,
+      name: saveToVariable,
+      value: result,
+      botId,
+    })
   }
 
   await appendPaymentAuditEventSafe({
@@ -3160,28 +3254,7 @@ function createScriptExecutionContext(args: {
             : undefined,
         }
       : undefined,
-    callback: update.callback_query
-      ? {
-          id: update.callback_query.id,
-          data: update.callback_query.data,
-          from: {
-            id: update.callback_query.from.id,
-            isBot: Boolean(update.callback_query.from.is_bot),
-            username: update.callback_query.from.username,
-            firstName: update.callback_query.from.first_name,
-            lastName: update.callback_query.from.last_name,
-            languageCode: update.callback_query.from.language_code,
-          },
-          message: update.callback_query.message
-            ? {
-                messageId: update.callback_query.message.message_id,
-                chatId: update.callback_query.message.chat?.id,
-                text: update.callback_query.message.text,
-                caption: update.callback_query.message.caption,
-              }
-            : undefined,
-        }
-      : undefined,
+    callback: contextVariables.callback,
     update: {
       updateId: update.update_id,
       hasMessage: Boolean(update.message),
@@ -3398,7 +3471,12 @@ async function executeScriptNode(args: {
   }
 
   if (saveToVariable) {
-    session.variables[saveToVariable] = result
+    setSessionVariable({
+      session,
+      name: saveToVariable,
+      value: result,
+      botId,
+    })
   }
 
   appendBotTestLog(
@@ -3583,6 +3661,36 @@ async function executeFromNode(args: {
     const node = nodeMap.get(currentNodeId)
     if (!node) return 'completed'
 
+    const persistedCallbackData = readPersistedCallbackData(session.variables)
+    const callbackContext = update.callback_query
+      ? {
+          id: update.callback_query.id,
+          data: update.callback_query.data,
+          from: {
+            id: update.callback_query.from.id,
+            isBot: Boolean(update.callback_query.from.is_bot),
+            username: update.callback_query.from.username,
+            firstName: update.callback_query.from.first_name,
+            lastName: update.callback_query.from.last_name,
+            languageCode: update.callback_query.from.language_code,
+          },
+          message: update.callback_query.message
+            ? {
+                messageId: update.callback_query.message.message_id,
+                chatId: update.callback_query.message.chat?.id,
+                text: update.callback_query.message.text,
+                caption: update.callback_query.message.caption,
+              }
+            : undefined,
+          messageId: update.callback_query.message?.message_id,
+          chatId: update.callback_query.message?.chat?.id,
+        }
+      : persistedCallbackData !== undefined
+        ? {
+            data: persistedCallbackData,
+          }
+        : undefined
+
     const contextVariables: Record<string, unknown> = {
       ...session.variables,
       chat: {
@@ -3596,14 +3704,7 @@ async function executeFromNode(args: {
             chatId: update.message.chat?.id,
           }
         : undefined,
-      callback: update.callback_query
-        ? {
-            id: update.callback_query.id,
-            data: update.callback_query.data,
-            messageId: update.callback_query.message?.message_id,
-            chatId: update.callback_query.message?.chat?.id,
-          }
-        : undefined,
+      callback: callbackContext,
       update: {
         updateId: update.update_id,
       },
@@ -3729,6 +3830,7 @@ async function executeFromNode(args: {
     }
 
     if (node.type === 'condition') {
+      appendBotTestLog(botId, 'workflow', `Node condition -> ${node.id}`, 'debug')
       const data = (node.data || {}) as Record<string, unknown>
       const variableName = normalizeText(data.variable)
       const operator = normalizeText(data.operator || 'equals')
@@ -3741,6 +3843,7 @@ async function executeFromNode(args: {
     }
 
     if (node.type === 'router') {
+      appendBotTestLog(botId, 'workflow', `Node router -> ${node.id}`, 'debug')
       const data = (node.data || {}) as Record<string, unknown>
       const variableName = normalizeText(data.variable)
       const operator = normalizeText(data.operator || 'equals')
@@ -3773,6 +3876,7 @@ async function executeFromNode(args: {
     }
 
     if (node.type === 'scheduler') {
+      appendBotTestLog(botId, 'workflow', `Node scheduler -> ${node.id}`, 'debug')
       const data = (node.data || {}) as Record<string, unknown>
       const nextNodeId = getDefaultNextNodeId(config, node.id)
       if (!nextNodeId) {
@@ -3794,7 +3898,12 @@ async function executeFromNode(args: {
 
       const saveToVariable = normalizeText(data.saveToVariable)
       if (saveToVariable) {
-        session.variables[saveToVariable] = new Date(dueAtMs).toISOString()
+        setSessionVariable({
+          session,
+          name: saveToVariable,
+          value: new Date(dueAtMs).toISOString(),
+          botId,
+        })
       }
 
       const delayMs = dueAtMs - Date.now()
@@ -3837,6 +3946,7 @@ async function executeFromNode(args: {
     }
 
     if (node.type === 'replyKeyboard') {
+      appendBotTestLog(botId, 'workflow', `Node replyKeyboard -> ${node.id}`, 'debug')
       const data = (node.data || {}) as Record<string, unknown>
       const mode = normalizeText(data.mode || 'system') || 'system'
 
@@ -3929,7 +4039,7 @@ async function executeFromNode(args: {
 
     if (node.type === 'http' || node.type === 'webhook') {
       appendBotTestLog(botId, 'workflow', `Node ${node.type} -> ${node.id}`, 'debug')
-      await executeHttpNode(node, session, contextVariables)
+      await executeHttpNode(node, session, contextVariables, botId)
       currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
     }
@@ -4003,7 +4113,12 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
   const nodeMap = buildNodeMap(context.config)
   const messageText = normalizeText(message?.text)
   const callbackData = normalizeText(callback?.data)
+  const rawCallbackData = typeof callback?.data === 'string' ? callback.data : undefined
   const activeWaitingNode = session.waitingForNodeId ? nodeMap.get(session.waitingForNodeId) : undefined
+
+  if (rawCallbackData !== undefined) {
+    writePersistedCallbackData(session, rawCallbackData)
+  }
 
   if (activeWaitingNode?.type === 'scheduler') {
     if (callback?.id) {
@@ -4029,6 +4144,7 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
     resetSessionState(session, sessionKey)
 
     const triggerData = (triggerNode.data || {}) as Record<string, unknown>
+    appendBotTestLog(context.botId, 'workflow', `Node trigger -> ${triggerNode.id}`, 'debug')
     appendBotTestLog(
       context.botId,
       'workflow',
@@ -4127,7 +4243,12 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
 
       const saveToVariable = normalizeText(waitData.saveToVariable)
       if (saveToVariable) {
-        session.variables[saveToVariable] = callbackData || messageText
+        setSessionVariable({
+          session,
+          name: saveToVariable,
+          value: callbackData || messageText,
+          botId: context.botId,
+        })
         appendBotTestLog(context.botId, 'workflow', `Wait saved: ${saveToVariable}`, 'debug')
       }
     }
@@ -4136,7 +4257,12 @@ export async function handleTelegramWorkflowUpdate(context: RuntimeContext): Pro
     if (waitingNode?.type === 'input') {
       const variableName = normalizeText((waitingNode.data as Record<string, unknown>)?.variableName)
       if (variableName) {
-        session.variables[variableName] = messageText
+        setSessionVariable({
+          session,
+          name: variableName,
+          value: messageText,
+          botId: context.botId,
+        })
         appendBotTestLog(context.botId, 'workflow', `Input captured: ${variableName}=${messageText.slice(0, 80)}`, 'info')
       }
     }

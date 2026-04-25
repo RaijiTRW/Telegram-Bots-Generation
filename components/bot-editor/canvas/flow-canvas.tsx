@@ -17,6 +17,8 @@ import ReactFlow, {
   ReactFlowProvider,
   Background as BackgroundComponent,
   OnSelectionChangeParams,
+  type NodeMouseHandler,
+  type NodeDragHandler,
   useReactFlow,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
@@ -56,6 +58,7 @@ import {
   type SerializableWorkflowEdge,
   type SerializableWorkflowNode,
 } from '@/lib/bot-editor/utils/workflow-serialization'
+import { BOT_SYSTEM_VARIABLE_NAMES } from '@/lib/bot-editor/system-variables'
 
 interface FlowCanvasProps {
   initialNodes?: Node[]
@@ -67,6 +70,20 @@ interface FlowCanvasProps {
   isTestActive?: boolean
   isTestButtonDisabled?: boolean
   isAdmin?: boolean
+  executionTrace?: CanvasExecutionTrace | null
+  suppressTelegramTokenIssue?: boolean
+}
+
+export type CanvasExecutionNodeState = 'active' | 'waiting' | 'recent'
+
+export type CanvasExecutionTrace = {
+  isLive: boolean
+  activeNodeId?: string | null
+  activeNodeState?: CanvasExecutionNodeState | null
+  recentNodeIds?: string[]
+  activeEdgeId?: string | null
+  recentEdgeIds?: string[]
+  lastEventTs?: number | null
 }
 
 type CanvasHistorySnapshot = {
@@ -79,10 +96,19 @@ type CanvasClipboardSnapshot = {
   edges: SerializableWorkflowEdge[]
 }
 
+type CanvasInsertDirection = 'top' | 'bottom' | 'right'
+
+type CanvasInsertIntent = {
+  nodeId: string
+  direction: CanvasInsertDirection
+  sourceHandle?: string | null
+}
+
 type CanvasContextMenuState = {
   clientX: number
   clientY: number
   flowPosition: { x: number; y: number }
+  insertIntent?: CanvasInsertIntent | null
 }
 
 type EditorIssue = {
@@ -95,6 +121,11 @@ type EditorIssue = {
 
 const CANVAS_CONTEXT_MENU_DRAG_THRESHOLD = 6
 const PALETTE_ISSUE_AUTO_COLLAPSE_MS = 10_000
+const CANVAS_NODE_ALIGNMENT_SNAP_THRESHOLD = 10
+const INSERTED_NODE_APPROX_WIDTH = 180
+const INSERTED_NODE_APPROX_HEIGHT = 56
+const INSERT_VERTICAL_GAP = 42
+const INSERT_HORIZONTAL_GAP = 44
 
 const createUniqueNodeId = (existingNodes: Node[]): string => {
   let id = `node_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
@@ -159,6 +190,16 @@ const CANVAS_MIN_ZOOM = 0.2
 const CANVAS_MAX_ZOOM = 2
 const CANVAS_WHEEL_ZOOM_STEP = 0.12
 const AI_NODE_TEMPLATE_IDS = new Set(['trigger-ai', 'message-ai', 'condition-ai'])
+const EXECUTION_ACTIVE_EDGE_STYLE = {
+  stroke: '#67E8F9',
+  strokeWidth: 3.25,
+  filter: 'drop-shadow(0 0 8px rgba(103, 232, 249, 0.5))',
+} as const
+const EXECUTION_RECENT_EDGE_STYLE = {
+  stroke: '#38BDF8',
+  strokeWidth: 2.7,
+  filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.22))',
+} as const
 
 const applyRuntimeEdgeStyle = (edge: Edge): Edge => ({
   ...edge,
@@ -201,6 +242,77 @@ const getFallbackNodePosition = (index: number) => {
   const baseY = 100
   const spacingY = 120
   return { x: 350, y: baseY + (index * spacingY) }
+}
+
+function getNodeWidth(node: Node): number {
+  return typeof node.width === 'number' ? node.width : 0
+}
+
+function getNodeHeight(node: Node): number {
+  return typeof node.height === 'number' ? node.height : 0
+}
+
+function getAlignedNodePosition(draggedNode: Node, allNodes: Node[]) {
+  const draggedWidth = getNodeWidth(draggedNode)
+  const draggedHeight = getNodeHeight(draggedNode)
+  const draggedCenterX = draggedNode.position.x + draggedWidth / 2
+  const draggedCenterY = draggedNode.position.y + draggedHeight / 2
+
+  let nextX = draggedNode.position.x
+  let nextY = draggedNode.position.y
+  let bestXDistance = CANVAS_NODE_ALIGNMENT_SNAP_THRESHOLD + 1
+  let bestYDistance = CANVAS_NODE_ALIGNMENT_SNAP_THRESHOLD + 1
+
+  for (const node of allNodes) {
+    if (node.id === draggedNode.id || node.selected) {
+      continue
+    }
+
+    const otherCenterX = node.position.x + getNodeWidth(node) / 2
+    const otherCenterY = node.position.y + getNodeHeight(node) / 2
+
+    const distanceX = Math.abs(draggedCenterX - otherCenterX)
+    if (distanceX <= CANVAS_NODE_ALIGNMENT_SNAP_THRESHOLD && distanceX < bestXDistance) {
+      bestXDistance = distanceX
+      nextX = otherCenterX - draggedWidth / 2
+    }
+
+    const distanceY = Math.abs(draggedCenterY - otherCenterY)
+    if (distanceY <= CANVAS_NODE_ALIGNMENT_SNAP_THRESHOLD && distanceY < bestYDistance) {
+      bestYDistance = distanceY
+      nextY = otherCenterY - draggedHeight / 2
+    }
+  }
+
+  return { x: nextX, y: nextY }
+}
+
+function isTemplateInsertableInChain(template: NodeTemplate): boolean {
+  return template.type !== 'trigger' && template.type !== 'comment'
+}
+
+function getInsertedNodePosition(
+  flowPosition: { x: number; y: number },
+  direction: CanvasInsertDirection
+) {
+  if (direction === 'top') {
+    return {
+      x: flowPosition.x - INSERTED_NODE_APPROX_WIDTH / 2,
+      y: flowPosition.y - INSERTED_NODE_APPROX_HEIGHT - INSERT_VERTICAL_GAP,
+    }
+  }
+
+  if (direction === 'right') {
+    return {
+      x: flowPosition.x + INSERT_HORIZONTAL_GAP,
+      y: flowPosition.y - INSERTED_NODE_APPROX_HEIGHT / 2,
+    }
+  }
+
+  return {
+    x: flowPosition.x - INSERTED_NODE_APPROX_WIDTH / 2,
+    y: flowPosition.y + INSERT_VERTICAL_GAP,
+  }
 }
 
 const mergeTemplateData = (type: string, templateData?: Record<string, unknown>) => {
@@ -255,8 +367,7 @@ const migrateLegacyHttpActionNode = (node: Node): Node => {
 const extractVariableNames = (nodes: Node[]): string[] => {
   const variables: string[] = []
 
-  // Add default user variables
-  variables.push('user.id', 'user.username', 'user.firstName', 'user.lastName', 'user.languageCode')
+  variables.push(...BOT_SYSTEM_VARIABLE_NAMES)
 
   // Extract variables from Input nodes
   nodes.forEach((node) => {
@@ -603,6 +714,8 @@ function FlowCanvasInner({
   isTestActive = false,
   isTestButtonDisabled = false,
   isAdmin = false,
+  executionTrace = null,
+  suppressTelegramTokenIssue = false,
 }: FlowCanvasProps) {
   const t = useTranslations('editor.canvas')
   const translateCanvas = t as unknown as (key: string, values?: Record<string, unknown>) => string
@@ -635,12 +748,20 @@ function FlowCanvasInner({
   const historyIndexRef = useRef(-1)
   const skipNextHistoryCaptureRef = useRef(false)
   const lastHistorySnapshotKeyRef = useRef('')
+  const lastEmittedChangeKeyRef = useRef('')
   const clipboardRef = useRef<CanvasClipboardSnapshot | null>(null)
   const clipboardPasteCountRef = useRef(0)
   const contextMenuPanelRef = useRef<HTMLDivElement | null>(null)
   const rightClickOriginRef = useRef<{ x: number; y: number } | null>(null)
   const suppressNextCanvasContextMenuRef = useRef(false)
   const issueCollapseTimerRef = useRef<number | null>(null)
+  const openInsertMenuRef = useRef<(request: {
+    clientX: number
+    clientY: number
+    nodeId: string
+    direction: CanvasInsertDirection
+    sourceHandle?: string | null
+  }) => void>(() => {})
 
   const hasTelegramToken = Boolean(
     (bot?.metadata && typeof bot.metadata === 'object' && (bot.metadata as Record<string, unknown>).hasTelegramToken) ||
@@ -648,7 +769,7 @@ function FlowCanvasInner({
   )
 
   const editorIssues = useMemo<EditorIssue[]>(() => {
-    if (hasTelegramToken) {
+    if (hasTelegramToken || suppressTelegramTokenIssue) {
       return []
     }
 
@@ -665,11 +786,36 @@ function FlowCanvasInner({
         ],
       },
     ]
-  }, [hasTelegramToken, t])
+  }, [hasTelegramToken, suppressTelegramTokenIssue, t])
 
   const primaryEditorIssue = editorIssues[0] || null
 
   useEffect(() => {
+    const nextChangeKey = JSON.stringify({
+      nodes: nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        data: node.data,
+      })),
+      edges: edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle ?? null,
+        targetHandle: edge.targetHandle ?? null,
+        label: edge.label,
+        data: edge.data,
+        animated: Boolean(edge.animated),
+        type: edge.type,
+      })),
+    })
+
+    if (nextChangeKey === lastEmittedChangeKeyRef.current) {
+      return
+    }
+
+    lastEmittedChangeKeyRef.current = nextChangeKey
     onChange?.(nodes, edges)
   }, [nodes, edges, onChange])
 
@@ -748,9 +894,117 @@ function FlowCanvasInner({
       data: {
         ...existingData,
         onDelete: (id: string) => handleDeleteNode(id),
+        onOpenInsertMenu: (request: {
+          clientX: number
+          clientY: number
+          nodeId: string
+          direction: CanvasInsertDirection
+          sourceHandle?: string | null
+        }) => openInsertMenuRef.current(request),
       },
     })
   }, [handleDeleteNode])
+
+  const recentExecutionNodeIds = useMemo(
+    () => new Set(executionTrace?.recentNodeIds || []),
+    [executionTrace?.recentNodeIds]
+  )
+  const recentExecutionEdgeIds = useMemo(
+    () => new Set(executionTrace?.recentEdgeIds || []),
+    [executionTrace?.recentEdgeIds]
+  )
+
+  const renderedNodes = useMemo(() => {
+    const activeNodeId = executionTrace?.activeNodeId || null
+    const activeNodeState = executionTrace?.activeNodeState || null
+    const hasTraceState = Boolean(activeNodeId || recentExecutionNodeIds.size > 0)
+
+    if (!hasTraceState) {
+      return nodes
+    }
+
+    return nodes.map((node) => {
+      const existingData = (node.data || {}) as Record<string, unknown>
+      const nextExecutionState: CanvasExecutionNodeState | undefined =
+        node.id === activeNodeId
+          ? (activeNodeState || 'active')
+          : (recentExecutionNodeIds.has(node.id) ? 'recent' : undefined)
+      const currentExecutionState =
+        typeof existingData.__executionState === 'string'
+          ? (existingData.__executionState as CanvasExecutionNodeState)
+          : undefined
+
+      if (currentExecutionState === nextExecutionState) {
+        return node
+      }
+
+      const nextData = { ...existingData }
+      if (nextExecutionState) {
+        nextData.__executionState = nextExecutionState
+      } else {
+        delete nextData.__executionState
+      }
+
+      return applyNodeWrapperStyle({
+        ...node,
+        data: nextData,
+      })
+    })
+  }, [
+    executionTrace?.activeNodeId,
+    executionTrace?.activeNodeState,
+    nodes,
+    recentExecutionNodeIds,
+  ])
+
+  const renderedEdges = useMemo(() => {
+    const activeEdgeId = executionTrace?.activeEdgeId || null
+    const hasTraceState = Boolean(activeEdgeId || recentExecutionEdgeIds.size > 0)
+
+    if (!hasTraceState) {
+      return edges
+    }
+
+    return edges.map((edge) => {
+      const existingData =
+        edge.data && typeof edge.data === 'object' && !Array.isArray(edge.data)
+          ? (edge.data as Record<string, unknown>)
+          : {}
+      const nextExecutionState: 'active' | 'recent' | undefined =
+        edge.id === activeEdgeId
+          ? 'active'
+          : (recentExecutionEdgeIds.has(edge.id) ? 'recent' : undefined)
+      const currentExecutionState =
+        typeof existingData.__executionState === 'string'
+          ? String(existingData.__executionState)
+          : undefined
+
+      if (!nextExecutionState && !currentExecutionState) {
+        return edge
+      }
+
+      const nextData = { ...existingData }
+      if (nextExecutionState) {
+        nextData.__executionState = nextExecutionState
+      } else {
+        delete nextData.__executionState
+      }
+
+      return applyRuntimeEdgeStyle({
+        ...edge,
+        animated: nextExecutionState ? true : edge.animated,
+        data: nextData,
+        style: {
+          ...(edge.style || {}),
+          ...(nextExecutionState === 'active'
+            ? EXECUTION_ACTIVE_EDGE_STYLE
+            : nextExecutionState === 'recent'
+              ? EXECUTION_RECENT_EDGE_STYLE
+              : {}),
+        },
+      })
+    })
+  }, [edges, executionTrace?.activeEdgeId, recentExecutionEdgeIds])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -854,6 +1108,13 @@ function FlowCanvasInner({
           data: {
             ...defaultData,
             onDelete: (id: string) => handleDeleteNode(id),
+            onOpenInsertMenu: (request: {
+              clientX: number
+              clientY: number
+              nodeId: string
+              direction: CanvasInsertDirection
+              sourceHandle?: string | null
+            }) => openInsertMenuRef.current(request),
           },
         }
 
@@ -886,6 +1147,13 @@ function FlowCanvasInner({
         data: {
           ...defaultData,
           onDelete: (id: string) => handleDeleteNode(id),
+          onOpenInsertMenu: (request: {
+            clientX: number
+            clientY: number
+            nodeId: string
+            direction: CanvasInsertDirection
+            sourceHandle?: string | null
+          }) => openInsertMenuRef.current(request),
         },
       }
 
@@ -906,20 +1174,42 @@ function FlowCanvasInner({
     setNodes((nds) =>
       nds.map((n) =>
         n.id === nodeId
-          ? { ...n, data: { ...n.data, ...newData, onDelete: (id: string) => handleDeleteNode(id) } }
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                ...newData,
+                onDelete: (id: string) => handleDeleteNode(id),
+                onOpenInsertMenu: (request: {
+                  clientX: number
+                  clientY: number
+                  nodeId: string
+                  direction: CanvasInsertDirection
+                  sourceHandle?: string | null
+                }) => openInsertMenuRef.current(request),
+              },
+            }
           : n
       )
     )
   }, [setNodes, handleDeleteNode])
 
   const onSelectionChange = useCallback(({ nodes: selectedNodes }: OnSelectionChangeParams) => {
-    if (selectedNodes.length === 1) {
-      setSelectedNode(selectedNodes[0] as Node)
-      setSettingsPanelOpen(true)
-    } else {
+    if (selectedNodes.length !== 1) {
       setSelectedNode(null)
       setSettingsPanelOpen(false)
     }
+  }, [])
+
+  const handleNodeClick = useCallback<NodeMouseHandler>((event, node) => {
+    if (event.shiftKey) {
+      setSelectedNode(null)
+      setSettingsPanelOpen(false)
+      return
+    }
+
+    setSelectedNode(node as Node)
+    setSettingsPanelOpen(true)
   }, [])
 
   const restoreSnapshot = useCallback((snapshot: CanvasHistorySnapshot) => {
@@ -1225,15 +1515,80 @@ function FlowCanvasInner({
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
   }, [translateCanvas, isAdmin, t])
 
-  const firstEnabledPaletteCategory =
-    paletteCategories.find((category) => !category.disabled) ||
-    paletteCategories[0] ||
+  const contextMenuCategories = useMemo(() => {
+    if (!contextMenu?.insertIntent) {
+      return paletteCategories
+    }
+
+    return paletteCategories
+      .map((category) => ({
+        ...category,
+        templates: category.templates.filter((template) => isTemplateInsertableInChain(template)),
+      }))
+      .filter((category) => category.templates.length > 0)
+  }, [contextMenu?.insertIntent, paletteCategories])
+
+  const firstEnabledContextMenuCategory =
+    contextMenuCategories.find((category) => !category.disabled) ||
+    contextMenuCategories[0] ||
     null
+
+  const openContextMenuAtClientPosition = useCallback((
+    clientX: number,
+    clientY: number,
+    insertIntent?: CanvasInsertIntent | null
+  ) => {
+    const menuWidth = 360
+    const menuHeight = 420
+    const viewportPadding = 12
+    const maxX = Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding)
+    const maxY = Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding)
+    const nextClientX = Math.max(viewportPadding, Math.min(clientX, maxX))
+    const nextClientY = Math.max(viewportPadding, Math.min(clientY, maxY))
+    const nextCategories = insertIntent
+      ? paletteCategories
+          .map((category) => ({
+            ...category,
+            templates: category.templates.filter((template) => isTemplateInsertableInChain(template)),
+          }))
+          .filter((category) => category.templates.length > 0)
+      : paletteCategories
+    const nextFirstEnabledCategory =
+      nextCategories.find((category) => !category.disabled) ||
+      nextCategories[0] ||
+      null
+
+    setContextMenu({
+      clientX: nextClientX,
+      clientY: nextClientY,
+      flowPosition: screenToFlowPosition({
+        x: clientX,
+        y: clientY,
+      }),
+      insertIntent: insertIntent || null,
+    })
+    setContextMenuCategory((current) => {
+      if (current && nextCategories.some((category) => category.id === current && !category.disabled)) {
+        return current
+      }
+      return nextFirstEnabledCategory?.id ?? null
+    })
+  }, [paletteCategories, screenToFlowPosition])
+
+  useEffect(() => {
+    openInsertMenuRef.current = (request) => {
+      openContextMenuAtClientPosition(request.clientX, request.clientY, {
+        nodeId: request.nodeId,
+        direction: request.direction,
+        sourceHandle: request.sourceHandle ?? null,
+      })
+    }
+  }, [openContextMenuAtClientPosition])
 
   const activeContextMenuCategory =
     (contextMenuCategory &&
-      paletteCategories.find((category) => category.id === contextMenuCategory && !category.disabled)) ||
-    firstEnabledPaletteCategory ||
+      contextMenuCategories.find((category) => category.id === contextMenuCategory && !category.disabled)) ||
+    firstEnabledContextMenuCategory ||
     null
 
   const closeContextMenu = useCallback(() => {
@@ -1243,30 +1598,8 @@ function FlowCanvasInner({
   const handlePaneContextMenu = useCallback((event: ReactMouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
-
-    const menuWidth = 360
-    const menuHeight = 420
-    const viewportPadding = 12
-    const maxX = Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding)
-    const maxY = Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding)
-    const nextClientX = Math.max(viewportPadding, Math.min(event.clientX, maxX))
-    const nextClientY = Math.max(viewportPadding, Math.min(event.clientY, maxY))
-
-    setContextMenu({
-      clientX: nextClientX,
-      clientY: nextClientY,
-      flowPosition: screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      }),
-    })
-    setContextMenuCategory((current) => {
-      if (current && paletteCategories.some((category) => category.id === current && !category.disabled)) {
-        return current
-      }
-      return firstEnabledPaletteCategory?.id ?? null
-    })
-  }, [paletteCategories, firstEnabledPaletteCategory, screenToFlowPosition])
+    openContextMenuAtClientPosition(event.clientX, event.clientY, null)
+  }, [openContextMenuAtClientPosition])
 
   const handleCanvasMouseDownCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.button !== 2 || !isCanvasPaneElement(event.target)) {
@@ -1319,9 +1652,50 @@ function FlowCanvasInner({
     if (!contextMenu) return
     if (!isAdmin && isAiTemplateCandidate(template)) return
 
+    if (contextMenu.insertIntent) {
+      if (!isTemplateInsertableInChain(template)) {
+        closeContextMenu()
+        return
+      }
+
+      const defaultData = mergeTemplateData(template.type, template.data)
+      const newNodeId = createUniqueNodeId(nodes)
+      const nextPosition = getInsertedNodePosition(
+        contextMenu.flowPosition,
+        contextMenu.insertIntent.direction
+      )
+      const newNode = applyRuntimeNodeData({
+        id: newNodeId,
+        type: template.type,
+        position: nextPosition,
+        data: defaultData as Node['data'],
+      } as Node)
+
+      const nextEdge = applyRuntimeEdgeStyle({
+        id: createUniqueEdgeId(edges),
+        source: contextMenu.insertIntent.direction === 'top' ? newNodeId : contextMenu.insertIntent.nodeId,
+        target: contextMenu.insertIntent.direction === 'top' ? contextMenu.insertIntent.nodeId : newNodeId,
+        sourceHandle:
+          contextMenu.insertIntent.direction === 'top'
+            ? null
+            : (contextMenu.insertIntent.sourceHandle ?? null),
+        targetHandle: null,
+        animated: true,
+        type: CANVAS_EDGE_TYPE,
+        style: undefined,
+      } as Edge)
+
+      setNodes((currentNodes) => [...currentNodes, newNode])
+      setEdges((currentEdges) => [...currentEdges, nextEdge])
+      setSelectedNode(newNode)
+      setSettingsPanelOpen(true)
+      closeContextMenu()
+      return
+    }
+
     handleAddNode(template, contextMenu.flowPosition)
     closeContextMenu()
-  }, [closeContextMenu, contextMenu, handleAddNode, isAdmin])
+  }, [applyRuntimeNodeData, closeContextMenu, contextMenu, edges, handleAddNode, isAdmin, nodes, setEdges, setNodes])
 
   const validPinnedPaletteCategory =
     pinnedPaletteCategory &&
@@ -1394,6 +1768,49 @@ function FlowCanvasInner({
     [isAdmin]
   )
 
+  const alignDraggedNode = useCallback((draggedNode: Node) => {
+    setNodes((currentNodes) => {
+      const currentNode = currentNodes.find((node) => node.id === draggedNode.id)
+      if (!currentNode) {
+        return currentNodes
+      }
+
+      const alignedPosition = getAlignedNodePosition(
+        {
+          ...currentNode,
+          position: draggedNode.position,
+          width: draggedNode.width ?? currentNode.width,
+          height: draggedNode.height ?? currentNode.height,
+        },
+        currentNodes
+      )
+
+      if (
+        Math.abs(currentNode.position.x - alignedPosition.x) < 0.5 &&
+        Math.abs(currentNode.position.y - alignedPosition.y) < 0.5
+      ) {
+        return currentNodes
+      }
+
+      return currentNodes.map((node) =>
+        node.id === draggedNode.id
+          ? {
+              ...node,
+              position: alignedPosition,
+            }
+          : node
+      )
+    })
+  }, [setNodes])
+
+  const handleNodeDrag = useCallback<NodeDragHandler>((_event, draggedNode) => {
+    alignDraggedNode(draggedNode)
+  }, [alignDraggedNode])
+
+  const handleNodeDragStop = useCallback<NodeDragHandler>((_event, draggedNode) => {
+    alignDraggedNode(draggedNode)
+  }, [alignDraggedNode])
+
   return (
     <div
       className="flow-canvas-shell w-full h-full flex"
@@ -1409,12 +1826,15 @@ function FlowCanvasInner({
         onContextMenu={handleCanvasContextMenu}
       >
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={renderedNodes}
+          edges={renderedEdges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
+          onNodeDrag={handleNodeDrag}
+          onNodeDragStop={handleNodeDragStop}
           onConnect={onConnect}
           onSelectionChange={onSelectionChange}
+          onNodeClick={handleNodeClick}
           onDragOver={onDragOver}
           onDrop={onDrop}
           onPaneClick={closeContextMenu}
@@ -1449,6 +1869,17 @@ function FlowCanvasInner({
           {/* Mini Map */}
           <MiniMap
             nodeColor={(node) => {
+              const nodeData =
+                node.data && typeof node.data === 'object' && !Array.isArray(node.data)
+                  ? (node.data as Record<string, unknown>)
+                  : null
+              const executionState = String(nodeData?.__executionState || '')
+              if (executionState === 'active' || executionState === 'waiting') {
+                return '#67E8F9'
+              }
+              if (executionState === 'recent') {
+                return '#38BDF8'
+              }
               const colors = {
                 message: '#24A1DE',
                 condition: '#F59E0B',
@@ -1532,7 +1963,7 @@ function FlowCanvasInner({
                     onClick={() => setIsIssueModalOpen(true)}
                     aria-label={t('issues.openModalAriaLabel', { title: primaryEditorIssue.title })}
                     title={primaryEditorIssue.title}
-                    className={`absolute left-full top-1/2 z-20 -translate-y-1/2 ml-2 flex h-8 items-center overflow-hidden rounded-full border border-red-500/30 bg-zinc-950/95 text-left shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition-[width,padding,background-color] duration-300 ${isPaletteIssueExpanded ? 'w-[220px] px-1.5' : 'w-8 px-0'
+                    className={`absolute left-full top-1/2 z-20 -translate-y-1/2 ml-4 flex h-8 items-center overflow-hidden rounded-full border border-red-500/30 bg-zinc-950/95 text-left shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition-[width,padding,background-color] duration-300 ${isPaletteIssueExpanded ? 'w-[220px] px-1.5' : 'w-8 px-0'
                       }`}
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/18 text-red-300">
@@ -1705,19 +2136,6 @@ function FlowCanvasInner({
                 </div>
               )}
 
-              {/* Quick Stats */}
-              <div className="mt-3 pt-3 border-t border-white/10">
-                <div className={`text-[10px] text-zinc-500 ${isPaletteExpanded ? 'space-y-1' : 'flex items-center justify-between gap-2'}`}>
-                  <div className="flex justify-between gap-2">
-                    <span>{t('nodes')}:</span>
-                    <span className="text-white">{nodes.length}</span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span>{t('connections')}:</span>
-                    <span className="text-white">{edges.length}</span>
-                  </div>
-                </div>
-              </div>
             </div>
           </Panel>
 
@@ -1824,7 +2242,7 @@ function FlowCanvasInner({
 
                 <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-0 min-h-[250px] max-h-[430px]">
                   <div className="border-r border-white/10 bg-zinc-950/45 p-1.5 space-y-1 overflow-y-auto">
-                    {paletteCategories.map((category) => {
+                    {contextMenuCategories.map((category) => {
                       const isActive = category.id === activeContextMenuCategory.id
                       const isLocked = Boolean(category.disabled)
                       const CategoryIcon = category.icon

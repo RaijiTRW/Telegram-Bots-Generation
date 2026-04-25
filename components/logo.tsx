@@ -21,7 +21,7 @@ function LogoMark({ className = '' }: { className?: string }) {
         height={512}
         priority
         sizes="64px"
-        className="h-full w-full object-contain object-center drop-shadow-[0_8px_22px_rgba(59,130,246,0.16)]"
+        className="h-full w-full translate-y-[3px] object-contain object-center drop-shadow-[0_8px_22px_rgba(59,130,246,0.16)]"
       />
     </span>
   );
@@ -32,7 +32,7 @@ export function TFlowLogo({ className = '', showText = true, idPrefix = 'cbtooll
     <span className={`inline-flex items-center gap-3 ${className}`} aria-label="CBTooll" data-logo-id={idPrefix}>
       <LogoMark className={showText ? 'h-full aspect-square' : 'h-full w-full'} />
       {showText ? (
-        <span className="text-xl font-extrabold tracking-tight gradient-text">CBTooll</span>
+        <span className="text-xl font-extrabold leading-none tracking-tight gradient-text">CBTooll</span>
       ) : null}
     </span>
   );

@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react'
 import { Node, Edge } from 'reactflow'
 import { Check, ChevronDown, ChevronUp, Copy, Loader2, Terminal, Trash2 } from 'lucide-react'
-import FlowCanvas from '@/components/bot-editor/canvas/flow-canvas'
+import FlowCanvas, { type CanvasExecutionTrace } from '@/components/bot-editor/canvas/flow-canvas'
+import { LivePreviewPhone } from '@/components/bot-editor/canvas/live-preview-phone'
 import {
   clearBotTestLogsAction,
   getBotTestLogsAction,
@@ -53,9 +54,59 @@ type BotTestLogEntry = {
   message: string
 }
 
+type ParsedExecutionVisit = {
+  nodeId: string
+  nodeType: string
+  ts: number
+}
+
+const WORKFLOW_NODE_TRACE_RE = /^Node\s+(.+?)\s*->\s*([A-Za-z0-9:_-]+)\s*$/
+const WAITING_TRACE_NODE_TYPES = new Set(['input', 'wait', 'scheduler'])
+const EXECUTION_ACTIVE_WINDOW_MS = 2_600
+const EXECUTION_RECENT_WINDOW_MS = 14_000
+
+function normalizeTraceNodeType(value: string): string {
+  return value.replace(/\(.+?\)/g, '').trim().toLowerCase()
+}
+
+function parseExecutionVisit(entry: BotTestLogEntry): ParsedExecutionVisit | null {
+  if (entry.source !== 'workflow') {
+    return null
+  }
+
+  const match = entry.message.match(WORKFLOW_NODE_TRACE_RE)
+  if (!match) {
+    return null
+  }
+
+  const rawNodeType = String(match[1] || '').trim()
+  const nodeId = String(match[2] || '').trim()
+  if (!rawNodeType || !nodeId) {
+    return null
+  }
+
+  return {
+    nodeId,
+    nodeType: normalizeTraceNodeType(rawNodeType),
+    ts: entry.ts,
+  }
+}
+
 export default function CanvasPage() {
   const t = useTranslations('editor.canvas')
-  const { bot, config, setConfig, setIsDirty, setBot, autoOpenTelegramAfterTest, viewerAccess } = useBotState()
+  const tChat = useTranslations('editor.chat')
+  const {
+    bot,
+    config,
+    setConfig,
+    setIsDirty,
+    setBot,
+    autoOpenTelegramAfterTest,
+    testLaunchMode,
+    viewerAccess,
+    agentRun,
+    isAgentRunActive,
+  } = useBotState()
   const botId = String(bot?.id || '')
   const isTestActive = Boolean(bot?.metadata?.testActive)
   const canUseAiNodes = viewerAccess.isAdmin || viewerAccess.entitlements.aiNodes
@@ -64,6 +115,7 @@ export default function CanvasPage() {
   const [testTransition, setTestTransition] = useState<'starting' | 'stopping' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [logs, setLogs] = useState<BotTestLogEntry[]>([])
+  const [isLogConsoleOpen, setIsLogConsoleOpen] = useState(false)
   const [logsCollapsed, setLogsCollapsed] = useState(false)
   const [logsPaneHeight, setLogsPaneHeight] = useState(220)
   const [isLogsCopyMenuOpen, setIsLogsCopyMenuOpen] = useState(false)
@@ -71,6 +123,8 @@ export default function CanvasPage() {
   const [isClearingLogs, setIsClearingLogs] = useState(false)
   const [logsFetchError, setLogsFetchError] = useState<string | null>(null)
   const [logsFetchErrorTs, setLogsFetchErrorTs] = useState<number | null>(null)
+  const [isLivePreviewOpen, setIsLivePreviewOpen] = useState(false)
+  const [livePreviewStartSignal, setLivePreviewStartSignal] = useState(0)
   const pageContainerRef = useRef<HTMLDivElement | null>(null)
   const logsBodyRef = useRef<HTMLDivElement | null>(null)
   const latestLogTsRef = useRef<number | null>(null)
@@ -140,6 +194,93 @@ export default function CanvasPage() {
 
     return 3_000
   }, [logsFetchError])
+
+  const edgeLookupByTransition = useMemo(() => {
+    const lookup = new Map<string, string>()
+    for (const edge of (config.edges || []) as CanvasEdge[]) {
+      const source = String(edge.source || '').trim()
+      const target = String(edge.target || '').trim()
+      const edgeId = String(edge.id || '').trim()
+      if (!source || !target || !edgeId) {
+        continue
+      }
+
+      const key = `${source}=>${target}`
+      if (!lookup.has(key)) {
+        lookup.set(key, edgeId)
+      }
+    }
+    return lookup
+  }, [config.edges])
+
+  const executionTrace = useMemo<CanvasExecutionTrace | null>(() => {
+    const visits = logs
+      .map(parseExecutionVisit)
+      .filter((visit): visit is ParsedExecutionVisit => Boolean(visit))
+
+    if (visits.length === 0) {
+      return null
+    }
+
+    const now = Date.now()
+    const latestVisit = visits[visits.length - 1] || null
+    const previousVisit = visits.length > 1 ? visits[visits.length - 2] : null
+    const recentNodeIds = new Set<string>()
+    const recentEdgeIds = new Set<string>()
+
+    for (const visit of visits) {
+      if (now - visit.ts > EXECUTION_RECENT_WINDOW_MS) {
+        continue
+      }
+
+      recentNodeIds.add(visit.nodeId)
+    }
+
+    for (let index = 1; index < visits.length; index += 1) {
+      const previous = visits[index - 1]
+      const current = visits[index]
+      if (now - current.ts > EXECUTION_RECENT_WINDOW_MS) {
+        continue
+      }
+
+      const edgeId = edgeLookupByTransition.get(`${previous.nodeId}=>${current.nodeId}`)
+      if (edgeId) {
+        recentEdgeIds.add(edgeId)
+      }
+    }
+
+    let activeNodeId: string | null = null
+    let activeNodeState: CanvasExecutionTrace['activeNodeState'] = null
+    let activeEdgeId: string | null = null
+
+    if (latestVisit) {
+      const latestAge = now - latestVisit.ts
+      const isWaitingNode = WAITING_TRACE_NODE_TYPES.has(latestVisit.nodeType)
+
+      if (isWaitingNode && (isTestActive || isTesting)) {
+        activeNodeId = latestVisit.nodeId
+        activeNodeState = 'waiting'
+      } else if (latestAge <= EXECUTION_ACTIVE_WINDOW_MS) {
+        activeNodeId = latestVisit.nodeId
+        activeNodeState = 'active'
+      }
+
+      if (activeNodeState === 'active' && latestAge <= EXECUTION_ACTIVE_WINDOW_MS && previousVisit) {
+        activeEdgeId =
+          edgeLookupByTransition.get(`${previousVisit.nodeId}=>${latestVisit.nodeId}`) || null
+      }
+    }
+
+    return {
+      isLive: Boolean(isTestActive || isTesting),
+      activeNodeId,
+      activeNodeState,
+      recentNodeIds: [...recentNodeIds],
+      activeEdgeId,
+      recentEdgeIds: [...recentEdgeIds],
+      lastEventTs: latestVisit?.ts ?? null,
+    }
+  }, [edgeLookupByTransition, isTestActive, isTesting, logs])
 
   useEffect(() => {
     latestLogTsRef.current = null
@@ -259,6 +400,20 @@ export default function CanvasPage() {
   const handleTest = useCallback(async (currentNodes: Node[], currentEdges: Edge[]) => {
     if (!botId) return
 
+    if (!isTestActive && testLaunchMode === 'live-preview') {
+      const serialNodes = serializeWorkflowNodes(currentNodes)
+      const serialEdges = serializeWorkflowEdges(currentEdges)
+      setConfig({
+        ...config,
+        nodes: serialNodes as unknown as typeof config.nodes,
+        edges: serialEdges as unknown as typeof config.edges,
+      })
+      setIsLivePreviewOpen(true)
+      setLivePreviewStartSignal((value) => value + 1)
+      setError(null)
+      return
+    }
+
     setIsTesting(true)
     setError(null)
     setLogsFetchError(null)
@@ -290,6 +445,23 @@ export default function CanvasPage() {
     setTestTransition('starting')
     latestLogTsRef.current = null
     setLogs([])
+    const preparedTelegramWindow =
+      autoOpenTelegramAfterTest && typeof window !== 'undefined'
+        ? window.open('', '_blank')
+        : null
+
+    if (preparedTelegramWindow) {
+      try {
+        preparedTelegramWindow.opener = null
+        preparedTelegramWindow.document.write(
+          '<!doctype html><title>Telegram</title><body style="margin:0;padding:24px;font:14px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;background:#0f172a;color:#e2e8f0;">Opening Telegram...</body>'
+        )
+        preparedTelegramWindow.document.close()
+      } catch {
+        // Ignore placeholder rendering issues and keep the reserved window handle.
+      }
+    }
+
     const serialNodes = serializeWorkflowNodes(currentNodes)
     const serialEdges = serializeWorkflowEdges(currentEdges)
 
@@ -305,6 +477,9 @@ export default function CanvasPage() {
     await fetchLogs(false)
 
     if (!result.success) {
+      if (preparedTelegramWindow && !preparedTelegramWindow.closed) {
+        preparedTelegramWindow.close()
+      }
       setError(('error' in result ? result.error : null) || t('errorStartFallback'))
       return
     }
@@ -317,11 +492,24 @@ export default function CanvasPage() {
 
     const deepLink = result.success && 'deepLink' in result ? result.deepLink : null
     if (deepLink && autoOpenTelegramAfterTest) {
-      window.setTimeout(() => {
+      let openedViaPreparedWindow = false
+
+      if (preparedTelegramWindow && !preparedTelegramWindow.closed) {
+        try {
+          preparedTelegramWindow.location.replace(deepLink)
+          openedViaPreparedWindow = true
+        } catch {
+          openedViaPreparedWindow = false
+        }
+      }
+
+      if (!openedViaPreparedWindow) {
         window.open(deepLink, '_blank', 'noopener,noreferrer')
-      }, 250)
+      }
+    } else if (preparedTelegramWindow && !preparedTelegramWindow.closed) {
+      preparedTelegramWindow.close()
     }
-  }, [botId, config.variables, config.version, isTestActive, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, t])
+  }, [botId, config, isTestActive, setConfig, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, testLaunchMode, t])
 
   const handleSaveCanvas = useCallback(async (currentNodes: Node[], currentEdges: Edge[]) => {
     if (!botId) return false
@@ -363,7 +551,8 @@ export default function CanvasPage() {
     )
   }
 
-  const showLogConsole = isTesting || isTestActive || logs.length > 0
+  const hasLogConsoleActivity = isTesting || isTestActive || logs.length > 0 || Boolean(logsFetchError)
+  const showLogConsole = isLogConsoleOpen || hasLogConsoleActivity
 
   const formatLogTime = (ts: number) => {
     try {
@@ -447,7 +636,7 @@ export default function CanvasPage() {
   }
 
   return (
-    <div ref={pageContainerRef} className="h-full w-full bg-[#05070A]">
+    <div ref={pageContainerRef} className="relative h-full w-full bg-[#05070A]">
       <div className="h-full w-full flex flex-col min-h-0">
         <div className="relative flex-1 min-h-0">
           {(error || isTesting || isTestActive) && (
@@ -483,8 +672,46 @@ export default function CanvasPage() {
             isTestActive={isTestActive}
             isTestButtonDisabled={isTesting}
             isAdmin={canUseAiNodes}
+            executionTrace={executionTrace}
+            suppressTelegramTokenIssue={testLaunchMode === 'live-preview'}
           />
+
+          {isAgentRunActive ? (
+            <div className="absolute inset-0 z-40 flex items-start justify-center bg-[#05070A]/18 backdrop-blur-[1px]">
+              <div className="mt-4 rounded-full border border-[#24A1DE]/25 bg-[#0D141D]/92 px-4 py-2 text-sm text-zinc-100 shadow-xl shadow-black/30">
+                <span className="text-[#8ED8FF]">{tChat('statusRunning')}:</span>{' '}
+                {agentRun?.currentAction || tChat('working')}
+              </div>
+            </div>
+          ) : null}
+
+          {!showLogConsole && (
+            <div className="absolute bottom-4 left-4 z-40">
+              <button
+                type="button"
+                onClick={() => setIsLogConsoleOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-zinc-950/90 px-3 py-2 text-xs font-medium text-zinc-200 shadow-xl shadow-black/30 transition-colors hover:border-[#24A1DE]/30 hover:bg-zinc-900 hover:text-white"
+              >
+                <Terminal className="h-4 w-4 text-[#24A1DE]" />
+                {t('logsTitle')}
+              </button>
+            </div>
+          )}
         </div>
+
+        {testLaunchMode === 'live-preview' ? (
+          <div className="pointer-events-none absolute bottom-4 right-4 z-[90]">
+            <div className="pointer-events-auto">
+              <LivePreviewPhone
+                config={config}
+                metadata={bot?.metadata}
+                isOpen={isLivePreviewOpen}
+                startSignal={livePreviewStartSignal}
+                onOpenChange={setIsLivePreviewOpen}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {showLogConsole && (
           <>
@@ -516,6 +743,19 @@ export default function CanvasPage() {
                     <div className="text-xs text-zinc-500">{logs.length}</div>
                   </div>
                   <div className="flex items-center gap-1">
+                    {isLogConsoleOpen && !hasLogConsoleActivity && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLogConsoleOpen(false)
+                          setLogsCollapsed(false)
+                          setIsLogsCopyMenuOpen(false)
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
+                      >
+                        {t('logsHide')}
+                      </button>
+                    )}
                     {!logsCollapsed && (
                       <>
                         <div

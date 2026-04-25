@@ -6,8 +6,7 @@
  * In production, replace with actual AI API calls.
  */
 
-import type { Node } from '@/lib/bot-editor/types/bot.types'
-import type { AIResponse, QuickPrompt } from '@/components/bot-editor/chat/types'
+import type { AIResponse, ChatSendPayload, QuickPrompt } from '@/components/bot-editor/chat/types'
 
 // Helper to generate unique IDs
 const generateId = (prefix: string) =>
@@ -380,13 +379,18 @@ function analyzePrompt(prompt: string): AIResponse {
 /**
  * Simulates AI response with a delay
  */
-export async function mockAIResponse(prompt: string): Promise<AIResponse> {
+export async function mockAIResponse(payload: string | ChatSendPayload): Promise<AIResponse> {
+  const prompt =
+    typeof payload === 'string'
+      ? payload
+      : payload.content.trim() || payload.attachments.map((attachment) => attachment.name).join(' ')
+
   // Simulate network delay (1-2 seconds)
   const delay = 1000 + Math.random() * 1000
 
   await new Promise(resolve => setTimeout(resolve, delay))
 
-  return analyzePrompt(prompt)
+  return analyzePrompt(prompt || 'Create a basic bot flow')
 }
 
 /**

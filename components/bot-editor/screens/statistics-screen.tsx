@@ -87,39 +87,56 @@ export default function StatisticsPage() {
               }
               setActiveTab(value as StatisticsTab)
             }}
-            className="space-y-4"
+            className="space-y-0"
           >
-            <TabsList className="grid w-full max-w-[620px] grid-cols-3 overflow-visible bg-zinc-900/60 border border-white/10">
-              <TabsTrigger value="technical" className="w-full">{t('tabs.technical')}</TabsTrigger>
-              <TabsTrigger value="payments" className="w-full">{t('tabs.payments')}</TabsTrigger>
-              <div className="relative w-full group/subscribers">
-                <TabsTrigger
-                  value="subscribers"
-                  className={subscribersEnabled ? 'w-full' : 'w-full cursor-not-allowed opacity-50'}
-                  aria-disabled={!subscribersEnabled}
-                >
-                  {t('tabs.subscribers')}
-                </TabsTrigger>
+            <div className="sticky top-[3.6rem] z-20 mb-4">
+              <div className="inline-flex w-full max-w-[620px] rounded-[20px] border border-white/10 bg-[#0D1117]/92 p-1 shadow-[0_14px_36px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+                <TabsList className="grid h-auto w-full grid-cols-3 overflow-visible rounded-[16px] bg-transparent p-0 text-zinc-400">
+                  <TabsTrigger
+                    value="technical"
+                    className="min-h-11 rounded-[14px] text-[15px] font-medium"
+                  >
+                    {t('tabs.technical')}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="payments"
+                    className="min-h-11 rounded-[14px] text-[15px] font-medium"
+                  >
+                    {t('tabs.payments')}
+                  </TabsTrigger>
+                  <div className="relative w-full group/subscribers">
+                    <TabsTrigger
+                      value="subscribers"
+                      className={subscribersEnabled
+                        ? 'min-h-11 w-full rounded-[14px] text-[15px] font-medium'
+                        : 'min-h-11 w-full cursor-not-allowed rounded-[14px] text-[15px] font-medium opacity-50'
+                      }
+                      aria-disabled={!subscribersEnabled}
+                    >
+                      {t('tabs.subscribers')}
+                    </TabsTrigger>
 
-                {!subscribersEnabled ? (
-                  <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-[280px] -translate-x-1/2 rounded-xl border border-amber-500/20 bg-zinc-950/95 px-4 py-3 text-left shadow-2xl shadow-black/40 opacity-0 backdrop-blur-md transition-all duration-150 group-hover/subscribers:translate-y-0 group-hover/subscribers:opacity-100 group-focus-within/subscribers:translate-y-0 group-focus-within/subscribers:opacity-100">
-                    <div className="text-sm font-medium text-amber-200">
-                      {t('tabs.subscribersDisabledTitle')}
-                    </div>
-                    <div className="mt-1 text-xs leading-relaxed text-zinc-300">
-                      {t('tabs.subscribersDisabledHint')}
-                    </div>
+                    {!subscribersEnabled ? (
+                      <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-[280px] -translate-x-1/2 rounded-xl border border-amber-500/20 bg-zinc-950/95 px-4 py-3 text-left opacity-0 shadow-2xl shadow-black/40 backdrop-blur-md transition-all duration-150 group-hover/subscribers:translate-y-0 group-hover/subscribers:opacity-100 group-focus-within/subscribers:translate-y-0 group-focus-within/subscribers:opacity-100">
+                        <div className="text-sm font-medium text-amber-200">
+                          {t('tabs.subscribersDisabledTitle')}
+                        </div>
+                        <div className="mt-1 text-xs leading-relaxed text-zinc-300">
+                          {t('tabs.subscribersDisabledHint')}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                </TabsList>
               </div>
-            </TabsList>
-            <TabsContent value="technical">
+            </div>
+            <TabsContent value="technical" className="mt-0">
               <TechnicalStatsPanel />
             </TabsContent>
-            <TabsContent value="payments">
+            <TabsContent value="payments" className="mt-0">
               <PaymentStatsPanel />
             </TabsContent>
-            <TabsContent value="subscribers">
+            <TabsContent value="subscribers" className="mt-0">
               <SubscribersStatsPanel />
             </TabsContent>
           </Tabs>

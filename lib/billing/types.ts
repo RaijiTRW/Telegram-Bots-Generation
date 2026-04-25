@@ -27,6 +27,8 @@ export type PlanEntitlements = {
   dashboardStatisticsPro: boolean
   aiNodes: boolean
   aiChat: boolean
+  aiChatLimitRequests: number
+  aiChatLimitWindowHours: number
   ownAiApiKeys: boolean
   tokenTopUps: boolean
   hosting: boolean

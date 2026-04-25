@@ -327,6 +327,7 @@ const PUBLIC_BOT_LOG_SOURCE_ALLOWLIST = new Set<BotTestLogEntry['source']>([
   'workflow',
   'telegram',
   'polling',
+  'agent',
 ])
 
 function isInternalBotTestLogMessage(message: string): boolean {

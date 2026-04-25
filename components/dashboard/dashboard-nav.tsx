@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Home, User, Settings, LogOut, Bot, BookOpen, Shield, Users, FileText, Lock, BarChart3, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-import { CompactLogo } from '@/components/logo'
 import type { ViewerAccess } from '@/lib/billing/types'
 import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
 import { preloadDashboardSection, type DashboardSection } from '@/components/dashboard/layout/dashboard-section-viewport'
@@ -190,14 +189,6 @@ export function DashboardNav({
       <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 to-zinc-900/60 backdrop-blur-xl border-r border-white/10" />
 
       <div className="relative z-10 flex flex-col h-full">
-        {/* Logo area with gradient accent */}
-        <Link href={`/${locale}`} className="mb-8 rounded-xl border border-white/10 bg-linear-to-r from-blue-500/10 to-purple-500/10 px-4 py-3 hover:from-blue-500/20 hover:to-purple-500/20 transition-colors">
-          <div className="flex min-h-[56px] items-center gap-3.5">
-            <CompactLogo className="size-12 shrink-0" idPrefix="dashboard-nav-logo" />
-            <h1 className="text-[2.15rem] font-bold leading-none text-white tracking-tight">CBTooll</h1>
-          </div>
-        </Link>
-
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto space-y-1 px-2">
           {navItems.map((item) => {

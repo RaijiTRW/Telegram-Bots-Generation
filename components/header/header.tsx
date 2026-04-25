@@ -29,8 +29,8 @@ export function Header() {
   useEffect(() => {
     const supabase = createClient();
 
-    const setUserPreview = async (authUser?: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']) => {
-      const resolvedUser = authUser ?? await getSafeClientUser(supabase);
+    const setUserPreview = async (authUser?: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] | null) => {
+      const resolvedUser = authUser === undefined ? await getSafeClientUser(supabase) : authUser;
 
       if (!resolvedUser) {
         setUser(null);
@@ -85,7 +85,9 @@ export function Header() {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      void setUserPreview(session?.user ?? undefined);
+      window.setTimeout(() => {
+        void setUserPreview(session?.user ?? null);
+      }, 0);
     });
 
     const handleProfileUpdated = (event: Event) => {
@@ -145,7 +147,7 @@ export function Header() {
   };
 
   const navItems = [
-    { key: 'nav.features', href: `/${locale}#features` },
+    { key: 'nav.features', href: `/${locale}#business-advantage` },
     { key: 'nav.templates', href: `/${locale}#templates` },
     { key: 'nav.pricing', href: `/${locale}/pricing` },
     { key: 'nav.docs', href: `/${locale}/docs` },
@@ -163,7 +165,7 @@ export function Header() {
           >
             <CompactLogo className="w-12 h-10" idPrefix="site-header-logo" />
             {/* Текст TFlow показываем только на десктопе */}
-            <span className="hidden lg:block text-xl font-bold gradient-text">
+            <span className="hidden lg:block text-xl font-bold leading-none gradient-text">
               CBTooll
             </span>
           </Link>

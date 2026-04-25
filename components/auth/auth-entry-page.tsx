@@ -104,13 +104,6 @@ export function AuthEntryPage({
       }
       side={{
         tagline: tSide('tagline'),
-        benefitsTitle: tSide('benefitsTitle'),
-        benefits: [
-          tSide('benefit1'),
-          tSide('benefit2'),
-          tSide('benefit3'),
-          tSide('benefit4'),
-        ],
         valuesTitle: tSide('valuesTitle'),
         values: [tSide('value1'), tSide('value2'), tSide('value3')],
         resultsTitle: tSide('resultsTitle'),
@@ -132,11 +125,6 @@ export function AuthEntryPage({
             name: tSide('review3Name'),
             role: tSide('review3Role'),
           },
-        ],
-        stats: [
-          { value: tSide('stat1Value'), label: tSide('stat1Label') },
-          { value: tSide('stat2Value'), label: tSide('stat2Label') },
-          { value: tSide('stat3Value'), label: tSide('stat3Label') },
         ],
       }}
     >

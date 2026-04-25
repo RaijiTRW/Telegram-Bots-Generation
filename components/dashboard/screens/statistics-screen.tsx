@@ -72,6 +72,7 @@ export default function DashboardStatisticsPage() {
   const t = useTranslations('dashboard.globalStatistics')
   const locale = useLocale()
   const isEnglish = locale === 'en'
+  const subscriptionHref = `/${locale}/dashboard/subscription`
 
   const [period, setPeriod] = useState<DashboardGlobalStatsPeriod>('30d')
   const [botFilter, setBotFilter] = useState('all')
@@ -855,20 +856,24 @@ export default function DashboardStatisticsPage() {
       ) : null}
 
       {basicIsLocked ? (
-        <Card className="border-amber-500/30 bg-zinc-950/60">
-          <CardContent className="p-6 md:p-7">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="space-y-3">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/25 bg-amber-400/10"><Lock className="h-5 w-5 text-amber-300" /></div>
-                <div className="space-y-2">
-                  <h2 className="text-xl font-semibold text-white">{isEnglish ? 'Dashboard analytics require Business' : 'Dashboard-аналитика доступна с Business'}</h2>
-                  <p className="max-w-2xl text-sm leading-6 text-zinc-300">{isEnglish ? 'Your current plan keeps editor technical statistics available, but account-wide analytics, payments, and subscriber views are unlocked starting from Business.' : 'На текущем тарифе у вас остается техническая статистика внутри редактора, а общая аналитика по аккаунту, платежам и подписчикам открывается начиная с Business.'}</p>
+        <Link href={subscriptionHref} className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8ED8FF]/60">
+          <Card className="cursor-pointer border-amber-500/30 bg-zinc-950/60 transition-colors group-hover:border-amber-400/55">
+            <CardContent className="p-6 md:p-7">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="space-y-3">
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/25 bg-amber-400/10"><Lock className="h-5 w-5 text-amber-300" /></div>
+                  <div className="space-y-2">
+                    <h2 className="text-xl font-semibold text-white">{isEnglish ? 'Dashboard analytics require Business' : 'Dashboard-аналитика доступна с Business'}</h2>
+                    <p className="max-w-2xl text-sm leading-6 text-zinc-300">{isEnglish ? 'Your current plan keeps editor technical statistics available, but account-wide analytics, payments, and subscriber views are unlocked starting from Business.' : 'На текущем тарифе у вас остается техническая статистика внутри редактора, а общая аналитика по аккаунту, платежам и подписчикам открывается начиная с Business.'}</p>
+                  </div>
                 </div>
+                <span className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] px-4 text-sm font-medium text-white shadow-sm transition-transform group-hover:translate-x-0.5">
+                  {isEnglish ? 'Open subscription' : 'Открыть подписку'}
+                </span>
               </div>
-              <Button asChild className="bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] text-white"><Link href={`/${locale}/dashboard/subscription`}>{isEnglish ? 'Open subscription' : 'Открыть подписку'}</Link></Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       ) : (
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
@@ -1459,29 +1464,29 @@ export default function DashboardStatisticsPage() {
             </div>
 
             {proIsLocked ? (
-              <Card className="border-amber-500/30 bg-amber-500/10">
-                <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-2">
-                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10">
-                      <Lock className="h-4 w-4 text-amber-200" />
+              <Link href={subscriptionHref} className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8ED8FF]/60">
+                <Card className="cursor-pointer border-amber-500/30 bg-amber-500/10 transition-colors group-hover:border-amber-400/55">
+                  <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-2">
+                      <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10">
+                        <Lock className="h-4 w-4 text-amber-200" />
+                      </div>
+                      <div className="text-lg font-semibold text-white">
+                        {isEnglish ? 'Unlock professional analytics' : 'Откройте профессиональную аналитику'}
+                      </div>
+                      <div className="max-w-2xl text-sm leading-6 text-amber-100/90">
+                        {isEnglish
+                          ? 'ARPU, ARPPU, average check, repeat payer share, payment method mix, status quality, and conversion leaders are kept in the premium layer.'
+                          : 'ARPU, ARPPU, средний чек, доля повторных плательщиков, срез по методам и статусам оплат, а также лидеры по конверсии остаются в premium-слое.'}
+                      </div>
                     </div>
-                    <div className="text-lg font-semibold text-white">
-                      {isEnglish ? 'Unlock professional analytics' : 'Откройте профессиональную аналитику'}
-                    </div>
-                    <div className="max-w-2xl text-sm leading-6 text-amber-100/90">
-                      {isEnglish
-                        ? 'ARPU, ARPPU, average check, repeat payer share, payment method mix, status quality, and conversion leaders are kept in the premium layer.'
-                        : 'ARPU, ARPPU, средний чек, доля повторных плательщиков, срез по методам и статусам оплат, а также лидеры по конверсии остаются в premium-слое.'}
-                    </div>
-                  </div>
 
-                  <Button asChild className="bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] text-white">
-                    <Link href={`/${locale}/dashboard/subscription`}>
+                    <span className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] px-4 text-sm font-medium text-white shadow-sm transition-transform group-hover:translate-x-0.5">
                       {isEnglish ? 'Upgrade plan' : 'Открыть подписку'}
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-2">

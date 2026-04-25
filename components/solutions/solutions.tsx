@@ -784,9 +784,7 @@ const sectionCopy = {
     leftEyebrow: 'Что делает бот',
     rightEyebrow: 'Что получает бизнес',
     phoneBadge: 'Telegram-сценарий',
-    outcomeLabel: 'Итог',
     reset: 'Пройти заново',
-    phoneFooter: 'Нажмите на вариант и пройдите сценарий',
     rightTitle: 'Что получает команда после запуска',
   },
   en: {
@@ -800,9 +798,7 @@ const sectionCopy = {
     leftEyebrow: 'What the bot does',
     rightEyebrow: 'What the business gets',
     phoneBadge: 'Telegram flow',
-    outcomeLabel: 'Outcome',
     reset: 'Start again',
-    phoneFooter: 'Tap an option and walk through the flow',
     rightTitle: 'What the team gets after launch',
   },
 } as const;
@@ -904,10 +900,8 @@ export function Solutions() {
                   status={isRu ? activeScenario.chat.status.ru : activeScenario.chat.status.en}
                   leadIn={activeScenario.chat.leadIn}
                   steps={activeScenario.chat.steps}
-                  outcomeLabel={copy.outcomeLabel}
                   outcome={isRu ? activeScenario.chat.outcome.ru : activeScenario.chat.outcome.en}
                   resetLabel={copy.reset}
-                  footerText={copy.phoneFooter}
                   isRu={isRu}
                   shouldReduceMotion={shouldReduceMotion}
                 />
@@ -1030,10 +1024,8 @@ function SolutionPhonePreview({
   status,
   leadIn,
   steps,
-  outcomeLabel,
   outcome,
   resetLabel,
-  footerText,
   isRu,
   shouldReduceMotion,
 }: {
@@ -1044,10 +1036,8 @@ function SolutionPhonePreview({
   status: string;
   leadIn: ScenarioMessage[];
   steps: ScenarioStep[];
-  outcomeLabel: string;
   outcome: string;
   resetLabel: string;
-  footerText: string;
   isRu: boolean;
   shouldReduceMotion: boolean;
 }) {
@@ -1171,7 +1161,7 @@ function SolutionPhonePreview({
 
             <div
               ref={messagesRef}
-              className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="relative min-h-0 flex-1 overflow-hidden px-3.5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               <AnimatePresence mode="wait">
                 <motion.div
@@ -1204,7 +1194,7 @@ function SolutionPhonePreview({
               </AnimatePresence>
             </div>
 
-            <div className="relative border-t border-white/6 px-3.5 pb-3.5 pt-3 backdrop-blur-sm">
+            <div className="relative rounded-b-[34px] border-t border-white/6 bg-[#080B12]/92 px-3.5 pb-7 pt-3 backdrop-blur-sm">
               {!isCompleted ? (
                 <div className="flex flex-wrap gap-2">
                   {currentChoices.map((choice, index) => (
@@ -1229,15 +1219,6 @@ function SolutionPhonePreview({
                 </button>
               )}
 
-              <div className="mt-3 rounded-[18px] border border-white/8 bg-black/20 px-3.5 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/52">
-                    {outcomeLabel}
-                  </div>
-                  <div className="text-[10px] text-white/40">{footerText}</div>
-                </div>
-                <div className="mt-2 text-[13px] font-medium leading-5 text-white/82">{outcome}</div>
-              </div>
             </div>
           </div>
 

@@ -221,7 +221,25 @@ export function BotSettingsForm() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-xl border border-white/10 bg-zinc-950/50 px-4 py-3">
+        <div className="text-xs font-medium uppercase tracking-[0.2em] text-[#24A1DE]">
+          {t('launchEssentialsTitle')}
+        </div>
+        <div className="mt-1 text-sm text-zinc-400">
+          {t('launchEssentialsDesc')}
+        </div>
+      </div>
+
       {/* Basic Settings */}
+      <div className="px-1">
+        <div className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">
+          {t('advancedSectionTitle')}
+        </div>
+        <div className="mt-1 text-sm text-zinc-500">
+          {t('advancedSectionDesc')}
+        </div>
+      </div>
+
       <section className="rounded-xl bg-zinc-900/50 border border-white/10 p-6 backdrop-blur-sm">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">
@@ -469,6 +487,15 @@ export function BotSettingsForm() {
       </section>
 
       {/* Telegram Settings */}
+      <div className="px-1">
+        <div className="text-xs font-medium uppercase tracking-[0.2em] text-emerald-400">
+          {t('requiredSectionTitle')}
+        </div>
+        <div className="mt-1 text-sm text-zinc-500">
+          {t('requiredSectionDesc')}
+        </div>
+      </div>
+
       <section className="rounded-xl bg-zinc-900/50 border border-white/10 p-6 backdrop-blur-sm">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <div className="p-2 rounded-lg bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 border border-[#24A1DE]/30">

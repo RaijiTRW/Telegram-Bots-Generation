@@ -1,6 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { Database } from './types'
 import { createMissingSupabaseConfigError, getSupabasePublicEnv } from './config'
+import { isClientAbortLikeError } from './client-auth'
 
 let client: ReturnType<typeof createBrowserClient<Database>> | null = null
 let fallbackClient: ReturnType<typeof createBrowserClient<Database>> | null = null
@@ -28,29 +29,72 @@ function isAbortLikeError(error: unknown) {
 }
 
 async function safeSupabaseBrowserFetch(input: RequestInfo | URL, init?: RequestInit) {
+  if (init?.signal?.aborted) {
+    return createAbortedAuthResponse()
+  }
+
   try {
     return await fetch(input, init)
   } catch (error) {
-    if (!isAbortLikeError(error)) {
+    if (!isAbortLikeError(error) && !isClientAbortLikeError(error)) {
       throw error
     }
 
-    return new Response(
-      JSON.stringify({
-        code: 'request_aborted',
-        error_code: 'request_aborted',
-        error: 'Request aborted',
-        message: 'Request aborted',
-        error_description: 'Request aborted',
-      }),
-      {
-        status: 499,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    return createAbortedAuthResponse()
   }
+}
+
+function createAbortedAuthResponse() {
+  return new Response(
+    JSON.stringify({
+      code: 'request_aborted',
+      error_code: 'request_aborted',
+      error: 'Request aborted',
+      message: 'Request aborted',
+      error_description: 'Request aborted',
+    }),
+    {
+      status: 499,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  )
+}
+
+function patchAbortSafeAuthMethods(target: ReturnType<typeof createBrowserClient<Database>>) {
+  const originalGetUser = target.auth.getUser.bind(target.auth)
+  const originalGetSession = target.auth.getSession.bind(target.auth)
+
+  target.auth.getUser = (async (...args: Parameters<typeof originalGetUser>) => {
+    try {
+      return await originalGetUser(...args)
+    } catch (error) {
+      if (!isAbortLikeError(error) && !isClientAbortLikeError(error)) {
+        throw error
+      }
+      return {
+        data: { user: null },
+        error: null,
+      }
+    }
+  }) as typeof target.auth.getUser
+
+  target.auth.getSession = (async (...args: Parameters<typeof originalGetSession>) => {
+    try {
+      return await originalGetSession(...args)
+    } catch (error) {
+      if (!isAbortLikeError(error) && !isClientAbortLikeError(error)) {
+        throw error
+      }
+      return {
+        data: { session: null },
+        error: null,
+      }
+    }
+  }) as typeof target.auth.getSession
+
+  return target
 }
 
 function createMissingQueryBuilder() {
@@ -151,7 +195,7 @@ export function createClient() {
   }
 
   if (!client) {
-    client = createBrowserClient<Database>(
+    client = patchAbortSafeAuthMethods(createBrowserClient<Database>(
       url,
       anonKey,
       {
@@ -160,7 +204,7 @@ export function createClient() {
           fetch: safeSupabaseBrowserFetch,
         },
       }
-    )
+    ))
   }
   return client
 }

@@ -116,7 +116,10 @@ function normalizeReplyKeyboardButtonStyle(value: unknown): ReplyKeyboardButtonS
   return 'default'
 }
 
-function normalizeReplyKeyboardRows(value: unknown): ReplyKeyboardButtonConfig[][] {
+function normalizeReplyKeyboardRows(
+  value: unknown,
+  options: { keepDraftButtons?: boolean } = {}
+): ReplyKeyboardButtonConfig[][] {
   if (!Array.isArray(value)) return []
   return value
     .map((row) => {
@@ -139,7 +142,7 @@ function normalizeReplyKeyboardRows(value: unknown): ReplyKeyboardButtonConfig[]
           const iconCustomEmojiId = String(
             record.iconCustomEmojiId ?? record.icon_custom_emoji_id ?? ''
           ).trim()
-          if (!text && !emoji) {
+          if (!text && !emoji && !options.keepDraftButtons) {
             return null
           }
 
@@ -501,7 +504,7 @@ function ReplyKeyboardButtonsEditor({
   const t = useTranslations('editor.system.replyKeyboard')
   const translate = (key: string, values?: Record<string, unknown>) =>
     t(key as never, values as never)
-  const safeRows = normalizeReplyKeyboardRows(rowsValue)
+  const safeRows = normalizeReplyKeyboardRows(rowsValue, { keepDraftButtons: true })
   const [emojiPickerTarget, setEmojiPickerTarget] = useState<{ rowIndex: number; buttonIndex: number } | null>(null)
   const [stylePickerTarget, setStylePickerTarget] = useState<{ rowIndex: number; buttonIndex: number } | null>(null)
   const emojiPickerRootRef = useRef<HTMLDivElement | null>(null)
@@ -571,11 +574,11 @@ function ReplyKeyboardButtonsEditor({
     const next = updater(
       safeRows.map((row) => row.map((button) => ({ ...button })))
     )
-    onRowsChange(normalizeReplyKeyboardRows(next))
+    onRowsChange(normalizeReplyKeyboardRows(next, { keepDraftButtons: true }))
   }
 
   const addRow = () => {
-    setRows((rows) => [...rows, [createReplyKeyboardButton()]])
+    setRows((rows) => [...rows, [createReplyKeyboardButton({ text: t('defaultButtonText') })]])
   }
 
   const removeRow = (rowIndex: number) => {
@@ -585,7 +588,7 @@ function ReplyKeyboardButtonsEditor({
   const addButton = (rowIndex: number) => {
     setRows((rows) =>
       rows.map((row, index) =>
-        index === rowIndex ? [...row, createReplyKeyboardButton()] : row
+        index === rowIndex ? [...row, createReplyKeyboardButton({ text: t('defaultButtonText') })] : row
       )
     )
   }
@@ -838,6 +841,84 @@ function ReplyKeyboardButtonsEditor({
   )
 }
 
+function MessageDraftsLivePreview({ enabled }: { enabled: boolean }) {
+  const t = useTranslations('editor.system')
+  const fullMessage = t('messageDrafts.exampleMessage')
+  const [showCustomerMessage, setShowCustomerMessage] = useState(false)
+  const [showBotMessage, setShowBotMessage] = useState(false)
+  const [typedLength, setTypedLength] = useState(0)
+  const visibleText = enabled ? fullMessage.slice(0, typedLength) : fullMessage
+
+  useEffect(() => {
+    let interval: number | undefined
+    let index = 0
+
+    const customerTimer = window.setTimeout(() => {
+      setShowCustomerMessage(true)
+    }, 140)
+
+    const botTimer = window.setTimeout(() => {
+      setShowBotMessage(true)
+
+      if (!enabled) return
+
+      interval = window.setInterval(() => {
+        index += 1
+        setTypedLength(index)
+        if (index >= fullMessage.length && interval) {
+          window.clearInterval(interval)
+        }
+      }, 28)
+    }, 720)
+
+    return () => {
+      window.clearTimeout(customerTimer)
+      window.clearTimeout(botTimer)
+      if (interval) {
+        window.clearInterval(interval)
+      }
+    }
+  }, [enabled, fullMessage])
+
+  return (
+    <div
+      className={`rounded-lg border p-4 transition-colors ${
+        enabled
+          ? 'border-[#24A1DE]/30 bg-[#24A1DE]/7'
+          : 'border-white/10 bg-zinc-950/35'
+      }`}
+    >
+      <div className="text-xs uppercase tracking-[0.18em] text-[#8ED8FF]">{t('messageDrafts.exampleTitle')}</div>
+      <div className="mt-3 space-y-3">
+        {showCustomerMessage ? (
+          <div className="ml-auto max-w-[78%] animate-fade-in-up rounded-2xl rounded-br-md border border-[#24A1DE]/25 bg-[#112033] px-4 py-2.5 text-sm text-zinc-100">
+            {t('messageDrafts.exampleCustomer')}
+          </div>
+        ) : (
+          <div className="h-10" />
+        )}
+
+        {showBotMessage ? (
+          <div className="max-w-[88%] animate-fade-in-up rounded-2xl rounded-bl-md bg-[#17212B] px-4 py-3 text-sm text-zinc-100">
+            {enabled ? (
+              <>
+                <span>{visibleText}</span>
+                {visibleText.length < fullMessage.length ? (
+                  <span className="ml-0.5 inline-block h-4 w-1 translate-y-0.5 animate-pulse rounded-full bg-[#8ED8FF]" />
+                ) : null}
+              </>
+            ) : (
+              fullMessage
+            )}
+          </div>
+        ) : (
+          <div className="h-12" />
+        )}
+      </div>
+    </div>
+  )
+}
+
 function createReplyKeyboardRuleId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `rule_${crypto.randomUUID().slice(0, 8)}`
@@ -872,7 +953,7 @@ function getReplyKeyboardConfig(
         operator: (String(rule.operator || 'equals').trim() ||
           'equals') as ReplyKeyboardRuleConfig['operator'],
         value: String(rule.value ?? ''),
-        rows: normalizeReplyKeyboardRows(rule.rows),
+        rows: normalizeReplyKeyboardRows(rule.rows, { keepDraftButtons: true }),
       }
     })
     .filter((rule): rule is ReplyKeyboardRuleConfig => Boolean(rule))
@@ -882,7 +963,7 @@ function getReplyKeyboardConfig(
     resizeKeyboard: raw.resizeKeyboard === undefined ? true : Boolean(raw.resizeKeyboard),
     oneTimeKeyboard: Boolean(raw.oneTimeKeyboard),
     isPersistent: raw.isPersistent === undefined ? true : Boolean(raw.isPersistent),
-    baseRows: normalizeReplyKeyboardRows(raw.baseRows),
+    baseRows: normalizeReplyKeyboardRows(raw.baseRows, { keepDraftButtons: true }),
     rules,
   }
 }
@@ -1236,23 +1317,27 @@ export function SystemPanel() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <div className="text-sm text-zinc-300">{t('messageDrafts.privateOnlyTitle')}</div>
-                <p className="text-xs text-zinc-500 mt-2">{t('messageDrafts.privateOnlyHint')}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <div className="text-sm text-zinc-300">{t('messageDrafts.plainTextTitle')}</div>
-                <p className="text-xs text-zinc-500 mt-2">{t('messageDrafts.plainTextHint')}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-                <div className="text-sm text-zinc-300">{t('messageDrafts.nodeOverrideTitle')}</div>
-                <p className="text-xs text-zinc-500 mt-2">{t('messageDrafts.nodeOverrideHint')}</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1.15fr]">
+              <MessageDraftsLivePreview
+                key={messageDrafts.enabled ? 'message-drafts-live-on' : 'message-drafts-live-off'}
+                enabled={messageDrafts.enabled}
+              />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {[
+                  ['privateOnlyTitle', 'privateOnlyHint'],
+                  ['plainTextTitle', 'plainTextHint'],
+                  ['nodeOverrideTitle', 'nodeOverrideHint'],
+                ].map(([titleKey, hintKey]) => (
+                  <div key={titleKey} className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                    <div className="text-sm text-zinc-200">{t(`messageDrafts.${titleKey}`)}</div>
+                    <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">{t(`messageDrafts.${hintKey}`)}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-[#24A1DE]/20 bg-[#24A1DE]/5 p-4">
-              <p className="text-xs text-zinc-300">{t('messageDrafts.fallbackHint')}</p>
+            <div className="mt-3 text-xs text-zinc-500">
+              {t('messageDrafts.fallbackHint')}
             </div>
           </section>
 
@@ -1532,8 +1617,7 @@ export function SystemPanel() {
               <div id="reply-keyboard-base-rows" className="mt-2">
                 <ReplyKeyboardButtonsEditor
                   rowsValue={replyKeyboard.baseRows}
-                  onRowsChange={(rows) => updateReplyKeyboard({ baseRows: rows })}
-                  disabled={!replyKeyboard.enabled}
+                  onRowsChange={(rows) => updateReplyKeyboard({ enabled: true, baseRows: rows })}
                   emptyHint={t('replyKeyboard.baseButtonsEmpty')}
                   compact
                 />

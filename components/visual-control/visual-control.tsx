@@ -60,7 +60,7 @@ export function VisualControl() {
               <span>{t('badge')}</span>
             </motion.div>
 
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">
+            <h2 className="max-w-[12ch] text-3xl md:text-5xl font-bold mb-6">
               {t('title')}{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF]">
                 {t('titleHighlight1')}
@@ -71,7 +71,7 @@ export function VisualControl() {
               </span>
             </h2>
 
-            <p className="text-lg text-white/60 mb-12 leading-relaxed">
+            <p className="max-w-[32rem] text-lg text-white/60 mb-10 leading-relaxed">
               {t('subtitle')}
             </p>
 

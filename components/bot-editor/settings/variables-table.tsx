@@ -7,6 +7,10 @@ import { Input } from '@/components/ui/input'
 import { useTranslations } from 'next-intl'
 import { useBotState } from '../providers/bot-state-provider'
 import type { BotVariable, VariableType } from '@/lib/bot-editor/types/bot.types'
+import {
+  BOT_SYSTEM_VARIABLES,
+  isReservedBotVariableName,
+} from '@/lib/bot-editor/system-variables'
 
 interface VariableTypeOption {
   value: VariableType
@@ -15,16 +19,9 @@ interface VariableTypeOption {
   icon: string
 }
 
-const TELEGRAM_BASE_VARIABLES = [
-  'user.id',
-  'user.username',
-  'user.firstName',
-  'user.lastName',
-  'user.languageCode',
-] as const
-
 export function VariablesTable() {
   const t = useTranslations('editor.system')
+  const tVariableErrors = useTranslations('editor.variableAssist.errors')
   const { config, addVariable, removeVariable, setIsDirty, setConfig } = useBotState()
   const variables = config.variables || []
 
@@ -42,12 +39,13 @@ export function VariablesTable() {
     id: string
     name: string
     type: VariableType
-    default_value: any
+    default_value: unknown
     description: string
   }
 
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
   const [newVariable, setNewVariable] = useState<Omit<BotVariable, 'id'>>({
     name: '',
     type: 'string',
@@ -57,10 +55,24 @@ export function VariablesTable() {
   const [editingVariable, setEditingVariable] = useState<EditingVariable | null>(null)
 
   const handleAdd = () => {
-    if (!newVariable.name.trim()) return
+    const variableName = newVariable.name.trim()
+    if (!variableName) {
+      setAddError(tVariableErrors('nameRequired'))
+      return
+    }
+
+    if (isReservedBotVariableName(variableName)) {
+      setAddError(tVariableErrors('reservedName'))
+      return
+    }
+
+    if (variables.some((variable) => variable.name === variableName)) {
+      setAddError(tVariableErrors('alreadyExists'))
+      return
+    }
 
     addVariable({
-      name: newVariable.name,
+      name: variableName,
       type: newVariable.type,
       default_value: getDefaultValue(newVariable.type),
       description: newVariable.description,
@@ -68,6 +80,7 @@ export function VariablesTable() {
 
     setNewVariable({ name: '', type: 'string', default_value: '', description: '' })
     setIsAdding(false)
+    setAddError(null)
   }
 
   const handleEdit = (variable: BotVariable) => {
@@ -115,7 +128,7 @@ export function VariablesTable() {
     }
   }
 
-  const getDefaultValue = (type: VariableType): any => {
+  const getDefaultValue = (type: VariableType): unknown => {
     switch (type) {
       case 'string':
         return ''
@@ -136,7 +149,7 @@ export function VariablesTable() {
     }
   }
 
-  const renderValueInput = (type: VariableType, value: any, onChange: (val: any) => void) => {
+  const renderValueInput = (type: VariableType, value: unknown, onChange: (val: unknown) => void) => {
     switch (type) {
       case 'boolean':
         return (
@@ -153,7 +166,7 @@ export function VariablesTable() {
         return (
           <input
             type="number"
-            value={value}
+            value={typeof value === 'number' ? value : Number(value ?? 0)}
             onChange={(e) => onChange(Number(e.target.value))}
             className="px-2 py-1 rounded bg-zinc-900/50 border border-white/10 text-white text-sm w-24 focus:border-[#24A1DE] focus:outline-none"
           />
@@ -178,7 +191,7 @@ export function VariablesTable() {
         return (
           <input
             type="text"
-            value={value || ''}
+            value={String(value ?? '')}
             onChange={(e) => onChange(e.target.value)}
             className="px-2 py-1 rounded bg-zinc-900/50 border border-white/10 text-white text-sm w-32 focus:border-[#24A1DE] focus:outline-none"
           />
@@ -219,7 +232,10 @@ export function VariablesTable() {
               <Input
                 placeholder={t('variableName')}
                 value={newVariable.name}
-                onChange={(e) => setNewVariable({ ...newVariable, name: e.target.value })}
+                onChange={(e) => {
+                  setNewVariable({ ...newVariable, name: e.target.value })
+                  setAddError(null)
+                }}
                 className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 text-sm h-9"
               />
             </div>
@@ -227,7 +243,10 @@ export function VariablesTable() {
             <div className="col-span-2">
               <select
                 value={newVariable.type}
-                onChange={(e) => setNewVariable({ ...newVariable, type: e.target.value as VariableType })}
+                onChange={(e) => {
+                  setNewVariable({ ...newVariable, type: e.target.value as VariableType })
+                  setAddError(null)
+                }}
                 className="w-full px-2 py-1.5 rounded bg-zinc-900/50 border-white/10 text-white text-sm focus:border-[#24A1DE] focus:outline-none appearance-none cursor-pointer"
               >
                 {variableTypes.map((type) => (
@@ -241,8 +260,11 @@ export function VariablesTable() {
             <div className="col-span-3">
               <Input
                 placeholder={t('defaultValue')}
-                value={newVariable.default_value}
-                onChange={(e) => setNewVariable({ ...newVariable, default_value: e.target.value })}
+                value={String(newVariable.default_value ?? '')}
+                onChange={(e) => {
+                  setNewVariable({ ...newVariable, default_value: e.target.value })
+                  setAddError(null)
+                }}
                 className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 text-sm h-9"
               />
             </div>
@@ -251,7 +273,10 @@ export function VariablesTable() {
               <Input
                 placeholder={t('descriptionPlaceholder')}
                 value={newVariable.description}
-                onChange={(e) => setNewVariable({ ...newVariable, description: e.target.value })}
+                onChange={(e) => {
+                  setNewVariable({ ...newVariable, description: e.target.value })
+                  setAddError(null)
+                }}
                 className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 text-sm h-9"
               />
             </div>
@@ -268,13 +293,21 @@ export function VariablesTable() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => { setIsAdding(false); setNewVariable({ name: '', type: 'string', default_value: '', description: '' }) }}
+                onClick={() => {
+                  setIsAdding(false)
+                  setAddError(null)
+                  setNewVariable({ name: '', type: 'string', default_value: '', description: '' })
+                }}
                 className="h-9 w-9 text-red-400 hover:text-red-300 hover:bg-red-500/10"
               >
                 <X className="w-4 h-4" />
               </Button>
             </div>
           </div>
+
+          {addError && (
+            <div className="text-sm text-red-300">{addError}</div>
+          )}
         </div>
       )}
 
@@ -448,14 +481,14 @@ export function VariablesTable() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
-          {TELEGRAM_BASE_VARIABLES.map((variableName) => (
+          {BOT_SYSTEM_VARIABLES.map((variable) => (
             <div
-              key={variableName}
+              key={variable.name}
               className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-zinc-900/40 px-3 py-2"
             >
-              <code className="text-sm text-[#24A1DE] font-mono">{variableName}</code>
+              <code className="text-sm text-[#24A1DE] font-mono">{variable.name}</code>
               <code className="text-xs text-zinc-500 font-mono">
-                {`{{${variableName}}}`}
+                {`{{${variable.name}}}`}
               </code>
             </div>
           ))}

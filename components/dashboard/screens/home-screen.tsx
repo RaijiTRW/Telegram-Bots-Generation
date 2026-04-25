@@ -53,7 +53,7 @@ export default function DashboardPage() {
   }, [])
 
   const getEditorHref = useCallback(
-    (botId: string) => `/${locale}/dashboard/bots/${botId}/editor/canvas`,
+    (botId: string) => `/${locale}/dashboard/bots/${botId}/editor`,
     [locale]
   )
 

@@ -13,6 +13,7 @@ import { Trash2 } from 'lucide-react'
 
 export const CANVAS_EDGE_TYPE = 'canvas-edge'
 export const CANVAS_EDGE_STYLE = { stroke: '#24A1DE', strokeWidth: 2 } as const
+const EDGE_DELETE_BUTTON_OFFSET_PX = 18
 
 const CanvasEdge = memo(function CanvasEdge({
   id,
@@ -25,10 +26,11 @@ const CanvasEdge = memo(function CanvasEdge({
   markerEnd,
   style,
   selected,
+  data,
 }: EdgeProps) {
   const locale = useLocale()
   const { setEdges } = useReactFlow()
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const [edgePath] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -36,7 +38,22 @@ const CanvasEdge = memo(function CanvasEdge({
     targetY,
     targetPosition,
   })
+  const midX = (sourceX + targetX) / 2
+  const midY = (sourceY + targetY) / 2
+  const isMostlyVertical = Math.abs(targetY - sourceY) >= Math.abs(targetX - sourceX)
+  const deleteButtonX = isMostlyVertical ? midX + EDGE_DELETE_BUTTON_OFFSET_PX : midX
+  const deleteButtonY = isMostlyVertical ? midY : midY - EDGE_DELETE_BUTTON_OFFSET_PX
   const deleteLabel = locale === 'en' ? 'Delete connection' : 'Удалить связь'
+  const executionState =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? String((data as Record<string, unknown>).__executionState || '')
+      : ''
+  const executionGlowStyle =
+    executionState === 'active'
+      ? { stroke: '#67E8F9', strokeWidth: 7, opacity: 0.16 }
+      : executionState === 'recent'
+        ? { stroke: '#38BDF8', strokeWidth: 5, opacity: 0.1 }
+        : null
 
   const handleDelete = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -46,13 +63,20 @@ const CanvasEdge = memo(function CanvasEdge({
 
   return (
     <>
+      {executionGlowStyle ? (
+        <BaseEdge
+          id={`${id}-glow`}
+          path={edgePath}
+          style={executionGlowStyle}
+        />
+      ) : null}
       <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} />
       {selected ? (
         <EdgeLabelRenderer>
           <div
             className="pointer-events-none absolute left-0 top-0"
             style={{
-              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 18}px)`,
+              transform: `translate(-50%, -50%) translate(${deleteButtonX}px, ${deleteButtonY}px)`,
             }}
           >
             <button
