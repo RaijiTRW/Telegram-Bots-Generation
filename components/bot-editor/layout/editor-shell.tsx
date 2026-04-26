@@ -678,6 +678,28 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
         </div>
       </div>
 
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#05070A]/35 p-5 backdrop-blur-3xl xl:hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(36,161,222,0.18),transparent_38%),radial-gradient(circle_at_50%_80%,rgba(139,92,246,0.16),transparent_42%)]" />
+        <div className="relative w-full max-w-sm rounded-[28px] border border-white/15 bg-zinc-950/45 p-5 text-center shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#24A1DE]/25 bg-[#24A1DE]/10 text-[#8ED8FF]">
+            <Monitor className="h-5 w-5" />
+          </div>
+          <h2 className="mt-4 text-xl font-semibold text-white">
+            {isRu ? 'Экран слишком маленький' : 'Screen is too small'}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-300">
+            {isRu
+              ? 'Вход выполнен, но редактор пока доступен только на большом экране. Версия для телефонов и планшетов появится позже.'
+              : 'You are signed in, but the editor is currently available only on larger screens. Phone and tablet support is coming soon.'}
+          </p>
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-xs leading-5 text-zinc-400">
+            {isRu
+              ? 'Откройте редактор с ноутбука или увеличьте окно браузера.'
+              : 'Open the editor on a laptop or make the browser window wider.'}
+          </div>
+        </div>
+      </div>
+
       {showExitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl border border-white/10 bg-zinc-900/95 p-6 shadow-2xl">

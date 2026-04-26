@@ -154,10 +154,10 @@ export default function DashboardPage() {
   ], [activeBots.length, bots.length, locale, stats?.basic.totalSubscribers, tStats, totalMessages])
 
   return (
-    <div className="space-y-8 p-6">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-white">{t('title')}</h1>
-        <p className="text-zinc-400">{t('overview')}</p>
+    <div className="space-y-6 p-0 sm:space-y-8 sm:p-6">
+      <div className="space-y-1.5 sm:space-y-2">
+        <h1 className="text-2xl font-bold text-white sm:text-3xl">{t('title')}</h1>
+        <p className="text-sm leading-6 text-zinc-400 sm:text-base">{t('overview')}</p>
       </div>
 
       {error && (
@@ -166,25 +166,25 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-2 lg:grid-cols-4 lg:gap-5">
         {statCards.map((stat) => {
           const Icon = stat.icon
           return (
             <Card
               key={stat.title}
-              className={`group relative overflow-hidden border ${stat.borderColor} bg-white/5 bg-gradient-to-br ${stat.bgColor} backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-lg hover:shadow-black/20`}
+              className={`group relative min-h-[104px] overflow-hidden rounded-2xl border ${stat.borderColor} bg-white/5 bg-gradient-to-br ${stat.bgColor} backdrop-blur-sm transition-all duration-300 sm:min-h-[132px] lg:min-h-0 sm:hover:-translate-y-1 hover:border-white/20 hover:shadow-lg hover:shadow-black/20`}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <CardContent className="relative p-6">
-                <div className="mb-4 flex items-start justify-between">
-                  <div className={`rounded-xl p-3 ${stat.iconBg} ${stat.iconColor} transition-transform duration-300 group-hover:scale-110`}>
-                    <Icon className="h-6 w-6" />
+              <CardContent className="relative p-3 sm:p-4 lg:p-6">
+                <div className="mb-2 flex items-start justify-between sm:mb-3 lg:mb-4">
+                  <div className={`rounded-xl p-2 sm:p-2.5 lg:p-3 ${stat.iconBg} ${stat.iconColor} transition-transform duration-300 group-hover:scale-110`}>
+                    <Icon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
                   </div>
-                  <div className={`h-2 w-2 rounded-full ${stat.iconColor} bg-current ${isLoading ? 'animate-pulse' : ''}`} />
+                  <div className={`h-1.5 w-1.5 rounded-full sm:h-2 sm:w-2 ${stat.iconColor} bg-current ${isLoading ? 'animate-pulse' : ''}`} />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-zinc-400">{stat.title}</p>
-                  <p className="text-3xl font-bold text-white">
+                  <p className="text-[11px] font-medium leading-4 text-zinc-400 sm:text-xs lg:text-sm">{stat.title}</p>
+                  <p className="text-2xl font-bold leading-none text-white sm:text-3xl">
                     {isLoading ? '…' : stat.value}
                   </p>
                 </div>

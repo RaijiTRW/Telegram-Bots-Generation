@@ -60,9 +60,9 @@ export function Footer() {
 
   return (
     <footer className="border-t border-white/5 mt-auto relative overflow-hidden cyber-grid">
-      <div className="max-w-7xl mx-auto px-4 py-16 relative z-10 md:py-20">
+      <div className="max-w-7xl mx-auto px-4 py-8 relative z-10 md:py-20">
         {/* Footer Links Grid */}
-        <div className="grid md:grid-cols-4 gap-12 mb-12">
+        <div className="grid gap-7 md:grid-cols-4 md:gap-12 md:mb-12">
           {/* Brand Column */}
           <motion.div
           className="md:col-span-1"
@@ -71,10 +71,10 @@ export function Footer() {
           viewport={enterViewport}
           transition={{ duration: 0.34 }}
         >
-            <Link href={`/${locale}`} className="flex items-center gap-3 mb-4 group">
-              <TFlowLogo className="h-10" idPrefix="site-footer-logo" />
+            <Link href={`/${locale}`} className="flex items-center gap-3 md:mb-4 group">
+              <TFlowLogo className="h-8 md:h-10" idPrefix="site-footer-logo" />
             </Link>
-            <p className="text-sm text-white/60 leading-relaxed">
+            <p className="mt-3 max-w-sm text-sm leading-6 text-white/56 md:mt-0 md:leading-relaxed">
               {isRu ? 'Создание Telegram-ботов для заявок, записи, FAQ, прогрева и продаж без тяжёлой разработки.' : 'Build Telegram bots for leads, booking, FAQ, funnels, and sales without a heavy custom build.'}
             </p>
           </motion.div>
@@ -86,14 +86,14 @@ export function Footer() {
           viewport={enterViewport}
           transition={{ duration: 0.34, delay: 0.04 }}
         >
-            <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Продукт' : 'Product'}</h4>
-            <ul className="space-y-2">
+            <h4 className="mb-3 text-sm font-semibold text-white/88 md:mb-4">{isRu ? 'Продукт' : 'Product'}</h4>
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 md:block md:space-y-2">
               {productLinks.map((link) => (
                 <li key={link.label}>
                   <motion.div whileHover={{ x: 3 }} className="inline-block">
                     <Link
                       href={link.href}
-                      className="text-sm text-white/60 hover:text-white transition-colors inline-block"
+                      className="text-sm text-white/58 hover:text-white transition-colors inline-block"
                     >
                       {link.label}
                     </Link>
@@ -110,14 +110,14 @@ export function Footer() {
           viewport={enterViewport}
           transition={{ duration: 0.34, delay: 0.08 }}
         >
-            <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Компания' : 'Company'}</h4>
-            <ul className="space-y-2">
+            <h4 className="mb-3 text-sm font-semibold text-white/88 md:mb-4">{isRu ? 'Компания' : 'Company'}</h4>
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 md:block md:space-y-2">
               {companyLinks.map((link) => (
                 <li key={link.label}>
                   <motion.div whileHover={{ x: 3 }} className="inline-block">
                     <Link
                       href={link.href}
-                    className="text-sm text-white/60 hover:text-white transition-colors inline-block"
+                    className="text-sm text-white/58 hover:text-white transition-colors inline-block"
                     >
                       {link.label}
                     </Link>
@@ -134,14 +134,14 @@ export function Footer() {
           viewport={enterViewport}
           transition={{ duration: 0.34, delay: 0.12 }}
         >
-            <h4 className="font-semibold mb-4 text-sm">{isRu ? 'Правовая информация' : 'Legal'}</h4>
-            <ul className="space-y-2">
+            <h4 className="mb-3 text-sm font-semibold text-white/88 md:mb-4">{isRu ? 'Правовая информация' : 'Legal'}</h4>
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 md:block md:space-y-2">
               {legalLinks.map((link) => (
                 <li key={link.label}>
                   <motion.div whileHover={{ x: 3 }} className="inline-block">
                     <Link
                       href={link.href}
-                    className="text-sm text-white/60 hover:text-white transition-colors inline-block"
+                    className="text-sm text-white/58 hover:text-white transition-colors inline-block"
                     >
                       {link.label}
                     </Link>
@@ -154,21 +154,21 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <motion.div
-          className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4"
+          className="mt-7 flex flex-col items-start justify-between gap-4 border-t border-white/5 pt-5 md:mt-0 md:flex-row md:items-center md:pt-8"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={enterViewport}
           transition={{ duration: 0.32, delay: 0.14 }}
         >
-          <div className="text-sm text-white/60">
+          <div className="text-sm leading-6 text-white/54">
             © {currentYear} CBTooll. {isRu ? 'Создано для скорости, разработано для масштабирования.' : 'Built for speed, designed for scale.'}
           </div>
 
           {/* Social Links */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5 md:gap-4">
             <motion.a
               href="#"
-              className="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+              className="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-white/58 hover:text-white hover:bg-white/10 transition-all md:h-10 md:w-10"
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -176,7 +176,7 @@ export function Footer() {
             </motion.a>
             <motion.a
               href="#"
-              className="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+              className="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-white/58 hover:text-white hover:bg-white/10 transition-all md:h-10 md:w-10"
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -184,7 +184,7 @@ export function Footer() {
             </motion.a>
             <motion.a
               href="#"
-              className="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+              className="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-white/58 hover:text-white hover:bg-white/10 transition-all md:h-10 md:w-10"
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >

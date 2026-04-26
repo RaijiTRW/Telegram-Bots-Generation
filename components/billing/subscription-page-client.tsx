@@ -369,17 +369,17 @@ export function SubscriptionPageClient({
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
+    <div className="space-y-4 sm:space-y-6">
+      <header className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+        <div className="space-y-1.5 sm:space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#24A1DE]/20 bg-[#24A1DE]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-[#9EDFFF]">
             <CreditCard className="h-3.5 w-3.5" />
             {isRu ? 'Подписка' : 'Subscription'}
           </div>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-white sm:text-3xl">
             {isRu ? 'Тарифы и подписка' : 'Plans and subscription'}
           </h1>
-          <p className="max-w-3xl text-sm leading-6 text-zinc-400">
+          <p className="hidden max-w-3xl text-sm leading-6 text-zinc-400 sm:block">
             {isRu
               ? 'Управляйте подпиской, биллинг-периодом, лимитами аккаунта и доступом к CRM, retention-аналитике, XLSX-отчетам, email-алертам, AI и размещению на нашем хостинге.'
               : 'Manage the subscription, billing period, account limits, and access to CRM, retention analytics, XLSX reports, email alerts, AI, and managed hosting.'}
@@ -458,10 +458,10 @@ export function SubscriptionPageClient({
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="border-white/10 bg-zinc-950/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex flex-wrap items-center gap-2 text-white">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card className="rounded-2xl border-white/10 bg-zinc-950/50 sm:rounded-xl">
+          <CardHeader className="px-4 pb-2 pt-4 sm:p-6 sm:pb-2">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-base text-white sm:text-lg">
               <span>{isRu ? 'Текущий тариф' : 'Current plan'}</span>
               <span className={cn('rounded-full border px-2.5 py-1 text-xs font-medium uppercase tracking-wide', statusMeta.className)}>
                 {statusMeta.label}
@@ -473,16 +473,16 @@ export function SubscriptionPageClient({
               ) : null}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+          <CardContent className="space-y-3 px-4 pb-4 pt-0 sm:space-y-4 sm:px-6 sm:pb-6">
+            <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
               <div className="min-w-0">
-                <div className="text-3xl font-bold text-white">{currentPlan.name}</div>
+                <div className="text-2xl font-bold text-white sm:text-3xl">{currentPlan.name}</div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 lg:min-w-[260px] lg:text-right">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 sm:px-4 sm:py-3 lg:min-w-[260px] lg:text-right">
                 <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">
                   {getBillingIntervalLabel(locale, subscription.billingInterval)}
                 </div>
-                <div className="mt-1 text-2xl font-semibold text-white">
+                <div className="mt-1 text-xl font-semibold text-white sm:text-2xl">
                   {formatAmount(locale, subscription.priceAmount, subscription.currency)}
                   <span className="ml-2 text-sm font-medium text-zinc-400">{currentPlanPriceSuffix}</span>
                 </div>
@@ -496,7 +496,7 @@ export function SubscriptionPageClient({
               </div>
             </div>
 
-            <div className={cn('grid grid-cols-1 gap-2', subscription.planCode !== 'base' ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
+            <div className={cn('grid grid-cols-2 gap-2', subscription.planCode !== 'base' ? 'sm:grid-cols-2 md:grid-cols-4' : 'sm:grid-cols-3')}>
               <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
                 <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                   {isRu ? 'Следующая дата' : 'Next billing date'}
@@ -535,11 +535,12 @@ export function SubscriptionPageClient({
               ) : null}
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
               {subscription.planCode !== 'base' && !subscription.cancelAtPeriodEnd ? (
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={handleCancel}
                   disabled={activeAction !== null}
                 >
@@ -552,6 +553,7 @@ export function SubscriptionPageClient({
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={handleResume}
                   disabled={activeAction !== null}
                 >
@@ -564,6 +566,7 @@ export function SubscriptionPageClient({
                 <Button
                   type="button"
                   variant={subscription.hasSavedPaymentMethod ? 'outline' : 'default'}
+                  className="w-full sm:w-auto"
                   onClick={handleBindCard}
                   disabled={activeAction !== null}
                 >
@@ -576,7 +579,7 @@ export function SubscriptionPageClient({
             </div>
 
             {subscription.planCode !== 'base' ? (
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm leading-5 text-zinc-300">
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs leading-5 text-zinc-300 sm:text-sm">
                 {isRu
                   ? 'Для повторной привязки мы спишем 1 ₽ и вернем его после того, как YooKassa сохранит карту для будущих продлений.'
                   : 'To save the card again we will charge a test 1 RUB payment and refund it after YooKassa stores the card for future renewals.'}
@@ -585,18 +588,18 @@ export function SubscriptionPageClient({
           </CardContent>
         </Card>
 
-        <Card className="border-white/10 bg-zinc-950/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-white">
-              <ShieldCheck className="h-5 w-5 text-[#24A1DE]" />
+        <Card className="rounded-2xl border-white/10 bg-zinc-950/50 sm:rounded-xl">
+          <CardHeader className="px-4 pb-2 pt-4 sm:p-6 sm:pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-white sm:text-lg">
+              <ShieldCheck className="h-4 w-4 text-[#24A1DE] sm:h-5 sm:w-5" />
               {subscription.isAdmin
                 ? isRu ? 'Что входит в тариф' : 'Included in the plan'
                 : isRu ? 'Что доступно сейчас' : 'Included right now'}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="grid grid-cols-1 gap-2 px-4 pb-4 pt-0 sm:px-6 sm:pb-6">
             {visiblePlan.spotlightFeatures.map((feature) => (
-              <div key={feature} className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm leading-5 text-zinc-200">
+              <div key={feature} className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm leading-5 text-zinc-200 sm:py-2.5">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-300" />
                 <span>{feature}</span>
               </div>

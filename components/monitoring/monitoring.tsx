@@ -1,17 +1,23 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { motion } from '@/components/motion-wrapper';
-import { useLocale, useTranslations } from 'next-intl';
-import { Shield, Activity, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react';
-import { BorderBeam } from '@/components/ui/border-beam';
+import Link from "next/link";
+import { motion } from "@/components/motion-wrapper";
+import { useLocale, useTranslations } from "next-intl";
+import {
+  Shield,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowRight,
+} from "lucide-react";
+import { BorderBeam } from "@/components/ui/border-beam";
 export function Monitoring() {
-  const t = useTranslations('monitoring');
+  const t = useTranslations("monitoring");
   const locale = useLocale();
   const enterViewport = {
     once: true,
     amount: 0.12,
-    margin: '280px 0px',
+    margin: "280px 0px",
   } as const;
 
   const botPoints = [
@@ -23,65 +29,76 @@ export function Monitoring() {
   ];
 
   const features = [
-    { icon: CheckCircle2, text: t('features.updates'), color: '#00E676' },
-    { icon: Activity, text: t('features.uptime'), color: '#1E88E5' },
-    { icon: AlertTriangle, text: t('features.alerts'), color: '#FFAB00' },
+    { icon: CheckCircle2, text: t("features.updates"), color: "#00E676" },
+    { icon: Activity, text: t("features.uptime"), color: "#1E88E5" },
+    { icon: AlertTriangle, text: t("features.alerts"), color: "#FFAB00" },
   ];
 
   return (
-    <section className="py-24 md:py-32 px-4 relative overflow-hidden cyber-grid cyber-noise">
-      <div className="absolute inset-0 pointer-events-none">
+    <section className="relative overflow-hidden px-4 py-16 md:py-32 cyber-grid cyber-noise">
+      <div className="pointer-events-none absolute inset-0 hidden md:block">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 gpu-layer">
-          <div className="w-[800px] h-[800px] rounded-full border" style={{ borderColor: 'rgba(30, 136, 229, 0.1)' }} />
+          <div
+            className="h-[800px] w-[800px] rounded-full border"
+            style={{ borderColor: "rgba(30, 136, 229, 0.1)" }}
+          />
         </div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 gpu-layer">
-          <div className="w-[600px] h-[600px] rounded-full border" style={{ borderColor: 'rgba(124, 77, 255, 0.1)' }} />
+          <div
+            className="h-[600px] w-[600px] rounded-full border"
+            style={{ borderColor: "rgba(124, 77, 255, 0.1)" }}
+          />
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <div className="relative z-10 mx-auto max-w-7xl">
+        <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={enterViewport}
             transition={{ duration: 0.42 }}
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel mb-6 font-mono text-sm">
-              <Shield className="w-4 h-4 text-[#00E676]" />
-              <span className="text-white/60">{t('title')}</span>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full glass-panel px-3 py-1.5 font-mono text-xs md:mb-6 md:text-sm">
+              <Shield className="h-4 w-4 text-[#00E676]" />
+              <span className="text-white/60">{t("title")}</span>
             </div>
 
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">
-              {t('subtitleFirst')}{' '}
+            <h2 className="mb-4 max-w-full text-[2.15rem] font-bold leading-[1.08] tracking-[-0.025em] md:mb-6 md:text-5xl md:leading-tight">
+              {t("subtitleFirst")}{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1E88E5] to-[#7C4DFF]">
-                {t('subtitleHighlight')}
+                {t("subtitleHighlight")}
               </span>
             </h2>
 
-            <p className="text-lg text-white/60 mb-8 leading-relaxed">
-              {t('subtitleSecond')}
+            <p className="mb-5 max-w-xl text-[15px] leading-7 text-white/64 md:mb-8 md:text-lg md:leading-relaxed">
+              {t("subtitleSecond")}
             </p>
 
-            <div className="space-y-4">
+            <div className="grid gap-2.5 md:space-y-4">
               {features.map((item, index) => {
                 const Icon = item.icon;
                 return (
-                    <motion.div
-                      key={item.text}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={enterViewport}
-                      transition={{ delay: index * 0.04, duration: 0.34 }}
-                      className="flex items-center gap-4"
-                    >
+                  <motion.div
+                    key={item.text}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={enterViewport}
+                    transition={{ delay: index * 0.04, duration: 0.34 }}
+                    className="flex items-center gap-3 rounded-[18px] border border-white/8 bg-white/[0.035] px-3.5 py-3 md:border-0 md:bg-transparent md:px-0 md:py-0"
+                  >
                     <div
-                      className="w-10 h-10 rounded-lg glass-panel flex items-center justify-center"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl glass-panel md:h-10 md:w-10 md:rounded-lg"
                       style={{ borderColor: `${item.color}20` }}
                     >
-                      <Icon className="w-5 h-5" style={{ color: item.color }} />
+                      <Icon
+                        className="h-4.5 w-4.5 md:h-5 md:w-5"
+                        style={{ color: item.color }}
+                      />
                     </div>
-                    <span className="text-white/80">{item.text}</span>
+                    <span className="text-sm leading-5 text-white/78 md:text-base md:text-white/80">
+                      {item.text}
+                    </span>
                   </motion.div>
                 );
               })}
@@ -92,17 +109,17 @@ export function Monitoring() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={enterViewport}
               transition={{ duration: 0.34, delay: 0.12 }}
-              className="mt-8"
+              className="mt-6 md:mt-8"
             >
               <Link
                 href={`/${locale}/auth/signup`}
-                className="inline-flex items-center gap-3 rounded-full bg-[linear-gradient(135deg,#1E88E5,#00E676)] px-6 py-3.5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(30,136,229,0.22)] transition-transform hover:translate-y-[-1px]"
+                className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-[linear-gradient(135deg,#1E88E5,#00E676)] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(30,136,229,0.22)] transition-transform hover:translate-y-[-1px] sm:w-auto md:px-6"
               >
-                <span>{t('cta.label')}</span>
+                <span>{t("cta.label")}</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <p className="mt-3 max-w-md text-sm leading-6 text-white/56">
-                {t('cta.note')}
+              <p className="mt-3 max-w-md text-sm leading-6 text-white/52">
+                {t("cta.note")}
               </p>
             </motion.div>
           </motion.div>
@@ -112,34 +129,62 @@ export function Monitoring() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={enterViewport}
             transition={{ duration: 0.42 }}
-            className="relative gpu-layer"
+            className="relative hidden gpu-layer lg:block"
           >
             <div className="relative aspect-square max-w-md mx-auto">
-              <BorderBeam duration={10} size={400} roundedClassName="rounded-full" />
+              <BorderBeam
+                duration={10}
+                size={400}
+                roundedClassName="rounded-full"
+              />
 
               <div className="relative glass-cyber-strong rounded-full aspect-square flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border border-white/5" style={{ background: 'radial-gradient(circle, rgba(30, 136, 229, 0.05) 0%, transparent 70%)' }} />
-                <div className="absolute inset-8 rounded-full border border-white/5" style={{ background: 'radial-gradient(circle, rgba(124, 77, 255, 0.03) 0%, transparent 70%)' }} />
-                <div className="absolute inset-16 rounded-full border border-white/5" style={{ background: 'radial-gradient(circle, rgba(30, 136, 229, 0.02) 0%, transparent 70%)' }} />
+                <div
+                  className="absolute inset-0 rounded-full border border-white/5"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(30, 136, 229, 0.05) 0%, transparent 70%)",
+                  }}
+                />
+                <div
+                  className="absolute inset-8 rounded-full border border-white/5"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(124, 77, 255, 0.03) 0%, transparent 70%)",
+                  }}
+                />
+                <div
+                  className="absolute inset-16 rounded-full border border-white/5"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(30, 136, 229, 0.02) 0%, transparent 70%)",
+                  }}
+                />
 
                 <motion.div
                   className="absolute inset-0 gpu-layer"
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                 >
                   <div
                     className="absolute top-1/2 left-1/2 h-1 w-1/2 origin-left"
-                    style={{ background: 'linear-gradient(90deg, transparent, rgba(30, 136, 229, 0.4))' }}
+                    style={{
+                      background:
+                        "linear-gradient(90deg, transparent, rgba(30, 136, 229, 0.4))",
+                    }}
                   />
                 </motion.div>
                 <motion.div
                   className="absolute inset-0 rotate-[132deg] gpu-layer"
                   animate={{ rotate: -360 }}
-                  transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+                  transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
                 >
                   <div
                     className="absolute top-1/2 left-1/2 h-1 w-1/3 origin-left"
-                    style={{ background: 'linear-gradient(90deg, transparent, rgba(124, 77, 255, 0.3))' }}
+                    style={{
+                      background:
+                        "linear-gradient(90deg, transparent, rgba(124, 77, 255, 0.3))",
+                    }}
                   />
                 </motion.div>
 
@@ -150,8 +195,8 @@ export function Monitoring() {
                     style={{
                       left: `${bot.x}%`,
                       top: `${bot.y}%`,
-                      background: '#00E676',
-                      boxShadow: '0 0 10px rgba(0, 230, 118, 0.18)',
+                      background: "#00E676",
+                      boxShadow: "0 0 10px rgba(0, 230, 118, 0.18)",
                     }}
                   />
                 ))}
@@ -160,15 +205,19 @@ export function Monitoring() {
                   <div
                     className="w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center gpu-layer"
                     style={{
-                      background: 'rgba(0, 230, 118, 0.15)',
-                      border: '2px solid #00E676',
-                      boxShadow: '0 0 26px rgba(0, 230, 118, 0.18)',
+                      background: "rgba(0, 230, 118, 0.15)",
+                      border: "2px solid #00E676",
+                      boxShadow: "0 0 26px rgba(0, 230, 118, 0.18)",
                     }}
                   >
                     <CheckCircle2 className="w-8 h-8 text-[#00E676]" />
                   </div>
-                  <div className="text-sm font-mono text-[#00E676]">{t('statusTitle')}</div>
-                  <div className="text-xs text-white/40 mt-1">{t('statusSubtitle')}</div>
+                  <div className="text-sm font-mono text-[#00E676]">
+                    {t("statusTitle")}
+                  </div>
+                  <div className="text-xs text-white/40 mt-1">
+                    {t("statusSubtitle")}
+                  </div>
                 </div>
               </div>
             </div>

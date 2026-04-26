@@ -94,19 +94,19 @@ export function PricingComparison({
   const groups = getPricingFeatureGroups(locale)
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 sm:space-y-6">
       {title || subtitle ? (
         <div className="space-y-2">
-          {title ? <h2 className="text-2xl font-semibold text-white">{title}</h2> : null}
+          {title ? <h2 className="text-xl font-semibold text-white sm:text-2xl">{title}</h2> : null}
           {subtitle ? <p className="max-w-3xl text-sm leading-6 text-zinc-400">{subtitle}</p> : null}
         </div>
       ) : null}
 
       {headerControl ? <div className="flex justify-center">{headerControl}</div> : null}
 
-      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-zinc-950/70 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-        <div className="p-4 md:p-6">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/70 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:rounded-[28px]">
+        <div className="p-3 sm:p-4 md:p-6">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-3">
             {PLAN_ORDER.map((planCode) => {
               const plan = plans.find((item) => item.code === planCode)
               if (!plan) return null
@@ -120,7 +120,7 @@ export function PricingComparison({
                 <div
                   key={`card-${plan.code}`}
                   className={cn(
-                    'h-full rounded-3xl border p-6 text-left',
+                    'h-full rounded-2xl border p-4 text-left sm:rounded-3xl sm:p-6',
                     plan.popular
                       ? 'border-[#24A1DE]/35 bg-gradient-to-br from-[#24A1DE]/18 via-[#0A1020] to-[#8B5CF6]/18 shadow-[0_20px_60px_rgba(36,161,222,0.14)]'
                       : 'border-white/10 bg-white/[0.03]'
@@ -150,13 +150,13 @@ export function PricingComparison({
                     ) : null}
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-4 sm:mt-5">
                     <div className="text-2xl font-semibold text-white">{plan.name}</div>
-                    <div className="mt-1 text-sm text-zinc-400">{plan.tagline}</div>
+                    <div className="mt-1 hidden text-sm text-zinc-400 sm:block">{plan.tagline}</div>
                   </div>
 
-                  <div className="mt-6 flex items-end gap-2">
-                    <div className="text-3xl font-bold text-white">
+                  <div className="mt-4 flex items-end gap-2 sm:mt-6">
+                    <div className="text-2xl font-bold text-white sm:text-3xl">
                       {formatPrice(planPrice, currency, locale)}
                     </div>
                     <div className="pb-1 text-sm text-zinc-500">
@@ -179,7 +179,7 @@ export function PricingComparison({
                     </div>
                   ) : null}
 
-                  <ul className="mt-4 space-y-2">
+                  <ul className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
                     {plan.spotlightFeatures.map((feature) => (
                       <li key={feature} className="flex items-start gap-2 text-sm text-zinc-200">
                         <Check className="mt-0.5 h-4 w-4 text-emerald-300" />
@@ -193,7 +193,7 @@ export function PricingComparison({
                       <Button
                         asChild
                         variant={action.variant || (plan.popular ? 'default' : 'outline')}
-                        className="mt-6 w-full"
+                        className="mt-4 w-full sm:mt-6"
                       >
                         <Link href={action.href}>{action.label}</Link>
                       </Button>
@@ -201,7 +201,7 @@ export function PricingComparison({
                       <Button
                         type="button"
                         variant={action.variant || (plan.popular ? 'default' : 'outline')}
-                        className="mt-6 w-full"
+                        className="mt-4 w-full sm:mt-6"
                         onClick={action.onClick}
                         disabled={action.disabled || action.loading}
                       >
