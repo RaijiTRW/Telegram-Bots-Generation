@@ -68,11 +68,11 @@ const mobileGlassActiveStyle: CSSProperties = {
 }
 
 const mobileGlassSheetStyle: CSSProperties = {
-  backgroundColor: 'rgba(255, 255, 255, 0)',
-  backdropFilter: 'url("#dashboard-liquid-glass-noise") blur(8px) saturate(1.35) contrast(1.04) brightness(1.06)',
-  WebkitBackdropFilter: 'url("#dashboard-liquid-glass-noise") blur(8px) saturate(1.35) contrast(1.04) brightness(1.06)',
+  backgroundColor: 'rgba(7, 10, 16, 0.34)',
+  backdropFilter: 'blur(18px) saturate(1.55) contrast(1.05) brightness(1.04)',
+  WebkitBackdropFilter: 'blur(18px) saturate(1.55) contrast(1.05) brightness(1.04)',
   boxShadow:
-    'inset 0 0 17px -4px #000000, inset 0 1px 0 rgba(255,255,255,0.22), 0 22px 58px rgba(0,0,0,0.38)',
+    'inset 0 0 17px -4px #000000, inset 0 1px 0 rgba(255,255,255,0.24), inset 0 -1px 0 rgba(255,255,255,0.08), 0 22px 58px rgba(0,0,0,0.38)',
 }
 
 const mobileGlassSlots = 4
@@ -107,6 +107,7 @@ export function DashboardNav({
   const mobileGestureRef = useRef<{ pointerId: number; moved: boolean; startX: number } | null>(null)
   const suppressMobileClickRef = useRef(false)
   const mobileLensSettleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mobileScrollUnlockRef = useRef<(() => void) | null>(null)
 
   // Get locale from pathname
   const locale = pathname?.split('/')[1] || 'ru'
@@ -228,6 +229,8 @@ export function DashboardNav({
       if (mobileLensSettleTimeoutRef.current) {
         clearTimeout(mobileLensSettleTimeoutRef.current)
       }
+      mobileScrollUnlockRef.current?.()
+      mobileScrollUnlockRef.current = null
     }
   }, [])
 
@@ -314,10 +317,47 @@ export function DashboardNav({
   const getMobileGlassIndexFromX = (x: number) =>
     Math.max(0, Math.min(mobileGlassSlots - 1, Math.round((x - mobileGlassLensMinX) / mobileGlassStep)))
 
+  const lockMobilePageScroll = () => {
+    if (mobileScrollUnlockRef.current || typeof document === 'undefined') {
+      return
+    }
+
+    const html = document.documentElement
+    const body = document.body
+    const previousHtmlOverscroll = html.style.overscrollBehavior
+    const previousBodyOverscroll = body.style.overscrollBehavior
+    const previousBodyTouchAction = body.style.touchAction
+    const preventPageGesture = (nativeEvent: Event) => {
+      nativeEvent.preventDefault()
+    }
+    const listenerOptions: AddEventListenerOptions = { capture: true, passive: false }
+
+    html.style.overscrollBehavior = 'none'
+    body.style.overscrollBehavior = 'none'
+    body.style.touchAction = 'none'
+    document.addEventListener('touchmove', preventPageGesture, listenerOptions)
+    document.addEventListener('wheel', preventPageGesture, listenerOptions)
+
+    mobileScrollUnlockRef.current = () => {
+      html.style.overscrollBehavior = previousHtmlOverscroll
+      body.style.overscrollBehavior = previousBodyOverscroll
+      body.style.touchAction = previousBodyTouchAction
+      document.removeEventListener('touchmove', preventPageGesture, listenerOptions)
+      document.removeEventListener('wheel', preventPageGesture, listenerOptions)
+    }
+  }
+
+  const unlockMobilePageScroll = () => {
+    mobileScrollUnlockRef.current?.()
+    mobileScrollUnlockRef.current = null
+  }
+
   const handleMobileGlassPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return
     }
+    event.preventDefault()
+    lockMobilePageScroll()
     mobileGestureRef.current = { pointerId: event.pointerId, moved: false, startX: event.clientX }
     setMobileLensDragX(getMobileGlassLensX(activeMobileGlassIndex))
     setMobileLensLifted(true)
@@ -329,6 +369,7 @@ export function DashboardNav({
     if (!gesture || gesture.pointerId !== event.pointerId) {
       return
     }
+    event.preventDefault()
     const bounds = event.currentTarget.getBoundingClientRect()
     const nextX = clampMobileGlassX(event.clientX - bounds.left - mobileGlassLensSize / 2)
     if (Math.abs(event.clientX - gesture.startX) > 8) {
@@ -344,11 +385,13 @@ export function DashboardNav({
     if (!gesture || gesture.pointerId !== event.pointerId) {
       return
     }
+    event.preventDefault()
     const bounds = event.currentTarget.getBoundingClientRect()
     const finalX = clampMobileGlassX(event.clientX - bounds.left - mobileGlassLensSize / 2)
     const targetIndex = getMobileGlassIndexFromX(finalX)
     suppressMobileClickRef.current = true
     mobileGestureRef.current = null
+    unlockMobilePageScroll()
     setOptimisticMobileIndex(targetIndex)
     liftMobileLensBriefly()
     window.setTimeout(() => {
@@ -366,10 +409,16 @@ export function DashboardNav({
     }
   }
 
-  const cancelMobileGlassGesture = () => {
+  const cancelMobileGlassGesture = (event?: ReactPointerEvent<HTMLElement>) => {
+    const gesture = mobileGestureRef.current
+    if (event && (!gesture || gesture.pointerId !== event.pointerId)) {
+      return
+    }
+    event?.preventDefault()
     mobileGestureRef.current = null
     setMobileLensDragX(null)
     setMobileLensLifted(false)
+    unlockMobilePageScroll()
   }
 
   const handleMobileGlassButtonClick = (item: DashboardNavItem) => {
@@ -595,12 +644,18 @@ export function DashboardNav({
 
         <nav
           className="pointer-events-auto relative isolate flex items-center justify-center gap-2.5 overflow-hidden border border-white/20 bg-white/0 p-1 text-white/80 transition-transform duration-200 ease-out active:scale-[0.985]"
-          style={mobileGlassShellStyle}
+          style={{
+            ...mobileGlassShellStyle,
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+          }}
           aria-label={t('dashboard.nav.home')}
           onPointerDown={handleMobileGlassPointerDown}
           onPointerMove={handleMobileGlassPointerMove}
           onPointerUp={completeMobileGlassGesture}
           onPointerCancel={cancelMobileGlassGesture}
+          onLostPointerCapture={cancelMobileGlassGesture}
         >
           <motion.span
             aria-hidden="true"
