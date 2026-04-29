@@ -243,7 +243,7 @@ export function DashboardNav({
       pathname === fullPath || (item.href !== '/dashboard' && pathname?.startsWith(fullPath + '/'))
 
     return item.section
-      ? activeSection === item.section || pathMatches
+      ? activeSection ? activeSection === item.section : pathMatches
       : pathMatches
   }
 

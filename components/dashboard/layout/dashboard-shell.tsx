@@ -17,6 +17,7 @@ interface DashboardShellProps {
 type PendingDashboardNavigation = {
   section: DashboardSection
   href: string
+  sourcePathname: string | null
 } | null
 
 type DashboardRouteSection = DashboardSection | 'docs'
@@ -56,7 +57,10 @@ export function DashboardShell({ viewerAccess, accessControls, children }: Dashb
   const [initialSection] = useState<DashboardSection>(currentSection === 'docs' ? 'home' : currentSection)
   const [initialContent] = useState<React.ReactNode | null>(currentSection === 'docs' ? null : children)
   const effectivePendingNavigation =
-    pendingNavigation && pathname !== pendingNavigation.href && currentSection !== 'docs'
+    pendingNavigation
+    && pathname === pendingNavigation.sourcePathname
+    && pathname !== pendingNavigation.href
+    && currentSection !== 'docs'
       ? pendingNavigation
       : null
   const displayedSection =
@@ -73,7 +77,7 @@ export function DashboardShell({ viewerAccess, accessControls, children }: Dashb
         accessControls={accessControls}
         activeSection={displayedSection}
         onSectionChange={(section, href) => {
-          setPendingNavigation({ section, href })
+          setPendingNavigation({ section, href, sourcePathname: pathname })
         }}
       />
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
