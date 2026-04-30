@@ -64,7 +64,7 @@ log "Deploying release $RELEASE_ID to $TARGET_COLOR ($TARGET_DIR)"
 
 ensure_dir "$TARGET_DIR"
 rsync -az --delete --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude '.next' "$UPLOAD_DIR"/ "$TARGET_DIR"/
-cp "$SHARED_DIR/.env.local" "$TARGET_DIR/.env.local"
+install -m 600 -o ubuntu -g ubuntu "$SHARED_DIR/.env.local" "$TARGET_DIR/.env.local"
 
 cd "$TARGET_DIR"
 log "Installing dependencies"
