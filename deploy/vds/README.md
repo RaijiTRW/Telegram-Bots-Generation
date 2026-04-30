@@ -38,6 +38,17 @@ The bot expects these variables in the shared env:
 - `TELEGRAM_MONITOR_CRITICAL_LOG_COMMAND` (optional)
 - `TELEGRAM_MONITOR_SERVICES` (optional, comma-separated systemd service names)
 
+## Local AI API on the VDS
+
+The bot editor can use a local OpenAI-compatible API instead of OpenRouter. Put these variables into
+`/var/www/cbtooll-shared/.env.local`:
+
+- `AI_API_BASE_URL` - local endpoint, for example `http://127.0.0.1:8000/v1`
+- `AI_MODEL` - model name shown/sent by the local API, for example `z-ai/glm-5.1`
+- `AI_API_KEY` - optional, only if the local API requires bearer auth
+
+Legacy `OPENROUTER_*` variables are still supported as a fallback.
+
 ## Required GitHub Secrets
 
 - `VDS_HOST`

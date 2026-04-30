@@ -18,9 +18,12 @@ type OpenRouterJsonRequest = {
 }
 
 type OpenRouterConfig = {
-  apiKey: string
+  apiKey?: string
   model: string
   baseUrl: string
+  chatCompletionsUrl: string
+  providerLabel: string
+  supportsOpenRouterExtras: boolean
   httpReferer?: string
   appName?: string
 }
@@ -31,22 +34,90 @@ type OpenRouterJsonResponse<T> = {
   parsed: T
 }
 
-function readOpenRouterConfig(modelOverride?: string): OpenRouterConfig {
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim() || ''
-  const model = modelOverride?.trim() || process.env.OPENROUTER_MODEL?.trim() || ''
+function normalizeChatCompletionsUrl(baseUrl: string) {
+  const normalized = baseUrl.replace(/\/$/, '')
 
-  if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured')
+  if (/\/chat\/completions$/i.test(normalized)) {
+    return normalized
   }
+
+  if (/\/(?:api\/)?v1$/i.test(normalized)) {
+    return `${normalized}/chat/completions`
+  }
+
+  return `${normalized}/api/v1/chat/completions`
+}
+
+export function getAiProviderConfigError(modelOverride?: string): string | null {
+  const localBaseUrl =
+    process.env.AI_API_BASE_URL?.trim() ||
+    process.env.OPENAI_BASE_URL?.trim() ||
+    process.env.LOCAL_AI_BASE_URL?.trim() ||
+    ''
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim() || ''
+  const model =
+    modelOverride?.trim() ||
+    process.env.AI_MODEL?.trim() ||
+    process.env.OPENAI_MODEL?.trim() ||
+    process.env.OPENROUTER_MODEL?.trim() ||
+    ''
 
   if (!model) {
-    throw new Error('OPENROUTER_MODEL is not configured')
+    return 'AI_MODEL is not configured'
   }
+
+  if (!localBaseUrl && !openRouterApiKey) {
+    return 'AI_API_BASE_URL is not configured'
+  }
+
+  return null
+}
+
+function readOpenRouterConfig(modelOverride?: string): OpenRouterConfig {
+  const localBaseUrl =
+    process.env.AI_API_BASE_URL?.trim() ||
+    process.env.OPENAI_BASE_URL?.trim() ||
+    process.env.LOCAL_AI_BASE_URL?.trim() ||
+    ''
+  const model =
+    modelOverride?.trim() ||
+    process.env.AI_MODEL?.trim() ||
+    process.env.OPENAI_MODEL?.trim() ||
+    process.env.OPENROUTER_MODEL?.trim() ||
+    ''
+  const configError = getAiProviderConfigError(modelOverride)
+
+  if (configError) {
+    throw new Error(configError)
+  }
+
+  if (localBaseUrl) {
+    const apiKey =
+      process.env.AI_API_KEY?.trim() ||
+      process.env.OPENAI_API_KEY?.trim() ||
+      process.env.LOCAL_AI_API_KEY?.trim() ||
+      undefined
+
+    return {
+      apiKey,
+      model,
+      baseUrl: localBaseUrl.replace(/\/$/, ''),
+      chatCompletionsUrl: normalizeChatCompletionsUrl(localBaseUrl),
+      providerLabel: 'AI provider',
+      supportsOpenRouterExtras: false,
+    }
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim() || ''
+  const baseUrl = (process.env.OPENROUTER_BASE_URL?.trim() || 'https://openrouter.ai').replace(/\/$/, '')
 
   return {
     apiKey,
     model,
-    baseUrl: (process.env.OPENROUTER_BASE_URL?.trim() || 'https://openrouter.ai').replace(/\/$/, ''),
+    baseUrl,
+    chatCompletionsUrl: normalizeChatCompletionsUrl(baseUrl),
+    providerLabel: 'OpenRouter',
+    supportsOpenRouterExtras: true,
     httpReferer: process.env.OPENROUTER_HTTP_REFERER?.trim() || undefined,
     appName: process.env.OPENROUTER_APP_NAME?.trim() || undefined,
   }
@@ -227,7 +298,7 @@ function buildRequestPayload(
     messages: request.messages,
     temperature: request.temperature ?? 0.2,
     max_tokens: request.maxTokens ?? 5000,
-    plugins: [{ id: 'response-healing' }],
+    ...(config.supportsOpenRouterExtras ? { plugins: [{ id: 'response-healing' }] } : {}),
     ...(streaming ? { stream: true } : {}),
     response_format:
       !forceJsonObject && request.schema
@@ -249,8 +320,11 @@ async function sendOpenRouterRequest<T>(
   forceJsonObject = false
 ): Promise<OpenRouterJsonResponse<T>> {
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${config.apiKey}`,
     'Content-Type': 'application/json',
+  }
+
+  if (config.apiKey) {
+    headers.Authorization = `Bearer ${config.apiKey}`
   }
 
   if (config.httpReferer) {
@@ -261,7 +335,7 @@ async function sendOpenRouterRequest<T>(
     headers['X-Title'] = config.appName
   }
 
-  const response = await fetch(`${config.baseUrl}/api/v1/chat/completions`, {
+  const response = await fetch(config.chatCompletionsUrl, {
     method: 'POST',
     headers,
     body: JSON.stringify(buildRequestPayload(config, request, forceJsonObject, false)),
@@ -286,13 +360,13 @@ async function sendOpenRouterRequest<T>(
         ? String(((responseJson as Record<string, unknown>).error as Record<string, unknown>).message)
         : responseText
 
-    throw new Error(`OpenRouter error ${response.status}: ${errorMessage || 'Unknown error'}`)
+    throw new Error(`${config.providerLabel} error ${response.status}: ${errorMessage || 'Unknown error'}`)
   }
 
   const content = extractAssistantContent(responseJson)
   const parsed = tryParseJson<T>(content)
   if (!parsed) {
-    throw new Error('OpenRouter did not return valid JSON')
+    throw new Error(`${config.providerLabel} did not return valid JSON`)
   }
 
   return {
@@ -308,8 +382,11 @@ async function sendOpenRouterStreamingRequest<T>(
   forceJsonObject = false
 ): Promise<OpenRouterJsonResponse<T>> {
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${config.apiKey}`,
     'Content-Type': 'application/json',
+  }
+
+  if (config.apiKey) {
+    headers.Authorization = `Bearer ${config.apiKey}`
   }
 
   if (config.httpReferer) {
@@ -320,7 +397,7 @@ async function sendOpenRouterStreamingRequest<T>(
     headers['X-Title'] = config.appName
   }
 
-  const response = await fetch(`${config.baseUrl}/api/v1/chat/completions`, {
+  const response = await fetch(config.chatCompletionsUrl, {
     method: 'POST',
     headers,
     body: JSON.stringify(buildRequestPayload(config, request, forceJsonObject, true)),
@@ -345,11 +422,11 @@ async function sendOpenRouterStreamingRequest<T>(
         ? String(((responseJson as Record<string, unknown>).error as Record<string, unknown>).message)
         : responseText
 
-    throw new Error(`OpenRouter error ${response.status}: ${errorMessage || 'Unknown error'}`)
+    throw new Error(`${config.providerLabel} error ${response.status}: ${errorMessage || 'Unknown error'}`)
   }
 
   if (!response.body) {
-    throw new Error('OpenRouter did not return a streaming body')
+    throw new Error(`${config.providerLabel} did not return a streaming body`)
   }
 
   const decoder = new TextDecoder()
@@ -436,7 +513,7 @@ async function sendOpenRouterStreamingRequest<T>(
 
   const parsed = tryParseJson<T>(content)
   if (!parsed) {
-    throw new Error('OpenRouter did not return valid JSON')
+    throw new Error(`${config.providerLabel} did not return valid JSON`)
   }
 
   return {
