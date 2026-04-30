@@ -10,10 +10,7 @@ import {
   getBotAgentRunStatus,
   startBotAgentRun,
 } from '@/lib/bot-editor/agent/runtime'
-import {
-  getAiProviderConfigError,
-  requestOpenRouterJson,
-} from '@/lib/bot-editor/quick-start/openrouter'
+import { requestOpenRouterJson } from '@/lib/bot-editor/quick-start/openrouter'
 import {
   appendMessageToThread,
   createAiChatThread,
@@ -629,11 +626,10 @@ export async function startBotAgentRunAction(
     return { success: false as const, error: 'Prompt or attachment is required' }
   }
 
-  const aiProviderConfigError = getAiProviderConfigError(payload.model)
-  if (aiProviderConfigError) {
+  if (!process.env.OPENROUTER_API_KEY?.trim()) {
     return {
       success: false as const,
-      error: aiProviderConfigError,
+      error: 'OPENROUTER_API_KEY is not configured',
     }
   }
 
