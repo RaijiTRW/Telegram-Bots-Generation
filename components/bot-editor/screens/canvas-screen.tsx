@@ -728,20 +728,16 @@ export default function CanvasPage() {
         </div>
 
         {testLaunchMode === 'live-preview' ? (
-          <div className="pointer-events-none absolute right-0 top-1/2 z-[90] -translate-y-1/2">
-            <div className="pointer-events-auto">
-              <LivePreviewPhone
-                config={config}
-                metadata={bot?.metadata}
-                isOpen={isLivePreviewOpen}
-                isOnline={isLivePreviewTestActive}
-                startSignal={livePreviewStartSignal}
-                onExecutionVisit={handleLivePreviewExecutionVisit}
-                onOnlineChange={handleLivePreviewOnlineChange}
-                onOpenChange={setIsLivePreviewOpen}
-              />
-            </div>
-          </div>
+          <LivePreviewPhone
+            config={config}
+            metadata={bot?.metadata}
+            isOpen={isLivePreviewOpen}
+            isOnline={isLivePreviewTestActive}
+            startSignal={livePreviewStartSignal}
+            onExecutionVisit={handleLivePreviewExecutionVisit}
+            onOnlineChange={handleLivePreviewOnlineChange}
+            onOpenChange={setIsLivePreviewOpen}
+          />
         ) : null}
 
         {showLogConsole && (

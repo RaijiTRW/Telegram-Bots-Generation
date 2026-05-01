@@ -557,12 +557,12 @@ export function LivePreviewPhone({
   }, [config, nodeMap, pushMessage, runFrom, variables, waitingNodeId])
 
   return (
-    <div className="relative">
+    <div className="pointer-events-none fixed inset-0 z-[90]">
       <button
         type="button"
         onClick={() => onOpenChange(!isOpen)}
         className={cn(
-          'inline-flex h-10 w-8 items-center justify-center rounded-l-xl border border-r-0 border-[#24A1DE]/45 bg-zinc-950/96 text-[#9DE0FF]',
+          'pointer-events-auto fixed right-0 top-1/2 inline-flex h-10 w-8 -translate-y-1/2 items-center justify-center rounded-l-xl border border-r-0 border-[#24A1DE]/45 bg-zinc-950/96 text-[#9DE0FF]',
           'shadow-[0_0_0_1px_rgba(36,161,222,0.14),0_16px_38px_rgba(0,0,0,0.45),0_0_24px_rgba(36,161,222,0.16)] backdrop-blur-xl transition',
           'hover:w-9 hover:border-[#24A1DE]/75 hover:bg-[#0C1621] hover:text-white',
           isOpen ? 'border-[#24A1DE]/80 bg-[#0C1621] text-white' : ''
@@ -580,7 +580,7 @@ export function LivePreviewPhone({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 720, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.9 }}
-          className="fixed bottom-6 right-12 z-50 w-[342px] max-w-[calc(100vw-5rem)]"
+          className="pointer-events-auto fixed bottom-6 right-12 z-50 w-[342px] max-w-[calc(100vw-5rem)]"
         >
           <div className="rounded-[42px] border border-zinc-700/80 bg-[#111318] p-2.5 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
             <div className="relative overflow-hidden rounded-[34px] border border-white/8 bg-[#080B10]">
