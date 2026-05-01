@@ -6,6 +6,7 @@ import {
   getSupabasePublicEnv,
   hasSupabasePublicEnv,
 } from '@/lib/supabase/config'
+import { resilientSupabaseFetch } from '@/lib/supabase/resilient-fetch'
 
 function isRateLimitAuthError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -39,6 +40,9 @@ async function createServerSupabaseClient() {
             // Server Actions / Route Handlers can still write and keep sessions fresh.
           }
         },
+      },
+      global: {
+        fetch: resilientSupabaseFetch,
       },
     }
   )

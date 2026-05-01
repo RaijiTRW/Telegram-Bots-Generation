@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
+import { resilientSupabaseFetch } from '@/lib/supabase/resilient-fetch'
 
 let adminClient: ReturnType<typeof createClient<Database>> | null = null
 
@@ -19,6 +20,9 @@ export function createAdminClient() {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
+    },
+    global: {
+      fetch: resilientSupabaseFetch,
     },
   })
 
