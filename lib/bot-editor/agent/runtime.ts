@@ -67,6 +67,7 @@ type AgentRegistryEntry = {
 type StartAgentRunInput = {
   botId: string
   prompt: string
+  displayPrompt?: string
   locale?: string
   chatId?: string
   attachments?: AiAgentAttachment[]
@@ -79,6 +80,7 @@ type AgentExecutionContext = {
   runId: string
   chatId: string
   prompt: string
+  userPrompt: string
   locale: 'ru' | 'en'
   attachments: AiAgentAttachment[]
   chatContext?: AgentChatContext
@@ -154,6 +156,7 @@ const AGENT_NODE_TYPES = new Set<NodeType>([
   'replyKeyboard',
   'script',
   'action',
+  'setVariable',
   'http',
   'webhook',
   'paymentYookassa',
@@ -477,6 +480,20 @@ function formatChatMessageForContext(message: AiChatStoredMessage) {
 }
 
 function buildRunMessageContent(snapshot: AiAgentRunSnapshot) {
+  if (snapshot.mode === 'respond') {
+    const responseText = normalizeText(snapshot.responseText, 4000)
+    if (responseText) return responseText
+
+    const fallbackParts = [
+      snapshot.error,
+      snapshot.analysis,
+    ]
+      .map((value) => normalizeText(value, 4000))
+      .filter(Boolean)
+
+    return fallbackParts.join('\n\n')
+  }
+
   const parts = [
     snapshot.summary,
     snapshot.responseText,
@@ -741,6 +758,7 @@ function makeTaskItems(previous: AiAgentTaskItem[], delta: string[] | undefined,
 
 function buildBaseSnapshot(input: StartAgentRunInput, runId: string): AiAgentRunSnapshot {
   const now = new Date().toISOString()
+  const visiblePrompt = normalizeText(input.displayPrompt || input.prompt, 8000)
 
   return {
     runId,
@@ -756,7 +774,7 @@ function buildBaseSnapshot(input: StartAgentRunInput, runId: string): AiAgentRun
       ? 'The agent is determining whether this request needs a direct answer or workflow development.'
       : 'Определяю, нужен ли для этого запроса обычный ответ или разработка сценария.',
     locked: true,
-    prompt: normalizeText(input.prompt, 8000),
+    prompt: visiblePrompt,
     attachments: cloneValue(input.attachments || []),
     plan: [],
     stepCount: 0,
@@ -1519,6 +1537,8 @@ function buildRouteDecisionMessages(args: {
         'Choose mode "build" only when the user explicitly wants to create, modify, debug, connect, generate, rebuild, or otherwise change the bot canvas/workflow, bot settings, or system features.',
         'Choose mode "respond" when the user is greeting, chatting, asking a general question, asking how something works, asking for explanation, or expecting only an informational answer.',
         'If the user asks about the current bot logic without requesting edits, choose "respond".',
+        'Questions like "why does this not work?", "what is wrong?", "how should I fix it?" are respond unless the user explicitly says to make the fix.',
+        'Phrases like "just answer", "only answer", "do not change", "without edits" must be respond.',
         'Short greetings like "hello", "hi", "привет", "как дела", "что умеешь" must be classified as "respond".',
         'If the user asks to add, change, fix, connect, generate, rebuild bot logic, or change Settings/System, choose "build".',
         'When uncertain, prefer "respond" unless the request clearly asks for bot changes.',
@@ -1529,6 +1549,8 @@ function buildRouteDecisionMessages(args: {
         'Выбирай mode "build" только когда пользователь явно хочет создать, изменить, починить, соединить, настроить, доработать, сгенерировать или пересобрать сценарий/логику на холсте, настройки бота или системные функции.',
         'Выбирай mode "respond", когда пользователь просто здоровается, общается, задаёт общий вопрос, спрашивает как что-то работает, просит объяснение, или ожидает только информационный ответ без изменений в боте.',
         'Если пользователь спрашивает про текущую логику бота без запроса на правки, выбирай "respond".',
+        'Вопросы вроде "почему не работает?", "что не так?", "как исправить?" — это respond, если пользователь явно не просит внести исправление.',
+        'Фразы "просто ответь", "только ответ", "не меняй", "без правок" всегда означают respond.',
         'Короткие запросы вроде "привет", "как дела", "что умеешь" всегда классифицируй как "respond".',
         'Если пользователь просит добавить, изменить, исправить, соединить, сгенерировать, пересобрать логику или поменять раздел Настройки/Система, выбирай "build".',
         'Если есть сомнение, выбирай "respond", пока нет явного запроса на изменения бота.',
@@ -1546,6 +1568,44 @@ function buildRouteDecisionMessages(args: {
     { role: 'system' as const, content: systemPrompt },
     { role: 'user' as const, content: JSON.stringify(userPayload, null, 2) },
   ]
+}
+
+function getExplicitRouteDecision(prompt: string, locale: 'ru' | 'en'): AgentRouteDecision | null {
+  const normalized = normalizeText(prompt, 1200).toLowerCase()
+  if (!normalized) return null
+
+  const explicitRespondPatterns = [
+    /\bпросто\s+ответ/,
+    /\bтолько\s+ответ/,
+    /\bне\s+(чини|исправляй|меняй|трогай|делай)/,
+    /\bбез\s+(изменений|правок|редактирования)/,
+    /^(почему|зачем|как|что|где|когда|можешь объяснить|объясни)\b/,
+    /\?$/,
+    /\bjust\s+answer\b/,
+    /\bonly\s+answer\b/,
+    /\bdon't\s+(fix|change|edit|modify|touch|do)\b/,
+    /\bdo\s+not\s+(fix|change|edit|modify|touch|do)\b/,
+    /\bwithout\s+(changes|edits|modifying)\b/,
+    /^(why|how|what|where|when|can you explain|explain)\b/,
+  ]
+  const explicitBuildPatterns = [
+    /\b(сделай|создай|добавь|исправь|почини|измени|поменяй|подключи|сгенерируй|пересобери|настрой|удали|доработай)\b/,
+    /\b(make|create|add|fix|repair|change|modify|connect|generate|rebuild|configure|delete|update)\b/,
+  ]
+
+  const wantsRespond = explicitRespondPatterns.some((pattern) => pattern.test(normalized))
+  const wantsBuild = explicitBuildPatterns.some((pattern) => pattern.test(normalized))
+
+  if (wantsRespond && !wantsBuild) {
+    return {
+      mode: 'respond',
+      reason: locale === 'en'
+        ? 'The user asked for an informational answer without canvas changes.'
+        : 'Пользователь попросил обычный информационный ответ без изменений холста.',
+    }
+  }
+
+  return null
 }
 
 function buildRespondMessages(args: {
@@ -1624,6 +1684,7 @@ function buildAgentMessages(args: {
     'Comment nodes must stay disconnected.',
     'Condition nodes: true/default branch uses no sourceHandle, false branch uses sourceHandle "false".',
     'Router nodes: case branches use sourceHandle "case:<caseId>", default branch uses no sourceHandle.',
+    'Use node type "setVariable" to assign variables. Keep Action nodes for delay, deleteMessage, random split, and legacy flows.',
     'Action nodes with action.type="random" use handles "a" and "b". Other action nodes use only the default edge.',
     'Keep the graph acyclic and connected for executable nodes.',
     'For inline callback menus, do not stop at adding buttons. Every callback button must have a callbackData value handled by a callbackQuery trigger, then usually a router with variable "callback.data", a matching case.value, and an outgoing edge from sourceHandle "case:<caseId>" to the intended branch.',
@@ -2449,11 +2510,17 @@ async function requestAgentStep(context: AgentExecutionContext, config: BotConfi
 }
 
 async function requestRouteDecision(context: AgentExecutionContext, config: BotConfig) {
+  const userPrompt = normalizeText(context.userPrompt || context.prompt, 8000)
+  const explicitDecision = getExplicitRouteDecision(userPrompt, context.locale)
+  if (explicitDecision) {
+    return explicitDecision
+  }
+
   try {
     const response = await requestOpenRouterJson<AgentRouteDecision>({
       model: AGENT_MODEL_ID,
       messages: buildRouteDecisionMessages({
-        prompt: context.prompt,
+        prompt: userPrompt,
         locale: context.locale,
         chatContext: context.chatContext,
         config,
@@ -2484,10 +2551,11 @@ async function requestRouteDecision(context: AgentExecutionContext, config: BotC
 }
 
 async function requestRespondStep(context: AgentExecutionContext, config: BotConfig, bot: Bot | null) {
+  const userPrompt = normalizeText(context.userPrompt || context.prompt, 8000)
   const response = await requestOpenRouterJsonStream<AgentResponseEnvelope>({
     model: AGENT_MODEL_ID,
     messages: buildRespondMessages({
-      prompt: context.prompt,
+      prompt: userPrompt,
       locale: context.locale,
       config,
       bot,
@@ -2883,6 +2951,11 @@ export async function startBotAgentRun(input: StartAgentRunInput) {
     cloneValue(input.attachments || []),
     locale
   )
+  const displayPrompt = buildEffectivePrompt(
+    input.displayPrompt || input.prompt,
+    cloneValue(input.attachments || []),
+    locale
+  )
 
   if (!effectivePrompt) {
     throw new Error(locale === 'en' ? 'Prompt or attachments are required' : 'Нужен текст запроса или вложение')
@@ -2924,18 +2997,18 @@ export async function startBotAgentRun(input: StartAgentRunInput) {
     getActiveChatThread(aiChatState)
 
   if (!activeChat) {
-    activeChat = createAiChatThread(locale, pickChatTitleFromPrompt(input.prompt, locale), runId)
+    activeChat = createAiChatThread(locale, pickChatTitleFromPrompt(displayPrompt, locale), runId)
   }
 
   const shouldRetitleActiveChat =
     activeChat.messages.length === 0 &&
     normalizeText(activeChat.title, 80).toLowerCase().startsWith(locale === 'en' ? 'new chat' : 'новый чат') &&
-    Boolean(normalizeText(input.prompt, 80))
+    Boolean(normalizeText(displayPrompt, 80))
 
   const preparedChat: AiChatThread = shouldRetitleActiveChat
     ? {
         ...activeChat,
-        title: pickChatTitleFromPrompt(input.prompt, locale),
+        title: pickChatTitleFromPrompt(displayPrompt, locale),
       }
     : activeChat
 
@@ -2947,7 +3020,7 @@ export async function startBotAgentRun(input: StartAgentRunInput) {
     : appendMessageToThread(preparedChat, {
         runId,
         role: 'user',
-        content: normalizeText(input.prompt, 12000),
+        content: normalizeText(displayPrompt, 12000),
         model: AGENT_MODEL_ID,
         attachments: cloneValue(input.attachments || []),
       })
@@ -2993,6 +3066,7 @@ export async function startBotAgentRun(input: StartAgentRunInput) {
     runId,
     chatId: nextChat.id,
     prompt: effectivePrompt,
+    userPrompt: displayPrompt,
     locale,
     attachments: cloneValue(input.attachments || []),
     snapshot,

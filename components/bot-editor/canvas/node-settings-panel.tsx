@@ -8,6 +8,7 @@ import {
   Keyboard,
   GitBranch,
   Zap,
+  Variable,
   Webhook,
   Globe,
   CreditCard,
@@ -49,6 +50,7 @@ import type {
   ConditionNodeData,
   RouterNodeData,
   ActionNodeData,
+  SetVariableNodeData,
   ScriptNodeData,
   HttpNodeData,
   WebhookNodeData,
@@ -88,6 +90,7 @@ interface NodeSettingsPanelProps {
   onSave?: () => Promise<boolean> | boolean
   onClose: () => void
   variables?: string[] // Available variable names
+  detailedModeRequestKey?: number
 }
 
 // Icons map
@@ -97,6 +100,7 @@ const ICONS: Record<string, LucideIcon> = {
   condition: GitBranch,
   router: GitBranch,
   action: Zap,
+  setVariable: Variable,
   http: Globe,
   webhook: Webhook,
   paymentYookassa: CreditCard,
@@ -320,7 +324,14 @@ function buildRobokassaAutoReturnUrl(input: {
   })
 }
 
-export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables = [] }: NodeSettingsPanelProps) {
+export function NodeSettingsPanel({
+  node,
+  onUpdate,
+  onSave,
+  onClose,
+  variables = [],
+  detailedModeRequestKey = 0,
+}: NodeSettingsPanelProps) {
   const t = useTranslations('editor.nodeSettings')
   const tCanvas = useTranslations('editor.canvas')
   const locale = useLocale()
@@ -356,6 +367,11 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
   useEffect(() => {
     setIsDetailedMode(false)
   }, [node?.id])
+
+  useEffect(() => {
+    if (!node || detailedModeRequestKey <= 0) return
+    setIsDetailedMode(true)
+  }, [detailedModeRequestKey, node])
 
   useEffect(() => {
     if (!isDetailedMode || typeof document === 'undefined') {
@@ -620,6 +636,14 @@ export function NodeSettingsPanel({ node, onUpdate, onSave, onClose, variables =
         {nodeType === 'action' && (
           <ActionSettings
             data={data as ActionNodeData}
+            onUpdate={handleUpdate}
+            variables={variables}
+            t={t as any}
+          />
+        )}
+        {nodeType === 'setVariable' && (
+          <SetVariableSettings
+            data={data as SetVariableNodeData}
             onUpdate={handleUpdate}
             variables={variables}
             t={t as any}
@@ -1856,9 +1880,9 @@ function ActionSettings({
   data: ActionNodeData
   onUpdate: (data: Partial<ActionNodeData>) => void
   variables: string[]
-  t: (key: string) => string
+  t: (key: string, values?: Record<string, unknown>) => string
 }) {
-  const ta = (key: string, values?: Record<string, unknown>) => (t as any)(`action.${key}`, values)
+  const ta = (key: string, values?: Record<string, unknown>) => t(`action.${key}`, values)
   const actionType = data.action?.type || 'setVariable'
 
   const createActionConfigByType = (value: string) => {
@@ -2057,6 +2081,53 @@ function ActionSettings({
         )}
       </TabsContent>
     </Tabs>
+  )
+}
+
+function SetVariableSettings({
+  data,
+  onUpdate,
+  variables,
+  t,
+}: {
+  data: SetVariableNodeData
+  onUpdate: (data: Partial<SetVariableNodeData>) => void
+  variables: string[]
+  t: (key: string, values?: Record<string, unknown>) => string
+}) {
+  const ta = (key: string, values?: Record<string, unknown>) => t(`action.${key}`, values)
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="set-variable-name">{ta('variableNameLabel')}</Label>
+        <VariableAutocompleteInput
+          id="set-variable-name"
+          value={data.variableName || ''}
+          onValueChange={(value) => onUpdate({ variableName: value })}
+          placeholder={ta('variableNamePlaceholder')}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="set-variable-value">{ta('valueLabel')}</Label>
+        <TemplateVariableTextarea
+          id="set-variable-value"
+          value={data.value == null ? '' : String(data.value)}
+          onValueChange={(value) => onUpdate({ value })}
+          placeholder={ta('valuePlaceholder')}
+          rows={3}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+      </div>
+
+      <p className="rounded-lg border border-emerald-400/15 bg-emerald-400/5 px-3 py-2 text-xs leading-5 text-emerald-100/75">
+        Значение можно писать обычным текстом или через переменные, например {'{{callback.data}}'}.
+      </p>
+    </div>
   )
 }
 

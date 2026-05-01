@@ -1,5 +1,9 @@
 const RETRYABLE_ERROR_PATTERNS = [
   'fetch failed',
+  'AbortError',
+  'aborted',
+  'The operation was aborted',
+  'Supabase request timed out',
   'HeadersTimeoutError',
   'UND_ERR_HEADERS_TIMEOUT',
   'UND_ERR_SOCKET',
@@ -8,8 +12,8 @@ const RETRYABLE_ERROR_PATTERNS = [
   'ETIMEDOUT',
 ]
 
-const DEFAULT_TIMEOUT_MS = 12_000
-const DEFAULT_RETRIES = 2
+const DEFAULT_TIMEOUT_MS = 20_000
+const DEFAULT_RETRIES = 3
 
 function isRetryableSupabaseFetchError(error: unknown) {
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)

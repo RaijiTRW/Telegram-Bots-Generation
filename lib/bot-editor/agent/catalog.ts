@@ -225,7 +225,7 @@ const NODE_AGENT_SPECS: Record<NodeType, NodeAgentSpec> = {
     },
   },
   action: {
-    purpose: 'Performs built-in actions like setVariable, delay, deleteMessage, and random split.',
+    purpose: 'Performs built-in utility actions like delay, deleteMessage, and random split. Use setVariable node for variable assignment.',
     requiredDataFields: ['action'],
     optionalDataFields: ['onError', 'retryCount', ...AGENT_META_FIELDS],
     allowedSourceHandles: ['default', 'a', 'b'],
@@ -237,10 +237,23 @@ const NODE_AGENT_SPECS: Record<NodeType, NodeAgentSpec> = {
     exampleData: {
       type: 'action',
       action: {
-        type: 'setVariable',
-        variableName: 'lead_source',
-        value: 'telegram',
+        type: 'delay',
+        duration: 1000,
       },
+      __label: 'Пауза',
+    },
+  },
+  setVariable: {
+    purpose: 'Assigns a value to a bot variable and continues through the default edge.',
+    requiredDataFields: ['variableName'],
+    optionalDataFields: ['value', ...AGENT_META_FIELDS],
+    allowedSourceHandles: ['default'],
+    connectionRules: ['Set Variable nodes use one default outgoing edge.'],
+    runtimeBehavior: 'Interpolates template variables in value, saves the result into variableName, then continues.',
+    exampleData: {
+      type: 'setVariable',
+      variableName: 'lead_source',
+      value: 'telegram',
       __label: 'Записать источник',
     },
   },
@@ -676,6 +689,10 @@ export function sanitizeNodeDataForAgent(nodeType: NodeType, rawData: unknown): 
       sanitized.action = sanitizeActionPayload(source.action)
       sanitized.onError = normalizeText(source.onError, 40) || defaults.onError
       sanitized.retryCount = Math.max(0, Math.min(normalizeNumber(source.retryCount, Number(defaults.retryCount || 0)), 5))
+      break
+    case 'setVariable':
+      sanitized.variableName = normalizeText(source.variableName ?? source.variable ?? source.key, 120)
+      sanitized.value = source.value ?? ''
       break
     case 'script':
       sanitized.language = ALLOWED_SCRIPT_LANGUAGES.has(normalizeText(source.language, 20))

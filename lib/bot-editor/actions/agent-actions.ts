@@ -207,11 +207,22 @@ function sanitizeSnapshot(snapshot: AiAgentRunSnapshot | null | undefined) {
 
 const CLARIFICATION_WAIT_TIMEOUT_MS = 12 * 60 * 60 * 1000
 const CLARIFICATION_DECISION_TIMEOUT_MS = 12_000
+const PROMPT_PREPROCESSOR_MODEL_ID = 'anthropic/claude-haiku-4.5'
+const PROMPT_PREPROCESSOR_TIMEOUT_MS = 14_000
 
 type ClarificationDecision = {
   needsClarification: boolean
   thought?: string
   questions?: AiAgentClarificationQuestion[]
+}
+
+type PromptPreprocessorResult = {
+  refinedPrompt: string
+  intent: string
+  tone: string
+  userGoal: string
+  constraints: string[]
+  missingButNonBlocking: string[]
 }
 
 const CLARIFICATION_DECISION_SCHEMA: Record<string, unknown> = {
@@ -249,6 +260,28 @@ const CLARIFICATION_DECISION_SCHEMA: Record<string, unknown> = {
           },
         },
       },
+    },
+  },
+}
+
+const PROMPT_PREPROCESSOR_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['refinedPrompt', 'intent', 'tone', 'userGoal', 'constraints', 'missingButNonBlocking'],
+  properties: {
+    refinedPrompt: { type: 'string' },
+    intent: { type: 'string' },
+    tone: { type: 'string' },
+    userGoal: { type: 'string' },
+    constraints: {
+      type: 'array',
+      maxItems: 8,
+      items: { type: 'string' },
+    },
+    missingButNonBlocking: {
+      type: 'array',
+      maxItems: 6,
+      items: { type: 'string' },
     },
   },
 }
@@ -357,6 +390,74 @@ function buildClarifiedPrompt(prompt: string, answers: AiAgentClarificationAnswe
   return `${prompt}\n\nУточнения пользователя:\n${answerText}`
 }
 
+function sanitizePromptPreprocessorResult(value: PromptPreprocessorResult | null | undefined) {
+  if (!value || typeof value !== 'object') return null
+
+  const refinedPrompt = normalizeText(value.refinedPrompt, 8000)
+  if (!refinedPrompt) return null
+
+  return {
+    refinedPrompt,
+    intent: normalizeText(value.intent, 400),
+    tone: normalizeText(value.tone, 300),
+    userGoal: normalizeText(value.userGoal, 800),
+    constraints: Array.isArray(value.constraints)
+      ? value.constraints.map((item) => normalizeText(item, 300)).filter(Boolean).slice(0, 8)
+      : [],
+    missingButNonBlocking: Array.isArray(value.missingButNonBlocking)
+      ? value.missingButNonBlocking.map((item) => normalizeText(item, 300)).filter(Boolean).slice(0, 6)
+      : [],
+  }
+}
+
+function buildPreprocessedPrompt(originalPrompt: string, result: NonNullable<ReturnType<typeof sanitizePromptPreprocessorResult>>, locale?: string) {
+  const labels = locale === 'en'
+    ? {
+        title: 'Preprocessed user request for the main bot-building agent',
+        original: 'Original user message',
+        refined: 'Refined task',
+        intent: 'Intent',
+        tone: 'User tone',
+        goal: 'User goal',
+        constraints: 'Constraints',
+        missing: 'Missing but non-blocking details',
+        instruction: 'Instruction for the main agent',
+        instructionText: 'Use the refined task as the source of truth, preserve the user tone where useful, and do not invent blocking requirements that were not provided.',
+      }
+    : {
+        title: 'Подготовленный запрос пользователя для главного агента сборки бота',
+        original: 'Исходное сообщение пользователя',
+        refined: 'Уточнённая задача',
+        intent: 'Намерение',
+        tone: 'Тон пользователя',
+        goal: 'Цель пользователя',
+        constraints: 'Ограничения',
+        missing: 'Недостающие, но не блокирующие детали',
+        instruction: 'Инструкция для главного агента',
+        instructionText: 'Используй уточнённую задачу как основной источник, учитывай тон пользователя там, где это полезно, и не выдумывай блокирующие требования, которых пользователь не давал.',
+      }
+
+  const list = (items: string[]) => items.length ? items.map((item) => `- ${item}`).join('\n') : '- none'
+
+  return [
+    labels.title,
+    '',
+    `${labels.original}:\n${normalizeText(originalPrompt, 8000)}`,
+    '',
+    `${labels.refined}:\n${result.refinedPrompt}`,
+    '',
+    `${labels.intent}: ${result.intent || 'unknown'}`,
+    `${labels.tone}: ${result.tone || 'neutral'}`,
+    `${labels.goal}: ${result.userGoal || result.refinedPrompt}`,
+    '',
+    `${labels.constraints}:\n${list(result.constraints)}`,
+    '',
+    `${labels.missing}:\n${list(result.missingButNonBlocking)}`,
+    '',
+    `${labels.instruction}:\n${labels.instructionText}`,
+  ].join('\n')
+}
+
 function getPendingClarification(metadata: BotMetadata | undefined | null): AiAgentPendingClarification | null {
   const pending = metadata?.aiAgent?.pendingClarification
   if (!pending || typeof pending !== 'object') return null
@@ -462,7 +563,6 @@ function prepareClarificationRun(input: {
     runId,
     chatId: nextChat.id,
     status: 'planning',
-    mode: 'build',
     model: 'z-ai/glm-5.1',
     startedAt: now,
     updatedAt: now,
@@ -527,6 +627,87 @@ function appendClarificationAnswerToMetadata(input: {
   return {
     ...input.metadata,
     aiChat: nextAiChatState,
+  }
+}
+
+function preparePersistentAgentRun(input: {
+  metadata: BotMetadata | undefined | null
+  prompt: string
+  model?: string
+  locale?: string
+  chatId?: string | null
+  attachments: AiAgentAttachment[]
+}) {
+  const locale = input.locale === 'en' ? 'en' : 'ru'
+  const runId = randomUUID()
+  const now = new Date().toISOString()
+  const aiChatState = getAiChatState(input.metadata)
+  let activeChat =
+    (normalizeText(input.chatId, 160) && aiChatState.chats.find((chat) => chat.id === normalizeText(input.chatId, 160))) ||
+    getActiveChatThread(aiChatState)
+
+  if (!activeChat) {
+    activeChat = createAiChatThread(locale, pickChatTitleFromPrompt(input.prompt, locale), runId)
+  }
+
+  const preparedChat = activeChat.messages.length === 0
+    ? {
+        ...activeChat,
+        title: pickChatTitleFromPrompt(input.prompt, locale),
+      }
+    : activeChat
+
+  const nextChat = appendMessageToThread(preparedChat, {
+    runId,
+    role: 'user',
+    content: normalizeText(input.prompt, 12000),
+    model: input.model || 'z-ai/glm-5.1',
+    attachments: input.attachments,
+  })
+  const nextAiChatState = replaceThreadInState(
+    {
+      ...aiChatState,
+      chats: aiChatState.chats.some((chat) => chat.id === nextChat.id)
+        ? aiChatState.chats
+        : [nextChat, ...aiChatState.chats],
+      activeChatId: nextChat.id,
+    },
+    nextChat
+  )
+  const snapshot: AiAgentRunSnapshot = {
+    runId,
+    chatId: nextChat.id,
+    status: 'planning',
+    mode: 'build',
+    model: 'z-ai/glm-5.1',
+    startedAt: now,
+    updatedAt: now,
+    currentAction: locale === 'en' ? 'Analyzing the request' : 'Анализирую запрос',
+    nextAction: locale === 'en' ? 'Prepare the request for the main agent' : 'Подготовить запрос для главного агента',
+    analysis: locale === 'en'
+      ? 'The request is being normalized before the main agent starts.'
+      : 'Запрос нормализуется перед запуском главного агента.',
+    completedTasks: [],
+    locked: true,
+    prompt: input.prompt,
+    attachments: input.attachments,
+    plan: [],
+    stepCount: 0,
+  }
+
+  return {
+    runId,
+    chatId: nextChat.id,
+    snapshot,
+    metadata: {
+      ...((input.metadata || {}) as BotMetadata),
+      aiChat: nextAiChatState,
+      aiAgent: {
+        ...(((input.metadata?.aiAgent || {}) as NonNullable<BotMetadata['aiAgent']>)),
+        currentRun: snapshot,
+        pendingClarification: null,
+      },
+    },
   }
 }
 
@@ -601,6 +782,72 @@ async function requestClarificationDecision(input: {
   }
 
   return sanitizeClarificationDecision(response.parsed, locale)
+}
+
+async function preprocessPromptForMainAgent(input: {
+  prompt: string
+  locale?: string
+  config: BotConfig
+  attachments: AiAgentAttachment[]
+}) {
+  const locale = input.locale === 'en' ? 'en' : 'ru'
+  const timeoutResult = Symbol('prompt-preprocessor-timeout')
+  const preprocessorRequest = requestOpenRouterJson<PromptPreprocessorResult>({
+    model: PROMPT_PREPROCESSOR_MODEL_ID,
+    schema: PROMPT_PREPROCESSOR_SCHEMA,
+    temperature: 0.1,
+    maxTokens: 2200,
+    messages: [
+      {
+        role: 'system',
+        content: locale === 'en'
+          ? [
+              'You are a lightweight preprocessing agent for a Telegram bot builder.',
+              'Your only job is to transform the raw user message into a clear, actionable request for the main bot-building agent.',
+              'Understand what the user wants, their tone, target outcome, constraints, and any ambiguity that is not blocking.',
+              'Do not ask questions. Do not solve the task. Do not create bot nodes.',
+              'Preserve the user language and intent. Keep the refined prompt concise but complete.',
+              'Return JSON only.',
+            ].join('\n')
+          : [
+              'Ты лёгкий агент-предобработчик для конструктора Telegram-ботов.',
+              'Твоя единственная задача — превратить сырой запрос пользователя в ясное, рабочее задание для главного агента сборки бота.',
+              'Пойми, что пользователь хочет, его тон, желаемый результат, ограничения и неоднозначности, которые не блокируют работу.',
+              'Не задавай вопросы. Не решай задачу. Не создавай ноды бота.',
+              'Сохраняй язык и намерение пользователя. Уточнённый запрос должен быть коротким, но достаточным.',
+              'Верни только JSON.',
+            ].join('\n'),
+      },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          rawUserPrompt: input.prompt,
+          locale,
+          currentGraph: compactConfigForClarification(input.config),
+          attachments: input.attachments.map((attachment) => ({
+            name: attachment.name,
+            kind: attachment.kind,
+            mimeType: attachment.mimeType,
+          })),
+        }, null, 2),
+      },
+    ],
+  }).catch(() => timeoutResult)
+  const timeoutPromise = new Promise<typeof timeoutResult>((resolve) => {
+    setTimeout(() => resolve(timeoutResult), PROMPT_PREPROCESSOR_TIMEOUT_MS)
+  })
+
+  const response = await Promise.race([preprocessorRequest, timeoutPromise])
+  if (typeof response === 'symbol') {
+    return input.prompt
+  }
+
+  const sanitized = sanitizePromptPreprocessorResult(response.parsed)
+  if (!sanitized) {
+    return input.prompt
+  }
+
+  return buildPreprocessedPrompt(input.prompt, sanitized, locale)
 }
 
 export async function startBotAgentRunAction(
@@ -767,14 +1014,37 @@ export async function startBotAgentRunAction(
       })
     }
 
-    const snapshot = await startBotAgentRun({
-      botId,
+    const persistentRun = storedPendingClarification
+      ? null
+      : preparePersistentAgentRun({
+          metadata: metadataWithAnswer,
+          prompt,
+          model: payload.model,
+          locale: payload.locale,
+          chatId: payload.chatId ?? null,
+          attachments,
+        })
+
+    if (persistentRun) {
+      await access.botService.updateBot(botId, { metadata: persistentRun.metadata })
+    }
+
+    const preprocessedPrompt = await preprocessPromptForMainAgent({
       prompt: effectivePrompt,
       locale: payload.locale,
-      chatId: storedPendingClarification?.chatId ?? payload.chatId ?? undefined,
+      config: access.bot.config,
       attachments,
-      runId: storedPendingClarification?.runId,
-      suppressUserMessage: Boolean(storedPendingClarification),
+    })
+
+    const snapshot = await startBotAgentRun({
+      botId,
+      prompt: preprocessedPrompt,
+      displayPrompt: prompt,
+      locale: payload.locale,
+      chatId: storedPendingClarification?.chatId ?? persistentRun?.chatId ?? payload.chatId ?? undefined,
+      attachments,
+      runId: storedPendingClarification?.runId ?? persistentRun?.runId,
+      suppressUserMessage: Boolean(storedPendingClarification || persistentRun),
     })
 
     const latestBot = await access.botService.getBot(botId)

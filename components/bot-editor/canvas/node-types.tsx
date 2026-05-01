@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType, CSSProperties } from 'react'
-import { Handle, Position, NodeProps, useStore, useUpdateNodeInternals } from 'reactflow'
+import { Handle, Position, NodeProps, useUpdateNodeInternals } from 'reactflow'
 import { useTranslations } from 'next-intl'
 import {
   MessageSquare,
@@ -20,6 +20,7 @@ import {
   Trash2,
   Settings,
   Plus,
+  Variable,
 } from 'lucide-react'
 
 // Base node styles
@@ -48,6 +49,8 @@ const getNodeStyles = (type: string) => {
       return `${baseNodeStyles} bg-cyan-500/10 border-cyan-500/30`
     case 'action':
       return `${baseNodeStyles} bg-purple-500/10 border-purple-500/30`
+    case 'setVariable':
+      return `${baseNodeStyles} bg-emerald-500/10 border-emerald-500/30`
     case 'input':
       return `${baseNodeStyles} bg-green-500/10 border-green-500/30`
     case 'http':
@@ -92,6 +95,8 @@ const getNodeIcon = (type: string) => {
       return <Code2 className={iconClassName} style={{ color: nodeColor }} />
     case 'action':
       return <Zap className={iconClassName} style={{ color: nodeColor }} />
+    case 'setVariable':
+      return <Variable className={iconClassName} style={{ color: nodeColor }} />
     case 'input':
       return <Keyboard className={iconClassName} style={{ color: nodeColor }} />
     case 'http':
@@ -123,6 +128,7 @@ const getNodeColor = (type: string) => {
     case 'wait': return '#14B8A6'
     case 'script': return '#06B6D4'
     case 'action': return '#8B5CF6'
+    case 'setVariable': return '#10B981'
     case 'input': return '#10B981'
     case 'http': return '#F43F5E'
     case 'webhook': return '#EF4444'
@@ -135,8 +141,6 @@ const getNodeColor = (type: string) => {
     default: return '#71717A'
   }
 }
-
-const DEFAULT_SOURCE_HANDLE_KEY = '__default__'
 
 interface RouterCasePreview {
   id: string
@@ -197,6 +201,12 @@ type InsertMenuRequest = {
 }
 
 type InsertMenuOpener = (request: InsertMenuRequest) => void
+const CONNECTION_HANDLE_POINTER_DOWN_EVENT = 'bot-flow-connection-handle-pointer-down'
+const DEFAULT_HANDLE_KEY = '__default__'
+
+function getHandleKey(handleId?: string | null): string {
+  return handleId && handleId.trim() ? handleId : DEFAULT_HANDLE_KEY
+}
 
 function getInsertButtonPositionStyle(
   direction: InsertMenuDirection,
@@ -232,40 +242,64 @@ function getInsertButtonPositionStyle(
 interface HandleInsertButtonProps {
   nodeId: string
   direction: InsertMenuDirection
+  handleType: 'source' | 'target'
+  handlePosition: Position
   nodeColor: string
   ariaLabel: string
   onOpen?: InsertMenuOpener
   style?: CSSProperties
   sourceHandle?: string | null
+  isConnected?: boolean
 }
 
 function HandleInsertButton({
   nodeId,
   direction,
+  handleType,
+  handlePosition,
   nodeColor,
   ariaLabel,
   onOpen,
   style,
   sourceHandle,
+  isConnected = false,
 }: HandleInsertButtonProps) {
   if (!onOpen) {
     return null
   }
 
   return (
-    <button
-      type="button"
-      className="nodrag nopan absolute z-30 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white/15 bg-black/90 text-white/75 shadow-[0_6px_18px_rgba(0,0,0,0.28)] transition-all duration-150 hover:scale-105 hover:text-white"
+    <Handle
+      type={handleType}
+      position={handlePosition}
+      id={handleType === 'source' ? sourceHandle || undefined : undefined}
+      isConnectable={true}
+      className={`!absolute !z-30 !flex !items-center !justify-center !rounded-full !border !transition-all !duration-150 ${
+        isConnected
+          ? '!h-[10px] !w-[10px] !border-cyan-300/70 !bg-cyan-300 !text-transparent !shadow-[0_0_0_3px_rgba(34,211,238,0.12),0_0_12px_rgba(34,211,238,0.38)]'
+          : '!h-[18px] !w-[18px] !border-white/15 !bg-black/90 !text-white/75 !shadow-[0_6px_18px_rgba(0,0,0,0.28)] hover:!scale-105 hover:!text-white'
+      }`}
       style={{
         ...getInsertButtonPositionStyle(direction, style),
-        boxShadow: `0 0 0 1px ${nodeColor}25, 0 8px 20px rgba(0, 0, 0, 0.28)`,
+        boxShadow: isConnected
+          ? `0 0 0 3px ${nodeColor}18, 0 0 12px ${nodeColor}55`
+          : `0 0 0 1px ${nodeColor}25, 0 8px 20px rgba(0, 0, 0, 0.28)`,
       }}
       aria-label={ariaLabel}
-      onMouseDown={(event) => {
-        event.preventDefault()
-        event.stopPropagation()
+      onPointerDownCapture={() => {
+        window.dispatchEvent(new CustomEvent(CONNECTION_HANDLE_POINTER_DOWN_EVENT, {
+          detail: {
+            nodeId,
+            handleId: handleType === 'source' ? (sourceHandle || null) : null,
+            handleType,
+          },
+        }))
       }}
       onClick={(event) => {
+        if (isConnected) {
+          return
+        }
+
         event.preventDefault()
         event.stopPropagation()
         const bounds = event.currentTarget.getBoundingClientRect()
@@ -278,8 +312,8 @@ function HandleInsertButton({
         })
       }}
     >
-      <Plus className="h-2.5 w-2.5" />
-    </button>
+      {isConnected ? null : <Plus className="pointer-events-none h-2.5 w-2.5" />}
+    </Handle>
   )
 }
 
@@ -287,7 +321,6 @@ function HandleInsertButton({
 const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const tCanvas = useTranslations('editor.canvas')
   const updateNodeInternals = useUpdateNodeInternals()
-  const edges = useStore((state) => state.edges)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const routerCaseRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [routerCaseHandleTops, setRouterCaseHandleTops] = useState<Record<string, number>>({})
@@ -315,23 +348,6 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'router'
       ? routerCases.map((routerCase) => `${routerCase.id}:${routerCase.label}:${routerCase.value}`).join('|')
       : ''
-  const hasIncomingConnection = useMemo(
-    () => edges.some((edge) => edge.target === id),
-    [edges, id]
-  )
-  const connectedSourceHandles = useMemo(() => {
-    const connectedHandles = new Set<string>()
-    for (const edge of edges) {
-      if (edge.source !== id) continue
-      connectedHandles.add(edge.sourceHandle ?? DEFAULT_SOURCE_HANDLE_KEY)
-    }
-    return connectedHandles
-  }, [edges, id])
-  const hasSourceConnection = useCallback(
-    (handleId?: string | null) => connectedSourceHandles.has(handleId ?? DEFAULT_SOURCE_HANDLE_KEY),
-    [connectedSourceHandles]
-  )
-
   const customNodeLabel = String(dataRecord.__label || '').trim()
   const nodeLabel = customNodeLabel || (
     normalizedType === 'trigger'
@@ -342,10 +358,27 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     normalizedType === 'comment'
       ? String(dataRecord.text || '').trim()
       : ''
+  const isGroupComment = normalizedType === 'comment' && dataRecord.commentMode === 'group'
+  const groupCommentWidth = Math.max(180, Number(dataRecord.width || 260))
+  const groupCommentHeight = Math.max(120, Number(dataRecord.height || 180))
   const waitPreview =
     normalizedType === 'wait'
       ? String(dataRecord.waitFor || '').trim()
       : ''
+  const connectedSourceHandles = new Set(
+    Array.isArray(dataRecord.__connectedSourceHandles)
+      ? dataRecord.__connectedSourceHandles.map((handle) => String(handle))
+      : []
+  )
+  const connectedTargetHandles = new Set(
+    Array.isArray(dataRecord.__connectedTargetHandles)
+      ? dataRecord.__connectedTargetHandles.map((handle) => String(handle))
+      : []
+  )
+  const isSourceHandleConnected = (handleId?: string | null) =>
+    connectedSourceHandles.has(getHandleKey(handleId))
+  const isTargetHandleConnected = (handleId?: string | null) =>
+    connectedTargetHandles.has(getHandleKey(handleId))
   const executionState = String(dataRecord.__executionState || '').trim()
   const isExecutionActive = executionState === 'active' || executionState === 'waiting'
   const isExecutionRecent = executionState === 'recent'
@@ -418,6 +451,37 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     }
   }, [id, normalizedType, routerCases, routerCasesSignature, updateNodeInternals])
 
+  if (isGroupComment) {
+    return (
+      <div
+        ref={rootRef}
+        className={`group/node relative rounded-xl border border-cyan-300/20 bg-cyan-300/[0.045] shadow-[0_0_0_1px_rgba(34,211,238,0.04),0_18px_50px_rgba(0,0,0,0.18)] ${
+          selected ? 'ring-2 ring-cyan-200/45' : ''
+        }`}
+        style={{
+          width: groupCommentWidth,
+          height: groupCommentHeight,
+        }}
+      >
+        <div className="pointer-events-none absolute -top-7 left-3 max-w-[calc(100%-1.5rem)] truncate rounded-md border border-cyan-300/20 bg-zinc-950/90 px-2 py-1 text-[11px] font-medium text-cyan-100 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+          {commentPreview || 'Комментарий'}
+        </div>
+
+        {selected && (
+          <div className="absolute right-2 top-2 z-20 flex gap-1">
+            <button
+              type="button"
+              className="p-1 rounded bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 transition-colors"
+              onClick={() => data.onDelete?.(id)}
+            >
+              <Trash2 className="w-2.5 h-2.5 text-red-400" />
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div
       ref={rootRef}
@@ -437,23 +501,16 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
 
       {/* Input Handle */}
       {type !== 'trigger' && type !== 'comment' && (
-        <>
-          <Handle
-            type="target"
-            position={Position.Top}
-            className="!w-2 !h-2 !border-2 !border-white/20 !bg-transparent"
-            style={{ background: 'transparent' }}
-          />
-          {!hasIncomingConnection && (
-            <HandleInsertButton
-              nodeId={id}
-              direction="top"
-              nodeColor={nodeColor}
-              ariaLabel={tCanvas('insertNodeHere')}
-              onOpen={openInsertMenu}
-            />
-          )}
-        </>
+        <HandleInsertButton
+          nodeId={id}
+          direction="top"
+          handleType="target"
+          handlePosition={Position.Top}
+          nodeColor={nodeColor}
+          ariaLabel={tCanvas('insertNodeHere')}
+          onOpen={openInsertMenu}
+          isConnected={isTargetHandleConnected(null)}
+        />
       )}
 
       {/* Node Header */}
@@ -528,47 +585,32 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
 
       {/* Output Handle */}
       {type !== 'router' && type !== 'condition' && type !== 'comment' && !isRandomSplitAction && (
-        <>
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            isConnectable={true}
-            className="!w-2 !h-2 !border-2 !border-white/20"
-            style={{ background: 'transparent' }}
-          />
-          {!hasSourceConnection() && (
-            <HandleInsertButton
-              nodeId={id}
-              direction="bottom"
-              nodeColor={nodeColor}
-              ariaLabel={tCanvas('insertNodeHere')}
-              onOpen={openInsertMenu}
-            />
-          )}
-        </>
+        <HandleInsertButton
+          nodeId={id}
+          direction="bottom"
+          handleType="source"
+          handlePosition={Position.Bottom}
+          nodeColor={nodeColor}
+          ariaLabel={tCanvas('insertNodeHere')}
+          onOpen={openInsertMenu}
+          isConnected={isSourceHandleConnected(null)}
+        />
       )}
 
       {isRandomSplitAction && (
         <>
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="a"
-            isConnectable={true}
-            className="!w-2 !h-2 !border-2 !border-sky-300/70"
-            style={{ background: 'rgba(56, 189, 248, 0.9)', left: '38%' }}
+          <HandleInsertButton
+            nodeId={id}
+            direction="bottom"
+            handleType="source"
+            handlePosition={Position.Bottom}
+            nodeColor={nodeColor}
+            ariaLabel={tCanvas('insertNodeHere')}
+            onOpen={openInsertMenu}
+            style={{ left: '38%' }}
+            sourceHandle="a"
+            isConnected={isSourceHandleConnected('a')}
           />
-          {!hasSourceConnection('a') && (
-            <HandleInsertButton
-              nodeId={id}
-              direction="bottom"
-              nodeColor={nodeColor}
-              ariaLabel={tCanvas('insertNodeHere')}
-              onOpen={openInsertMenu}
-              style={{ left: '38%' }}
-              sourceHandle="a"
-            />
-          )}
           <div
             className="pointer-events-none absolute z-20 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-sky-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.12)]"
             style={{ left: '38%' }}
@@ -576,25 +618,18 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             A
           </div>
 
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="b"
-            isConnectable={true}
-            className="!w-2 !h-2 !border-2 !border-violet-300/70"
-            style={{ background: 'rgba(167, 139, 250, 0.9)', left: '62%' }}
+          <HandleInsertButton
+            nodeId={id}
+            direction="bottom"
+            handleType="source"
+            handlePosition={Position.Bottom}
+            nodeColor={nodeColor}
+            ariaLabel={tCanvas('insertNodeHere')}
+            onOpen={openInsertMenu}
+            style={{ left: '62%' }}
+            sourceHandle="b"
+            isConnected={isSourceHandleConnected('b')}
           />
-          {!hasSourceConnection('b') && (
-            <HandleInsertButton
-              nodeId={id}
-              direction="bottom"
-              nodeColor={nodeColor}
-              ariaLabel={tCanvas('insertNodeHere')}
-              onOpen={openInsertMenu}
-              style={{ left: '62%' }}
-              sourceHandle="b"
-            />
-          )}
           <div
             className="pointer-events-none absolute z-20 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-violet-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-violet-300 shadow-[0_0_10px_rgba(167,139,250,0.12)]"
             style={{ left: '62%' }}
@@ -606,22 +641,16 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
 
       {type === 'router' && (
         <>
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            isConnectable={true}
-            className="!w-2 !h-2 !border-2 !border-zinc-300/60"
-            style={{ background: 'rgba(161, 161, 170, 0.9)' }}
+          <HandleInsertButton
+            nodeId={id}
+            direction="bottom"
+            handleType="source"
+            handlePosition={Position.Bottom}
+            nodeColor={nodeColor}
+            ariaLabel={tCanvas('insertNodeHere')}
+            onOpen={openInsertMenu}
+            isConnected={isSourceHandleConnected(null)}
           />
-          {!hasSourceConnection() && (
-            <HandleInsertButton
-              nodeId={id}
-              direction="bottom"
-              nodeColor={nodeColor}
-              ariaLabel={tCanvas('insertNodeHere')}
-              onOpen={openInsertMenu}
-            />
-          )}
           {routerCases.map((routerCase, index) => {
             const fallbackTopPercent =
               routerCases.length === 1
@@ -635,29 +664,20 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
 
             return (
               <div key={routerCase.id}>
-                <Handle
-                  type="source"
-                  position={Position.Right}
-                  id={`case:${routerCase.id}`}
-                  className="!w-2 !h-2 !border-2 !border-cyan-300/70"
+                <HandleInsertButton
+                  nodeId={id}
+                  direction="right"
+                  handleType="source"
+                  handlePosition={Position.Right}
+                  nodeColor={nodeColor}
+                  ariaLabel={tCanvas('insertNodeHere')}
+                  onOpen={openInsertMenu}
                   style={{
-                    background: 'rgba(103, 232, 249, 0.9)',
                     top: measuredTopPx != null ? `${measuredTopPx}px` : `${fallbackTopPercent}%`,
                   }}
+                  sourceHandle={`case:${routerCase.id}`}
+                  isConnected={isSourceHandleConnected(`case:${routerCase.id}`)}
                 />
-                {!hasSourceConnection(`case:${routerCase.id}`) && (
-                  <HandleInsertButton
-                    nodeId={id}
-                    direction="right"
-                    nodeColor={nodeColor}
-                    ariaLabel={tCanvas('insertNodeHere')}
-                    onOpen={openInsertMenu}
-                    style={{
-                      top: measuredTopPx != null ? `${measuredTopPx}px` : `${fallbackTopPercent}%`,
-                    }}
-                    sourceHandle={`case:${routerCase.id}`}
-                  />
-                )}
                 <div
                   className="pointer-events-none absolute z-20 left-full ml-8 -translate-y-1/2 max-w-[124px] truncate whitespace-nowrap rounded bg-black/85 border border-cyan-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-cyan-300 shadow-[0_0_10px_rgba(36,161,222,0.12)]"
                   style={{ top: measuredTopPx != null ? `${measuredTopPx}px` : `${fallbackTopPercent}%` }}
@@ -680,23 +700,17 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
       {/* Condition outputs (bottom-left = true, bottom-right = false) */}
       {type === 'condition' && (
         <>
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            isConnectable={true}
-            className="!w-2 !h-2 !border-2 !border-emerald-300/70"
-            style={{ background: 'rgba(16, 185, 129, 0.9)', left: '38%' }}
+          <HandleInsertButton
+            nodeId={id}
+            direction="bottom"
+            handleType="source"
+            handlePosition={Position.Bottom}
+            nodeColor={nodeColor}
+            ariaLabel={tCanvas('insertNodeHere')}
+            onOpen={openInsertMenu}
+            style={{ left: '38%' }}
+            isConnected={isSourceHandleConnected(null)}
           />
-          {!hasSourceConnection() && (
-            <HandleInsertButton
-              nodeId={id}
-              direction="bottom"
-              nodeColor={nodeColor}
-              ariaLabel={tCanvas('insertNodeHere')}
-              onOpen={openInsertMenu}
-              style={{ left: '38%' }}
-            />
-          )}
           <div
             className="pointer-events-none absolute z-20 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-emerald-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.12)]"
             style={{ left: '38%' }}
@@ -704,24 +718,18 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
             {tCanvas('nodeDescriptions.condition.true')}
           </div>
 
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="false"
-            className="!w-2 !h-2 !border-2 !border-rose-300/70"
-            style={{ background: 'rgba(244, 63, 94, 0.9)', left: '62%' }}
+          <HandleInsertButton
+            nodeId={id}
+            direction="bottom"
+            handleType="source"
+            handlePosition={Position.Bottom}
+            nodeColor={nodeColor}
+            ariaLabel={tCanvas('insertNodeHere')}
+            onOpen={openInsertMenu}
+            style={{ left: '62%' }}
+            sourceHandle="false"
+            isConnected={isSourceHandleConnected('false')}
           />
-          {!hasSourceConnection('false') && (
-            <HandleInsertButton
-              nodeId={id}
-              direction="bottom"
-              nodeColor={nodeColor}
-              ariaLabel={tCanvas('insertNodeHere')}
-              onOpen={openInsertMenu}
-              style={{ left: '62%' }}
-              sourceHandle="false"
-            />
-          )}
           <div
             className="pointer-events-none absolute z-20 top-full mt-8 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 border border-rose-400/25 px-1.5 py-0.5 text-[8px] font-semibold leading-none text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.12)]"
             style={{ left: '62%' }}
@@ -743,6 +751,7 @@ const ReplyKeyboardNodeComponent = (props: NodeProps) => <CustomNode {...props} 
 const WaitNodeComponent = (props: NodeProps) => <CustomNode {...props} type="wait" />
 const ScriptNodeComponent = (props: NodeProps) => <CustomNode {...props} type="script" />
 const ActionNodeComponent = (props: NodeProps) => <CustomNode {...props} type="action" />
+const SetVariableNodeComponent = (props: NodeProps) => <CustomNode {...props} type="setVariable" />
 const InputNodeComponent = (props: NodeProps) => <CustomNode {...props} type="input" />
 const HttpNodeComponent = (props: NodeProps) => <CustomNode {...props} type="http" />
 const WebhookNodeComponent = (props: NodeProps) => <CustomNode {...props} type="webhook" />
@@ -761,6 +770,7 @@ ReplyKeyboardNodeComponent.displayName = 'ReplyKeyboardNodeComponent'
 WaitNodeComponent.displayName = 'WaitNodeComponent'
 ScriptNodeComponent.displayName = 'ScriptNodeComponent'
 ActionNodeComponent.displayName = 'ActionNodeComponent'
+SetVariableNodeComponent.displayName = 'SetVariableNodeComponent'
 InputNodeComponent.displayName = 'InputNodeComponent'
 HttpNodeComponent.displayName = 'HttpNodeComponent'
 WebhookNodeComponent.displayName = 'WebhookNodeComponent'
@@ -779,6 +789,7 @@ export const ReplyKeyboardNode = memo(ReplyKeyboardNodeComponent)
 export const WaitNode = memo(WaitNodeComponent)
 export const ScriptNode = memo(ScriptNodeComponent)
 export const ActionNode = memo(ActionNodeComponent)
+export const SetVariableNode = memo(SetVariableNodeComponent)
 export const InputNode = memo(InputNodeComponent)
 export const HttpNode = memo(HttpNodeComponent)
 export const WebhookNode = memo(WebhookNodeComponent)
@@ -799,6 +810,7 @@ export const nodeTypes = {
   wait: WaitNode,
   script: ScriptNode,
   action: ActionNode,
+  setVariable: SetVariableNode,
   input: InputNode,
   http: HttpNode,
   webhook: WebhookNode,
@@ -1085,11 +1097,27 @@ export const nodeTemplates: NodeTemplate[] = [
     id: 'action',
     type: 'action',
     label: 'Action',
-    description: 'Perform custom actions',
+    description: 'Delay, delete message, random split',
     color: '#8B5CF6',
     gradient: 'from-purple-500/20 to-purple-600/10',
     border: 'border-purple-500/30',
     icon: Zap
+  },
+  {
+    id: 'set-variable',
+    type: 'setVariable',
+    label: 'Set Variable',
+    description: 'Assign a value to a variable',
+    color: '#10B981',
+    gradient: 'from-emerald-500/20 to-emerald-600/10',
+    border: 'border-emerald-500/30',
+    icon: Variable,
+    data: {
+      __label: 'Set Variable',
+      __description: 'Assign value to variable',
+      variableName: '',
+      value: '',
+    },
   },
   {
     id: 'input',
@@ -1205,22 +1233,6 @@ export const nodeTemplates: NodeTemplate[] = [
       messageTemplate: 'Оплатите заказ в Telegram Stars: {{payment.url}}',
       __label: 'Telegram Stars',
       __description: 'Create Telegram Stars invoice link',
-    },
-  },
-  {
-    id: 'comment',
-    type: 'comment',
-    label: 'Comment',
-    description: 'Add a note to document the flow',
-    color: '#6B7280',
-    gradient: 'from-zinc-500/20 to-zinc-600/10',
-    border: 'border-zinc-500/30',
-    icon: MessageCircle,
-    data: {
-      text: '',
-      color: 'default',
-      __label: 'Comment',
-      __description: 'Internal note for the workflow',
     },
   },
   // Legacy 'webhook' node type is still supported in runtime/config,

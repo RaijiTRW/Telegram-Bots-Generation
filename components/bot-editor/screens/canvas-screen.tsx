@@ -125,6 +125,8 @@ export default function CanvasPage() {
   const [logsFetchErrorTs, setLogsFetchErrorTs] = useState<number | null>(null)
   const [isLivePreviewOpen, setIsLivePreviewOpen] = useState(false)
   const [livePreviewStartSignal, setLivePreviewStartSignal] = useState(0)
+  const [isLivePreviewTestActive, setIsLivePreviewTestActive] = useState(false)
+  const [livePreviewVisits, setLivePreviewVisits] = useState<ParsedExecutionVisit[]>([])
   const pageContainerRef = useRef<HTMLDivElement | null>(null)
   const logsBodyRef = useRef<HTMLDivElement | null>(null)
   const latestLogTsRef = useRef<number | null>(null)
@@ -213,10 +215,14 @@ export default function CanvasPage() {
     return lookup
   }, [config.edges])
 
+  const isLivePreviewOnline = testLaunchMode === 'live-preview' && isLivePreviewTestActive
+
   const executionTrace = useMemo<CanvasExecutionTrace | null>(() => {
-    const visits = logs
-      .map(parseExecutionVisit)
-      .filter((visit): visit is ParsedExecutionVisit => Boolean(visit))
+    const visits = isLivePreviewOnline
+      ? livePreviewVisits
+      : logs
+          .map(parseExecutionVisit)
+          .filter((visit): visit is ParsedExecutionVisit => Boolean(visit))
 
     if (visits.length === 0) {
       return null
@@ -257,7 +263,7 @@ export default function CanvasPage() {
       const latestAge = now - latestVisit.ts
       const isWaitingNode = WAITING_TRACE_NODE_TYPES.has(latestVisit.nodeType)
 
-      if (isWaitingNode && (isTestActive || isTesting)) {
+      if (isWaitingNode && (isTestActive || isTesting || isLivePreviewOnline)) {
         activeNodeId = latestVisit.nodeId
         activeNodeState = 'waiting'
       } else if (latestAge <= EXECUTION_ACTIVE_WINDOW_MS) {
@@ -272,7 +278,7 @@ export default function CanvasPage() {
     }
 
     return {
-      isLive: Boolean(isTestActive || isTesting),
+      isLive: Boolean(isTestActive || isTesting || isLivePreviewOnline),
       activeNodeId,
       activeNodeState,
       recentNodeIds: [...recentNodeIds],
@@ -280,7 +286,7 @@ export default function CanvasPage() {
       recentEdgeIds: [...recentEdgeIds],
       lastEventTs: latestVisit?.ts ?? null,
     }
-  }, [edgeLookupByTransition, isTestActive, isTesting, logs])
+  }, [edgeLookupByTransition, isLivePreviewOnline, isTestActive, isTesting, livePreviewVisits, logs])
 
   useEffect(() => {
     latestLogTsRef.current = null
@@ -400,7 +406,14 @@ export default function CanvasPage() {
   const handleTest = useCallback(async (currentNodes: Node[], currentEdges: Edge[]) => {
     if (!botId) return
 
-    if (!isTestActive && testLaunchMode === 'live-preview') {
+    if (testLaunchMode === 'live-preview') {
+      if (isLivePreviewTestActive) {
+        setIsLivePreviewTestActive(false)
+        setLivePreviewVisits([])
+        setError(null)
+        return
+      }
+
       const serialNodes = serializeWorkflowNodes(currentNodes)
       const serialEdges = serializeWorkflowEdges(currentEdges)
       setConfig({
@@ -408,6 +421,8 @@ export default function CanvasPage() {
         nodes: serialNodes as unknown as typeof config.nodes,
         edges: serialEdges as unknown as typeof config.edges,
       })
+      setLivePreviewVisits([])
+      setIsLivePreviewTestActive(true)
       setIsLivePreviewOpen(true)
       setLivePreviewStartSignal((value) => value + 1)
       setError(null)
@@ -509,7 +524,19 @@ export default function CanvasPage() {
     } else if (preparedTelegramWindow && !preparedTelegramWindow.closed) {
       preparedTelegramWindow.close()
     }
-  }, [botId, config, isTestActive, setConfig, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, testLaunchMode, t])
+  }, [botId, config, isLivePreviewTestActive, isTestActive, setConfig, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, testLaunchMode, t])
+
+  const handleLivePreviewOnlineChange = useCallback((online: boolean) => {
+    setIsLivePreviewTestActive(online)
+    setLivePreviewVisits([])
+  }, [])
+
+  const handleLivePreviewExecutionVisit = useCallback((visit: ParsedExecutionVisit) => {
+    setLivePreviewVisits((current) => {
+      const cutoff = Date.now() - EXECUTION_RECENT_WINDOW_MS
+      return [...current.filter((item) => item.ts >= cutoff), visit]
+    })
+  }, [])
 
   const handleSaveCanvas = useCallback(async (currentNodes: Node[], currentEdges: Edge[]) => {
     if (!botId) return false
@@ -551,7 +578,8 @@ export default function CanvasPage() {
     )
   }
 
-  const hasLogConsoleActivity = isTesting || isTestActive || logs.length > 0 || Boolean(logsFetchError)
+  const effectiveTestActive = isTestActive || isLivePreviewOnline
+  const hasLogConsoleActivity = isTesting || effectiveTestActive || logs.length > 0 || Boolean(logsFetchError)
   const showLogConsole = isLogConsoleOpen || hasLogConsoleActivity
 
   const formatLogTime = (ts: number) => {
@@ -639,18 +667,18 @@ export default function CanvasPage() {
     <div ref={pageContainerRef} className="relative h-full w-full bg-[#05070A]">
       <div className="h-full w-full flex flex-col min-h-0">
         <div className="relative flex-1 min-h-0">
-          {(error || isTesting || isTestActive) && (
+          {(error || isTesting || effectiveTestActive) && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
               <div className={`px-4 py-2 rounded-lg border text-sm ${
                 error
                   ? 'bg-red-500/10 border-red-500/30 text-red-300'
-                  : isTestActive && !isTesting
+                  : effectiveTestActive && !isTesting
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
                     : 'bg-zinc-900/90 border-white/10 text-zinc-200'
               }`}>
                 {error ? (
                   error
-                ) : isTestActive && !isTesting ? (
+                ) : effectiveTestActive && !isTesting ? (
                   <span className="flex items-center gap-2">
                     <span className="status-online" />
                     {t('online')}
@@ -669,7 +697,7 @@ export default function CanvasPage() {
             onStartTest={handleTest}
             onStopTest={handleTest}
             onSave={handleSaveCanvas}
-            isTestActive={isTestActive}
+            isTestActive={effectiveTestActive}
             isTestButtonDisabled={isTesting}
             isAdmin={canUseAiNodes}
             executionTrace={executionTrace}
@@ -700,13 +728,16 @@ export default function CanvasPage() {
         </div>
 
         {testLaunchMode === 'live-preview' ? (
-          <div className="pointer-events-none absolute bottom-4 right-4 z-[90]">
+          <div className="pointer-events-none absolute right-0 top-1/2 z-[90] -translate-y-1/2">
             <div className="pointer-events-auto">
               <LivePreviewPhone
                 config={config}
                 metadata={bot?.metadata}
                 isOpen={isLivePreviewOpen}
+                isOnline={isLivePreviewTestActive}
                 startSignal={livePreviewStartSignal}
+                onExecutionVisit={handleLivePreviewExecutionVisit}
+                onOnlineChange={handleLivePreviewOnlineChange}
                 onOpenChange={setIsLivePreviewOpen}
               />
             </div>
@@ -738,7 +769,7 @@ export default function CanvasPage() {
                     <Terminal className="w-4 h-4 text-[#24A1DE]" />
                     <div className="text-sm font-medium text-white">{t('logsTitle')}</div>
                     <div className="text-xs text-zinc-400">
-                      {isTestActive ? t('online') : testTransition === 'stopping' ? t('stoppingBot') : t('offline')}
+                      {effectiveTestActive ? t('online') : testTransition === 'stopping' ? t('stoppingBot') : t('offline')}
                     </div>
                     <div className="text-xs text-zinc-500">{logs.length}</div>
                   </div>

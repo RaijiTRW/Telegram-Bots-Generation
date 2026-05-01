@@ -292,6 +292,7 @@ const ALLOWED_NODE_TYPES = new Set<WorkflowNode['type']>([
   'replyKeyboard',
   'script',
   'action',
+  'setVariable',
   'http',
   'webhook',
   'paymentYookassa',

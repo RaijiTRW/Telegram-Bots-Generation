@@ -7,14 +7,13 @@ import type {
   BotConfig,
   BotMetadata,
   Node,
-  Edge,
-  NodeType,
 } from '../types/bot.types'
 import type {
   MessageNodeData,
   InputNodeData,
   ConditionNodeData,
   ActionNodeData,
+  SetVariableNodeData,
   HttpNodeData,
   WebhookNodeData,
   TriggerNodeData,
@@ -418,6 +417,9 @@ function resolveMediaInput(source) {
       case 'action':
         lines.push(...this.generateActionHandler(node.data as ActionNodeData))
         break
+      case 'setVariable':
+        lines.push(...this.generateSetVariableHandler(node.data as SetVariableNodeData))
+        break
       case 'http':
         lines.push(...this.generateHttpHandler(node.data as HttpNodeData))
         break
@@ -750,6 +752,16 @@ function resolveMediaInput(source) {
     return lines
   }
 
+  private generateSetVariableHandler(data: SetVariableNodeData): string[] {
+    const variableName = String(data.variableName || '').trim()
+    if (!variableName) return []
+
+    return [
+      `  // Set variable: ${variableName}`,
+      `  ctx.session.${variableName} = ${JSON.stringify(data.value ?? '')};`,
+    ]
+  }
+
   private generateHttpHandler(data: HttpNodeData | WebhookNodeData): string[] {
     const lines: string[] = []
 
@@ -815,11 +827,6 @@ function resolveMediaInput(source) {
 
     return launch
   }
-}
-
-// Helper function for template interpolation in code generation
-function interpolateCall(variable: string, template: string): string {
-  return template // In real implementation, would convert {{var}} to ${var}
 }
 
 /**
@@ -1754,6 +1761,12 @@ async def execute_node_chain(
                 )
                 continue
 
+        if node_type == "setVariable":
+            variable_name = str(data.get("variableName") or data.get("variable") or data.get("key") or "").strip()
+            raw_value = data.get("value")
+            next_value = interpolate(raw_value, runtime_variables) if isinstance(raw_value, str) else raw_value
+            if variable_name:
+                set_path(session["variables"], variable_name, next_value)
             current_node_id = get_default_next_node_id(node_id)
             continue
 

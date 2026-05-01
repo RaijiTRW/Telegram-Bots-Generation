@@ -6,6 +6,7 @@ import {
   AlertCircle,
   Check,
   CheckCircle2,
+  ChevronDown,
   FileText,
   Loader2,
   User,
@@ -209,27 +210,26 @@ function ThinkingBubble({ lines }: { lines?: string[] }) {
   const visibleLines = lines?.map((line) => line.trim()).filter(Boolean).slice(0, 5) || []
 
   return (
-    <div className="flex max-w-[42rem] gap-2.5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#24A1DE] to-[#8B5CF6] text-white shadow-[0_8px_24px_rgba(79,70,229,0.28)]">
-        <AiSectionIcon className="h-3.5 w-3.5 text-white" />
-      </div>
-      <div className="flex-1 rounded-[20px] rounded-tl-[10px] border border-white/10 bg-white/[0.04] px-3 py-2.5 backdrop-blur-xl">
+    <div className="max-w-[42rem] pl-1">
+      <div className="flex-1">
         <button
           type="button"
           onClick={() => setIsOpen((current) => !current)}
-          className="flex w-full items-center justify-between gap-3 text-left"
+          className="group flex items-center gap-2 text-left text-zinc-500 transition hover:text-zinc-300"
+          aria-expanded={isOpen}
         >
-          <span className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin text-[#8B5CF6]" />
-            <span className="text-[12.5px] text-zinc-400">{t('thinking')}</span>
-          </span>
-          <span className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-1 text-[10px] text-zinc-500 transition hover:text-zinc-200">
-            {isOpen ? t('hideThinking') : t('showThinking')}
-          </span>
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+          <span className="text-[13px] leading-5">{t('thinking')}</span>
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 shrink-0 transition-transform group-hover:text-zinc-300',
+              isOpen && 'rotate-180'
+            )}
+          />
         </button>
 
         {isOpen ? (
-          <div className="mt-2 space-y-2 rounded-2xl border border-white/8 bg-black/20 px-3 py-2 text-[12px] leading-5 text-zinc-400">
+          <div className="mt-1.5 space-y-1.5 border-l border-white/10 pl-6 text-[12.5px] leading-5 text-zinc-500">
             {visibleLines.length > 0 ? (
               visibleLines.map((line, index) => (
                 <p key={`${index}-${line}`} className="whitespace-pre-wrap">
@@ -604,6 +604,16 @@ function AgentRunMessage({ message }: MessageBubbleProps) {
   const workingStatusText = run.currentAction || t('working')
   const noChangesRequired = run.status === 'completed' && Boolean(run.noChangesRequired)
   const taskRows = noChangesRequired ? [] : buildRunTaskRows(run, showWorking)
+
+  if (isCancelled) {
+    return (
+      <div className="max-w-[42rem] pl-1">
+        <div className="flex items-center gap-2 text-zinc-500">
+          <span className="text-[13px] leading-5">{statusMeta.label}</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex max-w-[42rem] gap-2.5">

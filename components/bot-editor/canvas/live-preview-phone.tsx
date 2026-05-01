@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RotateCcw, Send, Smartphone, X } from 'lucide-react'
+import { AnimatePresence, motion } from '@/components/motion-wrapper'
 import { cn } from '@/lib/utils'
 import type { BotConfig, BotMetadata } from '@/lib/bot-editor/types/bot.types'
 
@@ -40,7 +41,10 @@ interface LivePreviewPhoneProps {
   config: BotConfig
   metadata?: BotMetadata
   isOpen: boolean
+  isOnline?: boolean
   startSignal?: number
+  onExecutionVisit?: (visit: { nodeId: string; nodeType: string; ts: number }) => void
+  onOnlineChange?: (online: boolean) => void
   onOpenChange: (open: boolean) => void
 }
 
@@ -238,6 +242,25 @@ function interpolateTemplate(value: unknown, variables?: Record<string, unknown>
   })
 }
 
+function resolveActionConfig(data: Record<string, unknown>): Record<string, unknown> | null {
+  const nestedAction = data.action && typeof data.action === 'object' && !Array.isArray(data.action)
+    ? data.action as Record<string, unknown>
+    : null
+
+  if (nestedAction) {
+    return nestedAction
+  }
+
+  const actionType = textOf(data.actionType || data.action)
+  if (!actionType) return null
+
+  return {
+    type: actionType,
+    variableName: data.variableName || data.variable || data.key,
+    value: data.value,
+  }
+}
+
 function evaluate(operator: string, left: unknown, right: unknown) {
   const leftText = textOf(left).toLowerCase()
   const rightText = textOf(right).toLowerCase()
@@ -288,7 +311,16 @@ function findStartNode(config: BotConfig, input?: { text?: string; callbackData?
   }) || triggers[0] || null
 }
 
-export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, onOpenChange }: LivePreviewPhoneProps) {
+export function LivePreviewPhone({
+  config,
+  metadata,
+  isOpen,
+  isOnline = false,
+  startSignal = 0,
+  onExecutionVisit,
+  onOnlineChange,
+  onOpenChange,
+}: LivePreviewPhoneProps) {
   const [messages, setMessages] = useState<PreviewMessage[]>([])
   const [input, setInput] = useState('')
   const [waitingNodeId, setWaitingNodeId] = useState<string | null>(null)
@@ -297,6 +329,7 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
   const [replyKeyboardMode, setReplyKeyboardMode] = useState<'system' | 'hidden' | 'variant'>('system')
   const [replyKeyboardVariantKey, setReplyKeyboardVariantKey] = useState('base')
   const [replyKeyboardRows, setReplyKeyboardRows] = useState<ReplyKeyboardPreviewButton[][]>([])
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null)
 
   const nodeMap = useMemo(() => new Map(config.nodes.map((node) => [node.id, node])), [config.nodes])
   const pushMessage = useCallback((message: Omit<PreviewMessage, 'id'>) => {
@@ -331,8 +364,16 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
 
     for (let step = 0; currentNodeId && step < MAX_STEPS; step += 1) {
       const node = nodeMap.get(currentNodeId)
-      if (!node) return
+      if (!node) {
+        setVariables({ ...localVariables })
+        return
+      }
       const data = (node.data || {}) as Record<string, unknown>
+      onExecutionVisit?.({
+        nodeId: node.id,
+        nodeType: node.type || 'message',
+        ts: Date.now(),
+      })
 
       if (node.type === 'trigger') {
         currentNodeId = getNextNodeId(config, node.id)
@@ -354,6 +395,7 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
           buttons: resolveButtons(data, localContext),
         })
         syncReplyKeyboard()
+        setVariables({ ...localVariables })
         setWaitingNodeId(node.id)
         return
       }
@@ -375,10 +417,17 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
         continue
       }
 
-      if (node.type === 'action' && textOf(data.actionType || data.action) === 'setVariable') {
-        const key = textOf(data.variableName || data.variable || data.key)
+      const action =
+        node.type === 'setVariable'
+          ? { type: 'setVariable', variableName: data.variableName || data.variable || data.key, value: data.value }
+          : node.type === 'action'
+            ? resolveActionConfig(data)
+            : null
+      if (textOf(action?.type) === 'setVariable') {
+        const key = textOf(action?.variableName || action?.variable || action?.key)
         if (key) {
-          const value = data.value ?? ''
+          const rawValue = action?.value ?? ''
+          const value = typeof rawValue === 'string' ? interpolateTemplate(rawValue, localContext) : rawValue
           localVariables[key] = value
           setPathValue(localContext, key, value)
         }
@@ -430,7 +479,19 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
 
       currentNodeId = getNextNodeId(config, node.id)
     }
-  }, [config, metadata, nodeMap, pushMessage, replyKeyboardMode, replyKeyboardVariantKey, variables])
+
+    setVariables({ ...localVariables })
+  }, [config, metadata, nodeMap, onExecutionVisit, pushMessage, replyKeyboardMode, replyKeyboardVariantKey, variables])
+
+  useEffect(() => {
+    const scrollContainer = messagesScrollRef.current
+    if (!scrollContainer) return
+
+    scrollContainer.scrollTo({
+      top: scrollContainer.scrollHeight,
+      behavior: 'smooth',
+    })
+  }, [messages, replyKeyboardRows, isStarted])
 
   const restart = useCallback(() => {
     setMessages([])
@@ -440,10 +501,11 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
     setReplyKeyboardVariantKey('base')
     setReplyKeyboardRows([])
     setIsStarted(true)
+    onOnlineChange?.(true)
     const trigger = findStartNode(config, { text: '/start' })
     pushMessage({ role: 'user', text: '/start' })
     runFrom(trigger?.id || null, {})
-  }, [config, pushMessage, runFrom])
+  }, [config, onOnlineChange, pushMessage, runFrom])
 
   const startPreviewTest = useCallback(() => {
     restart()
@@ -495,18 +557,31 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
   }, [config, nodeMap, pushMessage, runFrom, variables, waitingNodeId])
 
   return (
-    <>
+    <div className="relative">
       <button
         type="button"
         onClick={() => onOpenChange(!isOpen)}
-        className="inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#24A1DE]/55 bg-zinc-950 text-[#9DE0FF] shadow-[0_0_0_1px_rgba(36,161,222,0.18),0_18px_45px_rgba(0,0,0,0.55),0_0_34px_rgba(36,161,222,0.22)] transition hover:scale-[1.04] hover:border-[#24A1DE]/85 hover:bg-[#0C1621]"
+        className={cn(
+          'inline-flex h-10 w-8 items-center justify-center rounded-l-xl border border-r-0 border-[#24A1DE]/45 bg-zinc-950/96 text-[#9DE0FF]',
+          'shadow-[0_0_0_1px_rgba(36,161,222,0.14),0_16px_38px_rgba(0,0,0,0.45),0_0_24px_rgba(36,161,222,0.16)] backdrop-blur-xl transition',
+          'hover:w-9 hover:border-[#24A1DE]/75 hover:bg-[#0C1621] hover:text-white',
+          isOpen ? 'border-[#24A1DE]/80 bg-[#0C1621] text-white' : ''
+        )}
         title="Live Preview"
       >
-        <Smartphone className="h-8 w-8" strokeWidth={2.2} />
+        <Smartphone className="h-4 w-4" strokeWidth={2.2} />
       </button>
 
-      {isOpen ? (
-        <div className="absolute bottom-16 right-4 z-50 w-[342px] max-w-[calc(100vw-2rem)]">
+      <AnimatePresence>
+        {isOpen ? (
+        <motion.div
+          key="live-preview-phone"
+          initial={{ opacity: 0, y: 720, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 720, scale: 0.96 }}
+          transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.9 }}
+          className="fixed bottom-6 right-12 z-50 w-[342px] max-w-[calc(100vw-5rem)]"
+        >
           <div className="rounded-[42px] border border-zinc-700/80 bg-[#111318] p-2.5 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
             <div className="relative overflow-hidden rounded-[34px] border border-white/8 bg-[#080B10]">
               <div className="absolute left-1/2 top-2 z-10 h-5 w-24 -translate-x-1/2 rounded-full bg-black" />
@@ -514,7 +589,9 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
                 <div className="flex shrink-0 items-center justify-between border-b border-white/8 bg-[#17212B] px-4 pb-3 pt-8">
                   <div>
                     <div className="text-sm font-semibold text-white">Telegram Preview</div>
-                    <div className="text-[11px] text-[#7FA7C4]">бот онлайн</div>
+                    <div className={cn('text-[11px]', isOnline ? 'text-[#7FA7C4]' : 'text-zinc-500')}>
+                      {isOnline ? 'бот онлайн' : 'бот офлайн'}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
                       <button onClick={startPreviewTest} className="rounded-full p-2 text-zinc-300 hover:bg-white/10" title="Перезапустить">
@@ -526,7 +603,10 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
                   </div>
                 </div>
 
-                <div className="flex-1 space-y-2 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(36,161,222,0.12),transparent_32%),#0E1621] px-3 py-4">
+                <div
+                  ref={messagesScrollRef}
+                  className="flex-1 space-y-2 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(36,161,222,0.12),transparent_32%),#0E1621] px-3 py-4"
+                >
                   {!isStarted ? (
                     <div className="flex h-full items-end justify-center pb-4">
                       <button onClick={startPreviewTest} className="rounded-full bg-[#2AABEE] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-950/50">
@@ -605,8 +685,9 @@ export function LivePreviewPhone({ config, metadata, isOpen, startSignal = 0, on
               </div>
             </div>
           </div>
-        </div>
-      ) : null}
-    </>
+        </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   )
 }

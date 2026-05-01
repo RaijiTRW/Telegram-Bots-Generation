@@ -100,7 +100,7 @@ const paletteTypes = extractPaletteTypes(nodeTypesSource)
 const runtimeTypes = extractRuntimeTypes(runtimeSource)
 const codegenTypes = extractCodegenTypes(codegenSource)
 
-const legacyHiddenFromPalette = ['webhook']
+const legacyHiddenFromPalette = ['comment', 'webhook']
 
 const missingNodeConfigs = relativeComplement(unionTypes, nodeConfigKeys)
 const missingDefaultData = relativeComplement(unionTypes, defaultDataKeys)

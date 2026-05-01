@@ -2489,21 +2489,7 @@ async function executeActionNode(
   const actionType = String(action.type || '')
 
   if (actionType === 'setVariable') {
-    const variableName = normalizeText(action.variableName)
-    if (!variableName) return null
-
-    const rawValue = action.value
-    const value =
-      typeof rawValue === 'string'
-        ? interpolateTemplate(rawValue, contextVariables)
-        : rawValue
-
-    setSessionVariable({
-      session,
-      name: variableName,
-      value,
-      botId,
-    })
+    executeSetVariableData(action, session, contextVariables, botId)
     return null
   }
 
@@ -2565,6 +2551,30 @@ async function executeActionNode(
   }
 
   return null
+}
+
+function executeSetVariableData(
+  data: Record<string, unknown>,
+  session: RuntimeSession,
+  contextVariables: Record<string, unknown>,
+  botId?: string
+): void {
+  const variableName = normalizeText(data.variableName ?? data.variable ?? data.key)
+  if (!variableName) return
+
+  const rawValue = data.value
+  const value =
+    typeof rawValue === 'string'
+      ? interpolateTemplate(rawValue, contextVariables)
+      : rawValue
+
+  setSessionVariable({
+    session,
+    name: variableName,
+    value,
+    botId,
+  })
+  contextVariables[variableName] = value
 }
 
 async function executeHttpRequestData(
@@ -4019,6 +4029,13 @@ async function executeFromNode(args: {
       currentNodeId = selectedActionHandle
         ? getNextNodeIdBySourceHandle(config, node.id, selectedActionHandle) || getDefaultNextNodeId(config, node.id)
         : getDefaultNextNodeId(config, node.id)
+      continue
+    }
+
+    if (node.type === 'setVariable') {
+      appendBotTestLog(botId, 'workflow', `Node setVariable -> ${node.id}`, 'debug')
+      executeSetVariableData((node.data || {}) as Record<string, unknown>, session, contextVariables, botId)
+      currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
     }
 

@@ -364,12 +364,25 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
     }
   }, [activeChatId, agentRun, streamPreview])
 
+  const hasPersistedAssistantRunMessage = useMemo(() => (
+    renderedAgentRun
+      ? (activeChat?.messages || []).some((message) => (
+          message.role === 'assistant' &&
+          message.runId === renderedAgentRun.runId
+        ))
+      : false
+  ), [activeChat?.messages, renderedAgentRun])
+
   const isThinking = useMemo(() => {
     if (
       (isOptimisticThinking && optimisticChatId === activeChatId) ||
       (isSubmitting && !agentRun && optimisticChatId === activeChatId)
     ) {
       return true
+    }
+
+    if (hasPersistedAssistantRunMessage) {
+      return false
     }
 
     if (!agentRun || !isActiveChatAgentRunActive) {
@@ -385,7 +398,7 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
     }
 
     return !hasBuildPreviewContent(streamPreview)
-  }, [activeChatId, agentRun, isActiveChatAgentRunActive, isOptimisticThinking, isSubmitting, optimisticChatId, streamPreview])
+  }, [activeChatId, agentRun, hasPersistedAssistantRunMessage, isActiveChatAgentRunActive, isOptimisticThinking, isSubmitting, optimisticChatId, streamPreview])
 
   const thinkingLines = useMemo(() => {
     const lines: string[] = []
@@ -452,13 +465,6 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
       nextMessages.push(optimisticUserMessage)
     }
 
-    const hasPersistedAssistantRunMessage = renderedAgentRun
-      ? (activeChat?.messages || []).some((message) => (
-          message.role === 'assistant' &&
-          message.runId === renderedAgentRun.runId
-        ))
-      : false
-
     if (renderedAgentRun && !hasPersistedAssistantRunMessage) {
       const runMode = renderedAgentRun.mode ?? streamPreview?.mode
 
@@ -509,7 +515,7 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
     }
 
     return nextMessages
-  }, [activeChat?.messages, activeChatId, currentUserProfile.avatarUrl, isActiveChatAgentRunActive, optimisticChatId, optimisticUserMessage, panelError, renderedAgentRun, streamPreview])
+  }, [activeChat?.messages, activeChatId, currentUserProfile.avatarUrl, hasPersistedAssistantRunMessage, isActiveChatAgentRunActive, optimisticChatId, optimisticUserMessage, panelError, renderedAgentRun, streamPreview])
 
   const handleSendMessage = useCallback(async (payload: ChatSendPayload) => {
     if (!bot?.id) {
@@ -903,12 +909,12 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
             onSwitchChat={handleSwitchChat}
             onRenameChat={handleRenameChat}
             onDeleteChat={handleDeleteChat}
-            onStopRun={isActiveChatAgentRunActive && agentRun?.runId ? handleCancelRun : undefined}
+            onStopRun={isAgentRunActive && agentRun?.runId ? handleCancelRun : undefined}
             clarification={activePendingClarification?.request || null}
             onAnswerClarification={handleAnswerClarification}
             isChatMenuDisabled={false}
             isLoading={isSubmitting || isCancelling}
-            disabled={isActiveChatAgentRunActive || isSubmitting}
+            disabled={isAgentRunActive || isSubmitting}
           />
         </div>
       </div>

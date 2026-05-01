@@ -5,6 +5,7 @@ import ReactFlow, {
   MiniMap,
   ConnectionMode,
   ConnectionLineType,
+  SelectionMode,
   PanOnScrollMode,
   Panel,
   useNodesState,
@@ -19,6 +20,8 @@ import ReactFlow, {
   OnSelectionChangeParams,
   type NodeMouseHandler,
   type NodeDragHandler,
+  type OnConnectStart,
+  type OnConnectEnd,
   useReactFlow,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
@@ -102,6 +105,8 @@ type CanvasInsertIntent = {
   nodeId: string
   direction: CanvasInsertDirection
   sourceHandle?: string | null
+  targetHandle?: string | null
+  placement?: 'chain' | 'drop'
 }
 
 type CanvasContextMenuState = {
@@ -109,6 +114,11 @@ type CanvasContextMenuState = {
   clientY: number
   flowPosition: { x: number; y: number }
   insertIntent?: CanvasInsertIntent | null
+}
+
+type GroupCommentContextMenuState = {
+  clientX: number
+  clientY: number
 }
 
 type EditorIssue = {
@@ -165,6 +175,13 @@ const isCanvasPaneElement = (target: EventTarget | null) => {
   return Boolean(element?.closest('.react-flow__pane'))
 }
 
+const hasVisibleTextSelection = () => {
+  if (typeof window === 'undefined') return false
+
+  const selection = window.getSelection()
+  return Boolean(selection && !selection.isCollapsed && selection.toString().trim())
+}
+
 const INPUT_NODE_WRAPPER_STYLE = {
   background: 'transparent',
   border: 'none',
@@ -174,7 +191,42 @@ const INPUT_NODE_WRAPPER_STYLE = {
   width: 'auto',
 } as const
 
+const GROUP_COMMENT_PADDING_X = 52
+const GROUP_COMMENT_PADDING_TOP = 72
+const GROUP_COMMENT_PADDING_BOTTOM = 46
+const GROUP_COMMENT_NODE_STYLE = {
+  background: 'transparent',
+  border: 'none',
+  borderRadius: 0,
+  padding: 0,
+  boxShadow: 'none',
+} as const
+
+function isGroupCommentNode(node: Node): boolean {
+  const data = node.data && typeof node.data === 'object' && !Array.isArray(node.data)
+    ? (node.data as Record<string, unknown>)
+    : null
+  return node.type === 'comment' && data?.commentMode === 'group'
+}
+
 const applyNodeWrapperStyle = (node: Node): Node => {
+  if (isGroupCommentNode(node)) {
+    const data = (node.data || {}) as Record<string, unknown>
+    const width = Math.max(180, Number(data.width || 260))
+    const height = Math.max(120, Number(data.height || 180))
+
+    return {
+      ...node,
+      style: {
+        ...node.style,
+        ...GROUP_COMMENT_NODE_STYLE,
+        width,
+        height,
+      },
+      zIndex: 0,
+    }
+  }
+
   if (node.type !== 'input') return node
 
   return {
@@ -189,6 +241,9 @@ const applyNodeWrapperStyle = (node: Node): Node => {
 const CANVAS_MIN_ZOOM = 0.2
 const CANVAS_MAX_ZOOM = 2
 const CANVAS_WHEEL_ZOOM_STEP = 0.12
+const OPEN_INSERT_MENU_EVENT = 'bot-flow-open-insert-menu'
+const CONNECTION_HANDLE_POINTER_DOWN_EVENT = 'bot-flow-connection-handle-pointer-down'
+const DEFAULT_HANDLE_KEY = '__default__'
 const AI_NODE_TEMPLATE_IDS = new Set(['trigger-ai', 'message-ai', 'condition-ai'])
 const EXECUTION_ACTIVE_EDGE_STYLE = {
   stroke: '#67E8F9',
@@ -215,6 +270,10 @@ function isAiTemplateCandidate(template: { id?: string; data?: Record<string, un
   if (!template) return false
   if (template.id && AI_NODE_TEMPLATE_IDS.has(String(template.id))) return true
   return Boolean(template.data?.aiEnabled)
+}
+
+function getHandleKey(handleId?: string | null): string {
+  return handleId && handleId.trim() ? handleId : DEFAULT_HANDLE_KEY
 }
 
 function isMouseWheelEvent(event: WheelEvent): boolean {
@@ -245,11 +304,11 @@ const getFallbackNodePosition = (index: number) => {
 }
 
 function getNodeWidth(node: Node): number {
-  return typeof node.width === 'number' ? node.width : 0
+  return typeof node.width === 'number' ? node.width : INSERTED_NODE_APPROX_WIDTH
 }
 
 function getNodeHeight(node: Node): number {
-  return typeof node.height === 'number' ? node.height : 0
+  return typeof node.height === 'number' ? node.height : INSERTED_NODE_APPROX_HEIGHT
 }
 
 function getAlignedNodePosition(draggedNode: Node, allNodes: Node[]) {
@@ -313,6 +372,42 @@ function getInsertedNodePosition(
     x: flowPosition.x - INSERTED_NODE_APPROX_WIDTH / 2,
     y: flowPosition.y + INSERT_VERTICAL_GAP,
   }
+}
+
+function getDroppedNodePosition(flowPosition: { x: number; y: number }) {
+  return {
+    x: flowPosition.x - INSERTED_NODE_APPROX_WIDTH / 2,
+    y: flowPosition.y - INSERTED_NODE_APPROX_HEIGHT / 2,
+  }
+}
+
+function getClientPointFromConnectionEndEvent(event: MouseEvent | TouchEvent) {
+  if ('changedTouches' in event && event.changedTouches.length > 0) {
+    const touch = event.changedTouches[0]
+    return { x: touch.clientX, y: touch.clientY }
+  }
+
+  if ('clientX' in event && 'clientY' in event) {
+    return { x: event.clientX, y: event.clientY }
+  }
+
+  return null
+}
+
+function isConnectionEndOnEmptyPane(
+  target: EventTarget | null,
+  clientPoint?: { x: number; y: number } | null
+) {
+  const elementFromPoint =
+    clientPoint && typeof document !== 'undefined'
+      ? document.elementFromPoint(clientPoint.x, clientPoint.y)
+      : null
+  const element = elementFromPoint || (target instanceof Element ? target : null)
+  if (!element) return false
+  if (element.closest('.react-flow__node, .react-flow__handle, .react-flow__edge, .react-flow__minimap, .react-flow__controls')) {
+    return false
+  }
+  return Boolean(element.closest('.react-flow'))
 }
 
 const mergeTemplateData = (type: string, templateData?: Record<string, unknown>) => {
@@ -384,6 +479,12 @@ const extractVariableNames = (nodes: Node[]): string[] => {
       }
       if (data.action?.saveToVariable) {
         variables.push(data.action.saveToVariable)
+      }
+    }
+    if (node.type === 'setVariable') {
+      const data = node.data as { variableName?: string }
+      if (data.variableName) {
+        variables.push(data.variableName)
       }
     }
     if (node.type === 'http' || node.type === 'webhook') {
@@ -544,6 +645,7 @@ function getNodeTemplateDescription(
     'reply-keyboard': 'nodeTemplateDescriptions.replyKeyboard',
     script: 'nodeTemplateDescriptions.script',
     action: 'nodeTemplateDescriptions.action',
+    'set-variable': 'nodeTemplateDescriptions.setVariable',
     input: 'nodeTemplateDescriptions.input',
     http: 'nodeTemplateDescriptions.http',
     comment: 'nodeTemplateDescriptions.comment',
@@ -582,6 +684,7 @@ function getNodeTemplateShortDescription(
     'reply-keyboard': 'nodeTemplateShortDescriptions.replyKeyboard',
     script: 'nodeTemplateShortDescriptions.script',
     action: 'nodeTemplateShortDescriptions.action',
+    'set-variable': 'nodeTemplateShortDescriptions.setVariable',
     input: 'nodeTemplateShortDescriptions.input',
     http: 'nodeTemplateShortDescriptions.http',
     comment: 'nodeTemplateShortDescriptions.comment',
@@ -620,6 +723,7 @@ function getNodeTemplateHelpSteps(
     'reply-keyboard': 'nodeTemplateHelpSteps.replyKeyboard',
     script: 'nodeTemplateHelpSteps.script',
     action: 'nodeTemplateHelpSteps.action',
+    'set-variable': 'nodeTemplateHelpSteps.setVariable',
     input: 'nodeTemplateHelpSteps.input',
     http: 'nodeTemplateHelpSteps.http',
     comment: 'nodeTemplateHelpSteps.comment',
@@ -666,6 +770,7 @@ function getNodeTemplateDocsHref(docsBasePath: string, template: NodeTemplate): 
     scheduler: 'node-date-scheduler',
     wait: 'nodes-reference',
     action: 'node-action',
+    'set-variable': 'node-set-variable',
     http: 'node-http',
     webhook: 'node-http',
     script: 'node-script',
@@ -737,9 +842,11 @@ function FlowCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState(preparedInitialEdges)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
+  const [settingsDetailedModeRequestKey, setSettingsDetailedModeRequestKey] = useState(0)
   const [pinnedPaletteCategory, setPinnedPaletteCategory] = useState<PaletteCategoryId | null>(null)
   const [hoveredPaletteCategory, setHoveredPaletteCategory] = useState<PaletteCategoryId | null>(null)
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null)
+  const [groupCommentMenu, setGroupCommentMenu] = useState<GroupCommentContextMenuState | null>(null)
   const [contextMenuCategory, setContextMenuCategory] = useState<PaletteCategoryId | null>(null)
   const [isSelectionModifierPressed, setIsSelectionModifierPressed] = useState(false)
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false)
@@ -755,6 +862,13 @@ function FlowCanvasInner({
   const rightClickOriginRef = useRef<{ x: number; y: number } | null>(null)
   const suppressNextCanvasContextMenuRef = useRef(false)
   const issueCollapseTimerRef = useRef<number | null>(null)
+  const connectionStartRef = useRef<{
+    nodeId: string
+    handleId: string | null
+    handleType: 'source' | 'target'
+  } | null>(null)
+  const connectionCompletedRef = useRef(false)
+  const connectionEndScheduledRef = useRef(false)
   const openInsertMenuRef = useRef<(request: {
     clientX: number
     clientY: number
@@ -762,6 +876,16 @@ function FlowCanvasInner({
     direction: CanvasInsertDirection
     sourceHandle?: string | null
   }) => void>(() => {})
+
+  const handleNodesChange = useCallback((changes: Parameters<typeof onNodesChange>[0]) => {
+    if (isTestActive) return
+    onNodesChange(changes)
+  }, [isTestActive, onNodesChange])
+
+  const handleEdgesChange = useCallback((changes: Parameters<typeof onEdgesChange>[0]) => {
+    if (isTestActive) return
+    onEdgesChange(changes)
+  }, [isTestActive, onEdgesChange])
 
   const hasTelegramToken = Boolean(
     (bot?.metadata && typeof bot.metadata === 'object' && (bot.metadata as Record<string, unknown>).hasTelegramToken) ||
@@ -868,23 +992,28 @@ function FlowCanvasInner({
   }, [])
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({
-      ...params,
-      type: CANVAS_EDGE_TYPE,
-      animated: true,
-      style: CANVAS_EDGE_STYLE,
-    }, eds)),
-    [setEdges]
+    (params: Connection) => {
+      if (isTestActive) return
+      connectionCompletedRef.current = true
+      setEdges((eds) => addEdge({
+        ...params,
+        type: CANVAS_EDGE_TYPE,
+        animated: true,
+        style: CANVAS_EDGE_STYLE,
+      }, eds))
+    },
+    [isTestActive, setEdges]
   )
 
   const handleDeleteNode = useCallback((nodeId: string) => {
+    if (isTestActive) return
     setNodes((nds) => nds.filter((n) => n.id !== nodeId))
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId))
     if (selectedNode?.id === nodeId) {
       setSelectedNode(null)
       setSettingsPanelOpen(false)
     }
-  }, [setNodes, setEdges, selectedNode])
+  }, [isTestActive, setNodes, setEdges, selectedNode])
 
   const applyRuntimeNodeData = useCallback((node: Node): Node => {
     const existingData = (node.data || {}) as Record<string, unknown>
@@ -915,15 +1044,54 @@ function FlowCanvasInner({
   )
 
   const renderedNodes = useMemo(() => {
+    const connectedSourceHandlesByNode = new Map<string, Set<string>>()
+    const connectedTargetHandlesByNode = new Map<string, Set<string>>()
+
+    edges.forEach((edge) => {
+      if (edge.source) {
+        const sourceHandles = connectedSourceHandlesByNode.get(edge.source) || new Set<string>()
+        sourceHandles.add(getHandleKey(edge.sourceHandle ?? null))
+        connectedSourceHandlesByNode.set(edge.source, sourceHandles)
+      }
+
+      if (edge.target) {
+        const targetHandles = connectedTargetHandlesByNode.get(edge.target) || new Set<string>()
+        targetHandles.add(getHandleKey(edge.targetHandle ?? null))
+        connectedTargetHandlesByNode.set(edge.target, targetHandles)
+      }
+    })
+
+    const runtimeNodes = nodes.map((node) => {
+      const existingData = (node.data || {}) as Record<string, unknown>
+
+      return applyNodeWrapperStyle({
+        ...node,
+        data: {
+          ...existingData,
+          __connectedSourceHandles: Array.from(connectedSourceHandlesByNode.get(node.id) || []),
+          __connectedTargetHandles: Array.from(connectedTargetHandlesByNode.get(node.id) || []),
+          onDelete: (id: string) => handleDeleteNode(id),
+          onOpenInsertMenu: (request: {
+            clientX: number
+            clientY: number
+            nodeId: string
+            direction: CanvasInsertDirection
+            sourceHandle?: string | null
+          }) => {
+            window.dispatchEvent(new CustomEvent(OPEN_INSERT_MENU_EVENT, { detail: request }))
+          },
+        },
+      })
+    })
     const activeNodeId = executionTrace?.activeNodeId || null
     const activeNodeState = executionTrace?.activeNodeState || null
     const hasTraceState = Boolean(activeNodeId || recentExecutionNodeIds.size > 0)
 
     if (!hasTraceState) {
-      return nodes
+      return runtimeNodes
     }
 
-    return nodes.map((node) => {
+    return runtimeNodes.map((node) => {
       const existingData = (node.data || {}) as Record<string, unknown>
       const nextExecutionState: CanvasExecutionNodeState | undefined =
         node.id === activeNodeId
@@ -953,19 +1121,22 @@ function FlowCanvasInner({
   }, [
     executionTrace?.activeNodeId,
     executionTrace?.activeNodeState,
+    edges,
+    handleDeleteNode,
     nodes,
     recentExecutionNodeIds,
   ])
 
   const renderedEdges = useMemo(() => {
+    const normalizedEdges = edges.map(applyRuntimeEdgeStyle)
     const activeEdgeId = executionTrace?.activeEdgeId || null
     const hasTraceState = Boolean(activeEdgeId || recentExecutionEdgeIds.size > 0)
 
     if (!hasTraceState) {
-      return edges
+      return normalizedEdges
     }
 
-    return edges.map((edge) => {
+    return normalizedEdges.map((edge) => {
       const existingData =
         edge.data && typeof edge.data === 'object' && !Array.isArray(edge.data)
           ? (edge.data as Record<string, unknown>)
@@ -1007,9 +1178,13 @@ function FlowCanvasInner({
   }, [edges, executionTrace?.activeEdgeId, recentExecutionEdgeIds])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
+    if (isTestActive) {
+      event.dataTransfer.dropEffect = 'none'
+      return
+    }
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
-  }, [])
+  }, [isTestActive])
 
   useEffect(() => {
     const wrapper = canvasWrapperRef.current
@@ -1075,6 +1250,9 @@ function FlowCanvasInner({
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault()
+      if (isTestActive) {
+        return
+      }
 
       const templatePayload = event.dataTransfer.getData('application/reactflow-template')
       let template: { id?: string; type?: string; data?: Record<string, unknown> } | null = null
@@ -1121,10 +1299,13 @@ function FlowCanvasInner({
         return [...nds, applyNodeWrapperStyle(newNode)]
       })
     },
-    [setNodes, handleDeleteNode, screenToFlowPosition, isAdmin]
+    [setNodes, handleDeleteNode, screenToFlowPosition, isAdmin, isTestActive]
   )
 
   const handleAddNode = useCallback((template: NodeTemplate, targetPosition?: { x: number; y: number }) => {
+    if (isTestActive) {
+      return
+    }
     if (!isAdmin && isAiTemplateCandidate(template)) {
       return
     }
@@ -1159,18 +1340,20 @@ function FlowCanvasInner({
 
       return [...nds, applyNodeWrapperStyle(newNode)]
     })
-  }, [setNodes, handleDeleteNode, getVisibleCanvasCenterPosition, isAdmin])
+  }, [setNodes, handleDeleteNode, getVisibleCanvasCenterPosition, isAdmin, isTestActive])
 
   const handleClearCanvas = useCallback(() => {
+    if (isTestActive) return
     if (confirm(t('clearConfirm'))) {
       setNodes([])
       setEdges([])
       setSelectedNode(null)
       setSettingsPanelOpen(false)
     }
-  }, [setNodes, setEdges, t])
+  }, [isTestActive, setNodes, setEdges, t])
 
   const handleNodeUpdate = useCallback((nodeId: string, newData: Partial<NodeData>) => {
+    if (isTestActive) return
     setNodes((nds) =>
       nds.map((n) =>
         n.id === nodeId
@@ -1192,7 +1375,7 @@ function FlowCanvasInner({
           : n
       )
     )
-  }, [setNodes, handleDeleteNode])
+  }, [isTestActive, setNodes, handleDeleteNode])
 
   const onSelectionChange = useCallback(({ nodes: selectedNodes }: OnSelectionChangeParams) => {
     if (selectedNodes.length !== 1) {
@@ -1201,7 +1384,15 @@ function FlowCanvasInner({
     }
   }, [])
 
+  const closeGroupCommentMenu = useCallback(() => {
+    setGroupCommentMenu(null)
+  }, [])
+
   const handleNodeClick = useCallback<NodeMouseHandler>((event, node) => {
+    if (isTestActive) {
+      return
+    }
+    closeGroupCommentMenu()
     if (event.shiftKey) {
       setSelectedNode(null)
       setSettingsPanelOpen(false)
@@ -1210,7 +1401,118 @@ function FlowCanvasInner({
 
     setSelectedNode(node as Node)
     setSettingsPanelOpen(true)
-  }, [])
+  }, [closeGroupCommentMenu, isTestActive])
+
+  const handleNodeContextMenu = useCallback<NodeMouseHandler>((event, node) => {
+    if (isTestActive) return
+
+    const selectedWorkflowNodes = nodes.filter((item) => item.selected && !isGroupCommentNode(item))
+    const nodeIsInSelection = selectedWorkflowNodes.some((item) => item.id === node.id)
+    const targetNodes =
+      selectedWorkflowNodes.length > 0 && nodeIsInSelection
+        ? selectedWorkflowNodes
+        : (!isGroupCommentNode(node as Node) ? [node as Node] : [])
+
+    if (targetNodes.length === 0) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    setContextMenu(null)
+    const targetNodeIds = new Set(targetNodes.map((item) => item.id))
+    setNodes((currentNodes) =>
+      currentNodes.map((item) => ({
+        ...item,
+        selected: targetNodeIds.has(item.id),
+      }))
+    )
+    setGroupCommentMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+    })
+  }, [isTestActive, nodes, setNodes])
+
+  const createGroupCommentForSelection = useCallback(() => {
+    if (isTestActive) return
+
+    const selectedWorkflowNodes = nodes.filter((node) => node.selected && !isGroupCommentNode(node))
+    if (selectedWorkflowNodes.length === 0) {
+      closeGroupCommentMenu()
+      return
+    }
+
+    const label = window.prompt('Текст комментария', 'Комментарий')
+    if (label === null) {
+      closeGroupCommentMenu()
+      return
+    }
+
+    const minX = Math.min(...selectedWorkflowNodes.map((node) => node.position.x))
+    const minY = Math.min(...selectedWorkflowNodes.map((node) => node.position.y))
+    const maxX = Math.max(
+      ...selectedWorkflowNodes.map((node) => node.position.x + Math.max(getNodeWidth(node), INSERTED_NODE_APPROX_WIDTH))
+    )
+    const maxY = Math.max(
+      ...selectedWorkflowNodes.map((node) => node.position.y + Math.max(getNodeHeight(node), INSERTED_NODE_APPROX_HEIGHT))
+    )
+    const width = Math.max(220, maxX - minX + GROUP_COMMENT_PADDING_X * 2)
+    const height = Math.max(140, maxY - minY + GROUP_COMMENT_PADDING_TOP + GROUP_COMMENT_PADDING_BOTTOM)
+    const newNodeId = createUniqueNodeId(nodes)
+
+    const commentNode = applyRuntimeNodeData({
+      id: newNodeId,
+      type: 'comment',
+      position: {
+        x: minX - GROUP_COMMENT_PADDING_X,
+        y: minY - GROUP_COMMENT_PADDING_TOP,
+      },
+      data: {
+        text: label.trim() || 'Комментарий',
+        color: 'cyan',
+        commentMode: 'group',
+        width,
+        height,
+        __label: 'Комментарий',
+        __description: 'Группа узлов',
+        onDelete: (id: string) => handleDeleteNode(id),
+        onOpenInsertMenu: (request: {
+          clientX: number
+          clientY: number
+          nodeId: string
+          direction: CanvasInsertDirection
+          sourceHandle?: string | null
+        }) => openInsertMenuRef.current(request),
+      },
+      style: {
+        width,
+        height,
+      },
+      selected: true,
+      selectable: true,
+      draggable: true,
+    } as Node)
+
+    setNodes((currentNodes) => [
+      applyNodeWrapperStyle(commentNode),
+      ...currentNodes.map((node) => ({ ...node, selected: false })),
+    ])
+    setSelectedNode(commentNode)
+    closeGroupCommentMenu()
+  }, [applyRuntimeNodeData, closeGroupCommentMenu, handleDeleteNode, isTestActive, nodes, setNodes])
+
+  const handleNodeDoubleClick = useCallback<NodeMouseHandler>((event, node) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (isTestActive) {
+      return
+    }
+
+    setSelectedNode(node as Node)
+    setSettingsPanelOpen(true)
+    setSettingsDetailedModeRequestKey((current) => current + 1)
+  }, [isTestActive])
 
   const restoreSnapshot = useCallback((snapshot: CanvasHistorySnapshot) => {
     skipNextHistoryCaptureRef.current = true
@@ -1255,7 +1557,16 @@ function FlowCanvasInner({
   }, [applyRuntimeNodeData, selectedNode, setEdges, setNodes])
 
   const copySelectedNodesToClipboard = useCallback(() => {
-    const selectedNodes = nodes.filter((node) => node.selected)
+    if (isTestActive) {
+      return false
+    }
+    const selectedNodesFromCanvas = nodes.filter((node) => node.selected)
+    const selectedNodes =
+      selectedNodesFromCanvas.length > 0
+        ? selectedNodesFromCanvas
+        : selectedNode
+          ? nodes.filter((node) => node.id === selectedNode.id)
+          : []
     if (selectedNodes.length === 0) {
       return false
     }
@@ -1271,10 +1582,19 @@ function FlowCanvasInner({
     }
     clipboardPasteCountRef.current = 0
     return true
-  }, [edges, nodes])
+  }, [edges, isTestActive, nodes, selectedNode])
 
   const cutSelectedNodesToClipboard = useCallback(() => {
-    const selectedNodes = nodes.filter((node) => node.selected)
+    if (isTestActive) {
+      return false
+    }
+    const selectedNodesFromCanvas = nodes.filter((node) => node.selected)
+    const selectedNodes =
+      selectedNodesFromCanvas.length > 0
+        ? selectedNodesFromCanvas
+        : selectedNode
+          ? nodes.filter((node) => node.id === selectedNode.id)
+          : []
     if (selectedNodes.length === 0) {
       return false
     }
@@ -1292,9 +1612,12 @@ function FlowCanvasInner({
     setSettingsPanelOpen(false)
 
     return true
-  }, [copySelectedNodesToClipboard, edges, nodes, setEdges, setNodes])
+  }, [copySelectedNodesToClipboard, edges, isTestActive, nodes, selectedNode, setEdges, setNodes])
 
   const pasteClipboardNodes = useCallback(() => {
+    if (isTestActive) {
+      return false
+    }
     const clipboard = clipboardRef.current
     if (!clipboard || clipboard.nodes.length === 0) {
       return false
@@ -1373,9 +1696,10 @@ function FlowCanvasInner({
     }
 
     return true
-  }, [applyRuntimeNodeData, edges, nodes, setEdges, setNodes])
+  }, [applyRuntimeNodeData, edges, isTestActive, nodes, setEdges, setNodes])
 
   const undoCanvasChange = useCallback(() => {
+    if (isTestActive) return
     const nextIndex = historyIndexRef.current - 1
     if (nextIndex < 0) return
 
@@ -1385,9 +1709,10 @@ function FlowCanvasInner({
     historyIndexRef.current = nextIndex
     lastHistorySnapshotKeyRef.current = getCanvasHistorySnapshotKey(snapshot)
     restoreSnapshot(snapshot)
-  }, [restoreSnapshot])
+  }, [isTestActive, restoreSnapshot])
 
   const redoCanvasChange = useCallback(() => {
+    if (isTestActive) return
     const nextIndex = historyIndexRef.current + 1
     if (nextIndex >= historyRef.current.length) return
 
@@ -1397,7 +1722,7 @@ function FlowCanvasInner({
     historyIndexRef.current = nextIndex
     lastHistorySnapshotKeyRef.current = getCanvasHistorySnapshotKey(snapshot)
     restoreSnapshot(snapshot)
-  }, [restoreSnapshot])
+  }, [isTestActive, restoreSnapshot])
 
   useEffect(() => {
     const snapshot = createCanvasHistorySnapshot(nodes, edges)
@@ -1428,7 +1753,7 @@ function FlowCanvasInner({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isEditableElement(event.target)) {
+      if (event.defaultPrevented || isEditableElement(event.target) || hasVisibleTextSelection()) {
         return
       }
 
@@ -1438,15 +1763,18 @@ function FlowCanvasInner({
       }
 
       const key = event.key.toLowerCase()
+      const selectedNodes = nodes.filter((node) => node.selected)
+      const hasSelectedNodes = selectedNodes.length > 0 || Boolean(selectedNode)
+
       if (key === 'c') {
-        if (copySelectedNodesToClipboard()) {
+        if (hasSelectedNodes && copySelectedNodesToClipboard()) {
           event.preventDefault()
         }
         return
       }
 
       if (key === 'x') {
-        if (cutSelectedNodesToClipboard()) {
+        if (hasSelectedNodes && cutSelectedNodesToClipboard()) {
           event.preventDefault()
         }
         return
@@ -1481,8 +1809,10 @@ function FlowCanvasInner({
   }, [
     copySelectedNodesToClipboard,
     cutSelectedNodesToClipboard,
+    nodes,
     pasteClipboardNodes,
     redoCanvasChange,
+    selectedNode,
     undoCanvasChange,
   ])
 
@@ -1538,6 +1868,9 @@ function FlowCanvasInner({
     clientY: number,
     insertIntent?: CanvasInsertIntent | null
   ) => {
+    if (isTestActive) {
+      return
+    }
     const menuWidth = 360
     const menuHeight = 420
     const viewportPadding = 12
@@ -1573,7 +1906,111 @@ function FlowCanvasInner({
       }
       return nextFirstEnabledCategory?.id ?? null
     })
-  }, [paletteCategories, screenToFlowPosition])
+  }, [isTestActive, paletteCategories, screenToFlowPosition])
+
+  const handleConnectStart = useCallback<OnConnectStart>((_event, params) => {
+    if (isTestActive || !params.nodeId || !params.handleType) {
+      connectionStartRef.current = null
+      return
+    }
+
+    connectionCompletedRef.current = false
+    connectionStartRef.current = {
+      nodeId: params.nodeId,
+      handleId: params.handleId,
+      handleType: params.handleType === 'target' ? 'target' : 'source',
+    }
+  }, [isTestActive])
+
+  useEffect(() => {
+    const handleConnectionHandlePointerDown = (event: Event) => {
+      if (isTestActive) return
+
+      const detail = (event as CustomEvent<{
+        nodeId?: string
+        handleId?: string | null
+        handleType?: 'source' | 'target'
+      }>).detail
+
+      if (!detail?.nodeId || !detail.handleType) return
+
+      connectionCompletedRef.current = false
+      connectionStartRef.current = {
+        nodeId: detail.nodeId,
+        handleId: detail.handleId ?? null,
+        handleType: detail.handleType,
+      }
+      connectionEndScheduledRef.current = false
+    }
+
+    window.addEventListener(CONNECTION_HANDLE_POINTER_DOWN_EVENT, handleConnectionHandlePointerDown)
+    return () => {
+      window.removeEventListener(CONNECTION_HANDLE_POINTER_DOWN_EVENT, handleConnectionHandlePointerDown)
+    }
+  }, [isTestActive])
+
+  const scheduleConnectionDropMenu = useCallback((event: MouseEvent | TouchEvent) => {
+    const start = connectionStartRef.current
+
+    if (isTestActive || !start || connectionEndScheduledRef.current) {
+      return
+    }
+
+    const clientPoint = getClientPointFromConnectionEndEvent(event)
+    if (!clientPoint) {
+      return
+    }
+
+    connectionEndScheduledRef.current = true
+
+    window.setTimeout(() => {
+      connectionEndScheduledRef.current = false
+
+      if (connectionCompletedRef.current) {
+        connectionCompletedRef.current = false
+        connectionStartRef.current = null
+        return
+      }
+
+      if (connectionStartRef.current?.nodeId !== start.nodeId) {
+        return
+      }
+
+      connectionStartRef.current = null
+
+      if (!isConnectionEndOnEmptyPane(event.target, clientPoint)) {
+        return
+      }
+
+      openContextMenuAtClientPosition(clientPoint.x, clientPoint.y, {
+        nodeId: start.nodeId,
+        direction: start.handleType === 'target' ? 'top' : 'bottom',
+        sourceHandle: start.handleType === 'source' ? start.handleId : null,
+        targetHandle: start.handleType === 'target' ? start.handleId : null,
+        placement: 'drop',
+      })
+    }, 0)
+  }, [isTestActive, openContextMenuAtClientPosition])
+
+  const handleConnectEnd = useCallback<OnConnectEnd>((event) => {
+    scheduleConnectionDropMenu(event)
+  }, [scheduleConnectionDropMenu])
+
+  useEffect(() => {
+    const handleGlobalConnectionPointerUp = (event: PointerEvent) => {
+      scheduleConnectionDropMenu(event)
+    }
+    const handleGlobalConnectionTouchEnd = (event: TouchEvent) => {
+      scheduleConnectionDropMenu(event)
+    }
+
+    window.addEventListener('pointerup', handleGlobalConnectionPointerUp)
+    window.addEventListener('touchend', handleGlobalConnectionTouchEnd)
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalConnectionPointerUp)
+      window.removeEventListener('touchend', handleGlobalConnectionTouchEnd)
+    }
+  }, [scheduleConnectionDropMenu])
 
   useEffect(() => {
     openInsertMenuRef.current = (request) => {
@@ -1584,6 +2021,26 @@ function FlowCanvasInner({
       })
     }
   }, [openContextMenuAtClientPosition])
+
+  useEffect(() => {
+    const handleOpenInsertMenu = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        clientX: number
+        clientY: number
+        nodeId: string
+        direction: CanvasInsertDirection
+        sourceHandle?: string | null
+      }>).detail
+
+      if (!detail) return
+      openInsertMenuRef.current(detail)
+    }
+
+    window.addEventListener(OPEN_INSERT_MENU_EVENT, handleOpenInsertMenu)
+    return () => {
+      window.removeEventListener(OPEN_INSERT_MENU_EVENT, handleOpenInsertMenu)
+    }
+  }, [])
 
   const activeContextMenuCategory =
     (contextMenuCategory &&
@@ -1598,8 +2055,11 @@ function FlowCanvasInner({
   const handlePaneContextMenu = useCallback((event: ReactMouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
+    if (isTestActive) {
+      return
+    }
     openContextMenuAtClientPosition(event.clientX, event.clientY, null)
-  }, [openContextMenuAtClientPosition])
+  }, [isTestActive, openContextMenuAtClientPosition])
 
   const handleCanvasMouseDownCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.button !== 2 || !isCanvasPaneElement(event.target)) {
@@ -1649,6 +2109,7 @@ function FlowCanvasInner({
   }, [handlePaneContextMenu])
 
   const handleContextMenuAddNode = useCallback((template: NodeTemplate) => {
+    if (isTestActive) return
     if (!contextMenu) return
     if (!isAdmin && isAiTemplateCandidate(template)) return
 
@@ -1660,10 +2121,13 @@ function FlowCanvasInner({
 
       const defaultData = mergeTemplateData(template.type, template.data)
       const newNodeId = createUniqueNodeId(nodes)
-      const nextPosition = getInsertedNodePosition(
-        contextMenu.flowPosition,
-        contextMenu.insertIntent.direction
-      )
+      const nextPosition =
+        contextMenu.insertIntent.placement === 'drop'
+          ? getDroppedNodePosition(contextMenu.flowPosition)
+          : getInsertedNodePosition(
+              contextMenu.flowPosition,
+              contextMenu.insertIntent.direction
+            )
       const newNode = applyRuntimeNodeData({
         id: newNodeId,
         type: template.type,
@@ -1679,7 +2143,10 @@ function FlowCanvasInner({
           contextMenu.insertIntent.direction === 'top'
             ? null
             : (contextMenu.insertIntent.sourceHandle ?? null),
-        targetHandle: null,
+        targetHandle:
+          contextMenu.insertIntent.direction === 'top'
+            ? (contextMenu.insertIntent.targetHandle ?? null)
+            : null,
         animated: true,
         type: CANVAS_EDGE_TYPE,
         style: undefined,
@@ -1695,7 +2162,7 @@ function FlowCanvasInner({
 
     handleAddNode(template, contextMenu.flowPosition)
     closeContextMenu()
-  }, [applyRuntimeNodeData, closeContextMenu, contextMenu, edges, handleAddNode, isAdmin, nodes, setEdges, setNodes])
+  }, [applyRuntimeNodeData, closeContextMenu, contextMenu, edges, handleAddNode, isAdmin, isTestActive, nodes, setEdges, setNodes])
 
   const validPinnedPaletteCategory =
     pinnedPaletteCategory &&
@@ -1715,6 +2182,7 @@ function FlowCanvasInner({
   const activePaletteCategory =
     paletteCategories.find((category) => category.id === activePaletteCategoryId) || null
   const isPaletteExpanded = Boolean(activePaletteCategory)
+  const hasCommentableSelection = nodes.some((node) => node.selected && !isGroupCommentNode(node))
 
   useEffect(() => {
     if (!contextMenu) return
@@ -1749,6 +2217,10 @@ function FlowCanvasInner({
 
   const handleTemplateDragStart = useCallback(
     (event: React.DragEvent<HTMLDivElement>, template: NodeTemplate) => {
+      if (isTestActive) {
+        event.preventDefault()
+        return
+      }
       if (!isAdmin && isAiTemplateCandidate(template)) {
         event.preventDefault()
         return
@@ -1765,7 +2237,7 @@ function FlowCanvasInner({
       )
       event.dataTransfer.effectAllowed = 'move'
     },
-    [isAdmin]
+    [isAdmin, isTestActive]
   )
 
   const alignDraggedNode = useCallback((draggedNode: Node) => {
@@ -1804,12 +2276,14 @@ function FlowCanvasInner({
   }, [setNodes])
 
   const handleNodeDrag = useCallback<NodeDragHandler>((_event, draggedNode) => {
+    if (isTestActive) return
     alignDraggedNode(draggedNode)
-  }, [alignDraggedNode])
+  }, [alignDraggedNode, isTestActive])
 
   const handleNodeDragStop = useCallback<NodeDragHandler>((_event, draggedNode) => {
+    if (isTestActive) return
     alignDraggedNode(draggedNode)
-  }, [alignDraggedNode])
+  }, [alignDraggedNode, isTestActive])
 
   return (
     <div
@@ -1828,16 +2302,23 @@ function FlowCanvasInner({
         <ReactFlow
           nodes={renderedNodes}
           edges={renderedEdges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
           onConnect={onConnect}
+          onConnectStart={handleConnectStart}
+          onConnectEnd={handleConnectEnd}
           onSelectionChange={onSelectionChange}
           onNodeClick={handleNodeClick}
+          onNodeContextMenu={handleNodeContextMenu}
+          onNodeDoubleClick={handleNodeDoubleClick}
           onDragOver={onDragOver}
           onDrop={onDrop}
-          onPaneClick={closeContextMenu}
+          onPaneClick={() => {
+            closeContextMenu()
+            closeGroupCommentMenu()
+          }}
           onPaneContextMenu={handlePaneContextMenu}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
@@ -1850,6 +2331,12 @@ function FlowCanvasInner({
           panOnDrag={[2]}
           panActivationKeyCode={null}
           selectionKeyCode="Shift"
+          selectionMode={SelectionMode.Partial}
+          nodesDraggable={!isTestActive}
+          nodesConnectable={!isTestActive}
+          edgesFocusable={!isTestActive}
+          nodesFocusable={!isTestActive}
+          elementsSelectable={!isTestActive}
           zoomOnScroll={false}
           zoomOnPinch
           minZoom={CANVAS_MIN_ZOOM}
@@ -1887,6 +2374,7 @@ function FlowCanvasInner({
                 scheduler: '#22C55E',
                 wait: '#14B8A6',
                 action: '#8B5CF6',
+                setVariable: '#10B981',
                 input: '#10B981',
                 http: '#F43F5E',
                 webhook: '#EF4444',
@@ -1920,6 +2408,7 @@ function FlowCanvasInner({
                 variant="outline"
                 size="sm"
                 className="gap-2 bg-zinc-900/80 backdrop-blur-xl border-white/10"
+                disabled={isTestActive}
                 onClick={handleClearCanvas}
               >
                 <Trash2 className="w-4 h-4" />
@@ -1952,7 +2441,7 @@ function FlowCanvasInner({
           {/* Left Panel - Node Palette */}
           <Panel position="top-left" className="!transform-none !left-4 !top-4">
             <div
-              className={`${isPaletteExpanded ? 'w-[328px] sm:w-[360px]' : 'w-[136px]'
+              className={`${isPaletteExpanded ? 'w-[328px] sm:w-[360px]' : 'w-[112px]'
                 } relative max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-2.5 transition-[width] duration-200`}
             >
               <div className="relative mb-2.5">
@@ -2065,14 +2554,13 @@ function FlowCanvasInner({
                             <div className="text-xs font-medium text-white truncate">
                               {activePaletteCategory.label}
                             </div>
-                            <div className="text-[10px] text-zinc-500">{t('palette.hoverPreviewClickPin')}</div>
                           </div>
                           <div className="text-[10px] text-zinc-400 shrink-0">
                             {t('palette.nodesCount', { count: activePaletteCategory.templates.length })}
                           </div>
                         </div>
 
-                        <div className="mt-2 space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                        <div className="mt-2 space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
                           {activePaletteCategory.templates.map((node) => {
                             const fullDescription = getNodeTemplateDescription(translateCanvas, node)
                             const shortDescription = getNodeTemplateShortDescription(translateCanvas, node)
@@ -2081,10 +2569,14 @@ function FlowCanvasInner({
                             return (
                               <div
                                 key={node.id}
-                                draggable
+                                draggable={!isTestActive}
                                 onDragStart={(event) => handleTemplateDragStart(event, node)}
                                 onClick={() => handleAddNode(node)}
-                                className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} cursor-grab hover:scale-[1.02] transition-transform active:cursor-grabbing`}
+                                className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} transition-transform ${
+                                  isTestActive
+                                    ? 'cursor-not-allowed opacity-55'
+                                    : 'cursor-grab hover:scale-[1.02] active:cursor-grabbing'
+                                }`}
                               >
                                 <div className="flex items-start gap-2">
                                   <div
@@ -2129,12 +2621,6 @@ function FlowCanvasInner({
                   </div>
                 )}
               </div>
-
-              {!isPaletteExpanded && (
-                <div className="mt-2 rounded-lg border border-dashed border-white/10 bg-zinc-800/10 px-2 py-1.5 text-[10px] text-zinc-500 leading-tight text-center">
-                  {t('palette.hoverClickPin')}
-                </div>
-              )}
 
             </div>
           </Panel>
@@ -2236,8 +2722,24 @@ function FlowCanvasInner({
                 onContextMenu={(event) => event.preventDefault()}
               >
                 <div className="px-3 py-2 border-b border-white/10 bg-white/[0.03]">
-                  <div className="text-xs font-semibold text-white">{t('contextMenuTitle')}</div>
-                  <div className="text-[10px] text-zinc-400 mt-0.5">{t('contextMenuHint')}</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-white">{t('contextMenuTitle')}</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">{t('contextMenuHint')}</div>
+                    </div>
+                    {hasCommentableSelection && !contextMenu.insertIntent ? (
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-[10px] font-medium text-cyan-100 transition-colors hover:bg-cyan-300/15"
+                        onClick={() => {
+                          closeContextMenu()
+                          createGroupCommentForSelection()
+                        }}
+                      >
+                        Комментарий
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-0 min-h-[250px] max-h-[430px]">
@@ -2314,6 +2816,39 @@ function FlowCanvasInner({
             </div>
           )}
 
+          {groupCommentMenu && (
+            <div className="fixed inset-0 z-[125]">
+              <button
+                type="button"
+                className="absolute inset-0 cursor-default"
+                onMouseDown={closeGroupCommentMenu}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  closeGroupCommentMenu()
+                }}
+                aria-label="Закрыть меню комментария"
+              />
+
+              <div
+                className="absolute w-[220px] overflow-hidden rounded-xl border border-white/10 bg-zinc-900/95 p-1.5 shadow-2xl shadow-black/60 backdrop-blur-xl"
+                style={{
+                  left: `${groupCommentMenu.clientX}px`,
+                  top: `${groupCommentMenu.clientY}px`,
+                }}
+                onMouseDown={(event) => event.stopPropagation()}
+                onContextMenu={(event) => event.preventDefault()}
+              >
+                <button
+                  type="button"
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
+                  onClick={createGroupCommentForSelection}
+                >
+                  Создать комментарий
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Empty State */}
           {nodes.length === 0 && (
             <Panel position="top-right" className="!transform-none !left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2 pointer-events-none">
@@ -2343,6 +2878,7 @@ function FlowCanvasInner({
             setSelectedNode(null)
           }}
           variables={availableVariables}
+          detailedModeRequestKey={settingsDetailedModeRequestKey}
         />
       )}
     </div>

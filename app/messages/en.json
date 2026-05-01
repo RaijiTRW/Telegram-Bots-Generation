@@ -928,6 +928,7 @@
         "replyKeyboard": "Control Telegram reply keyboard",
         "script": "Run JavaScript or Python transform code",
         "action": "Perform custom actions",
+        "setVariable": "Assign a value to a variable",
         "input": "Request user input or data",
         "http": "Make HTTP requests to external APIs",
         "comment": "Add an internal note to document the flow",
@@ -952,6 +953,7 @@
         "replyKeyboard": "Reply keyboard",
         "script": "JS/Python code",
         "action": "Set data",
+        "setVariable": "Variable",
         "input": "Wait input",
         "http": "API request",
         "comment": "Internal note",
@@ -1035,6 +1037,11 @@
           "step1": "Choose action type and configure required parameters.",
           "step2": "Set target variable when action output should be stored.",
           "step3": "Connect next nodes that consume updated data."
+        },
+        "setVariable": {
+          "step1": "Set the variable name that should be updated.",
+          "step2": "Enter a static value or a template like '{{callback.data}}'.",
+          "step3": "Connect the next node that uses the updated value."
         },
         "input": {
           "step1": "Set the question prompt sent to the user.",

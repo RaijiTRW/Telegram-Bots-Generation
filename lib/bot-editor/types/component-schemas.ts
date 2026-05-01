@@ -140,6 +140,12 @@ export interface ActionNodeData extends BaseNodeData {
   retryCount?: number
 }
 
+export interface SetVariableNodeData extends BaseNodeData {
+  type: 'setVariable'
+  variableName: string
+  value: unknown
+}
+
 export interface ScriptNodeData extends BaseNodeData {
   type: 'script'
   language?: ScriptLanguage
@@ -288,6 +294,7 @@ export type NodeData =
   | ConditionNodeData
   | RouterNodeData
   | ActionNodeData
+  | SetVariableNodeData
   | ScriptNodeData
   | HttpNodeData
   | WebhookNodeData
@@ -360,10 +367,19 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
   action: {
     type: 'action',
     label: 'Действие',
-    description: 'Выполнить действие (переменные, задержки, удаление сообщений)',
+    description: 'Выполнить служебное действие (задержки, удаление сообщений, случайная ветка)',
     color: '#8B5CF6',
     icon: 'Zap',
     category: 'advanced',
+    editable: true,
+  },
+  setVariable: {
+    type: 'setVariable',
+    label: 'Установить переменную',
+    description: 'Присвоить значение переменной и продолжить сценарий',
+    color: '#10B981',
+    icon: 'Variable',
+    category: 'data',
     editable: true,
   },
   script: {
@@ -516,6 +532,10 @@ export const DEFAULT_NODE_DATA: Record<string, Partial<NodeData>> = {
   action: {
     action: { type: 'setVariable', variableName: '', value: '' },
     onError: 'continue',
+  },
+  setVariable: {
+    variableName: '',
+    value: '',
   },
   http: {
     url: '',
