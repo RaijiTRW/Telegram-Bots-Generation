@@ -15,6 +15,8 @@ export interface Database {
           email: string
           full_name: string | null
           avatar_url: string | null
+          dashboard_onboarding_seen: boolean
+          editor_onboarding_seen: boolean
           language: string | null
           role: 'user' | 'admin'
           created_at: string
@@ -25,6 +27,8 @@ export interface Database {
           email: string
           full_name?: string | null
           avatar_url?: string | null
+          dashboard_onboarding_seen?: boolean
+          editor_onboarding_seen?: boolean
           language?: string | null
           role?: 'user' | 'admin'
           created_at?: string
@@ -35,6 +39,8 @@ export interface Database {
           email?: string
           full_name?: string | null
           avatar_url?: string | null
+          dashboard_onboarding_seen?: boolean
+          editor_onboarding_seen?: boolean
           language?: string | null
           role?: 'user' | 'admin'
           created_at?: string

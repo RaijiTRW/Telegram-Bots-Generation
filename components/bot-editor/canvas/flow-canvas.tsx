@@ -32,6 +32,7 @@ import { edgeTypes, CANVAS_EDGE_STYLE, CANVAS_EDGE_TYPE } from './edge-types'
 import {
   Workflow,
   Play,
+  Square,
   Zap,
   Trash2,
   Lock,
@@ -2421,7 +2422,7 @@ function FlowCanvasInner({
                   disabled={isTestButtonDisabled}
                   onClick={() => onStopTest?.(nodes, edges)}
                 >
-                  <Play className="w-4 h-4" />
+                  <Square className="w-4 h-4 fill-current" />
                   {t('stop')}
                 </Button>
               ) : (

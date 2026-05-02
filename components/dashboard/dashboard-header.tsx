@@ -100,7 +100,10 @@ export function DashboardHeader() {
     .slice(0, 2)
 
   return (
-    <header className="h-16 shrink-0 px-6 flex items-center justify-between sticky top-0 z-50">
+    <header
+      data-tour="dashboard-header"
+      className="h-16 shrink-0 px-6 flex items-center justify-between sticky top-0 z-50"
+    >
       {/* Glassmorphism background */}
       <div className="absolute inset-0 bg-zinc-950/70 backdrop-blur-xl border-b border-white/10" />
       

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { useBotActivityFavicon } from './use-bot-activity-favicon'
 import { EditorSectionViewport } from './editor-section-viewport'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
+import { EditorOnboardingTour } from '@/components/onboarding/editor-onboarding-tour'
 import { HELP_GUIDE_KEYS } from '@/lib/bot-editor/help/help-guide-keys'
 import {
   saveCanvasAction,
@@ -488,7 +489,10 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
   return (
     <div className="flex flex-col h-screen">
       {/* Top Header */}
-      <header className="relative z-[80] h-16 shrink-0 overflow-visible border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-between px-6">
+      <header
+        data-tour="editor-header"
+        className="relative z-[80] h-16 shrink-0 overflow-visible border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-between px-6"
+      >
         <div className="flex items-center gap-4">
           <button
             onClick={handleBack}
@@ -601,6 +605,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
             </div>
           )}
           <Button
+            data-tour="editor-save"
             variant="outline"
             size="sm"
             className="gap-2"
@@ -611,6 +616,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
             {isSaving ? t('saving') : t('save')}
           </Button>
           <Button
+            data-tour="editor-deploy"
             size="sm"
             className="gap-2 bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/80 hover:to-[#8B5CF6]/80"
             onClick={() => {
@@ -634,6 +640,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
       {/* Editor Content */}
       <div className="flex flex-1 overflow-hidden">
         <div
+          data-tour="editor-nav"
           className="relative shrink-0 h-full"
           style={{ width: `${sectionsPanelRenderWidth}px` }}
         >
@@ -669,7 +676,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden min-w-0">
+        <div data-tour="editor-workspace" className="flex-1 overflow-hidden min-w-0">
           <EditorSectionViewport
             activeSection={displayedSection}
             initialSection={initialSectionRef.current}
@@ -813,6 +820,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
           </div>
         </div>
       )}
+      <EditorOnboardingTour botId={botId} />
     </div>
   )
 }

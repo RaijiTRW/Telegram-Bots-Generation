@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { DashboardNav } from '@/components/dashboard/dashboard-nav'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
+import { DashboardOnboardingTour } from '@/components/onboarding/dashboard-onboarding-tour'
 import { DashboardSectionViewport, type DashboardSection } from './dashboard-section-viewport'
 import type { ViewerAccess } from '@/lib/billing/types'
 import type { AppAccessControls } from '@/lib/admin-access/config'
@@ -82,7 +83,10 @@ export function DashboardShell({ viewerAccess, accessControls, children }: Dashb
       />
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         <DashboardHeader />
-        <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">
+        <main
+          data-tour="dashboard-content"
+          className="flex-1 min-h-0 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6"
+        >
           {isDocsRoute ? (
             children
           ) : (
@@ -95,6 +99,7 @@ export function DashboardShell({ viewerAccess, accessControls, children }: Dashb
           )}
         </main>
       </div>
+      <DashboardOnboardingTour />
     </div>
   )
 }

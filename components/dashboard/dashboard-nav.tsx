@@ -456,7 +456,10 @@ export function DashboardNav({
 
   return (
     <>
-      <aside className="hidden w-64 h-screen overflow-hidden p-4 lg:flex flex-col relative">
+      <aside
+        data-tour="dashboard-nav"
+        className="hidden w-64 h-screen overflow-hidden p-4 lg:flex flex-col relative"
+      >
         {/* Glassmorphism background */}
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 to-zinc-900/60 backdrop-blur-xl border-r border-white/10" />
 
