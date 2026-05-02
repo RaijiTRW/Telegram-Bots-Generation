@@ -6,10 +6,6 @@ const prefetchedHrefs = new Set<string>()
 const scheduledHrefs = new Set<string>()
 
 export function prefetchHrefOnce(router: RouterPrefetcher, href: string) {
-  if (process.env.NODE_ENV !== 'production') {
-    return
-  }
-
   if (!href || prefetchedHrefs.has(href)) {
     return
   }
@@ -19,10 +15,6 @@ export function prefetchHrefOnce(router: RouterPrefetcher, href: string) {
 }
 
 export function schedulePrefetchHref(router: RouterPrefetcher, href: string, timeoutMs = 200) {
-  if (process.env.NODE_ENV !== 'production') {
-    return
-  }
-
   const browserWindow = typeof window === 'undefined' ? null : window
 
   if (

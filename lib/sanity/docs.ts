@@ -1,4 +1,5 @@
 import { groq } from 'next-sanity'
+import { unstable_cache } from 'next/cache'
 
 import type { DocsBlock, DocsLocale, DocsPageNode, DocsRevision } from '@/lib/docs-cms/types'
 import { hasSanityEnv } from '@/lib/sanity/config'
@@ -58,6 +59,8 @@ export type SanityDocsDataset = {
   pageIdByPath: Record<string, string>
   redirectPageIdByPath: Record<string, string>
 }
+
+export const PUBLISHED_SANITY_DOCS_CACHE_TAG = 'published-sanity-docs'
 
 const DOCS_PAGES_QUERY = groq`*[_type == "docsPage" && locale == $locale] | order(sortOrder asc, title asc) {
   _id,
@@ -314,14 +317,14 @@ function buildTree(records: NormalizedDocsPageRecord[]): DocsPageNode[] {
   return roots
 }
 
-export async function getPublishedSanityDocsDataset(locale: DocsLocale): Promise<SanityDocsDataset | null> {
+async function fetchPublishedSanityDocsDataset(locale: DocsLocale): Promise<SanityDocsDataset | null> {
   if (!hasSanityEnv()) {
     return null
   }
 
   const client = getSanityReadClient({
     perspective: 'published',
-    useCdn: false,
+    useCdn: true,
   })
 
   const rawRecords = await client.fetch<SanityDocsPageRecord[]>(DOCS_PAGES_QUERY, { locale })
@@ -411,6 +414,19 @@ export async function getPublishedSanityDocsDataset(locale: DocsLocale): Promise
     pageIdByPath,
     redirectPageIdByPath,
   }
+}
+
+const getCachedPublishedSanityDocsDataset = unstable_cache(
+  fetchPublishedSanityDocsDataset,
+  ['published-sanity-docs-dataset'],
+  {
+    revalidate: 300,
+    tags: [PUBLISHED_SANITY_DOCS_CACHE_TAG],
+  }
+)
+
+export async function getPublishedSanityDocsDataset(locale: DocsLocale): Promise<SanityDocsDataset | null> {
+  return getCachedPublishedSanityDocsDataset(locale)
 }
 
 export function resolvePublishedSanityDocsPage(

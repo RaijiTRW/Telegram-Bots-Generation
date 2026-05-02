@@ -91,11 +91,20 @@ export class BotService {
    * Get bot by ID with config
    */
   async getBot(botId: string): Promise<BotWithConfig | null> {
-    const { data: botData, error: botError } = await this.supabase
-      .from(BOTS_TABLE)
-      .select('*')
-      .eq('id', botId)
-      .single()
+    const [botResult, configResult] = await Promise.all([
+      this.supabase
+        .from(BOTS_TABLE)
+        .select('*')
+        .eq('id', botId)
+        .single(),
+      this.supabase
+        .from(BOT_CONFIGS_TABLE)
+        .select('*')
+        .eq('bot_id', botId)
+        .single(),
+    ])
+
+    const { data: botData, error: botError } = botResult
 
     if (botError) {
       console.error('Error fetching bot:', botError)
@@ -103,13 +112,7 @@ export class BotService {
     }
 
     const bot = this.mapBotFromDb(botData)
-
-    // Get config
-    const { data: configData, error: configError } = await this.supabase
-      .from(BOT_CONFIGS_TABLE)
-      .select('*')
-      .eq('bot_id', botId)
-      .single()
+    const { data: configData, error: configError } = configResult
 
     if (configError) {
       // Return bot with empty config

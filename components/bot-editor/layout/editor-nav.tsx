@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import type { EditorSection as EditorSectionType } from '@/lib/bot-editor/types/bot.types'
 import type { ViewerAccess } from '@/lib/billing/types'
 import { preloadEditorSection } from './editor-section-viewport'
-import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
+import { prefetchHrefOnce, schedulePrefetchHref } from '@/lib/navigation/prefetch'
 import { AiSectionIcon } from '@/components/bot-editor/chat/ai-section-icon'
 
 export type EditorSection = EditorSectionType
@@ -138,9 +138,10 @@ export function EditorNav({
       if (item.disabled) {
         continue
       }
+      schedulePrefetchHref(router, sectionHrefs[item.id], item.id === activeSection ? 180 : 420)
       void preloadEditorSection(item.id)
     }
-  }, [navItems])
+  }, [activeSection, navItems, router, sectionHrefs])
 
   const prefetchSection = (section: EditorSection) => {
     prefetchHrefOnce(router, sectionHrefs[section])

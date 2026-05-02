@@ -19,13 +19,6 @@ import {
   getHomeMetadata,
 } from '@/lib/site/seo';
 
-const Engine = dynamic(
-  () => import('@/components/engine/engine').then((module) => module.Engine),
-  {
-    loading: () => <SectionPlaceholder />,
-  }
-);
-
 const VisualControl = dynamic(
   () => import('@/components/visual-control/visual-control').then((module) => module.VisualControl),
   {
@@ -123,13 +116,6 @@ export default async function HomePage({
           rootMargin="1600px 0px"
         >
           <BusinessAdvantage />
-        </DeferredSection>
-        <DeferredSection
-          className="content-visibility-auto"
-          placeholder={<SectionPlaceholder heightClass="h-[760px] md:h-[820px]" />}
-          rootMargin="1600px 0px"
-        >
-          <Engine />
         </DeferredSection>
         <DeferredSection
           className="content-visibility-auto"

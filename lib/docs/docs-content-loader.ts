@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { unstable_cache } from 'next/cache'
 
 import { getDocsContent, type DocsContent } from './docs-content'
 
@@ -126,7 +127,7 @@ function setOverride(content: DocsContent, key: string, value: OverrideValue): v
   }
 }
 
-export async function getDocsContentWithMarkdown(locale: string): Promise<DocsContent> {
+async function loadDocsContentWithMarkdown(locale: string): Promise<DocsContent> {
   const content = structuredClone(getDocsContent(locale))
   const safeLocale = locale === 'en' ? 'en' : 'ru'
   const filePath = path.join(process.cwd(), 'content', 'docs', safeLocale, 'docs-overrides.md')
@@ -144,5 +145,14 @@ export async function getDocsContentWithMarkdown(locale: string): Promise<DocsCo
 
   return content
 }
+
+export const getDocsContentWithMarkdown = unstable_cache(
+  loadDocsContentWithMarkdown,
+  ['docs-content-with-markdown'],
+  {
+    revalidate: 300,
+    tags: ['docs-content-with-markdown'],
+  }
+)
 
 export { parseMarkdownOverrides }

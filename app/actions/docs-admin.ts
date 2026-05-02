@@ -2,9 +2,11 @@
 
 import { randomUUID } from 'node:crypto'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 
 import { validateDocsBlocksByMode } from '@/lib/docs-cms/blocks'
+import { PUBLISHED_SANITY_DOCS_CACHE_TAG } from '@/lib/sanity/docs'
+import { PUBLISHED_SANITY_HELP_GUIDES_CACHE_TAG } from '@/lib/sanity/help-guides'
 import type { DocsBlock, DocsEditorPayload, DocsLocale, DocsPageNode, DocsSeo } from '@/lib/docs-cms/types'
 import { isDocsLocale } from '@/lib/docs-cms/types'
 import {
@@ -81,6 +83,9 @@ function errorResult<T>(error: unknown): ActionResult<T> {
 function revalidateDocsPaths(locale: DocsLocale) {
   revalidatePath(`/${locale}/docs`, 'layout')
   revalidatePath(`/${locale}/dashboard/docs`, 'layout')
+  revalidateTag(PUBLISHED_SANITY_DOCS_CACHE_TAG, 'max')
+  revalidateTag(PUBLISHED_SANITY_HELP_GUIDES_CACHE_TAG, 'max')
+  revalidateTag('docs-content-with-markdown', 'max')
 }
 
 export async function getDocsTreeAction(locale: string): Promise<ActionResult<DocsPageNode[]>> {

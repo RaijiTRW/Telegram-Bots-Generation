@@ -1,4 +1,5 @@
 import { groq } from 'next-sanity'
+import { unstable_cache } from 'next/cache'
 
 import type { HelpGuideMap, HelpGuideLocale } from '@/lib/bot-editor/help/help-guide-types'
 import { hasSanityEnv } from '@/lib/sanity/config'
@@ -22,6 +23,8 @@ const HELP_GUIDES_QUERY = groq`*[_type == "helpGuide" && locale == $locale] | or
   "notes": coalesce(notes, [])
 }`
 
+export const PUBLISHED_SANITY_HELP_GUIDES_CACHE_TAG = 'published-sanity-help-guides'
+
 function normalizeText(value: unknown) {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
@@ -38,12 +41,15 @@ function normalizeList(value: unknown) {
   return next.length > 0 ? next : undefined
 }
 
-export async function getPublishedSanityHelpGuideMap(locale: HelpGuideLocale): Promise<HelpGuideMap> {
+async function fetchPublishedSanityHelpGuideMap(locale: HelpGuideLocale): Promise<HelpGuideMap> {
   if (!hasSanityEnv()) {
     return {}
   }
 
-  const sanity = getSanityReadClient()
+  const sanity = getSanityReadClient({
+    perspective: 'published',
+    useCdn: true,
+  })
   const rows = await sanity.fetch<SanityHelpGuideRecord[]>(HELP_GUIDES_QUERY, { locale })
 
   return (rows || []).reduce<HelpGuideMap>((accumulator, row) => {
@@ -62,4 +68,17 @@ export async function getPublishedSanityHelpGuideMap(locale: HelpGuideLocale): P
 
     return accumulator
   }, {})
+}
+
+const getCachedPublishedSanityHelpGuideMap = unstable_cache(
+  fetchPublishedSanityHelpGuideMap,
+  ['published-sanity-help-guides'],
+  {
+    revalidate: 300,
+    tags: [PUBLISHED_SANITY_HELP_GUIDES_CACHE_TAG],
+  }
+)
+
+export async function getPublishedSanityHelpGuideMap(locale: HelpGuideLocale): Promise<HelpGuideMap> {
+  return getCachedPublishedSanityHelpGuideMap(locale)
 }

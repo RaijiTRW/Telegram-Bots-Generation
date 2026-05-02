@@ -24,11 +24,11 @@ interface EditorSectionViewportProps {
 
 const EDITOR_SECTION_ORDER: EditorSection[] = [
   'ai-chat',
-  'ai-agents',
   'canvas',
   'system',
-  'statistics',
   'settings',
+  'statistics',
+  'ai-agents',
 ]
 
 const EDITOR_SECTION_LABELS: Record<EditorSection, string> = {
@@ -145,30 +145,50 @@ export function EditorSectionViewport({
       return
     }
 
-    const preloadRemainingSections = () => {
-      for (const section of EDITOR_SECTION_ORDER) {
+    let cancelled = false
+    const preloadRemainingSections = async () => {
+      for (const [index, section] of EDITOR_SECTION_ORDER.entries()) {
+        if (cancelled) {
+          return
+        }
+
         if (section === initialSection) {
           continue
         }
-        void loadSection(section)
+
+        if (index > 0) {
+          await new Promise((resolve) => {
+            globalThis.setTimeout(resolve, 160)
+          })
+        }
+
+        if (cancelled) {
+          return
+        }
+
+        await loadSection(section)
       }
     }
 
     if ('requestIdleCallback' in window) {
       const idleCallbackId = window.requestIdleCallback(() => {
-        preloadRemainingSections()
+        void preloadRemainingSections()
+      }, {
+        timeout: 420,
       })
 
       return () => {
+        cancelled = true
         window.cancelIdleCallback(idleCallbackId)
       }
     }
 
     const timeoutId = globalThis.setTimeout(() => {
-      preloadRemainingSections()
+      void preloadRemainingSections()
     }, 250)
 
     return () => {
+      cancelled = true
       globalThis.clearTimeout(timeoutId)
     }
   }, [initialSection, loadSection])

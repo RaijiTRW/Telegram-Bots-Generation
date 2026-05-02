@@ -24,12 +24,25 @@ export default async function BotEditorLayout({
 
   const supabase = await createServerClientWrapper()
   const botService = createBotService(supabase)
-  const bot = await botService.getBot(botId)
+  const botPromise = botService.getBot(botId)
+  const viewerAccessPromise = getViewerAccess(user.id)
+  const profilePromise = supabase
+    .from('profiles')
+    .select('full_name, avatar_url')
+    .eq('id', user.id)
+    .maybeSingle()
+  const helpGuideLocale: HelpGuideLocale = locale === 'en' ? 'en' : 'ru'
+  const helpGuidesPromise = getPublishedSanityHelpGuideMap(helpGuideLocale)
+  const [bot, viewerAccess, profileResult, helpGuides] = await Promise.all([
+    botPromise,
+    viewerAccessPromise,
+    profilePromise,
+    helpGuidesPromise,
+  ])
 
   if (!bot) {
     redirect(`/${locale}/dashboard/bots`)
   }
-  const viewerAccess = await getViewerAccess(user.id)
   const userMetadata =
     user.user_metadata && typeof user.user_metadata === 'object'
       ? (user.user_metadata as Record<string, unknown>)
@@ -42,13 +55,7 @@ export default async function BotEditorLayout({
     typeof userMetadata.avatar_url === 'string' && userMetadata.avatar_url.trim()
       ? userMetadata.avatar_url.trim()
       : null
-  const { data: profileRow } = await supabase
-    .from('profiles')
-    .select('full_name, avatar_url')
-    .eq('id', user.id)
-    .maybeSingle()
-  const helpGuideLocale: HelpGuideLocale = locale === 'en' ? 'en' : 'ru'
-  const helpGuides = await getPublishedSanityHelpGuideMap(helpGuideLocale)
+  const profileRow = profileResult.data
   const initialViewerProfile = {
     fullName:
       typeof profileRow?.full_name === 'string' && profileRow.full_name.trim()

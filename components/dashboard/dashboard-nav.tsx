@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { motion } from '@/components/motion-wrapper'
 import type { ViewerAccess } from '@/lib/billing/types'
-import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
+import { prefetchHrefOnce, schedulePrefetchHref } from '@/lib/navigation/prefetch'
 import { preloadDashboardSection, type DashboardSection } from '@/components/dashboard/layout/dashboard-section-viewport'
 import {
   type AppAccessControls,
@@ -213,11 +213,16 @@ export function DashboardNav({
 
   useEffect(() => {
     for (const item of navItems) {
+      if (!item.disabled) {
+        const fullPath = item.localeAgnostic ? item.href : `/${locale}${item.href}`
+        schedulePrefetchHref(router, fullPath, item.section ? 240 : 520)
+      }
+
       if (item.section) {
         void preloadDashboardSection(item.section)
       }
     }
-  }, [navItems])
+  }, [locale, navItems, router])
 
   useEffect(() => {
     setMobileMenuOpen(false)
