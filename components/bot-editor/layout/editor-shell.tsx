@@ -11,6 +11,7 @@ import { useBotActivityFavicon } from './use-bot-activity-favicon'
 import { EditorSectionViewport } from './editor-section-viewport'
 import { HelpGuideButton } from '@/components/bot-editor/help/help-guide-button'
 import { EditorOnboardingTour } from '@/components/onboarding/editor-onboarding-tour'
+import { VersionUpdateToast } from '@/components/system/version-update-toast'
 import { HELP_GUIDE_KEYS } from '@/lib/bot-editor/help/help-guide-keys'
 import {
   saveCanvasAction,
@@ -821,6 +822,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
         </div>
       )}
       <EditorOnboardingTour botId={botId} />
+      <VersionUpdateToast />
     </div>
   )
 }

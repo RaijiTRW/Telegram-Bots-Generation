@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { DashboardNav } from '@/components/dashboard/dashboard-nav'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { DashboardOnboardingTour } from '@/components/onboarding/dashboard-onboarding-tour'
+import { VersionUpdateToast } from '@/components/system/version-update-toast'
 import { DashboardSectionViewport, type DashboardSection } from './dashboard-section-viewport'
 import type { ViewerAccess } from '@/lib/billing/types'
 import type { AppAccessControls } from '@/lib/admin-access/config'
@@ -100,6 +101,7 @@ export function DashboardShell({ viewerAccess, accessControls, children }: Dashb
         </main>
       </div>
       <DashboardOnboardingTour />
+      <VersionUpdateToast />
     </div>
   )
 }
