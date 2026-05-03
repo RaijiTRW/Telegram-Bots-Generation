@@ -20,6 +20,7 @@ interface SelectTriggerProps {
 
 interface SelectValueProps {
   placeholder?: string
+  children?: React.ReactNode
 }
 
 interface SelectContentProps {
@@ -60,29 +61,6 @@ const SelectContext = React.createContext<{
   registerItem: () => {},
 })
 
-function collectSelectLabels(children: React.ReactNode): Record<string, React.ReactNode> {
-  const labels: Record<string, React.ReactNode> = {}
-
-  React.Children.forEach(children, (child) => {
-    if (!React.isValidElement(child)) return
-
-    const props = child.props as {
-      value?: unknown
-      children?: React.ReactNode
-    }
-
-    if (child.type === SelectItem && typeof props.value === 'string') {
-      labels[props.value] = props.children
-    }
-
-    if (props.children) {
-      Object.assign(labels, collectSelectLabels(props.children))
-    }
-  })
-
-  return labels
-}
-
 const Select = ({ value: controlledValue, onValueChange, defaultValue, children }: SelectProps) => {
   const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue || '')
   const [open, setOpen] = React.useState(false)
@@ -90,11 +68,6 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children 
   const triggerRef = React.useRef<HTMLDivElement | null>(null)
   const contentRef = React.useRef<HTMLDivElement | null>(null)
   const currentValue = controlledValue !== undefined ? controlledValue : uncontrolledValue
-  const staticLabels = React.useMemo(() => collectSelectLabels(children), [children])
-  const resolvedLabels = React.useMemo(
-    () => ({ ...staticLabels, ...labels }),
-    [labels, staticLabels]
-  )
 
   const registerItem = React.useCallback((itemValue: string, label: React.ReactNode) => {
     setLabels((current) => {
@@ -149,7 +122,7 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children 
       setOpen,
       triggerRef,
       contentRef,
-      labels: resolvedLabels,
+      labels,
       registerItem,
     }}>
       <div className="relative w-full">
@@ -179,9 +152,9 @@ const SelectTrigger = ({ children, className }: SelectTriggerProps) => {
   )
 }
 
-const SelectValue = ({ placeholder }: SelectValueProps) => {
+const SelectValue = ({ placeholder, children }: SelectValueProps) => {
   const { value, labels } = React.useContext(SelectContext)
-  const selectedLabel = value ? labels[value] : null
+  const selectedLabel = children ?? (value ? labels[value] : null)
 
   return (
     <span className={cn(!value && "text-zinc-500")}>
