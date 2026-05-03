@@ -228,13 +228,15 @@ export function PaymentStatsPanel() {
 
           <div className="flex items-center justify-end">
             <Button
-              variant="outline"
-              className="border-white/10 text-zinc-300"
+              variant="ghost"
+              size="icon"
+              className="text-zinc-300 hover:bg-transparent hover:text-white"
               onClick={() => void loadHistory()}
               disabled={isLoading}
+              aria-label={t('refresh')}
+              title={t('refresh')}
             >
-              <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              {t('refresh')}
+              <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </CardContent>

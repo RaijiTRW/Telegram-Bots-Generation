@@ -818,7 +818,7 @@ export default function DashboardStatisticsPage() {
           <h1 className="text-3xl font-bold text-white">{t('title')}</h1>
           <p className="mt-1 text-zinc-400">{t('subtitle')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-[140px_180px_36px] sm:items-center">
           <Select value={period} onValueChange={(value) => setPeriod(value as DashboardGlobalStatsPeriod)}>
             <SelectTrigger className="w-[140px] border-white/10 bg-zinc-900/60 text-white">
               <SelectValue placeholder={t('filters.period')} />
@@ -842,9 +842,16 @@ export default function DashboardStatisticsPage() {
             </SelectContent>
           </Select>
 
-          <Button variant="outline" className="border-white/10 text-zinc-300" onClick={() => void loadAll()} disabled={isLoading}>
-            <RefreshCcw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            {t('refresh')}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-zinc-300 hover:bg-transparent hover:text-white"
+            onClick={() => void loadAll()}
+            disabled={isLoading}
+            aria-label={t('refresh')}
+            title={t('refresh')}
+          >
+            <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </header>

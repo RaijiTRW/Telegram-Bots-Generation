@@ -244,7 +244,7 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           business: { kind: 'excluded' },
           enterprise: { kind: 'included' },
         }),
-        featureRow('crm', locale, { ru: 'CRM по лидам и диалогам', en: 'CRM for leads and dialogs' }, {
+        featureRow('crm', locale, { ru: 'CRM', en: 'CRM' }, {
           base: { kind: 'excluded' },
           business: { kind: 'included' },
           enterprise: { kind: 'included' },

@@ -2,7 +2,6 @@
 
 import type { ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Bot as BotIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { Bot, BotStatus } from '@/lib/bot-editor/types/bot.types'
 
@@ -52,19 +51,17 @@ export function BotProjectCard({
       <div className="absolute inset-0 bg-gradient-to-br from-[#24A1DE]/5 to-[#8B5CF6]/5 opacity-0 transition-opacity group-hover:opacity-100" />
 
       <CardContent className="relative p-5">
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="rounded-xl border border-[#24A1DE]/30 bg-gradient-to-br from-[#24A1DE]/20 to-[#8B5CF6]/20 p-2.5">
-            <BotIcon className="h-5 w-5 text-[#24A1DE]" />
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="min-w-0 pt-1">
+            <h3 className="mb-1 line-clamp-1 text-lg font-semibold text-white">
+              {bot.name}
+            </h3>
+            <p className="line-clamp-2 text-sm text-zinc-400">
+              {bot.description || t('noDescription')}
+            </p>
           </div>
           {trailing ? <div className="relative shrink-0">{trailing}</div> : null}
         </div>
-
-        <h3 className="mb-1 line-clamp-1 text-lg font-semibold text-white">
-          {bot.name}
-        </h3>
-        <p className="mb-4 min-h-[40px] line-clamp-2 text-sm text-zinc-400">
-          {bot.description || t('noDescription')}
-        </p>
 
         <div className="flex items-center justify-between gap-3">
           <span className={`rounded-full border px-2 py-1 text-xs ${getStatusColor(bot.status)}`}>

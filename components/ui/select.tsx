@@ -60,6 +60,32 @@ const SelectContext = React.createContext<{
   registerItem: () => {},
 })
 
+function extractSelectLabels(children: React.ReactNode): Record<string, React.ReactNode> {
+  const nextLabels: Record<string, React.ReactNode> = {}
+
+  const visit = (node: React.ReactNode) => {
+    React.Children.forEach(node, (child) => {
+      if (!React.isValidElement(child)) return
+
+      const props = child.props as {
+        value?: unknown
+        children?: React.ReactNode
+      }
+
+      if (typeof props.value === 'string' && props.children !== undefined) {
+        nextLabels[props.value] = props.children
+      }
+
+      if (props.children) {
+        visit(props.children)
+      }
+    })
+  }
+
+  visit(children)
+  return nextLabels
+}
+
 const Select = ({ value: controlledValue, onValueChange, defaultValue, children }: SelectProps) => {
   const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue || '')
   const [open, setOpen] = React.useState(false)
@@ -67,6 +93,11 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children 
   const triggerRef = React.useRef<HTMLDivElement | null>(null)
   const contentRef = React.useRef<HTMLDivElement | null>(null)
   const currentValue = controlledValue !== undefined ? controlledValue : uncontrolledValue
+  const staticLabels = React.useMemo(() => extractSelectLabels(children), [children])
+  const resolvedLabels = React.useMemo(
+    () => ({ ...staticLabels, ...labels }),
+    [labels, staticLabels]
+  )
 
   const registerItem = React.useCallback((itemValue: string, label: React.ReactNode) => {
     setLabels((current) => {
@@ -121,7 +152,7 @@ const Select = ({ value: controlledValue, onValueChange, defaultValue, children 
       setOpen,
       triggerRef,
       contentRef,
-      labels,
+      labels: resolvedLabels,
       registerItem,
     }}>
       <div className="relative w-full">

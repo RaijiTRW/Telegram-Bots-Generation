@@ -9,6 +9,7 @@ import type {
   PlanEntitlements,
   PendingSubscriptionTransaction,
   PlanStatus,
+  SubscriptionEndedNotice,
   SubscriptionTransactionKind,
   SubscriptionUsage,
   UserRole,
@@ -45,6 +46,10 @@ function normalizeBillingInterval(value: unknown): BillingInterval {
 
 function normalizeRole(value: unknown): UserRole {
   return value === 'admin' ? 'admin' : 'user'
+}
+
+function normalizePlanCode(value: unknown): PlanCode {
+  return value === 'business' || value === 'enterprise' ? value : 'base'
 }
 
 function isUsdBillingEnabled() {
@@ -93,6 +98,66 @@ function resolveDerivedStatus(row: UserSubscriptionRow | null): PlanStatus {
   return storedStatus
 }
 
+async function reconcileSubscriptionPeriodState(row: UserSubscriptionRow | null): Promise<UserSubscriptionRow | null> {
+  if (!row || row.plan_code === 'base') return row
+
+  const storedStatus = row.status as PlanStatus
+  const periodEnd = row.current_period_end ? Date.parse(row.current_period_end) : NaN
+  if (!Number.isFinite(periodEnd) || Date.now() < periodEnd) return row
+  if (storedStatus === 'incomplete') return row
+
+  const admin = createAdminClient()
+  const syncedAt = nowIso()
+  const expiresBecauseRenewalDisabled =
+    row.cancel_at_period_end ||
+    storedStatus === 'canceled' ||
+    storedStatus === 'expired'
+  const noticeReason = expiresBecauseRenewalDisabled ? 'expired' : 'past_due'
+  const update = {
+    plan_code: 'base' as const,
+    status: 'active' as const,
+    currency: 'RUB' as const,
+    billing_interval: 'month' as const,
+    billing_provider: 'yookassa' as const,
+    price_amount: 0,
+    current_period_start: null,
+    current_period_end: null,
+    cancel_at_period_end: false,
+    canceled_at: expiresBecauseRenewalDisabled ? row.canceled_at || syncedAt : null,
+    past_due_at: expiresBecauseRenewalDisabled ? null : row.past_due_at || syncedAt,
+    provider_payment_method_id: null,
+    provider_last_payment_id: row.provider_last_payment_id,
+    provider_metadata: mergeJson(row.provider_metadata, {
+      lastPeriodStateSyncAt: syncedAt,
+      lastPeriodStateReason: expiresBecauseRenewalDisabled
+        ? 'period_ended_after_renewal_disabled'
+        : 'period_ended_without_successful_renewal',
+      lastPaidPlanCode: row.plan_code,
+      subscriptionEndedNotice: {
+        planCode: row.plan_code,
+        reason: noticeReason,
+        periodEnd: row.current_period_end,
+        endedAt: syncedAt,
+        noticeKey: `${row.plan_code}:${noticeReason}:${row.current_period_end || syncedAt}`,
+      },
+    }),
+    updated_at: syncedAt,
+  }
+
+  const result = await admin
+    .from('user_subscriptions')
+    .update(update)
+    .eq('user_id', row.user_id)
+    .select('*')
+    .single()
+
+  if (result.error || !result.data) {
+    throw new Error(`Failed to reconcile expired subscription: ${result.error?.message || 'unknown error'}`)
+  }
+
+  return result.data
+}
+
 function resolveEffectivePlanCode(row: UserSubscriptionRow | null, derivedStatus: PlanStatus): PlanCode {
   if (!row) return 'base'
   return ACTIVE_STATUSES.has(derivedStatus) ? row.plan_code : 'base'
@@ -135,6 +200,33 @@ function buildPendingTransaction(row: SubscriptionTransactionRow | null): Pendin
   }
 }
 
+function buildEndedNotice(row: UserSubscriptionRow | null): SubscriptionEndedNotice | null {
+  const metadata = row?.provider_metadata && typeof row.provider_metadata === 'object' && !Array.isArray(row.provider_metadata)
+    ? (row.provider_metadata as Record<string, unknown>)
+    : null
+  const rawNotice = metadata?.subscriptionEndedNotice
+  const notice = rawNotice && typeof rawNotice === 'object' && !Array.isArray(rawNotice)
+    ? (rawNotice as Record<string, unknown>)
+    : null
+  if (!notice) return null
+
+  const planCode = normalizePlanCode(notice.planCode)
+  if (planCode === 'base') return null
+
+  const reason = notice.reason === 'past_due' ? 'past_due' : 'expired'
+  const endedAt = String(notice.endedAt || row?.updated_at || nowIso())
+  const periodEnd = notice.periodEnd ? String(notice.periodEnd) : null
+  const noticeKey = String(notice.noticeKey || `${planCode}:${reason}:${periodEnd || endedAt}`)
+
+  return {
+    planCode,
+    reason,
+    periodEnd,
+    endedAt,
+    noticeKey,
+  }
+}
+
 export function buildFallbackViewerAccess(): ViewerAccess {
   const currency: BillingCurrency = 'RUB'
   const billingInterval: BillingInterval = 'month'
@@ -166,6 +258,7 @@ export function buildFallbackViewerAccess(): ViewerAccess {
     softLocked: false,
     usageExceeded: false,
     restrictions: [],
+    endedNotice: null,
     availableCurrencies,
     pendingTransaction: null,
   }
@@ -297,6 +390,14 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
     return buildFallbackViewerAccess()
   }
 
+  try {
+    subscriptionRow = await reconcileSubscriptionPeriodState(subscriptionRow)
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'development') {
+      console.error('Failed to reconcile subscription period state:', error)
+    }
+  }
+
   const isAdmin = role === 'admin'
   const derivedStatus = resolveDerivedStatus(subscriptionRow)
   const effectivePlanCode = isAdmin
@@ -340,6 +441,7 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
     softLocked,
     usageExceeded,
     restrictions,
+    endedNotice: buildEndedNotice(subscriptionRow),
     availableCurrencies,
     pendingTransaction: buildPendingTransaction(pendingTransaction),
   }

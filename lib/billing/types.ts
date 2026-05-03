@@ -89,6 +89,14 @@ export type PendingSubscriptionTransaction = {
   createdAt: string
 }
 
+export type SubscriptionEndedNotice = {
+  planCode: PlanCode
+  reason: 'expired' | 'past_due'
+  periodEnd: string | null
+  endedAt: string
+  noticeKey: string
+}
+
 export type SubscriptionSummary = {
   role: UserRole
   isAdmin: boolean
@@ -111,6 +119,7 @@ export type SubscriptionSummary = {
   softLocked: boolean
   usageExceeded: boolean
   restrictions: string[]
+  endedNotice: SubscriptionEndedNotice | null
   availableCurrencies: BillingCurrency[]
   pendingTransaction: PendingSubscriptionTransaction | null
 }

@@ -303,17 +303,19 @@ export function DashboardAdminPageClient() {
         </div>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
+          size="icon"
           onClick={() => void loadData(true)}
           disabled={isRefreshing}
-          className="border-white/10 text-zinc-200 hover:bg-white/5"
+          aria-label={t('refresh')}
+          title={t('refresh')}
+          className="text-zinc-200 hover:bg-transparent hover:text-white"
         >
           {isRefreshing ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-4 w-4" />
           )}
-          {t('refresh')}
         </Button>
       </div>
 

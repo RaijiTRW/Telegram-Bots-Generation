@@ -363,9 +363,16 @@ export default function DashboardCrmPage() {
           <h1 className="text-3xl font-bold text-white">{t('title')}</h1>
           <p className="text-zinc-400 mt-1">{t('subtitle')}</p>
         </div>
-        <Button variant="outline" className="border-white/10 text-zinc-300" onClick={() => void loadCrm()} disabled={isLoading}>
-          <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          {t('refresh')}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-zinc-300 hover:bg-transparent hover:text-white"
+          onClick={() => void loadCrm()}
+          disabled={isLoading}
+          aria-label={t('refresh')}
+          title={t('refresh')}
+        >
+          <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 

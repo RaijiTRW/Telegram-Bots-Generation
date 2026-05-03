@@ -126,8 +126,8 @@ function getRestrictionLabel(locale: string, restriction: string) {
         : 'Автосписание не прошло. Недоступные разделы мягко заблокированы до успешной оплаты.'
     case 'subscription_expired':
       return locale === 'en'
-        ? 'The paid period ended. Access has fallen back to Base rules.'
-        : 'Оплаченный период завершился. Доступ переведен на правила Base.'
+        ? 'The paid period ended. Paid features are paused until renewal.'
+        : 'Оплаченный период завершился. Платные возможности остановлены до продления.'
     case 'payment_incomplete':
       return locale === 'en'
         ? 'Subscription payment has not been completed yet.'
@@ -166,13 +166,29 @@ export function SubscriptionPageClient({
   const currentPlan = getPlanDefinition(subscription.planCode, locale)
   const effectivePlan = getPlanDefinition(subscription.effectivePlanCode, locale)
   const visiblePlan = subscription.isAdmin ? currentPlan : effectivePlan
+  const paidAccessPaused =
+    !subscription.isAdmin &&
+    subscription.planCode !== 'base' &&
+    (
+      subscription.status === 'past_due' ||
+      subscription.status === 'expired' ||
+      subscription.status === 'canceled' ||
+      subscription.restrictions.includes('payment_past_due') ||
+      subscription.restrictions.includes('subscription_expired')
+    )
+  const displayedPlan = paidAccessPaused ? effectivePlan : currentPlan
+  const displayedPlanCode = paidAccessPaused ? subscription.effectivePlanCode : subscription.planCode
+  const displayedStatus: PlanStatus = paidAccessPaused ? 'active' : subscription.status
+  const displayedBillingInterval: BillingInterval = paidAccessPaused ? 'month' : subscription.billingInterval
+  const displayedCurrency: BillingCurrency = paidAccessPaused ? 'RUB' : subscription.currency
+  const displayedPriceAmount = paidAccessPaused ? 0 : subscription.priceAmount
   const nextBillingDateLabel =
-    subscription.planCode === 'base' && !subscription.currentPeriodEnd
+    displayedPlanCode === 'base' && (paidAccessPaused || !subscription.currentPeriodEnd)
       ? '∞'
       : formatDate(locale, subscription.currentPeriodEnd)
   const canSwitchCurrency = localeCurrencies.length > 1
-  const statusMeta = getStatusMeta(locale, subscription.status)
-  const currentPlanPriceSuffix = getBillingIntervalSuffix(locale, subscription.billingInterval)
+  const statusMeta = getStatusMeta(locale, displayedStatus)
+  const currentPlanPriceSuffix = getBillingIntervalSuffix(locale, displayedBillingInterval)
 
   const refreshSubscription = () => {
     startTransition(async () => {
@@ -271,13 +287,15 @@ export function SubscriptionPageClient({
 
   const buildPlanAction = (planCode: PlanCode): PricingComparisonAction => {
     const isBasePlan = planCode === 'base'
+    const actionCurrentPlanCode = paidAccessPaused ? subscription.effectivePlanCode : subscription.planCode
+    const actionCurrentStatus: PlanStatus = paidAccessPaused ? 'active' : subscription.status
 
     if (!isRu && !isBasePlan) {
       return {
         label:
-          subscription.planCode === 'base'
+          actionCurrentPlanCode === 'base'
             ? `Choose ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
-            : subscription.planCode === planCode
+            : actionCurrentPlanCode === planCode
               ? `Switch ${getPlanDefinition(planCode, locale).name} to ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
               : `Switch to ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`,
         onClick: () => setPaymentSoonOpen(true),
@@ -288,9 +306,9 @@ export function SubscriptionPageClient({
     }
 
     const matchesCurrentPlan =
-      subscription.planCode === planCode &&
-      subscription.status === 'active' &&
-      !subscription.cancelAtPeriodEnd &&
+      actionCurrentPlanCode === planCode &&
+      actionCurrentStatus === 'active' &&
+      (!subscription.cancelAtPeriodEnd || paidAccessPaused) &&
       (isBasePlan || (subscription.billingInterval === billingInterval && subscription.currency === currency))
 
     if (
@@ -318,7 +336,7 @@ export function SubscriptionPageClient({
 
     if (
       !isBasePlan &&
-      subscription.planCode === planCode &&
+      actionCurrentPlanCode === planCode &&
       subscription.billingInterval === billingInterval &&
       subscription.currency === currency &&
       subscription.cancelAtPeriodEnd
@@ -344,11 +362,11 @@ export function SubscriptionPageClient({
 
     return {
       label:
-        subscription.planCode === 'base'
+        actionCurrentPlanCode === 'base'
           ? isRu
             ? `Выбрать ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
             : `Choose ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
-          : subscription.planCode === planCode
+          : actionCurrentPlanCode === planCode
             ? isRu
               ? `Переключить ${getPlanDefinition(planCode, locale).name} ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
               : `Switch ${getPlanDefinition(planCode, locale).name} to ${getBillingIntervalSwitchLabel(locale, billingInterval)}`
@@ -402,12 +420,15 @@ export function SubscriptionPageClient({
             : null}
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
+            size="icon"
             onClick={refreshSubscription}
             disabled={isPending}
+            aria-label={isRu ? 'Обновить' : 'Refresh'}
+            title={isRu ? 'Обновить' : 'Refresh'}
+            className="text-zinc-300 hover:bg-transparent hover:text-white"
           >
             <RefreshCcw className={cn('h-4 w-4', isPending ? 'animate-spin' : '')} />
-            {isRu ? 'Обновить' : 'Refresh'}
           </Button>
         </div>
       </header>
@@ -432,7 +453,7 @@ export function SubscriptionPageClient({
         </Card>
       ) : null}
 
-      {subscription.softLocked || subscription.restrictions.length ? (
+      {!paidAccessPaused && (subscription.softLocked || subscription.restrictions.length) ? (
         <Card className="border-amber-500/25 bg-amber-500/10">
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
@@ -466,7 +487,7 @@ export function SubscriptionPageClient({
               <span className={cn('rounded-full border px-2.5 py-1 text-xs font-medium uppercase tracking-wide', statusMeta.className)}>
                 {statusMeta.label}
               </span>
-              {subscription.cancelAtPeriodEnd ? (
+              {subscription.cancelAtPeriodEnd && !paidAccessPaused ? (
                 <span className="rounded-full border border-zinc-500/25 bg-zinc-500/10 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-zinc-300">
                   {isRu ? 'Продление отключено' : 'Renewal disabled'}
                 </span>
@@ -476,27 +497,27 @@ export function SubscriptionPageClient({
           <CardContent className="space-y-3 px-4 pb-4 pt-0 sm:space-y-4 sm:px-6 sm:pb-6">
             <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
               <div className="min-w-0">
-                <div className="text-2xl font-bold text-white sm:text-3xl">{currentPlan.name}</div>
+                <div className="text-2xl font-bold text-white sm:text-3xl">{displayedPlan.name}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 sm:px-4 sm:py-3 lg:min-w-[260px] lg:text-right">
                 <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">
-                  {getBillingIntervalLabel(locale, subscription.billingInterval)}
+                  {getBillingIntervalLabel(locale, displayedBillingInterval)}
                 </div>
                 <div className="mt-1 text-xl font-semibold text-white sm:text-2xl">
-                  {formatAmount(locale, subscription.priceAmount, subscription.currency)}
+                  {formatAmount(locale, displayedPriceAmount, displayedCurrency)}
                   <span className="ml-2 text-sm font-medium text-zinc-400">{currentPlanPriceSuffix}</span>
                 </div>
-                {subscription.billingInterval === 'year' && subscription.priceAmount > 0 ? (
+                {displayedBillingInterval === 'year' && displayedPriceAmount > 0 ? (
                   <div className="mt-1 text-xs text-zinc-400">
                     {isRu ? 'Эквивалент' : 'Equivalent'}{' '}
-                    <span className="text-white">{formatAmount(locale, subscription.priceAmount / 12, subscription.currency)}</span>
+                    <span className="text-white">{formatAmount(locale, displayedPriceAmount / 12, displayedCurrency)}</span>
                     {isRu ? ' / мес' : ' / month'}
                   </div>
                 ) : null}
               </div>
             </div>
 
-            <div className={cn('grid grid-cols-2 gap-2', subscription.planCode !== 'base' ? 'sm:grid-cols-2 md:grid-cols-4' : 'sm:grid-cols-3')}>
+            <div className={cn('grid grid-cols-2 gap-2', displayedPlanCode !== 'base' ? 'sm:grid-cols-2 md:grid-cols-4' : 'sm:grid-cols-3')}>
               <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
                 <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                   {isRu ? 'Следующая дата' : 'Next billing date'}
@@ -521,7 +542,7 @@ export function SubscriptionPageClient({
                   {subscription.usage.hostedBots} / {visiblePlan.entitlements.maxHostedBots}
                 </div>
               </div>
-              {subscription.planCode !== 'base' ? (
+              {displayedPlanCode !== 'base' ? (
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
                   <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                     {isRu ? 'Карта для автопродления' : 'Saved card for renewals'}
@@ -536,7 +557,7 @@ export function SubscriptionPageClient({
             </div>
 
             <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-              {subscription.planCode !== 'base' && !subscription.cancelAtPeriodEnd ? (
+              {displayedPlanCode !== 'base' && !subscription.cancelAtPeriodEnd ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -549,7 +570,7 @@ export function SubscriptionPageClient({
                 </Button>
               ) : null}
 
-              {subscription.planCode !== 'base' && subscription.cancelAtPeriodEnd && subscription.hasSavedPaymentMethod ? (
+              {displayedPlanCode !== 'base' && subscription.cancelAtPeriodEnd && subscription.hasSavedPaymentMethod ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -562,7 +583,7 @@ export function SubscriptionPageClient({
                 </Button>
               ) : null}
 
-              {subscription.planCode !== 'base' ? (
+              {displayedPlanCode !== 'base' ? (
                 <Button
                   type="button"
                   variant={subscription.hasSavedPaymentMethod ? 'outline' : 'default'}
@@ -578,7 +599,7 @@ export function SubscriptionPageClient({
               ) : null}
             </div>
 
-            {subscription.planCode !== 'base' ? (
+            {displayedPlanCode !== 'base' ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs leading-5 text-zinc-300 sm:text-sm">
                 {isRu
                   ? 'Для повторной привязки мы спишем 1 ₽ и вернем его после того, как YooKassa сохранит карту для будущих продлений.'
@@ -612,7 +633,7 @@ export function SubscriptionPageClient({
         locale={locale}
         currency={currency}
         billingInterval={billingInterval}
-        currentPlanCode={subscription.planCode}
+        currentPlanCode={displayedPlanCode}
         title={isRu ? 'Все тарифы' : 'All plans'}
         headerControl={
           <div className="space-y-3 text-center">
