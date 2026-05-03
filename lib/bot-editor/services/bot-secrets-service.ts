@@ -1,6 +1,8 @@
-import { decryptSecret, encryptSecret } from '@/lib/security/secret-encryption'
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto'
 
 const BOT_SECRETS_TABLE = 'bot_secrets'
+const ENCRYPTION_ALGO = 'aes-256-gcm'
+const IV_LENGTH = 12
 
 type AsyncResult<T> = PromiseLike<T>
 
@@ -43,6 +45,72 @@ type SecretRow = {
   auth_tag: string | null
   created_at?: string
   updated_at?: string
+}
+
+function getEncryptionSource(): string | null {
+  return (
+    process.env.BOT_SECRETS_ENCRYPTION_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    null
+  )
+}
+
+function getMasterKey(): Buffer | null {
+  const source = getEncryptionSource()
+  if (!source) return null
+  // Stable 32-byte key derived from configured secret.
+  return createHash('sha256').update(source).digest()
+}
+
+function encryptSecret(plaintext: string): Pick<SecretRow, 'algorithm' | 'key_version' | 'iv' | 'ciphertext' | 'auth_tag'> {
+  const key = getMasterKey()
+  if (!key) {
+    throw new Error('Missing BOT_SECRETS_ENCRYPTION_KEY or SUPABASE_SERVICE_ROLE_KEY for secret encryption')
+  }
+
+  const iv = randomBytes(IV_LENGTH)
+  const cipher = createCipheriv(ENCRYPTION_ALGO, key, iv)
+  const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  const authTag = cipher.getAuthTag()
+
+  return {
+    algorithm: ENCRYPTION_ALGO,
+    key_version: 1,
+    iv: iv.toString('base64'),
+    ciphertext: ciphertext.toString('base64'),
+    auth_tag: authTag.toString('base64'),
+  }
+}
+
+function decryptSecret(row: Pick<SecretRow, 'algorithm' | 'iv' | 'ciphertext' | 'auth_tag'>): string | null {
+  if (!row.algorithm || !row.iv || !row.ciphertext || !row.auth_tag) {
+    return null
+  }
+
+  if (row.algorithm !== ENCRYPTION_ALGO) {
+    return null
+  }
+
+  const key = getMasterKey()
+  if (!key) {
+    return null
+  }
+
+  try {
+    const decipher = createDecipheriv(
+      ENCRYPTION_ALGO,
+      key,
+      Buffer.from(row.iv, 'base64')
+    )
+    decipher.setAuthTag(Buffer.from(row.auth_tag, 'base64'))
+    const plaintext = Buffer.concat([
+      decipher.update(Buffer.from(row.ciphertext, 'base64')),
+      decipher.final(),
+    ])
+    return plaintext.toString('utf8')
+  } catch {
+    return null
+  }
 }
 
 async function fetchSecretRows(supabase: SupabaseLike, botId: string): Promise<SecretRow[]> {

@@ -1,7 +1,6 @@
 import type { Json } from '@/lib/supabase/types'
 
 export type AppMaintenanceScope = 'none' | 'site' | 'editor' | 'dashboard_editor'
-export type RegistrationMode = 'open' | 'beta_request' | 'closed'
 export type DashboardSectionVisibilityMode = 'default' | 'locked' | 'hidden'
 export type ManagedDashboardSection =
   | 'bots'
@@ -19,7 +18,6 @@ export type DashboardSectionAccessOverride = {
 
 export type AppAccessControls = {
   registrationOpen: boolean
-  registrationMode: RegistrationMode
   maintenanceScope: AppMaintenanceScope
   maintenanceTitle: string
   maintenanceMessage: string
@@ -28,7 +26,6 @@ export type AppAccessControls = {
 
 type AppAccessControlsRowLike = Partial<{
   registration_open: unknown
-  registration_mode: unknown
   maintenance_scope: unknown
   maintenance_title: unknown
   maintenance_message: unknown
@@ -69,17 +66,6 @@ function asMaintenanceScope(value: unknown, fallback: AppMaintenanceScope): AppM
   }
 }
 
-function asRegistrationMode(value: unknown, fallback: RegistrationMode): RegistrationMode {
-  switch (value) {
-    case 'open':
-    case 'beta_request':
-    case 'closed':
-      return value
-    default:
-      return fallback
-  }
-}
-
 function asVisibilityMode(
   value: unknown,
   fallback: DashboardSectionVisibilityMode
@@ -111,8 +97,7 @@ export function createDefaultDashboardSectionOverrides(): Record<
 
 export function createDefaultAppAccessControls(): AppAccessControls {
   return {
-    registrationOpen: false,
-    registrationMode: 'beta_request',
+    registrationOpen: true,
     maintenanceScope: 'none',
     maintenanceTitle: '',
     maintenanceMessage: '',
@@ -143,14 +128,7 @@ export function parseAppAccessControls(raw: AppAccessControlsRowLike): AppAccess
   }, createDefaultDashboardSectionOverrides())
 
   return {
-    registrationMode: asRegistrationMode(
-      raw.registration_mode,
-      asBoolean(raw.registration_open, false) ? 'open' : defaults.registrationMode
-    ),
-    registrationOpen: asRegistrationMode(
-      raw.registration_mode,
-      asBoolean(raw.registration_open, false) ? 'open' : defaults.registrationMode
-    ) === 'open',
+    registrationOpen: asBoolean(raw.registration_open, defaults.registrationOpen),
     maintenanceScope: asMaintenanceScope(raw.maintenance_scope, defaults.maintenanceScope),
     maintenanceTitle: asString(raw.maintenance_title, ''),
     maintenanceMessage: asString(raw.maintenance_message, ''),
@@ -172,8 +150,7 @@ export function serializeAppAccessControls(config: AppAccessControls) {
 
   return {
     id: 1,
-    registration_mode: config.registrationMode,
-    registration_open: config.registrationMode === 'open',
+    registration_open: config.registrationOpen,
     maintenance_scope: config.maintenanceScope,
     maintenance_title: config.maintenanceTitle.trim() || null,
     maintenance_message: config.maintenanceMessage.trim() || null,

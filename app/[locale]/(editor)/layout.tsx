@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { getServerUser } from '@/lib/supabase/server'
-import { getCurrentProfileAccessStatus } from '@/lib/profile-access'
 import { buildNoIndexMetadata } from '@/lib/site/seo'
 
 export const metadata = buildNoIndexMetadata(
@@ -20,11 +19,6 @@ export default async function EditorLayout({
 
   if (!user) {
     redirect(`/${locale}/auth/login`)
-  }
-
-  const accessStatus = await getCurrentProfileAccessStatus(user.id)
-  if (accessStatus !== 'active') {
-    redirect(`/${locale}/beta-pending`)
   }
 
   // This layout does NOT include DashboardNav and DashboardHeader

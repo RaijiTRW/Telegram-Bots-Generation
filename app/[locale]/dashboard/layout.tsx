@@ -3,7 +3,6 @@ import { DashboardShell } from '@/components/dashboard/layout/dashboard-shell'
 import { getServerUser } from '@/lib/supabase/server'
 import { getViewerAccess } from '@/lib/billing/server'
 import { getAppAccessControls } from '@/lib/admin-access/server'
-import { getCurrentProfileAccessStatus } from '@/lib/profile-access'
 import { buildNoIndexMetadata } from '@/lib/site/seo'
 
 export const metadata = buildNoIndexMetadata(
@@ -23,11 +22,6 @@ export default async function DashboardLayout({
   
   if (!user) {
     redirect(`/${locale}/auth/login`)
-  }
-
-  const accessStatus = await getCurrentProfileAccessStatus(user.id)
-  if (accessStatus !== 'active') {
-    redirect(`/${locale}/beta-pending`)
   }
 
   const viewerAccess = await getViewerAccess(user.id)

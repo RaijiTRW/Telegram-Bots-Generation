@@ -9,9 +9,8 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { submitBetaAccessRequest } from "@/app/actions/beta-access";
 
-export function SignupForm({ mode = "open" }: { mode?: "open" | "beta_request" }) {
+export function SignupForm() {
   const t = useTranslations("auth.signup");
   const te = useTranslations("auth.login.errors");
   const locale = useLocale();
@@ -24,7 +23,6 @@ export function SignupForm({ mode = "open" }: { mode?: "open" | "beta_request" }
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const formError =
@@ -52,7 +50,6 @@ export function SignupForm({ mode = "open" }: { mode?: "open" | "beta_request" }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccessMessage(null);
 
     if (!isSupabaseConfigured) {
       setError(te("supabaseNotConfigured"));
@@ -66,36 +63,6 @@ export function SignupForm({ mode = "open" }: { mode?: "open" | "beta_request" }
     setLoading(true);
 
     try {
-      if (mode === "beta_request") {
-        const result = await submitBetaAccessRequest({
-          fullName,
-          email,
-          password,
-          locale,
-        });
-
-        if (!result.success) {
-          setError(resolveBetaError(result.code || result.error, locale));
-          return;
-        }
-
-        if (result.data.status === "approved") {
-          setSuccessMessage(
-            locale === "en"
-              ? "Access is already approved. You can sign in with this email and password."
-              : "Доступ уже одобрен. Войдите с этим email и паролем."
-          );
-          return;
-        }
-
-        setSuccessMessage(
-          locale === "en"
-            ? "Request sent. After approval you will receive an email and can sign in."
-            : "Заявка отправлена. После одобрения на почту придет письмо, и вы сможете войти."
-        );
-        return;
-      }
-
       const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -201,38 +168,14 @@ export function SignupForm({ mode = "open" }: { mode?: "open" | "beta_request" }
         </div>
       )}
 
-      {successMessage && (
-        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs text-emerald-300 animate-in fade-in-50 slide-in-from-top-2 duration-300 sm:p-3 sm:text-sm">
-          {successMessage}
-        </div>
-      )}
-
       <Button
         type="submit"
         className="h-10 w-full bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] font-medium text-white shadow-lg shadow-purple-500/25 transition-all duration-300 hover:from-[#1a8bc7] hover:to-[#7c4fdd] sm:h-11"
         disabled={loading || (isHydrated && !isSupabaseConfigured)}
       >
         {loading && <Loader2 className="animate-spin mr-2" />}
-        {mode === "beta_request"
-          ? (locale === "en" ? "Request beta access" : "Отправить заявку на бета")
-          : t("submit")}
+        {t("submit")}
       </Button>
     </form>
   );
-}
-
-function resolveBetaError(code: string, locale: string) {
-  const isEnglish = locale === "en";
-  if (code === "BETA_REQUEST_CLOSED") {
-    return isEnglish ? "Beta requests are currently closed." : "Заявки на бета-доступ сейчас закрыты.";
-  }
-  if (code === "INVALID_INPUT") {
-    return isEnglish ? "Check your name, email, and password." : "Проверьте имя, email и пароль.";
-  }
-  if (code === "CREATE_USER_FAILED") {
-    return isEnglish
-      ? "Could not create the account. If this email already exists, try signing in."
-      : "Не удалось создать аккаунт. Если email уже есть, попробуйте войти.";
-  }
-  return isEnglish ? "Could not send the request." : "Не удалось отправить заявку.";
 }

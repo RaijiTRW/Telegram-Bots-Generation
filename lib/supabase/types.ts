@@ -15,7 +15,6 @@ export interface Database {
           email: string
           full_name: string | null
           avatar_url: string | null
-          access_status: 'active' | 'beta_pending' | 'rejected'
           dashboard_onboarding_seen: boolean
           editor_onboarding_seen: boolean
           language: string | null
@@ -28,7 +27,6 @@ export interface Database {
           email: string
           full_name?: string | null
           avatar_url?: string | null
-          access_status?: 'active' | 'beta_pending' | 'rejected'
           dashboard_onboarding_seen?: boolean
           editor_onboarding_seen?: boolean
           language?: string | null
@@ -41,7 +39,6 @@ export interface Database {
           email?: string
           full_name?: string | null
           avatar_url?: string | null
-          access_status?: 'active' | 'beta_pending' | 'rejected'
           dashboard_onboarding_seen?: boolean
           editor_onboarding_seen?: boolean
           language?: string | null
@@ -253,7 +250,6 @@ export interface Database {
         Row: {
           id: number
           registration_open: boolean
-          registration_mode: 'open' | 'beta_request' | 'closed'
           maintenance_scope: 'none' | 'site' | 'editor' | 'dashboard_editor'
           maintenance_title: string | null
           maintenance_message: string | null
@@ -265,7 +261,6 @@ export interface Database {
         Insert: {
           id?: number
           registration_open?: boolean
-          registration_mode?: 'open' | 'beta_request' | 'closed'
           maintenance_scope?: 'none' | 'site' | 'editor' | 'dashboard_editor'
           maintenance_title?: string | null
           maintenance_message?: string | null
@@ -277,7 +272,6 @@ export interface Database {
         Update: {
           id?: number
           registration_open?: boolean
-          registration_mode?: 'open' | 'beta_request' | 'closed'
           maintenance_scope?: 'none' | 'site' | 'editor' | 'dashboard_editor'
           maintenance_title?: string | null
           maintenance_message?: string | null
@@ -289,98 +283,6 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: 'app_access_controls_updated_by_fkey'
-            columns: ['updated_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      beta_access_requests: {
-        Row: {
-          id: string
-          user_id: string
-          email: string
-          full_name: string | null
-          status: 'pending' | 'approved' | 'rejected'
-          admin_note: string | null
-          reviewed_by: string | null
-          reviewed_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          email: string
-          full_name?: string | null
-          status?: 'pending' | 'approved' | 'rejected'
-          admin_note?: string | null
-          reviewed_by?: string | null
-          reviewed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          email?: string
-          full_name?: string | null
-          status?: 'pending' | 'approved' | 'rejected'
-          admin_note?: string | null
-          reviewed_by?: string | null
-          reviewed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'beta_access_requests_user_id_fkey'
-            columns: ['user_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'beta_access_requests_reviewed_by_fkey'
-            columns: ['reviewed_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      admin_email_settings: {
-        Row: {
-          id: number
-          smtp_host: string | null
-          smtp_port: number | null
-          smtp_secure: boolean
-          smtp_user: string | null
-          smtp_from: string | null
-          smtp_password_algorithm: string | null
-          smtp_password_key_version: number | null
-          smtp_password_iv: string | null
-          smtp_password_ciphertext: string | null
-          smtp_password_auth_tag: string | null
-          imap_host: string | null
-          imap_port: number | null
-          imap_secure: boolean
-          imap_user: string | null
-          imap_password_algorithm: string | null
-          imap_password_key_version: number | null
-          imap_password_iv: string | null
-          imap_password_ciphertext: string | null
-          imap_password_auth_tag: string | null
-          updated_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: Record<string, unknown>
-        Update: Record<string, unknown>
-        Relationships: [
-          {
-            foreignKeyName: 'admin_email_settings_updated_by_fkey'
             columns: ['updated_by']
             isOneToOne: false
             referencedRelation: 'profiles'

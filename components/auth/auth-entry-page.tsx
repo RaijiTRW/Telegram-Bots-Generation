@@ -5,7 +5,6 @@ import { useLocale, useTranslations } from 'next-intl'
 import { AuthSplitLayout } from '@/components/auth/auth-split-layout'
 import { LoginForm } from '@/components/auth/login-form'
 import { SignupForm } from '@/components/auth/signup-form'
-import type { RegistrationMode } from '@/lib/admin-access/config'
 
 type AuthMode = 'login' | 'signup'
 
@@ -13,7 +12,6 @@ interface AuthEntryPageProps {
   initialMode: AuthMode
   requestedMode?: AuthMode
   registrationOpen?: boolean
-  registrationMode?: RegistrationMode
 }
 
 function resolveModeFromPathname(pathname: string, locale: string): AuthMode {
@@ -34,7 +32,6 @@ export function AuthEntryPage({
   initialMode,
   requestedMode = initialMode,
   registrationOpen = true,
-  registrationMode = registrationOpen ? 'open' : 'closed',
 }: AuthEntryPageProps) {
   const locale = useLocale()
   const tLogin = useTranslations('auth.login')
@@ -44,7 +41,6 @@ export function AuthEntryPage({
 
   const loginHref = `/${locale}/auth/login`
   const signupHref = `/${locale}/auth/signup`
-  const signupAllowed = registrationMode !== 'closed'
 
   useEffect(() => {
     setMode(initialMode)
@@ -53,7 +49,7 @@ export function AuthEntryPage({
   useEffect(() => {
     const syncFromUrl = () => {
       const nextMode = resolveModeFromPathname(window.location.pathname, locale)
-      setMode(!signupAllowed && nextMode === 'signup' ? 'login' : nextMode)
+      setMode(!registrationOpen && nextMode === 'signup' ? 'login' : nextMode)
     }
 
     syncFromUrl()
@@ -62,10 +58,10 @@ export function AuthEntryPage({
     return () => {
       window.removeEventListener('popstate', syncFromUrl)
     }
-  }, [locale, signupAllowed])
+  }, [locale, registrationOpen])
 
   const switchMode = (nextMode: AuthMode) => {
-    if (!signupAllowed && nextMode === 'signup') {
+    if (!registrationOpen && nextMode === 'signup') {
       return
     }
 
@@ -82,7 +78,7 @@ export function AuthEntryPage({
   }
 
   const isSignup = mode === 'signup'
-  const showRegistrationClosedNotice = !signupAllowed && requestedMode === 'signup'
+  const showRegistrationClosedNotice = !registrationOpen && requestedMode === 'signup'
   const isRu = locale !== 'en'
   const registrationClosedTitle = isRu
     ? 'Регистрация временно закрыта'
@@ -97,7 +93,7 @@ export function AuthEntryPage({
       subtitle={isSignup ? tSignup('subtitle') : tLogin('subtitle')}
       homeHref={`/${locale}`}
       footerLink={
-        signupAllowed
+        registrationOpen
           ? {
               href: isSignup ? loginHref : signupHref,
               label: isSignup ? tSignup('hasAccount') : tLogin('noAccount'),
@@ -138,7 +134,7 @@ export function AuthEntryPage({
           <div className="mt-1 text-amber-200/80">{registrationClosedDescription}</div>
         </div>
       ) : null}
-      {isSignup && signupAllowed ? <SignupForm mode={registrationMode === 'beta_request' ? 'beta_request' : 'open'} /> : <LoginForm />}
+      {isSignup && registrationOpen ? <SignupForm /> : <LoginForm />}
     </AuthSplitLayout>
   )
 }

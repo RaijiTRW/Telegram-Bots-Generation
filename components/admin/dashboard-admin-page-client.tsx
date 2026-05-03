@@ -8,17 +8,7 @@ import { getSafeClientUser } from '@/lib/supabase/client-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Switch } from '@/components/ui/switch'
 import { AdminAccessControlsCard } from '@/components/admin/admin-access-controls-card'
-import {
-  getAdminEmailSettingsAction,
-  getBetaAccessRequestsAction,
-  reviewBetaAccessRequestAction,
-  saveAdminEmailSettingsAction,
-  testAdminEmailConnectionAction,
-  type BetaAccessRequestView,
-} from '@/app/actions/beta-access'
 import {
   type AppAccessControls,
   createDefaultAppAccessControls,
@@ -27,17 +17,11 @@ import {
 } from '@/lib/admin-access/config'
 import {
   AlertTriangle,
-  BarChart3,
-  CheckCircle2,
-  Clock3,
-  Mail,
   Eye,
   Loader2,
   RefreshCw,
   Search,
-  Settings2,
   Shield,
-  SlidersHorizontal,
   TimerReset,
   UserCheck,
   UserPlus,
@@ -54,7 +38,6 @@ type ProfileRow = {
   email: string
   full_name: string | null
   role: 'user' | 'admin'
-  access_status?: 'active' | 'beta_pending' | 'rejected'
   created_at: string
   updated_at: string
 }
@@ -71,20 +54,6 @@ type AdminStats = {
   landingViewsToday: number
 }
 
-type AdminEmailSettingsView = {
-  smtpHost: string
-  smtpPort: number
-  smtpSecure: boolean
-  smtpUser: string
-  smtpFrom: string
-  smtpPasswordConfigured: boolean
-  imapHost: string
-  imapPort: number
-  imapSecure: boolean
-  imapUser: string
-  imapPasswordConfigured: boolean
-}
-
 type AppAccessControlsTableClient = {
   upsert: (
     values: Record<string, unknown>
@@ -97,20 +66,6 @@ type AppAccessControlsTableClient = {
   }
 }
 
-const emptyEmailSettings: AdminEmailSettingsView = {
-  smtpHost: '',
-  smtpPort: 465,
-  smtpSecure: true,
-  smtpUser: '',
-  smtpFrom: '',
-  smtpPasswordConfigured: false,
-  imapHost: '',
-  imapPort: 993,
-  imapSecure: true,
-  imapUser: '',
-  imapPasswordConfigured: false,
-}
-
 export function DashboardAdminPageClient() {
   const t = useTranslations('dashboard.admin')
   const supabase = createClient()
@@ -120,15 +75,6 @@ export function DashboardAdminPageClient() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [profiles, setProfiles] = useState<ProfileRow[]>([])
-  const [betaRequests, setBetaRequests] = useState<BetaAccessRequestView[]>([])
-  const [betaSearchQuery, setBetaSearchQuery] = useState('')
-  const [betaStatusFilter, setBetaStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
-  const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null)
-  const [emailSettings, setEmailSettings] = useState<AdminEmailSettingsView>(emptyEmailSettings)
-  const [smtpPassword, setSmtpPassword] = useState('')
-  const [imapPassword, setImapPassword] = useState('')
-  const [isSavingEmailSettings, setIsSavingEmailSettings] = useState(false)
-  const [testingEmailKind, setTestingEmailKind] = useState<'smtp' | 'imap' | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [status, setStatus] = useState<Notice>(null)
   const [savingProfileId, setSavingProfileId] = useState<string | null>(null)
@@ -150,20 +96,6 @@ export function DashboardAdminPageClient() {
       return name.includes(normalized) || email.includes(normalized) || id.includes(normalized)
     })
   }, [profiles, searchQuery])
-
-  const filteredBetaRequests = useMemo(() => {
-    const normalized = betaSearchQuery.trim().toLowerCase()
-    return betaRequests.filter((request) => {
-      if (betaStatusFilter !== 'all' && request.status !== betaStatusFilter) {
-        return false
-      }
-      if (!normalized) return true
-      return (
-        request.email.toLowerCase().includes(normalized) ||
-        (request.fullName || '').toLowerCase().includes(normalized)
-      )
-    })
-  }, [betaRequests, betaSearchQuery, betaStatusFilter])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -213,18 +145,16 @@ export function DashboardAdminPageClient() {
 
       setCurrentUserId(user.id)
 
-      const [profilesResult, accessControlsResult, betaRequestsResult, emailSettingsResult] = await Promise.all([
+      const [profilesResult, accessControlsResult] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, email, full_name, role, access_status, created_at, updated_at')
+          .select('id, email, full_name, role, created_at, updated_at')
           .order('created_at', { ascending: false }),
         supabase
           .from('app_access_controls')
-          .select('registration_open, registration_mode, maintenance_scope, maintenance_title, maintenance_message, dashboard_overrides')
+          .select('registration_open, maintenance_scope, maintenance_title, maintenance_message, dashboard_overrides')
           .eq('id', 1)
           .maybeSingle(),
-        getBetaAccessRequestsAction(),
-        getAdminEmailSettingsAction(),
       ])
 
       if (profilesResult.error) {
@@ -233,19 +163,11 @@ export function DashboardAdminPageClient() {
 
       setProfiles((profilesResult.data || []) as ProfileRow[])
       setAccessControls(parseAppAccessControls(accessControlsResult.data || null))
-      if (betaRequestsResult.success) {
-        setBetaRequests(betaRequestsResult.data)
-      }
-      if (emailSettingsResult.success) {
-        setEmailSettings(emailSettingsResult.data)
-      }
       await fetchStats()
     } catch (error) {
       console.error('Failed to load admin profiles:', error)
       setStatus({ type: 'error', text: t('loadError') })
       setProfiles([])
-      setBetaRequests([])
-      setEmailSettings(emptyEmailSettings)
       setAccessControls(createDefaultAppAccessControls())
       setStats({
         onlineNow: 0,
@@ -336,7 +258,7 @@ export function DashboardAdminPageClient() {
       }
       const { data, error } = await appAccessControlsTable
         .upsert(payload)
-        .select('registration_open, registration_mode, maintenance_scope, maintenance_title, maintenance_message, dashboard_overrides')
+        .select('registration_open, maintenance_scope, maintenance_title, maintenance_message, dashboard_overrides')
         .single()
 
       if (error) {
@@ -356,87 +278,6 @@ export function DashboardAdminPageClient() {
       setStatus({ type: 'error', text: `${t('accessSaveError')}${suffix}` })
     } finally {
       setIsSavingAccessControls(false)
-    }
-  }
-
-  const handleReviewBetaRequest = async (
-    request: BetaAccessRequestView,
-    status: 'approved' | 'rejected'
-  ) => {
-    if (reviewingRequestId) return
-    setReviewingRequestId(request.id)
-    setStatus(null)
-
-    try {
-      const result = await reviewBetaAccessRequestAction({
-        requestId: request.id,
-        status,
-        adminNote: request.adminNote || undefined,
-      })
-
-      if (!result.success) {
-        throw new Error(result.error)
-      }
-
-      setBetaRequests((previous) =>
-        previous.map((item) => (item.id === request.id ? result.data : item))
-      )
-      setStatus({
-        type: 'success',
-        text: status === 'approved' ? 'Заявка одобрена, письмо отправлено.' : 'Заявка отклонена.',
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : ''
-      setStatus({ type: 'error', text: `Не удалось обновить заявку${message ? ` (${message})` : ''}` })
-    } finally {
-      setReviewingRequestId(null)
-    }
-  }
-
-  const handleSaveEmailSettings = async () => {
-    if (isSavingEmailSettings) return
-    setIsSavingEmailSettings(true)
-    setStatus(null)
-
-    try {
-      const result = await saveAdminEmailSettingsAction({
-        ...emailSettings,
-        smtpPassword,
-        imapPassword,
-      })
-
-      if (!result.success) {
-        throw new Error(result.error)
-      }
-
-      setEmailSettings(result.data)
-      setSmtpPassword('')
-      setImapPassword('')
-      setStatus({ type: 'success', text: 'Настройки почты сохранены.' })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : ''
-      setStatus({ type: 'error', text: `Не удалось сохранить почту${message ? ` (${message})` : ''}` })
-    } finally {
-      setIsSavingEmailSettings(false)
-    }
-  }
-
-  const handleTestEmailConnection = async (kind: 'smtp' | 'imap') => {
-    if (testingEmailKind) return
-    setTestingEmailKind(kind)
-    setStatus(null)
-
-    try {
-      const result = await testAdminEmailConnectionAction(kind)
-      if (!result.success) {
-        throw new Error(result.error)
-      }
-      setStatus({ type: 'success', text: kind === 'smtp' ? 'SMTP подключен.' : 'IMAP подключен.' })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : ''
-      setStatus({ type: 'error', text: `Проверка не прошла${message ? ` (${message})` : ''}` })
-    } finally {
-      setTestingEmailKind(null)
     }
   }
 
@@ -488,32 +329,7 @@ export function DashboardAdminPageClient() {
         </div>
       ) : null}
 
-      <Tabs defaultValue="overview" className="space-y-5">
-        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-2xl border border-white/10 bg-zinc-950/50 p-1.5">
-          <TabsTrigger value="overview" className="gap-2 rounded-xl px-4 py-2.5">
-            <BarChart3 className="h-4 w-4" />
-            {t('tabOverview')}
-          </TabsTrigger>
-          <TabsTrigger value="access" className="gap-2 rounded-xl px-4 py-2.5">
-            <Settings2 className="h-4 w-4" />
-            {t('tabAccess')}
-          </TabsTrigger>
-          <TabsTrigger value="beta" className="gap-2 rounded-xl px-4 py-2.5">
-            <Clock3 className="h-4 w-4" />
-            Бета-заявки
-          </TabsTrigger>
-          <TabsTrigger value="email" className="gap-2 rounded-xl px-4 py-2.5">
-            <Mail className="h-4 w-4" />
-            Почта
-          </TabsTrigger>
-          <TabsTrigger value="profiles" className="gap-2 rounded-xl px-4 py-2.5">
-            <Users className="h-4 w-4" />
-            {t('tabProfiles')}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="mt-0">
-          <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
             <Card className="bg-zinc-900/50 border-zinc-800">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center">
@@ -582,209 +398,14 @@ export function DashboardAdminPageClient() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
 
-        <TabsContent value="access" className="mt-0">
           <AdminAccessControlsCard
             value={accessControls}
             isSaving={isSavingAccessControls}
             onChange={setAccessControls}
             onSave={() => void handleSaveAccessControls()}
           />
-        </TabsContent>
 
-        <TabsContent value="beta" className="mt-0">
-          <Card className="bg-zinc-900/50 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <Clock3 className="h-5 w-5 text-[#24A1DE]" />
-                Бета-заявки
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                  <Input
-                    value={betaSearchQuery}
-                    onChange={(event) => setBetaSearchQuery(event.target.value)}
-                    placeholder="Поиск по email или имени..."
-                    className="pl-10 bg-zinc-900/70 border-white/10"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(['pending', 'approved', 'rejected', 'all'] as const).map((filter) => (
-                    <Button
-                      key={filter}
-                      type="button"
-                      size="sm"
-                      variant={betaStatusFilter === filter ? 'default' : 'outline'}
-                      onClick={() => setBetaStatusFilter(filter)}
-                      className={betaStatusFilter === filter ? '' : 'border-white/10 text-zinc-200 hover:bg-white/5'}
-                    >
-                      {filter === 'pending'
-                        ? 'На рассмотрении'
-                        : filter === 'approved'
-                          ? 'Одобрено'
-                          : filter === 'rejected'
-                            ? 'Отклонено'
-                            : 'Все'}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {filteredBetaRequests.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-white/10 p-8 text-center text-zinc-500">
-                    Заявок нет.
-                  </div>
-                ) : (
-                  filteredBetaRequests.map((request) => {
-                    const isReviewing = reviewingRequestId === request.id
-                    return (
-                      <div key={request.id} className="rounded-2xl border border-white/10 bg-zinc-950/60 p-4">
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-semibold text-white">
-                                {request.fullName || 'Без имени'}
-                              </p>
-                              <span
-                                className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${
-                                  request.status === 'approved'
-                                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                                    : request.status === 'rejected'
-                                      ? 'border-red-500/30 bg-red-500/10 text-red-300'
-                                      : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                                }`}
-                              >
-                                {request.status === 'approved'
-                                  ? 'approved'
-                                  : request.status === 'rejected'
-                                    ? 'rejected'
-                                    : 'pending'}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-xs text-zinc-400">{request.email}</p>
-                            <p className="mt-1 text-[11px] text-zinc-500">
-                              {new Date(request.createdAt).toLocaleString('ru-RU')}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => void handleReviewBetaRequest(request, 'approved')}
-                              disabled={isReviewing || request.status === 'approved'}
-                              className="bg-emerald-600 text-white hover:bg-emerald-500"
-                            >
-                              {isReviewing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                              Одобрить
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void handleReviewBetaRequest(request, 'rejected')}
-                              disabled={isReviewing || request.status === 'rejected'}
-                              className="border-red-500/30 text-red-200 hover:bg-red-500/10"
-                            >
-                              Отклонить
-                            </Button>
-                          </div>
-                        </div>
-                        <Input
-                          value={request.adminNote || ''}
-                          onChange={(event) => {
-                            const nextNote = event.target.value
-                            setBetaRequests((previous) =>
-                              previous.map((item) =>
-                                item.id === request.id ? { ...item, adminNote: nextNote } : item
-                              )
-                            )
-                          }}
-                          placeholder="Заметка админа"
-                          className="mt-3 bg-zinc-900/70 border-white/10"
-                        />
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="email" className="mt-0">
-          <Card className="bg-zinc-900/50 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <Mail className="h-5 w-5 text-[#24A1DE]" />
-                Почта
-              </CardTitle>
-              <p className="text-sm text-zinc-400">
-                SMTP отправляет письма об одобрении, IMAP нужен для проверки подключения почтового ящика.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-5">
-                  <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
-                    <SlidersHorizontal className="h-4 w-4 text-[#24A1DE]" />
-                    SMTP
-                  </div>
-                  <div className="grid gap-3">
-                    <Input value={emailSettings.smtpHost} onChange={(event) => setEmailSettings((prev) => ({ ...prev, smtpHost: event.target.value }))} placeholder="SMTP host" />
-                    <Input value={emailSettings.smtpPort} onChange={(event) => setEmailSettings((prev) => ({ ...prev, smtpPort: Number(event.target.value) || 465 }))} type="number" placeholder="SMTP port" />
-                    <Input value={emailSettings.smtpUser} onChange={(event) => setEmailSettings((prev) => ({ ...prev, smtpUser: event.target.value }))} placeholder="SMTP user" />
-                    <Input value={emailSettings.smtpFrom} onChange={(event) => setEmailSettings((prev) => ({ ...prev, smtpFrom: event.target.value }))} placeholder="From email" />
-                    <Input value={smtpPassword} onChange={(event) => setSmtpPassword(event.target.value)} type="password" placeholder={emailSettings.smtpPasswordConfigured ? 'Новый пароль или оставить пустым' : 'SMTP password'} />
-                    <label className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300">
-                      Secure TLS
-                      <Switch checked={emailSettings.smtpSecure} onCheckedChange={(checked) => setEmailSettings((prev) => ({ ...prev, smtpSecure: checked }))} />
-                    </label>
-                    <Button type="button" variant="outline" onClick={() => void handleTestEmailConnection('smtp')} disabled={testingEmailKind === 'smtp'} className="border-white/10 text-zinc-200 hover:bg-white/5">
-                      {testingEmailKind === 'smtp' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Проверить SMTP
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-5">
-                  <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
-                    <SlidersHorizontal className="h-4 w-4 text-[#24A1DE]" />
-                    IMAP
-                  </div>
-                  <div className="grid gap-3">
-                    <Input value={emailSettings.imapHost} onChange={(event) => setEmailSettings((prev) => ({ ...prev, imapHost: event.target.value }))} placeholder="IMAP host" />
-                    <Input value={emailSettings.imapPort} onChange={(event) => setEmailSettings((prev) => ({ ...prev, imapPort: Number(event.target.value) || 993 }))} type="number" placeholder="IMAP port" />
-                    <Input value={emailSettings.imapUser} onChange={(event) => setEmailSettings((prev) => ({ ...prev, imapUser: event.target.value }))} placeholder="IMAP user" />
-                    <Input value={imapPassword} onChange={(event) => setImapPassword(event.target.value)} type="password" placeholder={emailSettings.imapPasswordConfigured ? 'Новый пароль или оставить пустым' : 'IMAP password'} />
-                    <label className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300">
-                      Secure TLS
-                      <Switch checked={emailSettings.imapSecure} onCheckedChange={(checked) => setEmailSettings((prev) => ({ ...prev, imapSecure: checked }))} />
-                    </label>
-                    <Button type="button" variant="outline" onClick={() => void handleTestEmailConnection('imap')} disabled={testingEmailKind === 'imap'} className="border-white/10 text-zinc-200 hover:bg-white/5">
-                      {testingEmailKind === 'imap' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Проверить IMAP
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button type="button" onClick={() => void handleSaveEmailSettings()} disabled={isSavingEmailSettings} className="bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] text-white">
-                  {isSavingEmailSettings ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Сохранить почту
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="profiles" className="mt-0">
           <Card className="bg-zinc-900/50 border-zinc-800">
             <CardHeader>
               <CardTitle className="text-white">{t('profilesTitle')}</CardTitle>
@@ -871,8 +492,6 @@ export function DashboardAdminPageClient() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
       
     </div>
   )

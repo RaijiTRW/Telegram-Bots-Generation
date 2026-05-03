@@ -18,8 +18,7 @@ export default async function AuthPage({
   const { mode } = await params
   const requestedMode = resolveInitialMode(mode)
   const accessControls = await getAppAccessControls()
-  const signupAllowed = accessControls.registrationMode !== 'closed'
-  const initialMode = !signupAllowed && requestedMode === 'signup'
+  const initialMode = !accessControls.registrationOpen && requestedMode === 'signup'
     ? 'login'
     : requestedMode
 
@@ -28,7 +27,6 @@ export default async function AuthPage({
       initialMode={initialMode}
       requestedMode={requestedMode}
       registrationOpen={accessControls.registrationOpen}
-      registrationMode={accessControls.registrationMode}
     />
   )
 }
