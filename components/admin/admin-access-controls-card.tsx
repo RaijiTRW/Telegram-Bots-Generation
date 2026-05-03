@@ -122,9 +122,7 @@ export function AdminAccessControlsCard({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t('registrationModeLabel')}>
-                      {t(`registrationMode.${value.registrationMode}`)}
-                    </SelectValue>
+                    <SelectValue placeholder={t('registrationModeLabel')} />
                   </SelectTrigger>
                   <SelectContent>
                     {REGISTRATION_MODE_OPTIONS.map((mode) => (
@@ -173,9 +171,7 @@ export function AdminAccessControlsCard({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t('maintenanceScopeLabel')}>
-                      {t(`maintenanceScope.${value.maintenanceScope}`)}
-                    </SelectValue>
+                    <SelectValue placeholder={t('maintenanceScopeLabel')} />
                   </SelectTrigger>
                   <SelectContent>
                     {MAINTENANCE_SCOPE_OPTIONS.map((option) => (
@@ -260,11 +256,9 @@ export function AdminAccessControlsCard({
                                     mode: nextValue as DashboardSectionVisibilityMode,
                                   })
                                 }
-                                >
-                                  <SelectTrigger>
-                                  <SelectValue placeholder={t('sectionsModeLabel')}>
-                                    {t(`sectionMode.${current.mode}`)}
-                                  </SelectValue>
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder={t('sectionsModeLabel')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {SECTION_MODE_OPTIONS.map((mode) => (
