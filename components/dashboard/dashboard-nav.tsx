@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { motion } from '@/components/motion-wrapper'
 import type { ViewerAccess } from '@/lib/billing/types'
-import { prefetchHrefOnce, schedulePrefetchHref } from '@/lib/navigation/prefetch'
+import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
 import { preloadDashboardSection, type DashboardSection } from '@/components/dashboard/layout/dashboard-section-viewport'
 import {
   type AppAccessControls,
@@ -213,9 +213,9 @@ export function DashboardNav({
 
   useEffect(() => {
     for (const item of navItems) {
-      if (!item.disabled) {
+      if (!item.disabled && !item.section) {
         const fullPath = item.localeAgnostic ? item.href : `/${locale}${item.href}`
-        schedulePrefetchHref(router, fullPath, item.section ? 240 : 520)
+        prefetchHrefOnce(router, fullPath)
       }
 
       if (item.section) {
@@ -256,20 +256,21 @@ export function DashboardNav({
     if (disabled) {
       return
     }
-    const targetHref = href.startsWith('/dashboard/cms') ? href : `/${locale}${href}`
-    prefetchHrefOnce(router, targetHref)
     if (section) {
       void preloadDashboardSection(section)
+      return
     }
+    const targetHref = href.startsWith('/dashboard/cms') ? href : `/${locale}${href}`
+    prefetchHrefOnce(router, targetHref)
   }
 
   const handleSectionNavigation = (href: string, section: DashboardSection) => {
     const fullHref = `/${locale}${href}`
     onSectionChange?.(section, fullHref)
     prefetchRoute(href, section)
-    startTransition(() => {
-      router.push(fullHref)
-    })
+    if (typeof window !== 'undefined' && window.location.pathname !== fullHref) {
+      window.history.pushState(window.history.state, '', fullHref)
+    }
   }
 
   const navigateToItem = (item: DashboardNavItem) => {
