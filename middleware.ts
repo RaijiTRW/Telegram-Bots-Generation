@@ -169,7 +169,7 @@ export async function middleware(request: NextRequest) {
       ? cookieLocale
       : null;
   const shouldRefreshProtectedSession =
-    !isServerActionRequest && !isPrefetch && hasSessionCookie && isProtectedPath(pathname)
+    !isServerActionRequest && !isPrefetch && isProtectedPath(pathname)
   const shouldLookupUserLocale =
     !isMutationRequest && !isServerActionRequest && !isPrefetch && !cookiePreferredLocale && hasSessionCookie
   const shouldReadUserProfile =
@@ -189,13 +189,27 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  const userIdFromMiddleware = supabaseResponse.headers.get('x-user-id');
+
+  if (
+    !isMutationRequest &&
+    !isServerActionRequest &&
+    !isPrefetch &&
+    isProtectedPath(pathname) &&
+    !userIdFromMiddleware
+  ) {
+    const url = request.nextUrl.clone()
+    const locale = cookiePreferredLocale || getPathLocale(pathname)
+    url.pathname = `/${locale}/auth/login`
+    return NextResponse.redirect(url)
+  }
+
   if (studioRoute) {
     const response = NextResponse.next({ request: { headers: request.headers } })
     copySupabaseResponseState(supabaseResponse, response)
     return response
   }
 
-  const userIdFromMiddleware = supabaseResponse.headers.get('x-user-id');
   const shouldReadRuntimeAccess =
     !isMutationRequest && !isServerActionRequest && !isPrefetch
   const [userProfileContext, runtimeAccess] = await Promise.all([
