@@ -135,7 +135,7 @@ function buildPendingTransaction(row: SubscriptionTransactionRow | null): Pendin
   }
 }
 
-function buildFallbackViewerAccess(): ViewerAccess {
+export function buildFallbackViewerAccess(): ViewerAccess {
   const currency: BillingCurrency = 'RUB'
   const billingInterval: BillingInterval = 'month'
   const availableCurrencies = getAvailableBillingCurrencies()

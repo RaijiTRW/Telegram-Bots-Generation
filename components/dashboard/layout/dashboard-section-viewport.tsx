@@ -174,57 +174,6 @@ export function DashboardSectionViewport({
     }
   }, [activeSection, loadSection])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    let cancelled = false
-    const warmQueue = DASHBOARD_WARM_ORDER.filter(
-      (section) => section !== initialSection && canWarmSection(section, viewerAccess)
-    )
-
-    const warmSectionsSequentially = async () => {
-      for (const [index, section] of warmQueue.entries()) {
-        if (cancelled) {
-          return
-        }
-
-        if (index > 0) {
-          await new Promise((resolve) => {
-            globalThis.setTimeout(resolve, 140)
-          })
-        }
-
-        if (cancelled) {
-          return
-        }
-
-        await loadSection(section)
-      }
-    }
-
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleCallbackId = window.requestIdleCallback(() => {
-        void warmSectionsSequentially()
-      }, { timeout: 300 })
-
-      return () => {
-        cancelled = true
-        window.cancelIdleCallback(idleCallbackId)
-      }
-    }
-
-    const timeoutId = globalThis.setTimeout(() => {
-      void warmSectionsSequentially()
-    }, 200)
-
-    return () => {
-      cancelled = true
-      globalThis.clearTimeout(timeoutId)
-    }
-  }, [initialSection, loadSection, viewerAccess])
-
   return (
     <div className={cn('h-full w-full min-w-0', className)}>
       {mountedSections.map((section) => {

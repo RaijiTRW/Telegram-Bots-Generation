@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  startTransition,
   useEffect,
   useMemo,
   useRef,
@@ -10,15 +9,13 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Home, User, Settings, LogOut, Bot, BookOpen, Shield, Users, FileText, Lock, BarChart3, CreditCard, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import Link from 'next/link'
 import { motion } from '@/components/motion-wrapper'
 import type { ViewerAccess } from '@/lib/billing/types'
-import { prefetchHrefOnce } from '@/lib/navigation/prefetch'
 import { preloadDashboardSection, type DashboardSection } from '@/components/dashboard/layout/dashboard-section-viewport'
 import {
   type AppAccessControls,
@@ -98,7 +95,6 @@ export function DashboardNav({
 }: DashboardNavProps) {
   const t = useTranslations()
   const pathname = usePathname()
-  const router = useRouter()
   const isAdmin = viewerAccess.isAdmin
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileLensDragX, setMobileLensDragX] = useState<number | null>(null)
@@ -212,19 +208,6 @@ export function DashboardNav({
   }, [accessControls, isAdmin, navLocale])
 
   useEffect(() => {
-    for (const item of navItems) {
-      if (!item.disabled && !item.section) {
-        const fullPath = item.localeAgnostic ? item.href : `/${locale}${item.href}`
-        prefetchHrefOnce(router, fullPath)
-      }
-
-      if (item.section) {
-        void preloadDashboardSection(item.section)
-      }
-    }
-  }, [locale, navItems, router])
-
-  useEffect(() => {
     setMobileMenuOpen(false)
     setOptimisticMobileGlassIndex(null)
   }, [pathname, activeSection])
@@ -260,17 +243,12 @@ export function DashboardNav({
       void preloadDashboardSection(section)
       return
     }
-    const targetHref = href.startsWith('/dashboard/cms') ? href : `/${locale}${href}`
-    prefetchHrefOnce(router, targetHref)
   }
 
   const handleSectionNavigation = (href: string, section: DashboardSection) => {
     const fullHref = `/${locale}${href}`
     onSectionChange?.(section, fullHref)
     prefetchRoute(href, section)
-    if (typeof window !== 'undefined' && window.location.pathname !== fullHref) {
-      window.history.pushState(window.history.state, '', fullHref)
-    }
   }
 
   const navigateToItem = (item: DashboardNavItem) => {
@@ -283,10 +261,7 @@ export function DashboardNav({
       return
     }
     const fullPath = getFullPath(item)
-    prefetchHrefOnce(router, fullPath)
-    startTransition(() => {
-      router.push(fullPath)
-    })
+    window.location.assign(fullPath)
   }
 
   const mobilePrimaryItems = navItems.filter(
@@ -452,7 +427,7 @@ export function DashboardNav({
     const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push(`/${locale}/auth/login`)
+    window.location.assign(`/${locale}/auth/login`)
   }
 
   return (
@@ -513,9 +488,9 @@ export function DashboardNav({
                         ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/10 text-white border border-white/10'
                         : 'text-zinc-400 hover:text-white hover:bg-white/5'
                     )}
-                    onClick={() => handleSectionNavigation(item.href, item.section as DashboardSection)}
-                    onMouseEnter={() => prefetchRoute(item.href, item.section, item.disabled)}
-                    onFocus={() => prefetchRoute(item.href, item.section, item.disabled)}
+                  onClick={() => handleSectionNavigation(item.href, item.section as DashboardSection)}
+                  onMouseEnter={() => prefetchRoute(item.href, item.section, item.disabled)}
+                  onFocus={() => prefetchRoute(item.href, item.section, item.disabled)}
                   >
                     {isActive && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6]" />
@@ -544,11 +519,9 @@ export function DashboardNav({
                       ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/10 text-white border border-white/10'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                   )}
-                  onMouseEnter={() => prefetchRoute(item.href, item.section, item.disabled)}
-                  onFocus={() => prefetchRoute(item.href, item.section, item.disabled)}
                   asChild
                 >
-                  <Link href={fullPath} prefetch={false} className="flex items-center relative">
+                  <a href={fullPath} className="flex items-center relative">
                     {isActive && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-gradient-to-b from-[#24A1DE] to-[#8B5CF6]" />
                     )}
@@ -560,7 +533,7 @@ export function DashboardNav({
                         {item.badge}
                       </span>
                     ) : null}
-                  </Link>
+                  </a>
                 </Button>
               )
             })}
@@ -572,8 +545,6 @@ export function DashboardNav({
               variant="ghost"
               className="w-full justify-start text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors duration-200 group"
               onClick={handleLogout}
-              onMouseEnter={() => prefetchHrefOnce(router, `/${locale}/auth/login`)}
-              onFocus={() => prefetchHrefOnce(router, `/${locale}/auth/login`)}
             >
               <span className="flex items-center">
                 <LogOut className="w-5 h-5 mr-3" />
