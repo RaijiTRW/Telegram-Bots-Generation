@@ -2329,7 +2329,7 @@ function FlowCanvasInner({
           defaultEdgeOptions={defaultEdgeOptions}
           panOnScroll
           panOnScrollMode={PanOnScrollMode.Free}
-          panOnDrag={[2]}
+          panOnDrag={[0]}
           panActivationKeyCode={null}
           selectionKeyCode="Shift"
           selectionMode={SelectionMode.Partial}
