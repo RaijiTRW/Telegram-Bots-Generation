@@ -121,7 +121,7 @@ type AgentOperationApplyResult = {
 
 const AGENT_MODEL_ID = 'z-ai/glm-5.1'
 const ACTIVE_AGENT_STATUSES = new Set<AiAgentRunStatus>(['planning', 'running', 'verifying'])
-const AGENT_MAX_STEPS = 14
+const AGENT_MAX_STEPS = 22
 const ORPHAN_ACTIVE_RUN_TIMEOUT_MS = 45_000
 const AGENT_LAYOUT_X_START = 80
 const AGENT_LAYOUT_Y_START = 80
@@ -2196,7 +2196,7 @@ function applyOperationsToConfig(currentConfig: BotConfig, operations: AiAgentOp
       const sourceId = resolveNodeRef(operation.sourceRef, nodes, createdNodeMap)
       const targetId = resolveNodeRef(operation.targetRef, nodes, createdNodeMap)
       if (!sourceId || !targetId) {
-        throw new Error(`Unknown node refs for disconnectEdge: ${operation.sourceRef} -> ${operation.targetRef}`)
+        continue
       }
 
       const normalizedSourceHandle = operation.sourceHandle == null
@@ -2733,7 +2733,31 @@ async function executeBuildRun(context: AgentExecutionContext) {
         operation.type !== 'finishRun'
       ))
       const botPatch = applyBotOperations(bot, envelope.operations)
-      const result = applyOperationsToConfig(config, envelope.operations)
+      let result: AgentOperationApplyResult
+      try {
+        result = applyOperationsToConfig(config, envelope.operations)
+      } catch (error) {
+        const operationError = error instanceof Error ? error.message : String(error)
+        validationErrors = [
+          context.locale === 'en'
+            ? `The previous graph operation could not be applied: ${operationError}. Use only real node ids from the current canvas or nodeKey values created earlier in this run. If you need to remove a connection and it does not exist, skip it and continue with the required connectNodes/updateNode operations.`
+            : `Предыдущую операцию графа не удалось применить: ${operationError}. Используй только реальные id узлов из текущего холста или nodeKey, созданные ранее в этом запуске. Если нужно удалить соединение, которого нет, пропусти это и продолжай нужными connectNodes/updateNode.`,
+        ]
+        latestSnapshot = {
+          ...latestSnapshot,
+          status: 'running',
+          nextAction: context.locale === 'en' ? 'Repair generated graph operation' : 'Исправляю операцию графа',
+          updatedAt: new Date().toISOString(),
+        }
+        await persistRunSnapshot(context.botId, latestSnapshot)
+        appendAgentLog(
+          context.botId,
+          context.runId,
+          `Operation needs repair: ${operationError}`,
+          'warn'
+        )
+        continue
+      }
       const validation = hasCanvasOperations
         ? validateBotConfig(result.config)
         : { valid: true, errors: [] }
@@ -2827,7 +2851,38 @@ async function executeBuildRun(context: AgentExecutionContext) {
     }
   }
 
-  throw new Error('AI agent reached the step limit before completion')
+  const finalValidation = touchedCanvas
+    ? validateBotConfig(config)
+    : { valid: true, errors: [] }
+  const finalCallbackErrors = (includeCallbackAudit || touchedCanvas) && touchedCanvas
+    ? buildCallbackValidationErrors(config)
+    : []
+
+  if (finalValidation.valid && finalCallbackErrors.length === 0 && (touchedCanvas || touchedBotSettings)) {
+    await markRunCompleted(
+      context.botId,
+      {
+        ...latestSnapshot,
+        currentAction: context.locale === 'en'
+          ? 'Finished within the current safe state'
+          : 'Завершил в текущем безопасном состоянии',
+        noChangesRequired: false,
+      },
+      latestSnapshot.summary || (
+        context.locale === 'en'
+          ? 'Saved the completed safe changes.'
+          : 'Сохранил выполненные безопасные изменения.'
+      ),
+      context.locale
+    )
+    return
+  }
+
+  throw new Error(
+    context.locale === 'en'
+      ? 'The AI agent could not finish safely within the step limit. Try a smaller request or ask it to continue from the current canvas.'
+      : 'AI-агент не смог безопасно завершить задачу в пределах лимита шагов. Попробуйте меньший запрос или попросите продолжить с текущего холста.'
+  )
 }
 
 async function executeRespondRun(context: AgentExecutionContext) {
