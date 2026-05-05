@@ -53,6 +53,50 @@ type BotConfigRow = {
   version?: string
 }
 
+type SupabaseLikeResult = {
+  data?: unknown
+  error?: { message?: string } | null
+}
+
+const SUPABASE_RETRY_ATTEMPTS = 3
+const SUPABASE_RETRY_DELAY_MS = 350
+
+function isTransientSupabaseFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return /fetch failed|network|timeout|timed out|econnreset|etimedout|abort/i.test(message)
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function withSupabaseRetry<T extends SupabaseLikeResult>(
+  operation: () => Promise<T>,
+  label: string,
+  attempts = SUPABASE_RETRY_ATTEMPTS
+): Promise<T> {
+  let lastError: unknown = null
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const result = await operation()
+      if (!result.error || !isTransientSupabaseFailure(result.error.message) || attempt === attempts) {
+        return result
+      }
+      lastError = result.error
+    } catch (error) {
+      if (!isTransientSupabaseFailure(error) || attempt === attempts) {
+        throw error
+      }
+      lastError = error
+    }
+
+    await delay(SUPABASE_RETRY_DELAY_MS * attempt)
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Supabase request failed: ${label}`)
+}
+
 // ============================================================================
 // BOT SERVICE
 // ============================================================================
@@ -92,16 +136,22 @@ export class BotService {
    */
   async getBot(botId: string): Promise<BotWithConfig | null> {
     const [botResult, configResult] = await Promise.all([
-      this.supabase
-        .from(BOTS_TABLE)
-        .select('*')
-        .eq('id', botId)
-        .single(),
-      this.supabase
-        .from(BOT_CONFIGS_TABLE)
-        .select('*')
-        .eq('bot_id', botId)
-        .single(),
+      withSupabaseRetry(
+        async () => await this.supabase
+          .from(BOTS_TABLE)
+          .select('*')
+          .eq('id', botId)
+          .single(),
+        'fetch bot'
+      ),
+      withSupabaseRetry(
+        async () => await this.supabase
+          .from(BOT_CONFIGS_TABLE)
+          .select('*')
+          .eq('bot_id', botId)
+          .single(),
+        'fetch bot config'
+      ),
     ])
 
     const { data: botData, error: botError } = botResult
@@ -168,12 +218,15 @@ export class BotService {
 
     updateData.updated_at = new Date().toISOString()
 
-    const { data, error } = await this.supabase
-      .from(BOTS_TABLE)
-      .update(updateData)
-      .eq('id', botId)
-      .select()
-      .single()
+    const { data, error } = await withSupabaseRetry(
+      async () => await this.supabase
+        .from(BOTS_TABLE)
+        .update(updateData)
+        .eq('id', botId)
+        .select()
+        .single(),
+      'update bot'
+    )
 
     if (error) {
       console.error('Error updating bot:', error)
@@ -205,21 +258,27 @@ export class BotService {
     const configData = this.mapConfigToDb(config)
 
     // Check if config exists
-    const { data: existing } = await this.supabase
-      .from(BOT_CONFIGS_TABLE)
-      .select('id')
-      .eq('bot_id', botId)
-      .single()
+    const { data: existing } = await withSupabaseRetry(
+      async () => await this.supabase
+        .from(BOT_CONFIGS_TABLE)
+        .select('id')
+        .eq('bot_id', botId)
+        .single(),
+      'fetch existing bot config'
+    )
 
     if (existing) {
       // Update
-      const { error } = await this.supabase
-        .from(BOT_CONFIGS_TABLE)
-        .update({
-          ...configData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('bot_id', botId)
+      const { error } = await withSupabaseRetry(
+        async () => await this.supabase
+          .from(BOT_CONFIGS_TABLE)
+          .update({
+            ...configData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('bot_id', botId),
+        'update bot config'
+      )
 
       if (error) {
         console.error('Error updating config:', error)
@@ -227,12 +286,15 @@ export class BotService {
       }
     } else {
       // Insert
-      const { error } = await this.supabase
-        .from(BOT_CONFIGS_TABLE)
-        .insert({
-          bot_id: botId,
-          ...configData,
-        })
+      const { error } = await withSupabaseRetry(
+        async () => await this.supabase
+          .from(BOT_CONFIGS_TABLE)
+          .insert({
+            bot_id: botId,
+            ...configData,
+          }),
+        'save bot config'
+      )
 
       if (error) {
         console.error('Error saving config:', error)
@@ -241,10 +303,13 @@ export class BotService {
     }
 
     // Update bot's updated_at timestamp
-    await this.supabase
-      .from(BOTS_TABLE)
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', botId)
+    await withSupabaseRetry(
+      async () => await this.supabase
+        .from(BOTS_TABLE)
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', botId),
+      'touch bot timestamp'
+    )
   }
 
   /**

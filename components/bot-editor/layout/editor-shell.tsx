@@ -166,6 +166,14 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
 
     hasSentAutoStopSignalRef.current = true
     const payload = JSON.stringify({ botId: currentBotId, reason })
+    const beaconPayload = new Blob([payload], { type: 'application/json' })
+
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      const queued = navigator.sendBeacon(AUTO_STOP_TEST_ENDPOINT, beaconPayload)
+      if (queued) {
+        return
+      }
+    }
 
     void fetch(AUTO_STOP_TEST_ENDPOINT, {
       method: 'POST',
@@ -180,6 +188,27 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
       hasSentAutoStopSignalRef.current = false
     })
   }, [])
+
+  useEffect(() => {
+    if (isBotActive) {
+      hasSentAutoStopSignalRef.current = false
+    }
+  }, [isBotActive])
+
+  useEffect(() => {
+    if (!isBotActive) {
+      return
+    }
+
+    const handlePageHide = () => {
+      sendAutoStopTestSignal('editor_exit')
+    }
+
+    window.addEventListener('pagehide', handlePageHide)
+    return () => {
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [isBotActive, sendAutoStopTestSignal])
 
   const openTestLaunchMenu = useCallback(() => {
     if (testLaunchMenuCloseTimeoutRef.current !== null) {

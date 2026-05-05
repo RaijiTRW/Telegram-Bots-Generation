@@ -1538,6 +1538,7 @@ function buildRouteDecisionMessages(args: {
         'Choose mode "respond" when the user is greeting, chatting, asking a general question, asking how something works, asking for explanation, or expecting only an informational answer.',
         'If the user asks about the current bot logic without requesting edits, choose "respond".',
         'Questions like "why does this not work?", "what is wrong?", "how should I fix it?" are respond unless the user explicitly says to make the fix.',
+        'If the user already says "fix it", "fix everything", "make it", "add it", "do it", "apply it", choose "build" and do not ask for permission again.',
         'Phrases like "just answer", "only answer", "do not change", "without edits" must be respond.',
         'Short greetings like "hello", "hi", "привет", "как дела", "что умеешь" must be classified as "respond".',
         'If the user asks to add, change, fix, connect, generate, rebuild bot logic, or change Settings/System, choose "build".',
@@ -1550,6 +1551,7 @@ function buildRouteDecisionMessages(args: {
         'Выбирай mode "respond", когда пользователь просто здоровается, общается, задаёт общий вопрос, спрашивает как что-то работает, просит объяснение, или ожидает только информационный ответ без изменений в боте.',
         'Если пользователь спрашивает про текущую логику бота без запроса на правки, выбирай "respond".',
         'Вопросы вроде "почему не работает?", "что не так?", "как исправить?" — это respond, если пользователь явно не просит внести исправление.',
+        'Если пользователь уже пишет "исправь", "исправь всё", "сделай", "добавь", "почини", "примени", выбирай "build" и не спрашивай разрешение повторно.',
         'Фразы "просто ответь", "только ответ", "не меняй", "без правок" всегда означают respond.',
         'Короткие запросы вроде "привет", "как дела", "что умеешь" всегда классифицируй как "respond".',
         'Если пользователь просит добавить, изменить, исправить, соединить, сгенерировать, пересобрать логику или поменять раздел Настройки/Система, выбирай "build".',
@@ -1574,27 +1576,49 @@ function getExplicitRouteDecision(prompt: string, locale: 'ru' | 'en'): AgentRou
   const normalized = normalizeText(prompt, 1200).toLowerCase()
   if (!normalized) return null
 
-  const explicitRespondPatterns = [
+  const noChangePatterns = [
     /\bпросто\s+ответ/,
     /\bтолько\s+ответ/,
     /\bне\s+(чини|исправляй|меняй|трогай|делай)/,
     /\bбез\s+(изменений|правок|редактирования)/,
-    /^(почему|зачем|как|что|где|когда|можешь объяснить|объясни)\b/,
-    /\?$/,
     /\bjust\s+answer\b/,
     /\bonly\s+answer\b/,
     /\bdon't\s+(fix|change|edit|modify|touch|do)\b/,
     /\bdo\s+not\s+(fix|change|edit|modify|touch|do)\b/,
     /\bwithout\s+(changes|edits|modifying)\b/,
+  ]
+  const explicitRespondPatterns = [
+    /^(почему|зачем|как|что|где|когда|можешь объяснить|объясни)\b/,
+    /\?$/,
     /^(why|how|what|where|when|can you explain|explain)\b/,
   ]
   const explicitBuildPatterns = [
     /\b(сделай|создай|добавь|исправь|почини|измени|поменяй|подключи|сгенерируй|пересобери|настрой|удали|доработай)\b/,
+    /\b(надо|нужно|давай|можешь|пожалуйста)\s+(сделать|создать|добавить|исправить|починить|изменить|поменять|подключить|сгенерировать|пересобрать|настроить|удалить|доработать)\b/,
     /\b(make|create|add|fix|repair|change|modify|connect|generate|rebuild|configure|delete|update)\b/,
+    /\b(can you|please|need to|let'?s)\s+(make|create|add|fix|repair|change|modify|connect|generate|rebuild|configure|delete|update)\b/,
   ]
+
+  if (noChangePatterns.some((pattern) => pattern.test(normalized))) {
+    return {
+      mode: 'respond',
+      reason: locale === 'en'
+        ? 'The user explicitly asked not to change the canvas.'
+        : 'Пользователь явно попросил не менять холст.',
+    }
+  }
 
   const wantsRespond = explicitRespondPatterns.some((pattern) => pattern.test(normalized))
   const wantsBuild = explicitBuildPatterns.some((pattern) => pattern.test(normalized))
+
+  if (wantsBuild) {
+    return {
+      mode: 'build',
+      reason: locale === 'en'
+        ? 'The user explicitly asked to change the bot, so the agent will apply the edit without asking again.'
+        : 'Пользователь явно попросил изменить бота, поэтому агент сразу применит правку без повторного вопроса.',
+    }
+  }
 
   if (wantsRespond && !wantsBuild) {
     return {
@@ -1689,6 +1713,7 @@ function buildAgentMessages(args: {
     'Keep the graph acyclic and connected for executable nodes.',
     'For inline callback menus, do not stop at adding buttons. Every callback button must have a callbackData value handled by a callbackQuery trigger, then usually a router with variable "callback.data", a matching case.value, and an outgoing edge from sourceHandle "case:<caseId>" to the intended branch.',
     'When the user says a callback menu/button is not connected, first inspect currentGraph.callbackAudit. Fix existing callbackData/trigger/router/case/edge wiring instead of creating duplicate buttons.',
+    'If the goal is an explicit edit/fix request, do not answer with permission questions like "Do you want me to fix it?". Apply the safest concrete operations immediately.',
     'Use nodeKey only for nodes created in the current step. For existing nodes in later steps, always reference actual node ids from currentGraph.',
     'Set done=true only when the flow is already coherent, all essential branches are connected, and no obvious next build step remains.',
     isRepairStep

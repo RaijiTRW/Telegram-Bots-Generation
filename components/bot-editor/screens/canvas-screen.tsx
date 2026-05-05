@@ -403,17 +403,45 @@ export default function CanvasPage() {
     })
   }, [config, setConfig])
 
-  const handleTest = useCallback(async (currentNodes: Node[], currentEdges: Edge[]) => {
+  const handleStopTest = useCallback(async () => {
     if (!botId) return
 
     if (testLaunchMode === 'live-preview') {
-      if (isLivePreviewTestActive) {
-        setIsLivePreviewTestActive(false)
-        setLivePreviewVisits([])
-        setError(null)
-        return
-      }
+      setIsLivePreviewTestActive(false)
+      setLivePreviewVisits([])
+      setError(null)
+      return
+    }
 
+    setIsTesting(true)
+    setError(null)
+    setLogsFetchError(null)
+    setTestTransition('stopping')
+
+    const stopResult = await stopBotTestAction(botId, {
+      source: 'canvas_button',
+    })
+    setIsTesting(false)
+    setTestTransition(null)
+    await fetchLogs(false)
+
+    if (!stopResult.success) {
+      const actionError = ('error' in stopResult ? stopResult.error : null) || ''
+      setError(actionError || t('errorStopFallback'))
+      return
+    }
+
+    const stoppedBot = stopResult.success && 'bot' in stopResult ? stopResult.bot : null
+    if (stoppedBot) {
+      setBot(stoppedBot)
+    }
+    setIsDirty(false)
+  }, [botId, fetchLogs, setBot, setIsDirty, testLaunchMode, t])
+
+  const handleStartTest = useCallback(async (currentNodes: Node[], currentEdges: Edge[]) => {
+    if (!botId) return
+
+    if (testLaunchMode === 'live-preview') {
       const serialNodes = serializeWorkflowNodes(currentNodes)
       const serialEdges = serializeWorkflowEdges(currentEdges)
       setConfig({
@@ -432,31 +460,6 @@ export default function CanvasPage() {
     setIsTesting(true)
     setError(null)
     setLogsFetchError(null)
-
-    if (isTestActive) {
-      setTestTransition('stopping')
-      const stopResult = await stopBotTestAction(botId, {
-        source: 'canvas_button',
-      })
-      setIsTesting(false)
-      setTestTransition(null)
-      await fetchLogs(false)
-
-      if (!stopResult.success) {
-        const actionError = ('error' in stopResult ? stopResult.error : null) || ''
-        setError(actionError || t('errorStopFallback'))
-        return
-      }
-
-      const stoppedBot = stopResult.success && 'bot' in stopResult ? stopResult.bot : null
-      if (stoppedBot) {
-        setBot(stoppedBot)
-      }
-      setIsDirty(false)
-
-      return
-    }
-
     setTestTransition('starting')
     latestLogTsRef.current = null
     setLogs([])
@@ -524,7 +527,7 @@ export default function CanvasPage() {
     } else if (preparedTelegramWindow && !preparedTelegramWindow.closed) {
       preparedTelegramWindow.close()
     }
-  }, [botId, config, isLivePreviewTestActive, isTestActive, setConfig, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, testLaunchMode, t])
+  }, [botId, config, setConfig, setBot, setIsDirty, fetchLogs, autoOpenTelegramAfterTest, testLaunchMode, t])
 
   const handleLivePreviewOnlineChange = useCallback((online: boolean) => {
     setIsLivePreviewTestActive(online)
@@ -694,8 +697,8 @@ export default function CanvasPage() {
             initialNodes={(config.nodes || []) as Node[]}
             initialEdges={(config.edges || []) as Edge[]}
             onChange={handleCanvasChange}
-            onStartTest={handleTest}
-            onStopTest={handleTest}
+            onStartTest={handleStartTest}
+            onStopTest={handleStopTest}
             onSave={handleSaveCanvas}
             isTestActive={effectiveTestActive}
             isTestButtonDisabled={isTesting}
