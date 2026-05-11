@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowLeft, Bot, Save, Rocket, Download, Server, ChevronDown, Check, Monitor, Send } from 'lucide-react'
+import { ArrowLeft, Bot, Save, Rocket, Download, Server, Monitor } from 'lucide-react'
 import { EditorNav } from './editor-nav'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import { Button } from '@/components/ui/button'
@@ -88,8 +88,6 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
     config,
     setBot,
     setIsDirty,
-    testLaunchMode,
-    setTestLaunchMode,
     isAgentRunActive,
   } = useBotState()
   const [isSaving, setIsSaving] = useState(false)
@@ -98,13 +96,11 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
   const [showDeployModal, setShowDeployModal] = useState(false)
   const [showZipRunGuideModal, setShowZipRunGuideModal] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
-  const [isTestLaunchMenuOpen, setIsTestLaunchMenuOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [pendingSection, setPendingSection] = useState<EditorSection | null>(null)
   const [sectionsPanelWidth, setSectionsPanelWidth] = useState(NAV_PANEL_DEFAULT_WIDTH)
   const [isResizingSectionsPanel, setIsResizingSectionsPanel] = useState(false)
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
-  const testLaunchMenuCloseTimeoutRef = useRef<number | null>(null)
   const hasLoadedSectionsPanelWidthRef = useRef(false)
   const pendingRestoreSectionsPanelWidthRef = useRef<number | null>(null)
   const isBotActive = Boolean(bot?.metadata?.testActive)
@@ -119,7 +115,7 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
 
   // Extract active section from pathname
   const getCurrentSection = (): EditorSection => {
-    const sections = ['ai-chat', 'ai-agents', 'canvas', 'settings', 'system', 'statistics'] as const
+    const sections = ['ai-chat', 'ai-agents', 'canvas', 'settings', 'database', 'system', 'statistics'] as const
     for (const section of sections) {
       if (pathname?.endsWith(`/${section}`)) {
         return section
@@ -130,24 +126,6 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
 
   const currentSection = getCurrentSection()
   const displayedSection = pendingSection ?? currentSection
-  const activeTestLaunchLabel =
-    testLaunchMode === 'telegram'
-      ? t('testLaunchTelegram')
-      : t('testLaunchLivePreview')
-  const testLaunchOptions = [
-    {
-      id: 'telegram' as const,
-      label: t('testLaunchTelegram'),
-      description: t('testLaunchTelegramDesc'),
-      icon: Send,
-    },
-    {
-      id: 'live-preview' as const,
-      label: t('testLaunchLivePreview'),
-      description: t('testLaunchLivePreviewDesc'),
-      icon: Monitor,
-    },
-  ]
   const initialSectionRef = useRef<EditorSection>(currentSection)
   const initialContentRef = useRef(children)
   const zipRunCommands = [
@@ -210,36 +188,9 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
     }
   }, [isBotActive, sendAutoStopTestSignal])
 
-  const openTestLaunchMenu = useCallback(() => {
-    if (testLaunchMenuCloseTimeoutRef.current !== null) {
-      window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
-      testLaunchMenuCloseTimeoutRef.current = null
-    }
-    setIsTestLaunchMenuOpen(true)
-  }, [])
-
-  const closeTestLaunchMenu = useCallback(() => {
-    if (testLaunchMenuCloseTimeoutRef.current !== null) {
-      window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
-      testLaunchMenuCloseTimeoutRef.current = null
-    }
-    setIsTestLaunchMenuOpen(false)
-  }, [])
-
-  const closeTestLaunchMenuWithDelay = useCallback(() => {
-    if (testLaunchMenuCloseTimeoutRef.current !== null) {
-      window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
-    }
-
-    testLaunchMenuCloseTimeoutRef.current = window.setTimeout(() => {
-      setIsTestLaunchMenuOpen(false)
-      testLaunchMenuCloseTimeoutRef.current = null
-    }, 160)
-  }, [])
-
   const exitEditor = useCallback(() => {
     sendAutoStopTestSignal('editor_exit')
-    router.push(`/${locale}/dashboard/bots`)
+    router.push(`/${locale}/workspace`)
   }, [locale, router, sendAutoStopTestSignal])
 
   const handleBack = () => {
@@ -292,6 +243,10 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
           profileStyle:
             bot.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
               ? (bot.metadata.profileStyle as Record<string, unknown>)
+              : undefined,
+          database:
+            bot.metadata?.database && typeof bot.metadata.database === 'object'
+              ? (bot.metadata.database as Record<string, unknown>)
               : undefined,
         },
       })
@@ -388,14 +343,6 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
     latestBotIdRef.current = botId
     hasSentAutoStopSignalRef.current = false
   }, [botId])
-
-  useEffect(() => {
-    return () => {
-      if (testLaunchMenuCloseTimeoutRef.current !== null) {
-        window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
-      }
-    }
-  }, [])
 
   useEffect(() => {
     setPendingSection(null)
@@ -555,84 +502,6 @@ export function EditorShell({ botId, viewerAccess, children }: EditorShellProps)
           {actionError && (
             <div className="px-3 py-1.5 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-300">
               {actionError}
-            </div>
-          )}
-          {currentSection === 'canvas' && (
-            <div
-              className="relative z-[90]"
-              onMouseEnter={openTestLaunchMenu}
-              onMouseLeave={closeTestLaunchMenuWithDelay}
-            >
-              <button
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={isTestLaunchMenuOpen}
-                className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 transition-colors hover:text-white"
-                onClick={(event) => {
-                  event.preventDefault()
-                  openTestLaunchMenu()
-                }}
-              >
-                <span>{activeTestLaunchLabel}</span>
-                <ChevronDown
-                  className={`h-3.5 w-3.5 text-zinc-500 transition-transform ${isTestLaunchMenuOpen ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              {isTestLaunchMenuOpen && (
-                <div className="absolute right-0 top-full z-[95] h-3 w-[320px]" />
-              )}
-
-              <div
-                className={`absolute right-0 top-[calc(100%+8px)] z-[100] w-[320px] origin-top-right rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl transition-all duration-200 ${
-                  isTestLaunchMenuOpen
-                    ? 'translate-y-0 opacity-100 pointer-events-auto'
-                    : '-translate-y-1 opacity-0 pointer-events-none'
-                }`}
-              >
-                <div className="px-2 pb-1 pt-0.5 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                  {t('testLaunchMode')}
-                </div>
-                <div className="space-y-1">
-                  {testLaunchOptions.map((option) => {
-                    const Icon = option.icon
-                    const isSelected = testLaunchMode === option.id
-
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => {
-                          setTestLaunchMode(option.id)
-                          closeTestLaunchMenu()
-                        }}
-                        className={`flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
-                          isSelected
-                            ? 'border-[#24A1DE]/35 bg-[#24A1DE]/10'
-                            : 'border-transparent bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]'
-                        }`}
-                      >
-                        <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                          isSelected
-                            ? 'border-[#24A1DE]/50 bg-[#24A1DE]/20 text-[#7fd6ff]'
-                            : 'border-white/10 bg-white/5 text-transparent'
-                        }`}>
-                          <Check className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-3.5 w-3.5 text-zinc-400" />
-                            <div className="text-sm font-medium text-white">{option.label}</div>
-                          </div>
-                          <div className="mt-1 text-xs leading-5 text-zinc-500">
-                            {option.description}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
             </div>
           )}
           <Button

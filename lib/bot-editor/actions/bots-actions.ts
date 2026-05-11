@@ -3,6 +3,17 @@
 import { getServerUser, createServerClientWrapper } from '@/lib/supabase/server'
 import { createBotService } from '@/lib/bot-editor/services/bot-service'
 import { getViewerAccess } from '@/lib/billing/server'
+import {
+  buildRestaurantBotTemplate,
+  normalizeRestaurantTemplateId,
+  type RestaurantBotTemplateId,
+} from '@/lib/bot-editor/templates/restaurant-bot-templates'
+
+type CreateBotActionData = {
+  name: string
+  description: string
+  restaurantTemplateId?: RestaurantBotTemplateId
+}
 
 export async function getUserBots() {
   const user = await getServerUser()
@@ -22,7 +33,7 @@ export async function getUserBots() {
   }
 }
 
-export async function createBotAction(data: { name: string; description: string }) {
+export async function createBotAction(data: CreateBotActionData) {
   const user = await getServerUser()
 
   if (!user) {
@@ -40,13 +51,22 @@ export async function createBotAction(data: { name: string; description: string 
 
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
+    const restaurantTemplateId = normalizeRestaurantTemplateId(data.restaurantTemplateId)
+    const restaurantTemplate = restaurantTemplateId
+      ? buildRestaurantBotTemplate(restaurantTemplateId)
+      : null
     const createdBot = await botService.createBot({
       name: data.name,
       description: data.description,
       userId: user.id,
+      metadata: {
+        industry: 'restaurant',
+        ...(restaurantTemplate?.metadata || {}),
+        ...(restaurantTemplateId ? { restaurantTemplateId } : {}),
+      },
     })
 
-    await botService.saveBotConfig(createdBot.id, {
+    await botService.saveBotConfig(createdBot.id, restaurantTemplate?.config || {
       nodes: [],
       edges: [],
       variables: [],

@@ -35,6 +35,8 @@ import { HELP_GUIDE_KEYS } from '@/lib/bot-editor/help/help-guide-keys'
 interface AiChatPanelProps {
   onClose?: () => void
   className?: string
+  showHeader?: boolean
+  createChatSignal?: number
 }
 
 type AiLimitNotice = {
@@ -106,7 +108,40 @@ function isPendingClarificationExpired(pending: AiAgentPendingClarification) {
   return Date.parse(pending.expiresAt) <= Date.now()
 }
 
-export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
+function getRestaurantQuickPrompts(locale: string) {
+  const isRu = locale !== 'en'
+
+  return [
+    {
+      id: 'restaurant-menu',
+      label: isRu ? 'Меню' : 'Menu',
+      prompt: isRu
+        ? 'Собери Telegram-бота для ресторана, который показывает меню по категориям, помогает выбрать блюдо, отвечает на вопросы по составу и может передать заказ администратору. Сделай понятный сценарий для гостя ресторана.'
+        : 'Build a Telegram bot for a restaurant that shows a categorized menu, helps guests choose dishes, answers ingredient questions, and can pass an order to the manager. Make the guest flow clear.',
+    },
+    {
+      id: 'restaurant-booking',
+      label: isRu ? 'Бронирование' : 'Booking',
+      prompt: isRu
+        ? 'Собери Telegram-бота для бронирования столиков в ресторане. Бот должен спросить дату, время, количество гостей, имя и телефон, подтвердить заявку и отправить данные администратору.'
+        : 'Build a Telegram bot for restaurant table booking. It should ask for date, time, number of guests, name and phone, confirm the request, and send the details to the manager.',
+    },
+    {
+      id: 'restaurant-delivery',
+      label: isRu ? 'Доставка' : 'Delivery',
+      prompt: isRu
+        ? 'Собери Telegram-бота для доставки и самовывоза из ресторана. Бот должен показать меню, собрать заказ, адрес или выбор самовывоза, телефон клиента и передать заказ администратору.'
+        : 'Build a Telegram bot for restaurant delivery and pickup. It should show the menu, collect the order, address or pickup choice, customer phone, and pass the order to the manager.',
+    },
+  ]
+}
+
+export function AiChatPanel({
+  onClose,
+  className,
+  showHeader = true,
+  createChatSignal,
+}: AiChatPanelProps) {
   const tChat = useTranslations('editor.chat')
   const tNav = useTranslations('editor.nav')
   const locale = useLocale()
@@ -136,6 +171,7 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
   } | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const latestAgentRunIdRef = useRef<string | null>(null)
+  const handledCreateChatSignalRef = useRef(createChatSignal)
   const aiChatState = useMemo(() => getAiChatStateFromBot(bot), [bot])
   const activeChat = useMemo(() => getActiveChatThread(aiChatState), [aiChatState])
   const activeChatId = activeChat?.id || null
@@ -145,6 +181,15 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
   const activePendingClarification = pendingClarification && (!pendingClarification.chatId || pendingClarification.chatId === activeChatId)
     ? pendingClarification
     : null
+  const showRestaurantQuickPrompts = Boolean(
+    (!activeChat || activeChat.messages.length === 0) &&
+    !optimisticUserMessage &&
+    !isActiveChatAgentRunActive
+  )
+  const restaurantQuickPrompts = useMemo(
+    () => showRestaurantQuickPrompts ? getRestaurantQuickPrompts(locale) : [],
+    [locale, showRestaurantQuickPrompts]
+  )
 
   useEffect(() => {
     if (!storedPendingClarification || isPendingClarificationExpired(storedPendingClarification)) {
@@ -722,6 +767,15 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
     })
   }, [bot?.id, locale, syncServerState, tChat])
 
+  useEffect(() => {
+    if (createChatSignal === undefined || createChatSignal === handledCreateChatSignalRef.current) {
+      return
+    }
+
+    handledCreateChatSignalRef.current = createChatSignal
+    void handleCreateChat()
+  }, [createChatSignal, handleCreateChat])
+
   const handleSwitchChat = useCallback(async (chatId: string) => {
     if (!bot?.id) {
       setPanelError(tChat('botMissing'))
@@ -823,6 +877,7 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
 
   return (
     <div className={cn('flex h-full flex-col bg-[#05070A]', className)}>
+      {showHeader ? (
       <header className="shrink-0 border-b border-white/8 bg-[#06080D]/90 px-6 backdrop-blur-xl">
         <div className="flex h-16 items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -865,6 +920,7 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
           </div>
         </div>
       </header>
+      ) : null}
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(36,161,222,0.08),transparent_28%),radial-gradient(circle_at_bottom,rgba(139,92,246,0.08),transparent_30%)]" />
@@ -898,6 +954,7 @@ export function AiChatPanel({ onClose, className }: AiChatPanelProps) {
           <ChatInput
             botId={bot?.id ? String(bot.id) : undefined}
             onSendMessage={handleSendMessage}
+            quickPrompts={restaurantQuickPrompts}
             chatThreads={aiChatState.chats.map((chat) => ({
               id: chat.id,
               title: chat.title,

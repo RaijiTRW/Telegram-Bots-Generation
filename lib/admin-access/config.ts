@@ -183,7 +183,10 @@ export function maintenanceScopeApplies(scope: AppMaintenanceScope, pathname: st
   if (scope === 'none') return false
   if (scope === 'site') return true
   if (scope === 'editor') {
-    return pathname.includes('/dashboard/bots/') && pathname.includes('/editor')
+    return (
+      pathname.includes('/dashboard/bots/') ||
+      pathname.includes('/workspace/bots/')
+    ) && pathname.includes('/editor')
   }
   if (scope === 'dashboard_editor') {
     return pathname === '/dashboard' || pathname.startsWith('/dashboard/')

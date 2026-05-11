@@ -8,6 +8,7 @@ import {
   MessageSquare,
   MessageCircle,
   GitBranch,
+  Database,
   Zap,
   Code2,
   Keyboard,
@@ -21,6 +22,7 @@ import {
   Settings,
   Plus,
   Variable,
+  KanbanSquare,
 } from 'lucide-react'
 
 // Base node styles
@@ -50,6 +52,10 @@ const getNodeStyles = (type: string) => {
     case 'action':
       return `${baseNodeStyles} bg-purple-500/10 border-purple-500/30`
     case 'setVariable':
+      return `${baseNodeStyles} bg-emerald-500/10 border-emerald-500/30`
+    case 'database':
+      return `${baseNodeStyles} bg-sky-500/10 border-sky-500/30`
+    case 'crm':
       return `${baseNodeStyles} bg-emerald-500/10 border-emerald-500/30`
     case 'input':
       return `${baseNodeStyles} bg-green-500/10 border-green-500/30`
@@ -97,6 +103,10 @@ const getNodeIcon = (type: string) => {
       return <Zap className={iconClassName} style={{ color: nodeColor }} />
     case 'setVariable':
       return <Variable className={iconClassName} style={{ color: nodeColor }} />
+    case 'database':
+      return <Database className={iconClassName} style={{ color: nodeColor }} />
+    case 'crm':
+      return <KanbanSquare className={iconClassName} style={{ color: nodeColor }} />
     case 'input':
       return <Keyboard className={iconClassName} style={{ color: nodeColor }} />
     case 'http':
@@ -129,6 +139,8 @@ const getNodeColor = (type: string) => {
     case 'script': return '#06B6D4'
     case 'action': return '#8B5CF6'
     case 'setVariable': return '#10B981'
+    case 'database': return '#38BDF8'
+    case 'crm': return '#22C55E'
     case 'input': return '#10B981'
     case 'http': return '#F43F5E'
     case 'webhook': return '#EF4444'
@@ -752,6 +764,8 @@ const WaitNodeComponent = (props: NodeProps) => <CustomNode {...props} type="wai
 const ScriptNodeComponent = (props: NodeProps) => <CustomNode {...props} type="script" />
 const ActionNodeComponent = (props: NodeProps) => <CustomNode {...props} type="action" />
 const SetVariableNodeComponent = (props: NodeProps) => <CustomNode {...props} type="setVariable" />
+const DatabaseNodeComponent = (props: NodeProps) => <CustomNode {...props} type="database" />
+const CrmNodeComponent = (props: NodeProps) => <CustomNode {...props} type="crm" />
 const InputNodeComponent = (props: NodeProps) => <CustomNode {...props} type="input" />
 const HttpNodeComponent = (props: NodeProps) => <CustomNode {...props} type="http" />
 const WebhookNodeComponent = (props: NodeProps) => <CustomNode {...props} type="webhook" />
@@ -771,6 +785,8 @@ WaitNodeComponent.displayName = 'WaitNodeComponent'
 ScriptNodeComponent.displayName = 'ScriptNodeComponent'
 ActionNodeComponent.displayName = 'ActionNodeComponent'
 SetVariableNodeComponent.displayName = 'SetVariableNodeComponent'
+DatabaseNodeComponent.displayName = 'DatabaseNodeComponent'
+CrmNodeComponent.displayName = 'CrmNodeComponent'
 InputNodeComponent.displayName = 'InputNodeComponent'
 HttpNodeComponent.displayName = 'HttpNodeComponent'
 WebhookNodeComponent.displayName = 'WebhookNodeComponent'
@@ -790,6 +806,8 @@ export const WaitNode = memo(WaitNodeComponent)
 export const ScriptNode = memo(ScriptNodeComponent)
 export const ActionNode = memo(ActionNodeComponent)
 export const SetVariableNode = memo(SetVariableNodeComponent)
+export const DatabaseNode = memo(DatabaseNodeComponent)
+export const CrmNode = memo(CrmNodeComponent)
 export const InputNode = memo(InputNodeComponent)
 export const HttpNode = memo(HttpNodeComponent)
 export const WebhookNode = memo(WebhookNodeComponent)
@@ -811,6 +829,8 @@ export const nodeTypes = {
   script: ScriptNode,
   action: ActionNode,
   setVariable: SetVariableNode,
+  database: DatabaseNode,
+  crm: CrmNode,
   input: InputNode,
   http: HttpNode,
   webhook: WebhookNode,
@@ -1117,6 +1137,51 @@ export const nodeTemplates: NodeTemplate[] = [
       __description: 'Assign value to variable',
       variableName: '',
       value: '',
+    },
+  },
+  {
+    id: 'database',
+    type: 'database',
+    label: 'Database',
+    description: 'Read text from bot database',
+    color: '#38BDF8',
+    gradient: 'from-sky-500/20 to-cyan-500/10',
+    border: 'border-sky-500/30',
+    icon: Database,
+    data: {
+      mode: 'search',
+      query: '{{message.text}}',
+      saveToVariable: 'database.result',
+      maxMatches: 5,
+      fallbackText: '',
+      __label: 'Database',
+      __description: 'Read bot database text',
+    },
+  },
+  {
+    id: 'crm',
+    type: 'crm',
+    label: 'CRM',
+    description: 'Create or update CRM card',
+    color: '#22C55E',
+    gradient: 'from-emerald-500/20 to-green-500/10',
+    border: 'border-emerald-500/30',
+    icon: KanbanSquare,
+    data: {
+      operation: 'create_or_update',
+      scope: 'bot',
+      stageKey: 'new',
+      title: 'Заявка от {{user.firstName}}',
+      externalKey: '{{user.id}}',
+      fieldMappings: [
+        { fieldKey: 'name', value: '{{user.firstName}}' },
+        { fieldKey: 'comment', value: '{{message.text}}' },
+      ],
+      tags: 'telegram',
+      notes: '',
+      saveToVariable: 'crm.card',
+      __label: 'CRM',
+      __description: 'Create or update CRM card',
     },
   },
   {

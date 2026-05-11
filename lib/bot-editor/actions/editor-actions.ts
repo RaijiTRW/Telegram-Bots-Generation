@@ -12,9 +12,17 @@ import { createBotSecretsService } from '@/lib/bot-editor/services/bot-secrets-s
 import { appendBotAuditEventSafe } from '@/lib/bot-editor/services/bot-audit-service'
 import { getBotSubscribersStats } from '@/lib/bot-editor/services/bot-subscriber-service'
 import {
+  deleteCrmField,
+  deleteCrmStage,
+  getCrmCardTimeline,
   getDashboardCrmOverview,
   getDashboardCrmLeads,
+  getFlexibleCrmBoard,
   getLeadTimeline,
+  moveCrmCard,
+  upsertCrmCard,
+  upsertCrmField,
+  upsertCrmStage,
   updateLeadStage,
 } from '@/lib/bot-editor/services/bot-crm-service'
 import type {
@@ -36,7 +44,11 @@ import type {
   BotTechnicalStats,
   BotTechnicalStatsRange,
   BotTechnicalStatsSummary,
+  CrmBoardFilters,
   CrmFilters,
+  UpsertCrmCardInput,
+  UpsertCrmFieldInput,
+  UpsertCrmStageInput,
   DashboardGlobalAnomaly,
   DashboardGlobalBotRankingRow,
   DashboardGlobalCurrencyTotal,
@@ -112,6 +124,7 @@ type CanvasVariable = {
 const LOCAL_BOT_MEDIA_ROOT_DIR = '.tflow-media'
 const MAX_LOCAL_ATTACHMENT_BYTES = 50 * 1024 * 1024
 const MAX_TELEGRAM_PROFILE_PHOTO_BYTES = 10 * 1024 * 1024
+const MAX_BOT_DATABASE_TEXT_CHARS = 200_000
 const ZIP_CRC32_TABLE = (() => {
   const table = new Uint32Array(256)
   for (let i = 0; i < 256; i += 1) {
@@ -293,6 +306,8 @@ const ALLOWED_NODE_TYPES = new Set<WorkflowNode['type']>([
   'script',
   'action',
   'setVariable',
+  'database',
+  'crm',
   'http',
   'webhook',
   'paymentYookassa',
@@ -682,8 +697,12 @@ function sanitizeSettingsMetadataPatch(input: unknown): Record<string, unknown> 
   const subscriberMode = featureRecord
     ? sanitizeSubscriberModeFeatureConfig(featureRecord.subscriberMode)
     : null
+  const database =
+    patch.database && typeof patch.database === 'object'
+      ? sanitizeBotDatabaseMetadataPatch(patch.database)
+      : null
 
-  if (!autoReactions && !messageDrafts && !replyKeyboard && !subscriberMode && !profileStyle) {
+  if (!autoReactions && !messageDrafts && !replyKeyboard && !subscriberMode && !profileStyle && !database) {
     return {}
   }
 
@@ -699,6 +718,61 @@ function sanitizeSettingsMetadataPatch(input: unknown): Record<string, unknown> 
         }
       : {}),
     ...(profileStyle ? { profileStyle } : {}),
+    ...(database ? { database } : {}),
+  }
+}
+
+function sanitizeBotDatabaseMetadataPatch(input: unknown): Record<string, unknown> | null {
+  if (!input || typeof input !== 'object') {
+    return null
+  }
+
+  const record = input as Record<string, unknown>
+  const rows = Array.isArray(record.rows)
+    ? record.rows
+        .map((item, index) => {
+          const row = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+          const id = String(row.id || `row_${index + 1}`)
+            .trim()
+            .replace(/[.[\]{}]/g, '_')
+            .replace(/\s+/g, '_')
+            .replace(/_+/g, '_')
+            .slice(0, 64)
+            .replace(/^_+|_+$/g, '') || `row_${index + 1}`
+
+          return {
+            id,
+            text: String(row.text || '').slice(0, 50_000),
+          }
+        })
+        .filter((row) => row.id || row.text.trim())
+        .slice(0, 100)
+    : []
+  const dedupedRows = rows.reduce<Array<{ id: string; text: string }>>((acc, row) => {
+    const usedIds = new Set(acc.map((item) => item.id))
+    let nextId = row.id
+    let index = 2
+    while (usedIds.has(nextId)) {
+      nextId = `${row.id}_${index}`
+      index += 1
+    }
+
+    acc.push({ ...row, id: nextId })
+    return acc
+  }, [])
+  const text = (dedupedRows.length
+    ? dedupedRows.map((row) => row.text.trim()).filter(Boolean).join('\n\n')
+    : String(record.text || '')
+  ).slice(0, MAX_BOT_DATABASE_TEXT_CHARS)
+  const sourceName = String(record.sourceName || '').trim().slice(0, 160)
+  const updatedAtRaw = String(record.updatedAt || '').trim()
+  const updatedAt = Number.isNaN(Date.parse(updatedAtRaw)) ? new Date().toISOString() : updatedAtRaw
+
+  return {
+    rows: dedupedRows,
+    text,
+    sourceName,
+    updatedAt,
   }
 }
 
@@ -1019,6 +1093,10 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
           }
         : profileStylePatch
       : undefined
+    const databasePatch =
+      safeSettingsMetadataPatch.database && typeof safeSettingsMetadataPatch.database === 'object'
+        ? (safeSettingsMetadataPatch.database as Record<string, unknown>)
+        : null
 
     const updatedBot = await botService.updateBot(botId, {
       name: input.name.trim(),
@@ -1028,6 +1106,7 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
         ...safeMetadataBase,
         ...(mergedFeatures ? { features: mergedFeatures } : {}),
         ...(mergedProfileStyle ? { profileStyle: mergedProfileStyle } : {}),
+        ...(databasePatch ? { database: databasePatch } : {}),
         webhookUrl,
         hasTelegramToken: Boolean(effectiveToken),
         testActive: requestedToken && requestedToken !== existingToken ? false : bot.metadata?.testActive,
@@ -1750,7 +1829,7 @@ export async function clearBotTestLogsAction(botId: string) {
       .eq('bot_id', normalizedBotId)
 
     if (error) {
-      return { success: false, error: String(error) } as const
+      return { success: false, error: getErrorMessage(error) } as const
     }
 
     await appendBotAuditEventSafe(supabase as unknown as AuditClient, {
@@ -1765,7 +1844,7 @@ export async function clearBotTestLogsAction(botId: string) {
 
     return { success: true } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -1849,7 +1928,10 @@ export async function exportBotZipAction(botId: string) {
     const pythonCode = generatePythonBotCode()
     const requirementsTxt = generatePythonRequirements()
     const envTemplate = generatePythonEnvTemplate()
-    const workflowJson = generateWorkflowJson(bot.config)
+    const workflowJson = generateWorkflowJson(
+      bot.config,
+      removeSecretFieldsFromMetadata((bot.metadata || {}) as Record<string, unknown>)
+    )
     const readme = `# ${bot.name || 'Telegram Bot'}
 
 Generated by TFlow.
@@ -2140,7 +2222,7 @@ export async function getDashboardCrmOverviewAction(filters: CrmFilters = {}) {
     )
     return { success: true, overview } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -2173,7 +2255,7 @@ export async function getDashboardCrmLeadsAction(
 
     return { success: true, result } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -2207,7 +2289,7 @@ export async function getLeadTimelineAction(
     )
     return { success: true, timeline } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -2237,7 +2319,201 @@ export async function updateLeadStageAction(input: {
     )
     return { success: true, lead } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
+  }
+}
+
+export async function getFlexibleCrmBoardAction(filters: CrmBoardFilters = {}) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!(viewerAccess.isAdmin || viewerAccess.entitlements.crm)) {
+      return { success: false, error: 'CRM is not available on the current plan' as const }
+    }
+
+    const supabase = await createServerClientWrapper()
+    const board = await getFlexibleCrmBoard(
+      supabase as unknown as Parameters<typeof getFlexibleCrmBoard>[0],
+      user.id,
+      filters
+    )
+    return { success: true, board } as const
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) } as const
+  }
+}
+
+export async function getCrmCardTimelineAction(cardId: string, limit = 80) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!(viewerAccess.isAdmin || viewerAccess.entitlements.crm)) {
+      return { success: false, error: 'CRM is not available on the current plan' as const }
+    }
+
+    const supabase = await createServerClientWrapper()
+    const timeline = await getCrmCardTimeline(
+      supabase as unknown as Parameters<typeof getCrmCardTimeline>[0],
+      user.id,
+      cardId,
+      limit
+    )
+    return { success: true, timeline } as const
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) } as const
+  }
+}
+
+export async function upsertCrmCardAction(input: UpsertCrmCardInput) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!(viewerAccess.isAdmin || viewerAccess.entitlements.crm)) {
+      return { success: false, error: 'CRM is not available on the current plan' as const }
+    }
+
+    const supabase = await createServerClientWrapper()
+    const card = await upsertCrmCard(
+      supabase as unknown as Parameters<typeof upsertCrmCard>[0],
+      user.id,
+      input
+    )
+    return { success: true, card } as const
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) } as const
+  }
+}
+
+export async function moveCrmCardAction(cardId: string, stageId: string) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!(viewerAccess.isAdmin || viewerAccess.entitlements.crm)) {
+      return { success: false, error: 'CRM is not available on the current plan' as const }
+    }
+
+    const supabase = await createServerClientWrapper()
+    const card = await moveCrmCard(
+      supabase as unknown as Parameters<typeof moveCrmCard>[0],
+      user.id,
+      cardId,
+      stageId
+    )
+    return { success: true, card } as const
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) } as const
+  }
+}
+
+export async function upsertCrmStageAction(input: UpsertCrmStageInput) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!(viewerAccess.isAdmin || viewerAccess.entitlements.crm)) {
+      return { success: false, error: 'CRM is not available on the current plan' as const }
+    }
+
+    const supabase = await createServerClientWrapper()
+    const stage = await upsertCrmStage(
+      supabase as unknown as Parameters<typeof upsertCrmStage>[0],
+      user.id,
+      input
+    )
+    return { success: true, stage } as const
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) } as const
+  }
+}
+
+export async function deleteCrmStageAction(stageId: string) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!(viewerAccess.isAdmin || viewerAccess.entitlements.crm)) {
+      return { success: false, error: 'CRM is not available on the current plan' as const }
+    }
+
+    const supabase = await createServerClientWrapper()
+    await deleteCrmStage(
+      supabase as unknown as Parameters<typeof deleteCrmStage>[0],
+      user.id,
+      stageId
+    )
+    return { success: true } as const
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) } as const
+  }
+}
+
+export async function upsertCrmFieldAction(input: UpsertCrmFieldInput) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!(viewerAccess.isAdmin || viewerAccess.entitlements.crm)) {
+      return { success: false, error: 'CRM is not available on the current plan' as const }
+    }
+
+    const supabase = await createServerClientWrapper()
+    const field = await upsertCrmField(
+      supabase as unknown as Parameters<typeof upsertCrmField>[0],
+      user.id,
+      input
+    )
+    return { success: true, field } as const
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) } as const
+  }
+}
+
+export async function deleteCrmFieldAction(fieldId: string) {
+  const user = await getServerUser()
+  if (!user) {
+    return { success: false, error: 'Not authenticated' as const }
+  }
+
+  try {
+    const viewerAccess = await getViewerAccess(user.id)
+    if (!(viewerAccess.isAdmin || viewerAccess.entitlements.crm)) {
+      return { success: false, error: 'CRM is not available on the current plan' as const }
+    }
+
+    const supabase = await createServerClientWrapper()
+    await deleteCrmField(
+      supabase as unknown as Parameters<typeof deleteCrmField>[0],
+      user.id,
+      fieldId
+    )
+    return { success: true } as const
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -2383,7 +2659,7 @@ export async function getBotTechnicalStatsAction(
       stats,
     } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -2494,7 +2770,7 @@ export async function getBotPaymentHistoryAction(
       history,
     } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -2679,7 +2955,7 @@ export async function getBotSubscribersAnalyticsAction(
 
     return { success: true, data } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -4210,7 +4486,7 @@ export async function getDashboardGlobalStatsAction(
 
     return { success: true, stats } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -4358,7 +4634,7 @@ export async function getDashboardGlobalPaymentsAction(
 
     return { success: true, history } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -4569,7 +4845,7 @@ export async function getDashboardGlobalSubscribersAction(
 
     return { success: true, data } as const
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }
 
@@ -5029,6 +5305,6 @@ export async function exportDashboardGlobalAnalyticsCsvAction(
       ),
     }
   } catch (error) {
-    return { success: false, error: String(error) } as const
+    return { success: false, error: getErrorMessage(error) } as const
   }
 }

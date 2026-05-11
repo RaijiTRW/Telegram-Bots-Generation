@@ -91,6 +91,8 @@ export function serializeWorkflowEdges(edges: unknown[]): SerializableWorkflowEd
   return edges.map((rawEdge) => {
     const edge = (rawEdge || {}) as PlainObject
     const data = sanitizeValue(edge.data || {}) as PlainObject
+    delete data.__executionState
+    delete data.__showDeleteButton
     const sourceHandle =
       typeof edge.sourceHandle === 'string' || edge.sourceHandle === null
         ? (edge.sourceHandle as string | null)

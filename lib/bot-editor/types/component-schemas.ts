@@ -146,6 +146,36 @@ export interface SetVariableNodeData extends BaseNodeData {
   value: unknown
 }
 
+export interface DatabaseNodeData extends BaseNodeData {
+  type: 'database'
+  mode?: 'all' | 'search'
+  query?: string
+  saveToVariable?: string
+  maxMatches?: number
+  fallbackText?: string
+}
+
+export interface CrmNodeFieldMapping {
+  fieldKey: string
+  value: string
+}
+
+export interface CrmNodeData extends BaseNodeData {
+  type: 'crm'
+  operation?: 'create_or_update' | 'move_stage'
+  scope?: 'global' | 'bot'
+  pipelineId?: string
+  stageId?: string
+  stageKey?: string
+  cardId?: string
+  title?: string
+  externalKey?: string
+  fieldMappings?: CrmNodeFieldMapping[]
+  tags?: string
+  notes?: string
+  saveToVariable?: string
+}
+
 export interface ScriptNodeData extends BaseNodeData {
   type: 'script'
   language?: ScriptLanguage
@@ -295,6 +325,8 @@ export type NodeData =
   | RouterNodeData
   | ActionNodeData
   | SetVariableNodeData
+  | DatabaseNodeData
+  | CrmNodeData
   | ScriptNodeData
   | HttpNodeData
   | WebhookNodeData
@@ -379,6 +411,24 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
     description: 'Присвоить значение переменной и продолжить сценарий',
     color: '#10B981',
     icon: 'Variable',
+    category: 'data',
+    editable: true,
+  },
+  database: {
+    type: 'database',
+    label: 'База данных',
+    description: 'Получить текст из базы данных бота и сохранить в переменную',
+    color: '#38BDF8',
+    icon: 'Database',
+    category: 'data',
+    editable: true,
+  },
+  crm: {
+    type: 'crm',
+    label: 'CRM',
+    description: 'Создать или обновить карточку CRM из переменных сценария',
+    color: '#22C55E',
+    icon: 'KanbanSquare',
     category: 'data',
     editable: true,
   },
@@ -536,6 +586,27 @@ export const DEFAULT_NODE_DATA: Record<string, Partial<NodeData>> = {
   setVariable: {
     variableName: '',
     value: '',
+  },
+  database: {
+    mode: 'search',
+    query: '{{message.text}}',
+    saveToVariable: 'database.result',
+    maxMatches: 5,
+    fallbackText: '',
+  },
+  crm: {
+    operation: 'create_or_update',
+    scope: 'bot',
+    stageKey: 'new',
+    title: 'Заявка от {{user.firstName}}',
+    externalKey: '{{user.id}}',
+    fieldMappings: [
+      { fieldKey: 'name', value: '{{user.firstName}}' },
+      { fieldKey: 'comment', value: '{{message.text}}' },
+    ],
+    tags: 'telegram',
+    notes: '',
+    saveToVariable: 'crm.card',
   },
   http: {
     url: '',

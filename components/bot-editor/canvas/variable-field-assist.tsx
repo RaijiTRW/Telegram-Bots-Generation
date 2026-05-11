@@ -9,6 +9,7 @@ import { Textarea, type TextareaProps } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
+import { cn } from '@/lib/utils'
 import type { VariableType } from '@/lib/bot-editor/types/bot.types'
 import {
   BOT_SYSTEM_VARIABLES,
@@ -386,7 +387,7 @@ function VariableSuggestions({
                     e.preventDefault()
                     e.stopPropagation()
                   }}
-                  className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/15 text-zinc-400 transition-colors hover:border-white/30 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24A1DE]/70"
+                  className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-transparent p-0 text-zinc-400 transition-colors hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24A1DE]/70"
                 >
                   <CircleHelp className="h-3.5 w-3.5" />
                 </button>
@@ -551,6 +552,22 @@ function getTemplateQueryAtCursor(value: string, cursor: number): {
   end: number
 } | null {
   const safeCursor = Math.max(0, Math.min(cursor, value.length))
+
+  const fullTokenRegex = /\{\{([^{}]*)\}\}/g
+  let tokenMatch: RegExpExecArray | null
+  while ((tokenMatch = fullTokenRegex.exec(value)) !== null) {
+    const tokenStart = tokenMatch.index
+    const tokenEnd = tokenStart + tokenMatch[0].length
+
+    if (safeCursor >= tokenStart && safeCursor <= tokenEnd) {
+      return {
+        query: tokenMatch[1] || '',
+        start: tokenStart,
+        end: tokenEnd,
+      }
+    }
+  }
+
   const beforeCursor = value.slice(0, safeCursor)
   const match = beforeCursor.match(/\{\{([^}]*)$/)
   if (!match) return null
@@ -563,6 +580,31 @@ function getTemplateQueryAtCursor(value: string, cursor: number): {
     start: tokenStart,
     end: safeCursor + (hasClosingBraces ? 2 : 0),
   }
+}
+
+function hasTemplateVariables(value: string) {
+  return /\{\{[^{}]+\}\}/.test(value)
+}
+
+function renderTemplatePreview(value: string) {
+  const parts = value.split(/(\{\{[^{}]+\}\})/g)
+
+  return parts.map((part, index) => {
+    if (!part) return null
+
+    if (/^\{\{[^{}]+\}\}$/.test(part)) {
+      return (
+        <span
+          key={`${part}-${index}`}
+          className="rounded-md border border-sky-400/35 bg-sky-400/15 px-1 py-0.5 font-mono text-[0.95em] text-sky-100 shadow-[0_0_0_1px_rgba(56,189,248,0.08)]"
+        >
+          {part}
+        </span>
+      )
+    }
+
+    return <span key={`${index}-${part.slice(0, 8)}`}>{part}</span>
+  })
 }
 
 interface TemplateVariableTextareaProps extends Omit<TextareaProps, 'value' | 'onChange'> {
@@ -578,6 +620,9 @@ export const TemplateVariableTextarea = forwardRef<HTMLTextAreaElement, Template
   onKeyUp,
   onClick,
   onFocus,
+  onScroll,
+  className,
+  style,
   ...textareaProps
 }: TemplateVariableTextareaProps, forwardedRef) {
   const allVariables = useAvailableVariables(variables)
@@ -589,6 +634,8 @@ export const TemplateVariableTextarea = forwardRef<HTMLTextAreaElement, Template
   const [templateQuery, setTemplateQuery] = useState<{ query: string; start: number; end: number } | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [createPrefill, setCreatePrefill] = useState('')
+  const [overlayScroll, setOverlayScroll] = useState({ top: 0, left: 0 })
+  const shouldHighlight = hasTemplateVariables(value)
 
   useEffect(() => {
     if (pendingCursorRef.current === null || !textareaRef.current) {
@@ -652,14 +699,52 @@ export const TemplateVariableTextarea = forwardRef<HTMLTextAreaElement, Template
   return (
     <>
       <div ref={wrapperRef} className="relative">
+        {shouldHighlight ? (
+          <div
+            aria-hidden="true"
+            className={cn(
+              'pointer-events-none absolute inset-0 z-[1] overflow-hidden rounded-md border border-transparent px-3 py-2 text-sm leading-normal text-white whitespace-pre-wrap break-words',
+              'selection:bg-transparent'
+            )}
+          >
+            <div
+              style={{
+                transform: `translate(${-overlayScroll.left}px, ${-overlayScroll.top}px)`,
+              }}
+            >
+              {renderTemplatePreview(value)}
+              {value.endsWith('\n') ? '\u00a0' : null}
+            </div>
+          </div>
+        ) : null}
         <Textarea
           ref={setTextareaRefs}
           {...textareaProps}
           value={value}
+          className={cn(
+            className,
+            shouldHighlight && 'relative z-[2] bg-transparent text-transparent caret-white selection:bg-[#24A1DE]/35'
+          )}
+          style={{
+            ...style,
+            ...(shouldHighlight
+              ? {
+                  color: 'transparent',
+                  caretColor: '#ffffff',
+                }
+              : null),
+          }}
           onChange={(e) => {
             const nextValue = e.target.value
             onValueChange(nextValue)
             refreshTemplateQuery(nextValue, e.target.selectionStart ?? nextValue.length)
+          }}
+          onScroll={(e) => {
+            setOverlayScroll({
+              top: e.currentTarget.scrollTop,
+              left: e.currentTarget.scrollLeft,
+            })
+            onScroll?.(e)
           }}
           onKeyUp={(e) => {
             const target = e.currentTarget

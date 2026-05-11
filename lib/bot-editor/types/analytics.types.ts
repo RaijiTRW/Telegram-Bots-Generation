@@ -56,6 +56,152 @@ export type CrmFilters = {
   search?: string
 }
 
+export type CrmScope = 'global' | 'bot'
+
+export type CrmFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'date'
+  | 'datetime'
+  | 'phone'
+  | 'email'
+  | 'select'
+  | 'checkbox'
+
+export type CrmBotOption = {
+  id: string
+  name: string
+}
+
+export type CrmPipeline = {
+  id: string
+  userId: string
+  botId: string | null
+  scope: CrmScope
+  name: string
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type CrmStage = {
+  id: string
+  userId: string
+  pipelineId: string
+  key: string
+  name: string
+  color: string
+  sortOrder: number
+  isTerminal: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type CrmField = {
+  id: string
+  userId: string
+  pipelineId: string
+  key: string
+  name: string
+  type: CrmFieldType
+  options: string[]
+  required: boolean
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type CrmCard = {
+  id: string
+  userId: string
+  botId: string | null
+  botName: string | null
+  pipelineId: string
+  stageId: string
+  stageKey: string
+  stageName: string
+  stageColor: string
+  title: string
+  externalKey: string
+  telegramUserId: number | null
+  telegramChatId: number | null
+  fieldValues: Record<string, unknown>
+  tags: string[]
+  notes: string
+  createdAt: string
+  updatedAt: string
+  stageUpdatedAt: string
+}
+
+export type CrmCardEvent = {
+  id: string
+  cardId: string
+  userId: string
+  botId: string | null
+  eventType: string
+  payload: Record<string, unknown>
+  createdAt: string
+}
+
+export type CrmBoard = {
+  scope: CrmScope
+  botId: string | null
+  pipeline: CrmPipeline
+  stages: CrmStage[]
+  fields: CrmField[]
+  cards: CrmCard[]
+  bots: CrmBotOption[]
+}
+
+export type CrmBoardFilters = {
+  scope?: CrmScope
+  botId?: string | null
+  search?: string
+}
+
+export type CrmCardFieldMapping = {
+  fieldKey: string
+  value: unknown
+}
+
+export type UpsertCrmCardInput = {
+  id?: string
+  scope?: CrmScope
+  botId?: string | null
+  pipelineId?: string | null
+  stageId?: string | null
+  stageKey?: string | null
+  title: string
+  externalKey?: string | null
+  telegramUserId?: number | null
+  telegramChatId?: number | null
+  fieldValues?: Record<string, unknown>
+  tags?: string[]
+  notes?: string | null
+}
+
+export type UpsertCrmStageInput = {
+  id?: string
+  pipelineId: string
+  key?: string
+  name: string
+  color: string
+  sortOrder?: number
+  isTerminal?: boolean
+}
+
+export type UpsertCrmFieldInput = {
+  id?: string
+  pipelineId: string
+  key?: string
+  name: string
+  type: CrmFieldType
+  options?: string[]
+  required?: boolean
+  sortOrder?: number
+}
+
 export type BotTechnicalStatsRange = '1h' | '24h' | '7d'
 
 export type BotTechnicalStatsPoint = {

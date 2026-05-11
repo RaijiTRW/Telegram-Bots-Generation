@@ -7,6 +7,15 @@ import {
   requestOpenRouterJsonStream,
 } from '@/lib/bot-editor/quick-start/openrouter'
 import { createBotService, validateBotConfig } from '@/lib/bot-editor/services/bot-service'
+import {
+  deleteCrmField,
+  deleteCrmStage,
+  getFlexibleCrmBoard,
+  moveCrmCard,
+  upsertCrmCard,
+  upsertCrmField,
+  upsertCrmStage,
+} from '@/lib/bot-editor/services/bot-crm-service'
 import { appendBotTestLog, setBotTestLogRunContext } from '@/lib/bot-editor/runtime/test-log-store'
 import { updateTelegramPollingConfig } from '@/lib/bot-editor/runtime/polling-runtime'
 import { clearRuntimeSessionsForBot } from '@/lib/bot-editor/runtime/workflow-runtime'
@@ -51,6 +60,13 @@ import type {
   Node,
   NodeType,
 } from '@/lib/bot-editor/types/bot.types'
+import type {
+  CrmBoard,
+  CrmFieldType,
+  UpsertCrmCardInput,
+  UpsertCrmFieldInput,
+  UpsertCrmStageInput,
+} from '@/lib/bot-editor/types/analytics.types'
 
 declare global {
   var __tflowBotAgentRegistry: Map<string, AgentRegistryEntry> | undefined
@@ -77,6 +93,7 @@ type StartAgentRunInput = {
 
 type AgentExecutionContext = {
   botId: string
+  userId: string
   runId: string
   chatId: string
   prompt: string
@@ -119,6 +136,62 @@ type AgentOperationApplyResult = {
   summaryOverride?: string
 }
 
+type AgentCrmContext = {
+  currentBot: {
+    board: CompactCrmBoard | null
+    error?: string
+  }
+  global: {
+    board: CompactCrmBoard | null
+    error?: string
+  }
+}
+
+type CompactCrmBoard = {
+  scope: CrmBoard['scope']
+  botId: string | null
+  pipeline: {
+    id: string
+    name: string
+    scope: CrmBoard['scope']
+    botId: string | null
+  }
+  stages: Array<{
+    id: string
+    key: string
+    name: string
+    color: string
+    sortOrder: number
+    isTerminal: boolean
+    cardsCount: number
+  }>
+  fields: Array<{
+    id: string
+    key: string
+    name: string
+    type: CrmFieldType
+    options: string[]
+    required: boolean
+    sortOrder: number
+  }>
+  cards: Array<{
+    id: string
+    title: string
+    stageId: string
+    stageKey: string
+    stageName: string
+    botId: string | null
+    botName: string | null
+    externalKey: string
+    telegramUserId: number | null
+    telegramChatId: number | null
+    fieldValues: Record<string, unknown>
+    tags: string[]
+    notes: string
+    updatedAt: string
+  }>
+}
+
 const AGENT_MODEL_ID = 'z-ai/glm-5.1'
 const ACTIVE_AGENT_STATUSES = new Set<AiAgentRunStatus>(['planning', 'running', 'verifying'])
 const AGENT_MAX_STEPS = 22
@@ -146,6 +219,17 @@ const AGENT_VARIABLE_SCOPES = new Set<NonNullable<BotVariable['scope']>>([
   'temporary',
 ])
 const AGENT_BOT_STATUSES = new Set<BotStatus>(['draft', 'active', 'archived', 'error'])
+const AGENT_CRM_FIELD_TYPES = new Set<CrmFieldType>([
+  'text',
+  'textarea',
+  'number',
+  'date',
+  'datetime',
+  'phone',
+  'email',
+  'select',
+  'checkbox',
+])
 const AGENT_NODE_TYPES = new Set<NodeType>([
   'trigger',
   'message',
@@ -157,6 +241,8 @@ const AGENT_NODE_TYPES = new Set<NodeType>([
   'script',
   'action',
   'setVariable',
+  'database',
+  'crm',
   'http',
   'webhook',
   'paymentYookassa',
@@ -314,6 +400,90 @@ const AGENT_COMMAND_ENVELOPE_SCHEMA: Record<string, unknown> = {
             properties: {
               type: { const: 'updateSystemFeatures' },
               features: { type: 'object' },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'title'],
+            properties: {
+              type: { const: 'upsertCrmCard' },
+              id: { type: 'string' },
+              scope: { type: 'string', enum: ['global', 'bot'] },
+              botId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+              pipelineId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+              stageId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+              stageKey: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+              title: { type: 'string' },
+              externalKey: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+              telegramUserId: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+              telegramChatId: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+              fieldValues: { type: 'object' },
+              tags: { type: 'array', items: { type: 'string' } },
+              notes: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'cardId'],
+            properties: {
+              type: { const: 'moveCrmCard' },
+              cardId: { type: 'string' },
+              stageId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+              stageKey: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'name', 'color'],
+            properties: {
+              type: { const: 'upsertCrmStage' },
+              id: { type: 'string' },
+              pipelineId: { type: 'string' },
+              key: { type: 'string' },
+              name: { type: 'string' },
+              color: { type: 'string' },
+              sortOrder: { type: 'number' },
+              isTerminal: { type: 'boolean' },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'stageId'],
+            properties: {
+              type: { const: 'deleteCrmStage' },
+              stageId: { type: 'string' },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'name', 'fieldType'],
+            properties: {
+              type: { const: 'upsertCrmField' },
+              id: { type: 'string' },
+              pipelineId: { type: 'string' },
+              key: { type: 'string' },
+              name: { type: 'string' },
+              fieldType: {
+                type: 'string',
+                enum: ['text', 'textarea', 'number', 'date', 'datetime', 'phone', 'email', 'select', 'checkbox'],
+              },
+              options: { type: 'array', items: { type: 'string' } },
+              required: { type: 'boolean' },
+              sortOrder: { type: 'number' },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'fieldId'],
+            properties: {
+              type: { const: 'deleteCrmField' },
+              fieldId: { type: 'string' },
             },
           },
           {
@@ -536,7 +706,6 @@ async function appendAssistantRunMessage(
   if (!bot) {
     throw new Error('Bot not found')
   }
-
   const aiChatState = getAiChatState(bot.metadata)
   const thread = aiChatState.chats.find((item) => item.id === chatId)
   if (!thread) {
@@ -622,6 +791,191 @@ function buildChatContextPayload(thread: AiChatThread): AgentChatContext {
     summary,
     recentMessages,
   }
+}
+
+async function getBotOwnerId(botId: string) {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('bots')
+    .select('user_id')
+    .eq('id', botId)
+    .single()
+
+  if (error || !data || typeof data !== 'object') {
+    throw new Error('Bot owner not found')
+  }
+
+  return normalizeText((data as { user_id?: unknown }).user_id, 120)
+}
+
+function compactCrmBoardForPrompt(board: CrmBoard | null | undefined): CompactCrmBoard | null {
+  if (!board) return null
+  const cardsByStage = new Map<string, number>()
+  for (const card of board.cards || []) {
+    cardsByStage.set(card.stageId, (cardsByStage.get(card.stageId) || 0) + 1)
+  }
+
+  return {
+    scope: board.scope,
+    botId: board.botId,
+    pipeline: {
+      id: board.pipeline.id,
+      name: board.pipeline.name,
+      scope: board.pipeline.scope,
+      botId: board.pipeline.botId,
+    },
+    stages: board.stages.map((stage) => ({
+      id: stage.id,
+      key: stage.key,
+      name: stage.name,
+      color: stage.color,
+      sortOrder: stage.sortOrder,
+      isTerminal: stage.isTerminal,
+      cardsCount: cardsByStage.get(stage.id) || 0,
+    })),
+    fields: board.fields.map((field) => ({
+      id: field.id,
+      key: field.key,
+      name: field.name,
+      type: field.type,
+      options: field.options,
+      required: field.required,
+      sortOrder: field.sortOrder,
+    })),
+    cards: board.cards
+      .slice(0, 60)
+      .map((card) => ({
+        id: card.id,
+        title: card.title,
+        stageId: card.stageId,
+        stageKey: card.stageKey,
+        stageName: card.stageName,
+        botId: card.botId,
+        botName: card.botName,
+        externalKey: card.externalKey,
+        telegramUserId: card.telegramUserId,
+        telegramChatId: card.telegramChatId,
+        fieldValues: card.fieldValues,
+        tags: card.tags,
+        notes: normalizeText(card.notes, 600),
+        updatedAt: card.updatedAt,
+      })),
+  }
+}
+
+async function loadAgentCrmContext(userId: string, botId: string): Promise<AgentCrmContext> {
+  const supabase = createAdminClient()
+  const context: AgentCrmContext = {
+    currentBot: { board: null },
+    global: { board: null },
+  }
+
+  try {
+    context.currentBot.board = compactCrmBoardForPrompt(
+      await getFlexibleCrmBoard(supabase as unknown as Parameters<typeof getFlexibleCrmBoard>[0], userId, { scope: 'bot', botId })
+    )
+  } catch (error) {
+    context.currentBot.error = error instanceof Error ? error.message : String(error)
+  }
+
+  try {
+    context.global.board = compactCrmBoardForPrompt(
+      await getFlexibleCrmBoard(supabase as unknown as Parameters<typeof getFlexibleCrmBoard>[0], userId, { scope: 'global', botId: null })
+    )
+  } catch (error) {
+    context.global.error = error instanceof Error ? error.message : String(error)
+  }
+
+  return context
+}
+
+function getDefaultCrmPipelineId(crmContext?: AgentCrmContext) {
+  return crmContext?.currentBot.board?.pipeline.id || crmContext?.global.board?.pipeline.id || ''
+}
+
+async function applyCrmOperations(
+  userId: string,
+  botId: string,
+  operations: AiAgentOperation[],
+  crmContext?: AgentCrmContext
+) {
+  const supabase = createAdminClient()
+  const applied: string[] = []
+  const defaultPipelineId = getDefaultCrmPipelineId(crmContext)
+
+  for (const operation of operations) {
+    if (operation.type === 'upsertCrmCard') {
+      const scope = operation.scope || 'bot'
+      const input: UpsertCrmCardInput = {
+        id: operation.id,
+        scope,
+        botId: scope === 'global' ? null : (operation.botId || botId),
+        pipelineId: operation.pipelineId || defaultPipelineId || null,
+        stageId: operation.stageId || null,
+        stageKey: operation.stageKey || null,
+        title: operation.title,
+        externalKey: operation.externalKey ?? null,
+        telegramUserId: operation.telegramUserId ?? null,
+        telegramChatId: operation.telegramChatId ?? null,
+        fieldValues: operation.fieldValues || {},
+        tags: operation.tags || [],
+        notes: operation.notes ?? null,
+      }
+      const card = await upsertCrmCard(supabase as unknown as Parameters<typeof upsertCrmCard>[0], userId, input)
+      applied.push(`CRM card upserted: ${card.title}`)
+      continue
+    }
+
+    if (operation.type === 'moveCrmCard') {
+      const card = await moveCrmCard(supabase as unknown as Parameters<typeof moveCrmCard>[0], userId, operation.cardId, operation.stageId || operation.stageKey || '')
+      applied.push(card ? `CRM card moved: ${card.title} -> ${card.stageName}` : `CRM card move skipped: ${operation.cardId}`)
+      continue
+    }
+
+    if (operation.type === 'upsertCrmStage') {
+      const input: UpsertCrmStageInput = {
+        id: operation.id,
+        pipelineId: operation.pipelineId || defaultPipelineId,
+        key: operation.key,
+        name: operation.name,
+        color: operation.color,
+        sortOrder: operation.sortOrder,
+        isTerminal: operation.isTerminal,
+      }
+      const stage = await upsertCrmStage(supabase as unknown as Parameters<typeof upsertCrmStage>[0], userId, input)
+      applied.push(`CRM stage saved: ${stage.name}`)
+      continue
+    }
+
+    if (operation.type === 'deleteCrmStage') {
+      await deleteCrmStage(supabase as unknown as Parameters<typeof deleteCrmStage>[0], userId, operation.stageId)
+      applied.push(`CRM stage deleted: ${operation.stageId}`)
+      continue
+    }
+
+    if (operation.type === 'upsertCrmField') {
+      const input: UpsertCrmFieldInput = {
+        id: operation.id,
+        pipelineId: operation.pipelineId || defaultPipelineId,
+        key: operation.key,
+        name: operation.name,
+        type: operation.fieldType,
+        options: operation.options,
+        required: operation.required,
+        sortOrder: operation.sortOrder,
+      }
+      const field = await upsertCrmField(supabase as unknown as Parameters<typeof upsertCrmField>[0], userId, input)
+      applied.push(`CRM field saved: ${field.name}`)
+      continue
+    }
+
+    if (operation.type === 'deleteCrmField') {
+      await deleteCrmField(supabase as unknown as Parameters<typeof deleteCrmField>[0], userId, operation.fieldId)
+      applied.push(`CRM field deleted: ${operation.fieldId}`)
+    }
+  }
+
+  return applied
 }
 
 async function summarizeChatThread(
@@ -1529,32 +1883,33 @@ function buildRouteDecisionMessages(args: {
   config: BotConfig
   bot?: Bot | null
   chatContext?: AgentChatContext
+  crmContext?: AgentCrmContext
 }) {
   const systemPrompt = args.locale === 'en'
     ? [
         'You classify user requests for a Telegram bot builder assistant.',
         'Return JSON only.',
-        'Choose mode "build" only when the user explicitly wants to create, modify, debug, connect, generate, rebuild, or otherwise change the bot canvas/workflow, bot settings, or system features.',
+        'Choose mode "build" only when the user explicitly wants to create, modify, debug, connect, generate, rebuild, or otherwise change the bot canvas/workflow, bot settings, system features, CRM cards, CRM stages, or CRM fields.',
         'Choose mode "respond" when the user is greeting, chatting, asking a general question, asking how something works, asking for explanation, or expecting only an informational answer.',
         'If the user asks about the current bot logic without requesting edits, choose "respond".',
         'Questions like "why does this not work?", "what is wrong?", "how should I fix it?" are respond unless the user explicitly says to make the fix.',
         'If the user already says "fix it", "fix everything", "make it", "add it", "do it", "apply it", choose "build" and do not ask for permission again.',
         'Phrases like "just answer", "only answer", "do not change", "without edits" must be respond.',
         'Short greetings like "hello", "hi", "привет", "как дела", "что умеешь" must be classified as "respond".',
-        'If the user asks to add, change, fix, connect, generate, rebuild bot logic, or change Settings/System, choose "build".',
+        'If the user asks to add, change, fix, connect, generate, rebuild bot logic, change Settings/System, or edit CRM data/settings, choose "build".',
         'When uncertain, prefer "respond" unless the request clearly asks for bot changes.',
       ].join('\n')
     : [
         'Ты классифицируешь запрос пользователя для ассистента редактора Telegram-ботов.',
         'Верни только JSON.',
-        'Выбирай mode "build" только когда пользователь явно хочет создать, изменить, починить, соединить, настроить, доработать, сгенерировать или пересобрать сценарий/логику на холсте, настройки бота или системные функции.',
+        'Выбирай mode "build" только когда пользователь явно хочет создать, изменить, починить, соединить, настроить, доработать, сгенерировать или пересобрать сценарий/логику на холсте, настройки бота, системные функции, CRM-карточки, CRM-этапы или CRM-поля.',
         'Выбирай mode "respond", когда пользователь просто здоровается, общается, задаёт общий вопрос, спрашивает как что-то работает, просит объяснение, или ожидает только информационный ответ без изменений в боте.',
         'Если пользователь спрашивает про текущую логику бота без запроса на правки, выбирай "respond".',
         'Вопросы вроде "почему не работает?", "что не так?", "как исправить?" — это respond, если пользователь явно не просит внести исправление.',
         'Если пользователь уже пишет "исправь", "исправь всё", "сделай", "добавь", "почини", "примени", выбирай "build" и не спрашивай разрешение повторно.',
         'Фразы "просто ответь", "только ответ", "не меняй", "без правок" всегда означают respond.',
         'Короткие запросы вроде "привет", "как дела", "что умеешь" всегда классифицируй как "respond".',
-        'Если пользователь просит добавить, изменить, исправить, соединить, сгенерировать, пересобрать логику или поменять раздел Настройки/Система, выбирай "build".',
+        'Если пользователь просит добавить, изменить, исправить, соединить, сгенерировать, пересобрать логику, поменять раздел Настройки/Система или отредактировать CRM, выбирай "build".',
         'Если есть сомнение, выбирай "respond", пока нет явного запроса на изменения бота.',
       ].join('\n')
 
@@ -1564,6 +1919,7 @@ function buildRouteDecisionMessages(args: {
     chatContext: args.chatContext || null,
     botSettings: compactBotSettingsForPrompt(args.bot),
     currentGraph: compactGraphForPrompt(args.config),
+    crm: args.crmContext || null,
   }
 
   return [
@@ -1639,6 +1995,7 @@ function buildRespondMessages(args: {
   bot?: Bot | null
   snapshot: AiAgentRunSnapshot
   chatContext?: AgentChatContext
+  crmContext?: AgentCrmContext
 }) {
   const systemPrompt = args.locale === 'en'
     ? [
@@ -1664,6 +2021,7 @@ function buildRespondMessages(args: {
     chatContext: args.chatContext || null,
     botSettings: compactBotSettingsForPrompt(args.bot),
     currentGraph: compactGraphForPrompt(args.config),
+    crm: args.crmContext || null,
     previousProgress: {
       currentAction: args.snapshot.currentAction,
       analysis: args.snapshot.analysis || '',
@@ -1682,6 +2040,7 @@ function buildAgentMessages(args: {
   locale: 'ru' | 'en'
   attachments: AiAgentAttachment[]
   chatContext?: AgentChatContext
+  crmContext?: AgentCrmContext
   snapshot: AiAgentRunSnapshot
   config: BotConfig
   bot?: Bot | null
@@ -1709,6 +2068,9 @@ function buildAgentMessages(args: {
     'Condition nodes: true/default branch uses no sourceHandle, false branch uses sourceHandle "false".',
     'Router nodes: case branches use sourceHandle "case:<caseId>", default branch uses no sourceHandle.',
     'Use node type "setVariable" to assign variables. Keep Action nodes for delay, deleteMessage, random split, and legacy flows.',
+    'Use node type "crm" when the bot workflow must create/update/move CRM cards during runtime. For immediate CRM changes in the workspace, use CRM operations instead of canvas nodes.',
+    'CRM operations available now: upsertCrmCard, moveCrmCard, upsertCrmStage, deleteCrmStage, upsertCrmField, deleteCrmField. Use real ids/keys from the crm context. Default scope is the selected bot CRM.',
+    'When configuring a CRM node, make sure required variables exist first via upsertVariables. The CRM node saves crm.card and crm.cardId automatically.',
     'Action nodes with action.type="random" use handles "a" and "b". Other action nodes use only the default edge.',
     'Keep the graph acyclic and connected for executable nodes.',
     'For inline callback menus, do not stop at adding buttons. Every callback button must have a callbackData value handled by a callbackQuery trigger, then usually a router with variable "callback.data", a matching case.value, and an outgoing edge from sourceHandle "case:<caseId>" to the intended branch.',
@@ -1746,6 +2108,7 @@ function buildAgentMessages(args: {
     validationErrorCount: args.validationErrors.length,
     botSettings: compactBotSettingsForPrompt(args.bot),
     currentGraph: compactGraphForPrompt(args.config),
+    crm: args.crmContext || null,
     nodeCapabilityCatalog: getNodeCapabilityCatalog(),
     envelopeRules: {
       operationsAllowed: [
@@ -1758,6 +2121,12 @@ function buildAgentMessages(args: {
         'upsertVariables',
         'updateBotSettings',
         'updateSystemFeatures',
+        'upsertCrmCard',
+        'moveCrmCard',
+        'upsertCrmStage',
+        'deleteCrmStage',
+        'upsertCrmField',
+        'deleteCrmField',
         'finishRun',
       ],
       commandRules: [
@@ -1765,6 +2134,8 @@ function buildAgentMessages(args: {
         'For later steps use actual existing node ids from currentGraph.',
         'Use updateSystemFeatures for the System section instead of making fake nodes for global reply keyboard, auto reactions, message drafts, or subscriber tracking.',
         'Use updateBotSettings for the Settings section instead of making fake nodes for bot name, description, status, webhook URL, or profile style.',
+        'Use upsertCrmCard/moveCrmCard for direct CRM card edits. Use upsertCrmStage/upsertCrmField for CRM settings edits.',
+        'Use addNode with nodeType "crm" only when the runtime scenario should write to CRM after a Telegram user reaches that node.',
         'If the graph is complete and valid, set done=true and include finishRun or summary.',
       ],
     },
@@ -1884,6 +2255,117 @@ function sanitizeAgentOperation(value: unknown): AiAgentOperation | null {
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item)),
     }
+  }
+
+  if (type === 'updateBotSettings') {
+    const status = normalizeText(record.status, 30) as BotStatus
+    return {
+      type: 'updateBotSettings',
+      name: record.name === undefined ? undefined : normalizeText(record.name, 120),
+      description: record.description === undefined ? undefined : normalizeText(record.description, 800),
+      status: AGENT_BOT_STATUSES.has(status) ? status : undefined,
+      webhookUrl: record.webhookUrl === undefined ? undefined : normalizeText(record.webhookUrl, 400),
+      profileStyle:
+        record.profileStyle && typeof record.profileStyle === 'object' && !Array.isArray(record.profileStyle)
+          ? cloneValue(record.profileStyle as Record<string, unknown>)
+          : undefined,
+    }
+  }
+
+  if (type === 'updateSystemFeatures') {
+    return {
+      type: 'updateSystemFeatures',
+      features:
+        record.features && typeof record.features === 'object' && !Array.isArray(record.features)
+          ? cloneValue(record.features as Record<string, unknown>)
+          : {},
+    }
+  }
+
+  if (type === 'upsertCrmCard') {
+    const title = normalizeText(record.title, 240)
+    if (!title) return null
+    const scope = normalizeText(record.scope, 20)
+    const fieldValues =
+      record.fieldValues && typeof record.fieldValues === 'object' && !Array.isArray(record.fieldValues)
+        ? cloneValue(record.fieldValues as Record<string, unknown>)
+        : undefined
+    return {
+      type: 'upsertCrmCard',
+      ...(normalizeText(record.id, 120) ? { id: normalizeText(record.id, 120) } : {}),
+      scope: scope === 'global' || scope === 'bot' ? scope : undefined,
+      botId: record.botId == null ? undefined : normalizeText(record.botId, 120),
+      pipelineId: record.pipelineId == null ? undefined : normalizeText(record.pipelineId, 120),
+      stageId: record.stageId == null ? undefined : normalizeText(record.stageId, 120),
+      stageKey: record.stageKey == null ? undefined : normalizeText(record.stageKey, 120),
+      title,
+      externalKey: record.externalKey == null ? undefined : normalizeText(record.externalKey, 240),
+      telegramUserId: Number.isFinite(Number(record.telegramUserId)) ? Number(record.telegramUserId) : undefined,
+      telegramChatId: Number.isFinite(Number(record.telegramChatId)) ? Number(record.telegramChatId) : undefined,
+      ...(fieldValues ? { fieldValues } : {}),
+      tags: Array.isArray(record.tags)
+        ? record.tags.map((item) => normalizeText(item, 40)).filter(Boolean).slice(0, 16)
+        : undefined,
+      notes: record.notes == null ? undefined : normalizeText(record.notes, 4000),
+    }
+  }
+
+  if (type === 'moveCrmCard') {
+    const cardId = normalizeText(record.cardId, 160)
+    if (!cardId) return null
+    return {
+      type: 'moveCrmCard',
+      cardId,
+      stageId: record.stageId == null ? undefined : normalizeText(record.stageId, 120),
+      stageKey: record.stageKey == null ? undefined : normalizeText(record.stageKey, 120),
+    }
+  }
+
+  if (type === 'upsertCrmStage') {
+    const name = normalizeText(record.name, 120)
+    const color = normalizeText(record.color, 32) || '#38bdf8'
+    if (!name) return null
+    return {
+      type: 'upsertCrmStage',
+      ...(normalizeText(record.id, 120) ? { id: normalizeText(record.id, 120) } : {}),
+      ...(normalizeText(record.pipelineId, 120) ? { pipelineId: normalizeText(record.pipelineId, 120) } : {}),
+      ...(normalizeText(record.key, 80) ? { key: normalizeIdentifier(record.key, 'stage') } : {}),
+      name,
+      color,
+      sortOrder: Number.isFinite(Number(record.sortOrder)) ? Number(record.sortOrder) : undefined,
+      isTerminal: typeof record.isTerminal === 'boolean' ? record.isTerminal : undefined,
+    }
+  }
+
+  if (type === 'deleteCrmStage') {
+    const stageId = normalizeText(record.stageId, 120)
+    if (!stageId) return null
+    return { type: 'deleteCrmStage', stageId }
+  }
+
+  if (type === 'upsertCrmField') {
+    const name = normalizeText(record.name, 120)
+    const fieldType = normalizeText(record.fieldType, 30) as CrmFieldType
+    if (!name || !AGENT_CRM_FIELD_TYPES.has(fieldType)) return null
+    return {
+      type: 'upsertCrmField',
+      ...(normalizeText(record.id, 120) ? { id: normalizeText(record.id, 120) } : {}),
+      ...(normalizeText(record.pipelineId, 120) ? { pipelineId: normalizeText(record.pipelineId, 120) } : {}),
+      ...(normalizeText(record.key, 80) ? { key: normalizeIdentifier(record.key, 'field') } : {}),
+      name,
+      fieldType,
+      options: Array.isArray(record.options)
+        ? record.options.map((item) => normalizeText(item, 80)).filter(Boolean).slice(0, 40)
+        : undefined,
+      required: typeof record.required === 'boolean' ? record.required : undefined,
+      sortOrder: Number.isFinite(Number(record.sortOrder)) ? Number(record.sortOrder) : undefined,
+    }
+  }
+
+  if (type === 'deleteCrmField') {
+    const fieldId = normalizeText(record.fieldId, 120)
+    if (!fieldId) return null
+    return { type: 'deleteCrmField', fieldId }
   }
 
   if (type === 'finishRun') {
@@ -2323,6 +2805,29 @@ function applyOperationsToConfig(currentConfig: BotConfig, operations: AiAgentOp
   }
 }
 
+function isCanvasAgentOperation(operation: AiAgentOperation) {
+  return (
+    operation.type === 'addNode' ||
+    operation.type === 'updateNode' ||
+    operation.type === 'deleteNode' ||
+    operation.type === 'connectNodes' ||
+    operation.type === 'disconnectEdge' ||
+    operation.type === 'moveNode' ||
+    operation.type === 'upsertVariables'
+  )
+}
+
+function isCrmAgentOperation(operation: AiAgentOperation) {
+  return (
+    operation.type === 'upsertCrmCard' ||
+    operation.type === 'moveCrmCard' ||
+    operation.type === 'upsertCrmStage' ||
+    operation.type === 'deleteCrmStage' ||
+    operation.type === 'upsertCrmField' ||
+    operation.type === 'deleteCrmField'
+  )
+}
+
 function repairDisconnectedExecutableNodes(nodes: Node[], edges: Edge[]) {
   const triggerNodes = nodes.filter((node) => node.type === 'trigger')
   if (triggerNodes.length === 0) {
@@ -2460,12 +2965,19 @@ function buildJsonRecoveryEnvelope(context: AgentExecutionContext, validationErr
   })
 }
 
-async function requestAgentStep(context: AgentExecutionContext, config: BotConfig, bot: Bot | null, validationErrors: string[]) {
+async function requestAgentStep(
+  context: AgentExecutionContext,
+  config: BotConfig,
+  bot: Bot | null,
+  validationErrors: string[],
+  crmContext?: AgentCrmContext
+) {
   const messages = buildAgentMessages({
     prompt: context.prompt,
     locale: context.locale,
     attachments: context.attachments,
     chatContext: context.chatContext,
+    crmContext,
     snapshot: context.snapshot,
     config,
     bot,
@@ -2534,7 +3046,7 @@ async function requestAgentStep(context: AgentExecutionContext, config: BotConfi
   }
 }
 
-async function requestRouteDecision(context: AgentExecutionContext, config: BotConfig) {
+async function requestRouteDecision(context: AgentExecutionContext, config: BotConfig, crmContext?: AgentCrmContext) {
   const userPrompt = normalizeText(context.userPrompt || context.prompt, 8000)
   const explicitDecision = getExplicitRouteDecision(userPrompt, context.locale)
   if (explicitDecision) {
@@ -2548,6 +3060,7 @@ async function requestRouteDecision(context: AgentExecutionContext, config: BotC
         prompt: userPrompt,
         locale: context.locale,
         chatContext: context.chatContext,
+        crmContext,
         config,
         bot: (await getAdminBotService().getBot(context.botId)) || null,
       }),
@@ -2575,7 +3088,12 @@ async function requestRouteDecision(context: AgentExecutionContext, config: BotC
   }
 }
 
-async function requestRespondStep(context: AgentExecutionContext, config: BotConfig, bot: Bot | null) {
+async function requestRespondStep(
+  context: AgentExecutionContext,
+  config: BotConfig,
+  bot: Bot | null,
+  crmContext?: AgentCrmContext
+) {
   const userPrompt = normalizeText(context.userPrompt || context.prompt, 8000)
   const response = await requestOpenRouterJsonStream<AgentResponseEnvelope>({
     model: AGENT_MODEL_ID,
@@ -2584,6 +3102,7 @@ async function requestRespondStep(context: AgentExecutionContext, config: BotCon
       locale: context.locale,
       config,
       bot,
+      crmContext,
       chatContext: context.chatContext,
       snapshot: context.snapshot,
     }),
@@ -2661,7 +3180,7 @@ async function markRunCompleted(botId: string, snapshot: AiAgentRunSnapshot, sum
   setBotTestLogRunContext(botId, null)
 }
 
-async function executeBuildRun(context: AgentExecutionContext) {
+async function executeBuildRun(context: AgentExecutionContext, initialCrmContext?: AgentCrmContext) {
   const botService = getAdminBotService()
   let bot = await botService.getBot(context.botId)
   let config = bot?.config || {
@@ -2675,6 +3194,7 @@ async function executeBuildRun(context: AgentExecutionContext) {
   let emptyOperationSteps = 0
   let touchedCanvas = false
   let touchedBotSettings = false
+  let crmContext = initialCrmContext
   const includeCallbackAudit = shouldAuditCallbackWiring(context.prompt)
 
   for (let stepIndex = 0; stepIndex < AGENT_MAX_STEPS; stepIndex += 1) {
@@ -2689,6 +3209,7 @@ async function executeBuildRun(context: AgentExecutionContext) {
     }
 
     const stepValidationErrors = buildAgentValidationErrors(config, validationErrors, includeCallbackAudit || touchedCanvas)
+    crmContext = crmContext || await loadAgentCrmContext(context.userId, context.botId)
     const envelope = await requestAgentStep(
       {
         ...context,
@@ -2696,7 +3217,8 @@ async function executeBuildRun(context: AgentExecutionContext) {
       },
       config,
       bot,
-      stepValidationErrors
+      stepValidationErrors,
+      crmContext
     )
 
     const timestamp = new Date().toISOString()
@@ -2752,11 +3274,8 @@ async function executeBuildRun(context: AgentExecutionContext) {
     }
 
     if (envelope.operations.length > 0) {
-      const hasCanvasOperations = envelope.operations.some((operation) => (
-        operation.type !== 'updateBotSettings' &&
-        operation.type !== 'updateSystemFeatures' &&
-        operation.type !== 'finishRun'
-      ))
+      const hasCanvasOperations = envelope.operations.some(isCanvasAgentOperation)
+      const hasCrmOperations = envelope.operations.some(isCrmAgentOperation)
       const botPatch = applyBotOperations(bot, envelope.operations)
       let result: AgentOperationApplyResult
       try {
@@ -2810,6 +3329,12 @@ async function executeBuildRun(context: AgentExecutionContext) {
         touchedBotSettings = true
       }
 
+      let crmApplySummary: string[] = []
+      if (hasCrmOperations) {
+        crmApplySummary = await applyCrmOperations(context.userId, context.botId, envelope.operations, crmContext)
+        crmContext = await loadAgentCrmContext(context.userId, context.botId)
+      }
+
       config = result.config
       touchedCanvas = touchedCanvas || hasCanvasOperations
       validationErrors = (includeCallbackAudit || touchedCanvas) && hasCanvasOperations
@@ -2835,7 +3360,9 @@ async function executeBuildRun(context: AgentExecutionContext) {
         context.runId,
         hasCanvasOperations
           ? `Canvas saved: ${config.nodes.length} nodes, ${config.edges.length} edges, ${config.variables.length} variables`
-          : 'Bot settings saved',
+          : hasCrmOperations
+            ? `CRM updated: ${crmApplySummary.join('; ') || 'changes applied'}`
+            : 'Bot settings saved',
         'debug'
       )
 
@@ -2910,7 +3437,7 @@ async function executeBuildRun(context: AgentExecutionContext) {
   )
 }
 
-async function executeRespondRun(context: AgentExecutionContext) {
+async function executeRespondRun(context: AgentExecutionContext, initialCrmContext?: AgentCrmContext) {
   const bot = await getAdminBotService().getBot(context.botId)
   const config = bot?.config || {
     nodes: [],
@@ -2935,6 +3462,7 @@ async function executeRespondRun(context: AgentExecutionContext) {
 
   await persistRunSnapshot(context.botId, runningSnapshot)
   appendAgentLog(context.botId, context.runId, 'Mode selected: respond', 'info')
+  const crmContext = initialCrmContext || await loadAgentCrmContext(context.userId, context.botId)
 
   const response = await requestRespondStep(
     {
@@ -2942,7 +3470,8 @@ async function executeRespondRun(context: AgentExecutionContext) {
       snapshot: runningSnapshot,
     },
     config,
-    bot
+    bot,
+    crmContext
   )
 
   const completedSnapshot: AiAgentRunSnapshot = {
@@ -2977,8 +3506,9 @@ async function executeRun(context: AgentExecutionContext) {
     ...context,
     chatContext: chatContext || undefined,
   }
+  const initialCrmContext = await loadAgentCrmContext(context.userId, context.botId)
 
-  const routeDecision = await requestRouteDecision(contextWithChat, initialConfig)
+  const routeDecision = await requestRouteDecision(contextWithChat, initialConfig, initialCrmContext)
   const routedSnapshot: AiAgentRunSnapshot = {
     ...contextWithChat.snapshot,
     mode: routeDecision.mode,
@@ -3011,11 +3541,11 @@ async function executeRun(context: AgentExecutionContext) {
   }
 
   if (routeDecision.mode === 'respond') {
-    await executeRespondRun(nextContext)
+    await executeRespondRun(nextContext, initialCrmContext)
     return
   }
 
-  await executeBuildRun(nextContext)
+  await executeBuildRun(nextContext, initialCrmContext)
 }
 
 export async function startBotAgentRun(input: StartAgentRunInput) {
@@ -3024,6 +3554,7 @@ export async function startBotAgentRun(input: StartAgentRunInput) {
   if (!bot) {
     throw new Error('Bot not found')
   }
+  const userId = await getBotOwnerId(input.botId)
 
   const locale = toLocale(input.locale)
   const effectivePrompt = buildEffectivePrompt(
@@ -3143,6 +3674,7 @@ export async function startBotAgentRun(input: StartAgentRunInput) {
 
   const context: AgentExecutionContext = {
     botId: input.botId,
+    userId,
     runId,
     chatId: nextChat.id,
     prompt: effectivePrompt,

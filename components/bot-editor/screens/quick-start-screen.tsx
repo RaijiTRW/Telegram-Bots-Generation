@@ -217,8 +217,8 @@ function QuickStartScreenContent({
   const [isStartingTest, setIsStartingTest] = useState(false)
 
   const editorCanvasHref = bot?.id
-    ? `/${locale}/dashboard/bots/${bot.id}/editor/canvas`
-    : `/${locale}/dashboard/bots`
+    ? `/${locale}/workspace/bots/${bot.id}/editor/canvas`
+    : `/${locale}/workspace`
   const hasStoredToken = Boolean(bot?.metadata?.hasTelegramToken)
   const previewSections = useMemo(() => splitList(state.answers.requiredSections), [state.answers.requiredSections])
   const previewFields = useMemo(() => splitList(state.answers.leadCaptureFields), [state.answers.leadCaptureFields])

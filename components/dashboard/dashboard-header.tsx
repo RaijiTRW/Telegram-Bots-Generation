@@ -10,6 +10,7 @@ import { LanguageSwitcher } from '@/components/dashboard/language-switcher'
 import packageJson from '@/package.json'
 
 const APP_VERSION = packageJson.version
+const APP_VERSION_LABEL = `V${APP_VERSION} - Release`
 
 export function DashboardHeader() {
   const t = useTranslations()
@@ -119,10 +120,10 @@ export function DashboardHeader() {
           <LanguageSwitcher />
           <div
             className="inline-flex items-center rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-zinc-300"
-            title={`CBTooll v${APP_VERSION}`}
-            aria-label={t('header.appVersionAria', { version: APP_VERSION })}
+            title={`CBTooll ${APP_VERSION_LABEL}`}
+            aria-label={t('header.appVersionAria', { version: APP_VERSION_LABEL })}
           >
-            v{APP_VERSION}
+            {APP_VERSION_LABEL}
           </div>
           {/* Avatar with gradient border */}
           <div className="relative">

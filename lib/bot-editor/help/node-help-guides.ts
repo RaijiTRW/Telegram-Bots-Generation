@@ -56,6 +56,7 @@ export const NODE_HELP_TRANSLATION_SUFFIX_BY_TEMPLATE_ID: Record<string, string>
   'payment-stripe': 'paymentStripe',
   'payment-robokassa': 'paymentRobokassa',
   'payment-stars': 'paymentStars',
+  database: 'database',
 }
 
 export const NODE_TEMPLATE_GUIDE_IDS = [
@@ -141,6 +142,7 @@ export function resolveNodeHelpTemplateId(nodeType: NodeType, data: Partial<Node
   if (nodeType === 'paymentStripe') return 'payment-stripe'
   if (nodeType === 'paymentRobokassa') return 'payment-robokassa'
   if (nodeType === 'paymentStars') return 'payment-stars'
+  if (nodeType === 'database') return 'database'
   if (nodeType === 'wait') return 'scheduler'
   if (nodeType === 'webhook') return 'webhook'
 

@@ -37,6 +37,21 @@ export const BOT_SYSTEM_VARIABLES: BotSystemVariableDefinition[] = [
     type: 'string',
     descriptionKey: 'callbackData',
   },
+  {
+    name: 'crm.cardId',
+    type: 'string',
+    descriptionKey: 'crmCardId',
+  },
+  {
+    name: 'crm.card',
+    type: 'object',
+    descriptionKey: 'crmCard',
+  },
+  {
+    name: 'crm.move',
+    type: 'object',
+    descriptionKey: 'crmMove',
+  },
 ] as const
 
 export const BOT_SYSTEM_VARIABLE_NAMES = BOT_SYSTEM_VARIABLES.map((variable) => variable.name)

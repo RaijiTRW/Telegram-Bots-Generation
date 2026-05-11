@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Bot as BotIcon, LogIn, Sparkles, MoreVertical, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { CreateBotModal, EditBotModal } from '@/components/bot-editor/modals'
+import { CreateBotModal, EditBotModal, type CreateBotModalData } from '@/components/bot-editor/modals'
 import { BotProjectCard } from '@/components/dashboard/bot-project-card'
 import { getUserBots, createBotAction, updateBotAction, deleteBotAction } from '@/lib/bot-editor/actions/bots-actions'
 import type { Bot } from '@/lib/bot-editor/types/bot.types'
@@ -32,7 +32,7 @@ export default function BotsPage() {
   // Get locale from pathname
   const locale = pathname.split('/')[1] || 'ru'
   const getEditorHref = useCallback(
-    (botId: string) => `/${locale}/dashboard/bots/${botId}/editor`,
+    (botId: string) => `/${locale}/workspace/bots/${botId}/editor`,
     [locale]
   )
   const getActionErrorMessage = useCallback((error: unknown, fallback: string) => {
@@ -82,7 +82,7 @@ export default function BotsPage() {
   }, [bots, getEditorHref, router])
 
   // Create bot with Server Action
-  const handleCreateBot = async (data: { name: string; description: string }) => {
+  const handleCreateBot = async (data: CreateBotModalData) => {
     try {
       const result = await createBotAction(data)
 

@@ -3,7 +3,7 @@
 import { startTransition, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { BarChart3, Bot, Cpu, Loader2, Settings, Workflow } from 'lucide-react'
+import { BarChart3, Bot, Cpu, Database, Loader2, Settings, Workflow } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { EditorSection as EditorSectionType } from '@/lib/bot-editor/types/bot.types'
 import type { ViewerAccess } from '@/lib/billing/types'
@@ -51,6 +51,10 @@ const staticNavItems: Omit<NavItem, 'labelKey' | 'descKey'>[] = [
     icon: Cpu,
   },
   {
+    id: 'database',
+    icon: Database,
+  },
+  {
     id: 'statistics',
     icon: BarChart3,
   },
@@ -61,7 +65,7 @@ const staticNavItems: Omit<NavItem, 'labelKey' | 'descKey'>[] = [
 ]
 
 const buildSectionHref = (locale: string, botId: string, section: EditorSection) =>
-  `/${locale}/dashboard/bots/${botId}/editor/${section}`
+  `/${locale}/workspace/bots/${botId}/editor/${section}`
 
 export function EditorNav({
   botId,
@@ -101,6 +105,10 @@ export function EditorNav({
           labelKey = 'system'
           descKey = 'systemDesc'
           break
+        case 'database':
+          labelKey = 'database'
+          descKey = 'databaseDesc'
+          break
         case 'statistics':
           labelKey = 'statistics'
           descKey = 'statisticsDesc'
@@ -127,6 +135,7 @@ export function EditorNav({
       'ai-agents': buildSectionHref(locale, botId, 'ai-agents'),
       canvas: buildSectionHref(locale, botId, 'canvas'),
       system: buildSectionHref(locale, botId, 'system'),
+      database: buildSectionHref(locale, botId, 'database'),
       statistics: buildSectionHref(locale, botId, 'statistics'),
       settings: buildSectionHref(locale, botId, 'settings'),
     }),

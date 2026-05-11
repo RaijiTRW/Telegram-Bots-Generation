@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react'
 import { Node, Edge } from 'reactflow'
-import { Check, ChevronDown, ChevronUp, Copy, Loader2, Terminal, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Copy, Loader2, Terminal, Trash2 } from 'lucide-react'
 import FlowCanvas, { type CanvasExecutionTrace } from '@/components/bot-editor/canvas/flow-canvas'
 import { LivePreviewPhone } from '@/components/bot-editor/canvas/live-preview-phone'
 import {
@@ -406,6 +406,8 @@ export default function CanvasPage() {
   const handleStopTest = useCallback(async () => {
     if (!botId) return
 
+    setIsLivePreviewOpen(false)
+
     if (testLaunchMode === 'live-preview') {
       setIsLivePreviewTestActive(false)
       setLivePreviewVisits([])
@@ -582,8 +584,7 @@ export default function CanvasPage() {
   }
 
   const effectiveTestActive = isTestActive || isLivePreviewOnline
-  const hasLogConsoleActivity = isTesting || effectiveTestActive || logs.length > 0 || Boolean(logsFetchError)
-  const showLogConsole = isLogConsoleOpen || hasLogConsoleActivity
+  const showLogConsole = isLogConsoleOpen
 
   const formatLogTime = (ts: number) => {
     try {
@@ -716,22 +717,27 @@ export default function CanvasPage() {
             </div>
           ) : null}
 
-          {!showLogConsole && (
+          {!showLogConsole ? (
             <div className="absolute bottom-4 left-4 z-40">
               <button
                 type="button"
-                onClick={() => setIsLogConsoleOpen(true)}
+                onClick={() => {
+                  setLogsCollapsed(false)
+                  setIsLogConsoleOpen(true)
+                }}
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-zinc-950/90 px-3 py-2 text-xs font-medium text-zinc-200 shadow-xl shadow-black/30 transition-colors hover:border-[#24A1DE]/30 hover:bg-zinc-900 hover:text-white"
               >
                 <Terminal className="h-4 w-4 text-[#24A1DE]" />
                 {t('logsTitle')}
+                {logs.length > 0 ? <span className="text-zinc-500">{logs.length}</span> : null}
               </button>
             </div>
-          )}
+          ) : null}
         </div>
 
         {testLaunchMode === 'live-preview' ? (
           <LivePreviewPhone
+            botId={botId}
             config={config}
             metadata={bot?.metadata}
             isOpen={isLivePreviewOpen}
@@ -773,19 +779,6 @@ export default function CanvasPage() {
                     <div className="text-xs text-zinc-500">{logs.length}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    {isLogConsoleOpen && !hasLogConsoleActivity && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsLogConsoleOpen(false)
-                          setLogsCollapsed(false)
-                          setIsLogsCopyMenuOpen(false)
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
-                      >
-                        {t('logsHide')}
-                      </button>
-                    )}
                     {!logsCollapsed && (
                       <>
                         <div
@@ -855,12 +848,13 @@ export default function CanvasPage() {
                       type="button"
                       onClick={() => {
                         setIsLogsCopyMenuOpen(false)
-                        setLogsCollapsed((prev) => !prev)
+                        setIsLogConsoleOpen(false)
+                        setLogsCollapsed(false)
                       }}
                       className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-zinc-300 hover:text-white hover:bg-white/5 transition-colors"
                     >
-                      {logsCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      {logsCollapsed ? t('logsShow') : t('logsHide')}
+                      <ChevronDown className="w-3.5 h-3.5" />
+                      {t('logsHide')}
                     </button>
                   </div>
                 </div>

@@ -19,10 +19,16 @@ import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import type { ChatAttachment, ChatClarificationRequest, ChatModelOption, ChatSendPayload } from './types'
 import { uploadBotMessageAttachmentAction } from '@/lib/bot-editor/actions/editor-actions'
+import { AnimatePresence, motion } from '@/components/motion-wrapper'
 
 interface ChatInputProps {
   botId?: string
   onSendMessage: (payload: ChatSendPayload) => void
+  quickPrompts?: Array<{
+    id: string
+    label: string
+    prompt: string
+  }>
   chatThreads?: Array<{
     id: string
     title: string
@@ -78,6 +84,7 @@ function revokePreviewUrl(attachment: ChatAttachment) {
 export function ChatInput({
   botId,
   onSendMessage,
+  quickPrompts = [],
   chatThreads = [],
   activeChatId = null,
   onCreateChat,
@@ -108,6 +115,9 @@ export function ChatInput({
   const [isClarificationThoughtOpen, setIsClarificationThoughtOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const composerRef = useRef<HTMLDivElement>(null)
+  const attachmentMenuRef = useRef<HTMLDivElement>(null)
+  const chatMenuRef = useRef<HTMLDivElement>(null)
+  const modelMenuRef = useRef<HTMLDivElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const stagedAttachmentsRef = useRef<ChatAttachment[]>([])
@@ -131,24 +141,28 @@ export function ChatInput({
   }, [input])
 
   useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
+    const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null
       if (!target) return
 
-      if (composerRef.current?.contains(target)) {
-        return
+      if (isAttachmentMenuOpen && !attachmentMenuRef.current?.contains(target)) {
+        setIsAttachmentMenuOpen(false)
       }
 
-      setIsAttachmentMenuOpen(false)
-      setIsModelMenuOpen(false)
-      setIsChatMenuOpen(false)
+      if (isChatMenuOpen && !chatMenuRef.current?.contains(target)) {
+        setIsChatMenuOpen(false)
+      }
+
+      if (isModelMenuOpen && !modelMenuRef.current?.contains(target)) {
+        setIsModelMenuOpen(false)
+      }
     }
 
-    document.addEventListener('mousedown', handlePointerDown, true)
+    document.addEventListener('pointerdown', handlePointerDown, true)
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown, true)
+      document.removeEventListener('pointerdown', handlePointerDown, true)
     }
-  }, [])
+  }, [isAttachmentMenuOpen, isChatMenuOpen, isModelMenuOpen])
 
   const hasClarification = Boolean(clarification && clarification.questions.length > 0)
   const canSend =
@@ -200,6 +214,27 @@ export function ChatInput({
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
+  }
+
+  const handleQuickPrompt = (prompt: string) => {
+    const trimmed = prompt.trim()
+    if (!trimmed || disabled || isLoading || hasClarification || isUploadingAttachment) {
+      return
+    }
+
+    setInput('')
+    setAttachments([])
+    setAttachmentUploadError(null)
+    setChatActionError(null)
+    setIsAttachmentMenuOpen(false)
+    setIsModelMenuOpen(false)
+    setIsChatMenuOpen(false)
+
+    onSendMessage({
+      content: trimmed,
+      model: selectedModel,
+      attachments: [],
+    })
   }
 
   const handleClarificationSubmit = () => {
@@ -310,6 +345,7 @@ export function ChatInput({
     setChatActionError(null)
     setIsAttachmentMenuOpen(false)
     setIsModelMenuOpen(false)
+    setIsChatMenuOpen(false)
     void Promise.resolve(onCreateChat?.()).catch((error) => {
       setChatActionError(String(error) || t('chatActionFailed'))
     })
@@ -337,6 +373,7 @@ export function ChatInput({
     }
 
     setChatActionError(null)
+    setIsChatMenuOpen(false)
     void Promise.resolve(onRenameChat?.(chatId, normalizedTitle)).catch((error) => {
       setChatActionError(String(error) || t('chatActionFailed'))
     })
@@ -349,6 +386,7 @@ export function ChatInput({
     }
 
     setChatActionError(null)
+    setIsChatMenuOpen(false)
     void Promise.resolve(onDeleteChat?.(chatId)).catch((error) => {
       setChatActionError(String(error) || t('chatActionFailed'))
     })
@@ -538,6 +576,26 @@ export function ChatInput({
             </div>
           ) : null}
 
+          {quickPrompts.length > 0 && !hasClarification ? (
+            <div className="mb-2 flex flex-wrap gap-2 px-1">
+              {quickPrompts.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleQuickPrompt(item.prompt)}
+                  disabled={disabled || isLoading || isUploadingAttachment}
+                  className={cn(
+                    'inline-flex min-h-9 items-center rounded-full border border-white/10 bg-white/[0.045] px-3 text-[12px] font-medium text-zinc-200 transition',
+                    'hover:border-[#24A1DE]/35 hover:bg-[#24A1DE]/10 hover:text-white',
+                    (disabled || isLoading || isUploadingAttachment) && 'cursor-not-allowed opacity-45'
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <textarea
             ref={textareaRef}
             value={input}
@@ -554,7 +612,7 @@ export function ChatInput({
 
           <div className="mt-0.5 flex items-center justify-between gap-2.5 px-0.5 pb-0.5">
             <div className="flex items-center gap-2">
-              <div className="relative">
+              <div ref={attachmentMenuRef} className="relative">
                 <button
                   type="button"
                   onClick={() => {
@@ -573,29 +631,44 @@ export function ChatInput({
                   {isUploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 </button>
 
-                {isAttachmentMenuOpen && (
-                  <div className="absolute bottom-full left-0 z-20 mb-3 w-48 rounded-2xl border border-white/10 bg-[#0C1118]/96 p-2 shadow-[0_16px_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
-                    <button
-                      type="button"
-                      onClick={() => photoInputRef.current?.click()}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/[0.06]"
+                <AnimatePresence initial={false}>
+                  {isAttachmentMenuOpen ? (
+                    <motion.div
+                      key="attachment-menu"
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                      transition={{ duration: 0.16, ease: 'easeOut' }}
+                      className="absolute bottom-full left-0 z-20 mb-3 w-48 origin-bottom-left rounded-2xl border border-white/10 bg-[#0C1118]/96 p-2 shadow-[0_16px_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
                     >
-                      <ImagePlus className="h-4 w-4 text-[#24A1DE]" />
-                      <span>{t('attachPhoto')}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/[0.06]"
-                    >
-                      <FileText className="h-4 w-4 text-[#8B5CF6]" />
-                      <span>{t('attachFile')}</span>
-                    </button>
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAttachmentMenuOpen(false)
+                          photoInputRef.current?.click()
+                        }}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/[0.06]"
+                      >
+                        <ImagePlus className="h-4 w-4 text-[#24A1DE]" />
+                        <span>{t('attachPhoto')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAttachmentMenuOpen(false)
+                          fileInputRef.current?.click()
+                        }}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/[0.06]"
+                      >
+                        <FileText className="h-4 w-4 text-[#8B5CF6]" />
+                        <span>{t('attachFile')}</span>
+                      </button>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
 
-              <div className="relative">
+              <div ref={chatMenuRef} className="relative">
                 <button
                   type="button"
                   onClick={() => {
@@ -616,8 +689,16 @@ export function ChatInput({
                   <ChevronDown className={cn('h-4 w-4 shrink-0 text-zinc-500 transition-transform', isChatMenuOpen && 'rotate-180')} />
                 </button>
 
-                {isChatMenuOpen && (
-                  <div className="absolute bottom-full left-0 z-20 mb-3 w-[22rem] rounded-[20px] border border-white/10 bg-[#0C1118]/96 p-1.5 shadow-[0_16px_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+                <AnimatePresence initial={false}>
+                  {isChatMenuOpen ? (
+                    <motion.div
+                      key="chat-menu"
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="absolute bottom-full left-0 z-20 mb-3 w-[22rem] origin-bottom-left rounded-[20px] border border-white/10 bg-[#0C1118]/96 p-1.5 shadow-[0_16px_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
+                    >
                     <div className="flex items-center justify-between gap-3 px-2.5 pb-1.5 pt-1">
                       <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-zinc-500">
                         {t('chatList')}
@@ -695,11 +776,12 @@ export function ChatInput({
                         </div>
                       )}
                     </div>
-                  </div>
-                )}
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
 
-              <div className="relative">
+              <div ref={modelMenuRef} className="relative">
                 <button
                   type="button"
                   onClick={() => {
@@ -719,8 +801,16 @@ export function ChatInput({
                   <ChevronDown className={cn('h-4 w-4 text-zinc-500 transition-transform', isModelMenuOpen && 'rotate-180')} />
                 </button>
 
-                {isModelMenuOpen && (
-                  <div className="absolute bottom-full left-0 z-20 mb-3 w-60 rounded-[20px] border border-white/10 bg-[#0C1118]/96 p-1.5 shadow-[0_16px_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+                <AnimatePresence initial={false}>
+                  {isModelMenuOpen ? (
+                    <motion.div
+                      key="model-menu"
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                      transition={{ duration: 0.16, ease: 'easeOut' }}
+                      className="absolute bottom-full left-0 z-20 mb-3 w-60 origin-bottom-left rounded-[20px] border border-white/10 bg-[#0C1118]/96 p-1.5 shadow-[0_16px_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
+                    >
                     <div className="px-2.5 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-[0.22em] text-zinc-500">
                       {t('modelSelector')}
                     </div>
@@ -763,8 +853,9 @@ export function ChatInput({
                         </button>
                       )
                     })}
-                  </div>
-                )}
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
             </div>
 

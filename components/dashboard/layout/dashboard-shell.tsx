@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { usePathname } from 'next/navigation'
 import { DashboardNav } from '@/components/dashboard/dashboard-nav'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
@@ -55,7 +55,16 @@ const getDashboardSectionFromPathname = (pathname: string | null): DashboardRout
 
 export function DashboardShell({ viewerAccess, accessControls, children }: DashboardShellProps) {
   const pathname = usePathname()
+  const isEmbeddedFrame = useSyncExternalStore(
+    () => () => {},
+    () => window.self !== window.top,
+    () => false
+  )
   const currentSection = getDashboardSectionFromPathname(pathname)
+  const pathSegments = (pathname || '').split('/').filter(Boolean)
+  const isDashboardRoot =
+    pathSegments.length === 2
+    && (pathSegments[1] === 'dashboard' || pathSegments[1] === 'workspace')
   const [pendingNavigation, setPendingNavigation] = useState<PendingDashboardNavigation>(null)
   const [initialSection] = useState<DashboardSection>(currentSection === 'docs' ? 'home' : currentSection)
   const [initialContent] = useState<React.ReactNode | null>(currentSection === 'docs' ? null : children)
@@ -72,6 +81,24 @@ export function DashboardShell({ viewerAccess, accessControls, children }: Dashb
       : currentSection
   const viewportActiveSection = displayedSection === 'docs' ? 'home' : displayedSection
   const isDocsRoute = currentSection === 'docs'
+
+  if (isDocsRoute && isEmbeddedFrame) {
+    return (
+      <div className="min-h-screen bg-[#05070A] p-4 text-white sm:p-6">
+        {children}
+      </div>
+    )
+  }
+
+  if (isDashboardRoot) {
+    return (
+      <div className="min-h-screen bg-[#05070A]">
+        {children}
+        <SubscriptionEndedModal viewerAccess={viewerAccess} />
+        <VersionUpdateToast />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#05070A]">

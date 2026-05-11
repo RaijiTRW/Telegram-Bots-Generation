@@ -21,6 +21,36 @@ type HelpGuideButtonProps = {
   compact?: boolean
 }
 
+const visualButtonClassPrefixes = [
+  'bg-',
+  'hover:bg-',
+  'active:bg-',
+  'focus:bg-',
+  'focus-visible:bg-',
+  'hover:border-',
+  'active:border-',
+  'focus:border-',
+  'focus-visible:border-',
+  'border',
+  'shadow',
+  'backdrop-',
+]
+
+function getIconOnlyClassName(className: string): string {
+  return className
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !visualButtonClassPrefixes.some((prefix) => item === prefix || item.startsWith(prefix)))
+    .join(' ')
+}
+
+function hasSizingClass(className: string, axis: 'h' | 'w'): boolean {
+  return className
+    .split(/\s+/)
+    .some((item) => item === axis || item.startsWith(`${axis}-`))
+}
+
 function normalizeList(items?: string[]): string[] {
   if (!Array.isArray(items)) return []
   return items
@@ -94,6 +124,10 @@ export function HelpGuideButton({
   const safeSteps = normalizeList(cmsGuide?.steps?.length ? cmsGuide.steps : steps)
   const safeNotes = normalizeList(cmsGuide?.notes?.length ? cmsGuide.notes : notes)
   const resolvedDocsHref = resolveDocsHrefWithTopic(docsHref, safeTitle)
+  const iconOnlyClassName = getIconOnlyClassName(className)
+  const defaultSizeClass = `${hasSizingClass(iconOnlyClassName, 'h') ? '' : compact ? 'h-5' : 'h-6'} ${
+    hasSizingClass(iconOnlyClassName, 'w') ? '' : compact ? 'w-5' : 'w-6'
+  }`
 
   useEffect(() => {
     if (!open || typeof document === 'undefined') return
@@ -121,7 +155,7 @@ export function HelpGuideButton({
         onClick={() => setOpen(true)}
         aria-label={t('openGuide')}
         title={t('openGuide')}
-        className={`inline-flex items-center justify-center rounded-full border border-white/20 text-zinc-400 hover:text-white hover:border-white/35 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24A1DE]/70 ${compact ? 'h-5 w-5' : 'h-6 w-6'} ${className}`}
+        className={`inline-flex items-center justify-center rounded-full bg-transparent p-0 text-zinc-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24A1DE]/70 ${defaultSizeClass} ${iconOnlyClassName}`}
       >
         <CircleHelp className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${iconClassName}`} />
       </button>

@@ -254,7 +254,7 @@ const SelectContent = ({ children, className }: SelectContentProps) => {
       ref={contentRef}
       style={contentStyle}
       className={cn(
-        "fixed z-[1000] max-h-60 min-w-[8rem] overflow-auto rounded-md border border-white/10 bg-zinc-950 text-zinc-100 shadow-md",
+        "fixed z-[10050] max-h-60 min-w-[8rem] overflow-auto rounded-md border border-white/10 bg-zinc-950 text-zinc-100 shadow-md",
         className
       )}
     >

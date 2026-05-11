@@ -66,18 +66,18 @@ export default function StatisticsPage() {
     activeTab === 'subscribers' && !subscribersEnabled ? 'technical' : activeTab
 
   return (
-    <div className="h-full flex flex-col bg-[#05070A] overflow-y-auto">
+    <div className="h-full w-full min-w-0 flex flex-col bg-[#05070A] overflow-y-auto">
       <header className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-zinc-950/50 backdrop-blur-xl sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <BarChart3 className="w-4 h-4 text-[#24A1DE] shrink-0" />
-          <h1 className="text-white font-semibold">{tNav('statistics')}</h1>
+          <h1 className="shrink-0 text-white font-semibold">{tNav('statistics')}</h1>
           <span className="text-zinc-500">|</span>
-          <span className="text-sm text-zinc-400">{tNav('statisticsDesc')}</span>
+          <span className="min-w-0 truncate text-sm text-zinc-400">{tNav('statisticsDesc')}</span>
         </div>
       </header>
 
-      <div className="flex-1 p-6">
-        <div className="max-w-6xl mx-auto">
+      <div className="min-w-0 flex-1 p-6">
+        <div className="w-full min-w-0">
           <p className="text-zinc-400 text-sm mb-4">{t('description')}</p>
           <Tabs
             value={resolvedActiveTab}

@@ -1235,12 +1235,12 @@ export function SystemPanel() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#05070A] overflow-y-auto">
+    <div className="h-full w-full min-w-0 flex flex-col bg-[#05070A] overflow-y-auto">
       {/* Header */}
       <header className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-zinc-950/50 backdrop-blur-xl sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <Cpu className="w-4 h-4 text-[#24A1DE] shrink-0" />
-          <h1 className="text-white font-semibold">{t('title')}</h1>
+          <h1 className="shrink-0 text-white font-semibold">{t('title')}</h1>
           <HelpGuideButton
             guideKey={HELP_GUIDE_KEYS.editorSystemOverview}
             title={t('title')}
@@ -1249,15 +1249,15 @@ export function SystemPanel() {
             docsHref={docsBasePath}
           />
           <span className="text-zinc-500">|</span>
-          <span className="text-sm text-zinc-400">{t('subtitle')}</span>
+          <span className="min-w-0 truncate text-sm text-zinc-400">{t('subtitle')}</span>
         </div>
 
         <div />
       </header>
 
       {/* Content */}
-      <div className="flex-1 p-6">
-        <div className="max-w-5xl mx-auto space-y-6">
+      <div className="min-w-0 flex-1 p-6">
+        <div className="w-full min-w-0 space-y-6">
           {/* Stats Cards */}
           <div className="grid grid-cols-3 gap-4">
             {stats.map((stat) => {

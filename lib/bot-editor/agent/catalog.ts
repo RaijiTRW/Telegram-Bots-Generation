@@ -257,6 +257,45 @@ const NODE_AGENT_SPECS: Record<NodeType, NodeAgentSpec> = {
       __label: 'Записать источник',
     },
   },
+  database: {
+    purpose: 'Reads text from the bot database and stores the result in a variable.',
+    requiredDataFields: ['saveToVariable'],
+    optionalDataFields: ['mode', 'query', 'maxMatches', 'fallbackText', ...AGENT_META_FIELDS],
+    allowedSourceHandles: ['default'],
+    connectionRules: ['Database nodes use one default outgoing edge.'],
+    runtimeBehavior: 'Searches or returns bot database text, saves it to saveToVariable, then continues.',
+    exampleData: {
+      type: 'database',
+      mode: 'search',
+      query: '{{message.text}}',
+      saveToVariable: 'database.result',
+      maxMatches: 5,
+      __label: 'Поиск в базе',
+    },
+  },
+  crm: {
+    purpose: 'Creates, updates, or moves a flexible CRM card from workflow variables.',
+    requiredDataFields: ['title', 'saveToVariable'],
+    optionalDataFields: ['operation', 'scope', 'pipelineId', 'stageId', 'stageKey', 'cardId', 'externalKey', 'fieldMappings', 'tags', 'notes', ...AGENT_META_FIELDS],
+    allowedSourceHandles: ['default'],
+    connectionRules: ['CRM nodes use one default outgoing edge.'],
+    runtimeBehavior: 'Upserts a CRM card by externalKey or moves an existing card to another stage, then continues.',
+    exampleData: {
+      type: 'crm',
+      operation: 'create_or_update',
+      scope: 'bot',
+      stageKey: 'new',
+      title: 'Заявка от {{user.firstName}}',
+      externalKey: '{{user.id}}',
+      fieldMappings: [
+        { fieldKey: 'name', value: '{{user.firstName}}' },
+        { fieldKey: 'comment', value: '{{message.text}}' },
+      ],
+      tags: 'telegram',
+      saveToVariable: 'crm.card',
+      __label: 'Создать заявку',
+    },
+  },
   http: {
     purpose: 'Calls an external HTTP API and optionally saves the response.',
     requiredDataFields: ['url', 'method'],
@@ -693,6 +732,38 @@ export function sanitizeNodeDataForAgent(nodeType: NodeType, rawData: unknown): 
     case 'setVariable':
       sanitized.variableName = normalizeText(source.variableName ?? source.variable ?? source.key, 120)
       sanitized.value = source.value ?? ''
+      break
+    case 'database':
+      sanitized.mode = normalizeText(source.mode, 20) === 'all' ? 'all' : 'search'
+      sanitized.query = normalizeText(source.query, 500)
+      sanitized.saveToVariable = normalizeText(source.saveToVariable, 120) || defaults.saveToVariable
+      sanitized.maxMatches = Math.max(1, Math.min(normalizeNumber(source.maxMatches, Number(defaults.maxMatches || 5)), 20))
+      sanitized.fallbackText = normalizeText(source.fallbackText, 1000)
+      break
+    case 'crm':
+      sanitized.operation = normalizeText(source.operation, 30) === 'move_stage' ? 'move_stage' : 'create_or_update'
+      sanitized.scope = normalizeText(source.scope, 20) === 'global' ? 'global' : 'bot'
+      sanitized.pipelineId = normalizeText(source.pipelineId, 120)
+      sanitized.stageId = normalizeText(source.stageId, 120)
+      sanitized.stageKey = normalizeText(source.stageKey, 80) || defaults.stageKey
+      sanitized.cardId = normalizeText(source.cardId, 500)
+      sanitized.title = normalizeText(source.title, 500) || defaults.title
+      sanitized.externalKey = normalizeText(source.externalKey, 500) || defaults.externalKey
+      sanitized.tags = normalizeText(source.tags, 300)
+      sanitized.notes = normalizeText(source.notes, 1000)
+      sanitized.saveToVariable = normalizeText(source.saveToVariable, 120) || (sanitized.operation === 'move_stage' ? 'crm.move' : defaults.saveToVariable)
+      sanitized.fieldMappings = Array.isArray(source.fieldMappings)
+        ? source.fieldMappings
+          .map((item) => {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+            const record = item as Record<string, unknown>
+            const fieldKey = normalizeText(record.fieldKey, 80)
+            if (!fieldKey) return null
+            return { fieldKey, value: normalizeText(record.value, 500) }
+          })
+          .filter(Boolean)
+          .slice(0, 30)
+        : defaults.fieldMappings
       break
     case 'script':
       sanitized.language = ALLOWED_SCRIPT_LANGUAGES.has(normalizeText(source.language, 20))

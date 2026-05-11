@@ -26,6 +26,7 @@ const EDITOR_SECTION_ORDER: EditorSection[] = [
   'ai-chat',
   'canvas',
   'system',
+  'database',
   'settings',
   'statistics',
   'ai-agents',
@@ -36,6 +37,7 @@ const EDITOR_SECTION_LABELS: Record<EditorSection, string> = {
   'ai-agents': 'AI Agents',
   canvas: 'Advanced Editor',
   system: 'Telegram & Launch',
+  database: 'Database',
   statistics: 'Analytics',
   settings: 'Bot',
 }
@@ -45,6 +47,7 @@ const editorSectionLoaders: Record<EditorSection, () => Promise<EditorSectionMod
   'ai-agents': () => import('@/components/bot-editor/screens/ai-agents-screen'),
   canvas: () => import('@/components/bot-editor/screens/canvas-screen'),
   system: () => import('@/components/bot-editor/screens/system-screen'),
+  database: () => import('@/components/bot-editor/screens/database-screen'),
   statistics: () => import('@/components/bot-editor/screens/statistics-screen'),
   settings: () => import('@/components/bot-editor/screens/settings-screen'),
 }

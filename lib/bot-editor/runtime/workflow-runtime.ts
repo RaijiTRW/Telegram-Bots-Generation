@@ -8,7 +8,7 @@ import type { BotConfig, Edge as BotEdge, Node as BotNode } from '@/lib/bot-edit
 import { callTelegramApi, callTelegramApiFormData } from '@/lib/bot-editor/runtime/telegram-api'
 import { appendBotTestLog } from '@/lib/bot-editor/runtime/test-log-store'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { appendOutboundContactEvent } from '@/lib/bot-editor/services/bot-crm-service'
+import { appendOutboundContactEvent, moveCrmCard, upsertCrmCard } from '@/lib/bot-editor/services/bot-crm-service'
 import { appendBotAuditEventSafe } from '@/lib/bot-editor/services/bot-audit-service'
 import { isReservedBotVariableName } from '@/lib/bot-editor/system-variables'
 
@@ -1053,12 +1053,332 @@ function resolvePath(source: Record<string, unknown>, path: string): unknown {
   return current
 }
 
+function assignPathValue(target: Record<string, unknown>, path: string, value: unknown) {
+  const keys = path.split('.').map((segment) => segment.trim()).filter(Boolean)
+  if (!keys.length) return
+
+  let current = target
+  for (const key of keys.slice(0, -1)) {
+    const next = current[key]
+    if (!next || typeof next !== 'object' || Array.isArray(next)) {
+      current[key] = {}
+    }
+    current = current[key] as Record<string, unknown>
+  }
+
+  current[keys[keys.length - 1]] = value
+}
+
 function interpolateTemplate(template: string, variables: Record<string, unknown>): string {
   if (!template) return ''
   return template.replace(/\{\{([^}]+)\}\}/g, (match, rawPath) => {
     const value = resolvePath(variables, String(rawPath).trim())
-    return value === undefined || value === null ? match : String(value)
+    if (value === undefined || value === null) {
+      return match
+    }
+
+    if (value && typeof value === 'object') {
+      const textValue = (value as Record<string, unknown>).__text
+      return typeof textValue === 'string' ? textValue : JSON.stringify(value)
+    }
+
+    return String(value)
   })
+}
+
+type BotDatabaseEntry = {
+  id: string
+  text: string
+}
+
+function normalizeDatabaseEntryId(value: unknown, fallback: string) {
+  return String(value || '')
+    .trim()
+    .replace(/[.[\]{}]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 64)
+    .replace(/^_+|_+$/g, '') || fallback
+}
+
+function readBotDatabaseEntries(metadata: Record<string, unknown> | null | undefined): BotDatabaseEntry[] {
+  const raw =
+    metadata?.database && typeof metadata.database === 'object' && !Array.isArray(metadata.database)
+      ? (metadata.database as Record<string, unknown>)
+      : null
+  const rawRows = Array.isArray(raw?.rows) ? raw.rows : []
+  const rows = rawRows
+    .map((item, index) => {
+      const record = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+      return {
+        id: normalizeDatabaseEntryId(record.id, `row_${index + 1}`),
+        text: String(record.text || ''),
+      }
+    })
+    .filter((row) => row.id || row.text.trim())
+
+  if (rows.length) {
+    return rows
+  }
+
+  const legacyText = String(raw?.text || '')
+  return legacyText.trim() ? [{ id: 'main', text: legacyText }] : []
+}
+
+function serializeBotDatabaseEntries(entries: BotDatabaseEntry[]): string {
+  return entries.map((entry) => entry.text.trim()).filter(Boolean).join('\n\n')
+}
+
+function queryBotDatabaseEntries(entries: BotDatabaseEntry[], query: string, maxMatches: number): string {
+  const normalizedQuery = String(query || '').trim().toLowerCase()
+  const limit = Math.max(1, Math.min(20, maxMatches || 5))
+
+  if (!entries.length) {
+    return ''
+  }
+
+  if (!normalizedQuery) {
+    return serializeBotDatabaseEntries(entries)
+  }
+
+  const matches = entries.filter((entry) => (
+    entry.id.toLowerCase().includes(normalizedQuery) ||
+    entry.text.toLowerCase().includes(normalizedQuery)
+  ))
+
+  return matches.slice(0, limit).map((entry) => entry.text.trim()).filter(Boolean).join('\n\n')
+}
+
+function buildDatabaseVariable(entries: BotDatabaseEntry[], result: string, query: string): Record<string, unknown> {
+  const allText = serializeBotDatabaseEntries(entries)
+  const rowValues = entries.reduce<Record<string, string>>((acc, entry) => {
+    acc[entry.id] = entry.text
+    return acc
+  }, {})
+
+  return {
+    ...rowValues,
+    __text: allText,
+    all: allText,
+    ids: entries.map((entry) => entry.id).join(', '),
+    result,
+    query,
+  }
+}
+
+function executeDatabaseNode(args: {
+  node: BotNode
+  metadata?: Record<string, unknown> | null
+  session: RuntimeSession
+  contextVariables: Record<string, unknown>
+  botId?: string
+}) {
+  const data = (args.node.data || {}) as Record<string, unknown>
+  const mode = normalizeText(data.mode || 'search') || 'search'
+  const query = interpolateTemplate(String(data.query || ''), args.contextVariables)
+  const maxMatches = Math.max(1, Math.min(20, Number(data.maxMatches || 5)))
+  const databaseEntries = readBotDatabaseEntries(args.metadata)
+  const result =
+    mode === 'all'
+      ? serializeBotDatabaseEntries(databaseEntries)
+      : queryBotDatabaseEntries(databaseEntries, query, maxMatches)
+  const fallbackText = interpolateTemplate(String(data.fallbackText || ''), args.contextVariables)
+  const value = result || fallbackText
+  const saveToVariable = normalizeText(data.saveToVariable || 'database.result') || 'database.result'
+  const databaseVariable = buildDatabaseVariable(databaseEntries, value, query)
+
+  args.session.variables.database = databaseVariable
+  args.contextVariables.database = databaseVariable
+
+  if (!isReservedBotVariableName(saveToVariable)) {
+    setSessionVariable({
+      session: args.session,
+      name: saveToVariable,
+      value,
+      botId: args.botId,
+    })
+    assignPathValue(args.session.variables, saveToVariable, value)
+    assignPathValue(args.contextVariables, saveToVariable, value)
+    args.contextVariables[saveToVariable] = value
+  } else if (args.botId) {
+    appendBotTestLog(args.botId, 'workflow', `Запись в системную переменную запрещена: ${saveToVariable}`, 'warn')
+  }
+
+  assignPathValue(args.session.variables, 'database.result', value)
+  assignPathValue(args.session.variables, 'database.query', query)
+  assignPathValue(args.contextVariables, 'database.result', value)
+  assignPathValue(args.contextVariables, 'database.query', query)
+  args.session.updatedAt = Date.now()
+}
+
+async function executeCrmNode(args: {
+  node: BotNode
+  session: RuntimeSession
+  contextVariables: Record<string, unknown>
+  botId: string
+  telegramUserId?: number
+  telegramChatId?: number | null
+}) {
+  const data = (args.node.data || {}) as Record<string, unknown>
+  const operation = String(data.operation || 'create_or_update')
+  const admin = createAdminClient()
+  const { data: botRow, error: botError } = await admin
+    .from('bots')
+    .select('id, user_id, name')
+    .eq('id', args.botId)
+    .maybeSingle()
+
+  if (botError || !botRow) {
+    appendBotTestLog(args.botId, 'workflow', `CRM node skipped: bot owner not found (${String(botError)})`, 'warn')
+    return
+  }
+
+  try {
+    if (operation === 'move_stage') {
+      const rawCardTarget = interpolateTemplate(
+        String(data.cardId || '{{crm.cardId}}'),
+        args.contextVariables
+      ).trim()
+      const cardId = rawCardTarget.includes('{{')
+        ? interpolateTemplate('{{user.id}}', args.contextVariables).trim()
+        : rawCardTarget
+      const stageTarget =
+        normalizeText(data.stageId).slice(0, 80) ||
+        normalizeText(data.stageKey).slice(0, 80) ||
+        'new'
+
+      const card = await moveCrmCard(
+        admin as unknown as Parameters<typeof moveCrmCard>[0],
+        String(botRow.user_id || ''),
+        cardId,
+        stageTarget
+      )
+
+      if (!card) {
+        throw new Error('CRM card was not found by card ID or external key')
+      }
+
+      const saveToVariable = normalizeText(data.saveToVariable || 'crm.move') || 'crm.move'
+      const moveVariable = {
+        card,
+        cardId: card.id,
+        stageId: card.stageId,
+        stageKey: card.stageKey,
+      }
+      const existingCrm = args.session.variables.crm && typeof args.session.variables.crm === 'object'
+        ? args.session.variables.crm as Record<string, unknown>
+        : {}
+
+      args.session.variables.crm = {
+        ...existingCrm,
+        card,
+        cardId: card.id,
+        move: moveVariable,
+      }
+      args.contextVariables.crm = args.session.variables.crm
+      assignPathValue(args.session.variables, 'crm.card', card)
+      assignPathValue(args.session.variables, 'crm.cardId', card.id)
+      assignPathValue(args.session.variables, 'crm.move', moveVariable)
+      assignPathValue(args.contextVariables, 'crm.card', card)
+      assignPathValue(args.contextVariables, 'crm.cardId', card.id)
+      assignPathValue(args.contextVariables, 'crm.move', moveVariable)
+
+      if (!isReservedBotVariableName(saveToVariable)) {
+        setSessionVariable({
+          session: args.session,
+          name: saveToVariable,
+          value: moveVariable,
+          botId: args.botId,
+        })
+        assignPathValue(args.session.variables, saveToVariable, moveVariable)
+        assignPathValue(args.contextVariables, saveToVariable, moveVariable)
+      }
+
+      appendBotTestLog(args.botId, 'workflow', `CRM card moved: ${card.id} -> ${card.stageKey || card.stageId}`, 'info')
+      return
+    }
+
+    const title = interpolateTemplate(
+      String(data.title || 'Заявка от {{user.firstName}}'),
+      args.contextVariables
+    )
+    const externalKeyTemplate =
+      typeof data.externalKey === 'string' ? data.externalKey : '{{user.id}}'
+    const externalKey = interpolateTemplate(externalKeyTemplate, args.contextVariables).trim()
+    const notes = interpolateTemplate(String(data.notes || ''), args.contextVariables)
+    const tags = interpolateTemplate(String(data.tags || ''), args.contextVariables)
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+    const fieldValues = (Array.isArray(data.fieldMappings) ? data.fieldMappings : [])
+      .reduce<Record<string, unknown>>((acc, mapping) => {
+        if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) return acc
+        const record = mapping as Record<string, unknown>
+        const fieldKey = normalizeText(record.fieldKey).slice(0, 80)
+        if (!fieldKey) return acc
+        acc[fieldKey] = interpolateTemplate(String(record.value || ''), args.contextVariables)
+        return acc
+      }, {})
+
+    const card = await upsertCrmCard(
+      admin as unknown as Parameters<typeof upsertCrmCard>[0],
+      String(botRow.user_id || ''),
+      {
+        scope: String(data.scope || 'bot') === 'global' ? 'global' : 'bot',
+        botId: String(data.scope || 'bot') === 'global' ? null : args.botId,
+        pipelineId: normalizeText(data.pipelineId).slice(0, 80) || null,
+        stageId: normalizeText(data.stageId).slice(0, 80) || null,
+        stageKey: normalizeText(data.stageKey).slice(0, 80) || 'new',
+        title,
+        externalKey,
+        telegramUserId: args.telegramUserId || null,
+        telegramChatId: args.telegramChatId || null,
+        fieldValues,
+        tags,
+        notes,
+      }
+    )
+
+    const saveToVariable = normalizeText(data.saveToVariable || 'crm.card') || 'crm.card'
+    const crmVariable = {
+      card,
+      cardId: card.id,
+    }
+    const existingCrm = args.session.variables.crm && typeof args.session.variables.crm === 'object'
+      ? args.session.variables.crm as Record<string, unknown>
+      : {}
+
+    args.session.variables.crm = {
+      ...existingCrm,
+      card,
+      cardId: card.id,
+    }
+    args.contextVariables.crm = args.session.variables.crm
+    assignPathValue(args.session.variables, 'crm.card', card)
+    assignPathValue(args.session.variables, 'crm.cardId', card.id)
+    assignPathValue(args.contextVariables, 'crm.card', card)
+    assignPathValue(args.contextVariables, 'crm.cardId', card.id)
+
+    if (!isReservedBotVariableName(saveToVariable)) {
+      setSessionVariable({
+        session: args.session,
+        name: saveToVariable,
+        value: saveToVariable === 'crm.card' ? card : crmVariable,
+        botId: args.botId,
+      })
+      assignPathValue(args.session.variables, saveToVariable, saveToVariable === 'crm.card' ? card : crmVariable)
+      assignPathValue(args.contextVariables, saveToVariable, saveToVariable === 'crm.card' ? card : crmVariable)
+    }
+
+    appendBotTestLog(args.botId, 'workflow', `CRM card saved: ${card.id}`, 'info')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    assignPathValue(args.session.variables, 'crm.error', message)
+    assignPathValue(args.contextVariables, 'crm.error', message)
+    appendBotTestLog(args.botId, 'workflow', `CRM node failed: ${message}`, 'error')
+  } finally {
+    args.session.updatedAt = Date.now()
+  }
 }
 
 function isValidIanaTimeZone(timeZone: string): boolean {
@@ -4035,6 +4355,33 @@ async function executeFromNode(args: {
     if (node.type === 'setVariable') {
       appendBotTestLog(botId, 'workflow', `Node setVariable -> ${node.id}`, 'debug')
       executeSetVariableData((node.data || {}) as Record<string, unknown>, session, contextVariables, botId)
+      currentNodeId = getDefaultNextNodeId(config, node.id)
+      continue
+    }
+
+    if (node.type === 'database') {
+      appendBotTestLog(botId, 'workflow', `Node database -> ${node.id}`, 'debug')
+      executeDatabaseNode({
+        node,
+        metadata,
+        session,
+        contextVariables,
+        botId,
+      })
+      currentNodeId = getDefaultNextNodeId(config, node.id)
+      continue
+    }
+
+    if (node.type === 'crm') {
+      appendBotTestLog(botId, 'workflow', `Node crm -> ${node.id}`, 'debug')
+      await executeCrmNode({
+        node,
+        session,
+        contextVariables,
+        botId,
+        telegramUserId: user?.id,
+        telegramChatId: chatId,
+      })
       currentNodeId = getDefaultNextNodeId(config, node.id)
       continue
     }

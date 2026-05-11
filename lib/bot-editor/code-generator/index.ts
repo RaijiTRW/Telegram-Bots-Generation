@@ -14,6 +14,8 @@ import type {
   ConditionNodeData,
   ActionNodeData,
   SetVariableNodeData,
+  DatabaseNodeData,
+  CrmNodeData,
   HttpNodeData,
   WebhookNodeData,
   TriggerNodeData,
@@ -175,8 +177,24 @@ function interpolate(text, ctx) {
     for (const key of keys) {
       value = value?.[key];
     }
+    if (value && typeof value === 'object') {
+      return typeof value.__text === 'string' ? value.__text : JSON.stringify(value);
+    }
     return value !== undefined ? String(value) : match;
   });
+}
+
+function setPathValue(target, path, value) {
+  const keys = String(path || '').split('.').map((key) => key.trim()).filter(Boolean);
+  if (!keys.length) return;
+  let current = target;
+  for (const key of keys.slice(0, -1)) {
+    if (!current[key] || typeof current[key] !== 'object' || Array.isArray(current[key])) {
+      current[key] = {};
+    }
+    current = current[key];
+  }
+  current[keys[keys.length - 1]] = value;
 }`)
 
     // Helper to get next node
@@ -419,6 +437,12 @@ function resolveMediaInput(source) {
         break
       case 'setVariable':
         lines.push(...this.generateSetVariableHandler(node.data as SetVariableNodeData))
+        break
+      case 'database':
+        lines.push(...this.generateDatabaseHandler(node.data as DatabaseNodeData))
+        break
+      case 'crm':
+        lines.push(...this.generateCrmHandler(node.data as CrmNodeData))
         break
       case 'http':
         lines.push(...this.generateHttpHandler(node.data as HttpNodeData))
@@ -762,6 +786,101 @@ function resolveMediaInput(source) {
     ]
   }
 
+  private getDatabaseEntries(): Array<{ id: string; text: string }> {
+    const database = this.metadata.database && typeof this.metadata.database === 'object'
+      ? this.metadata.database as Record<string, unknown>
+      : {}
+    const rawRows = Array.isArray(database.rows) ? database.rows : []
+    const rows = rawRows
+      .map((item, index) => {
+        const row = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+        const id = String(row.id || `row_${index + 1}`)
+          .trim()
+          .replace(/[.[\]{}]/g, '_')
+          .replace(/\s+/g, '_')
+          .replace(/_+/g, '_')
+          .slice(0, 64)
+          .replace(/^_+|_+$/g, '') || `row_${index + 1}`
+
+        return {
+          id,
+          text: String(row.text || ''),
+        }
+      })
+      .filter((row) => row.id || row.text.trim())
+
+    if (rows.length) {
+      return rows
+    }
+
+    const legacyText = String(database.text || '')
+    return legacyText.trim() ? [{ id: 'main', text: legacyText }] : []
+  }
+
+  private generateDatabaseHandler(data: DatabaseNodeData): string[] {
+    const databaseEntries = this.getDatabaseEntries()
+    const variableName = String(data.saveToVariable || 'database.result').trim() || 'database.result'
+    const query = String(data.query || '')
+    const mode = data.mode || 'search'
+    const maxMatches = Math.max(1, Math.min(20, Number(data.maxMatches || 5)))
+
+    return [
+      '  // Read bot database',
+      `  const databaseEntries = ${JSON.stringify(databaseEntries)};`,
+      `  const databaseText = databaseEntries.map((item) => String(item.text || '').trim()).filter(Boolean).join('\\n\\n');`,
+      `  const databaseQuery = interpolate(${JSON.stringify(query)}, ctx);`,
+      `  const databaseFallback = interpolate(${JSON.stringify(data.fallbackText || '')}, ctx);`,
+      `  const databaseNormalizedQuery = databaseQuery.trim().toLowerCase();`,
+      `  const databaseMatches = ${JSON.stringify(mode)} === 'all' || !databaseNormalizedQuery ? databaseEntries : databaseEntries.filter((item) => String(item.id || '').toLowerCase().includes(databaseNormalizedQuery) || String(item.text || '').toLowerCase().includes(databaseNormalizedQuery)).slice(0, ${maxMatches});`,
+      `  const databaseValue = databaseMatches.map((item) => String(item.text || '').trim()).filter(Boolean).join('\\n\\n') || databaseFallback;`,
+      `  ctx.session.database = Object.assign({}, Object.fromEntries(databaseEntries.map((item) => [item.id, item.text])), { __text: databaseText, all: databaseText, ids: databaseEntries.map((item) => item.id).join(', '), result: databaseValue, query: databaseQuery });`,
+      `  ctx.session[${JSON.stringify(variableName)}] = databaseValue;`,
+      `  setPathValue(ctx.session, ${JSON.stringify(variableName)}, databaseValue);`,
+      `  setPathValue(ctx.session, 'database.result', databaseValue);`,
+      `  setPathValue(ctx.session, 'database.query', databaseQuery);`,
+    ]
+  }
+
+  private generateCrmHandler(data: CrmNodeData): string[] {
+    if (data.operation === 'move_stage') {
+      const variableName = String(data.saveToVariable || 'crm.move').trim() || 'crm.move'
+      return [
+        '  // CRM node: local export records the requested stage move in session variables.',
+        `  const crmMove = {`,
+        `    cardId: interpolate(${JSON.stringify(data.cardId || '{{crm.cardId}}')}, ctx),`,
+        `    stageId: ${JSON.stringify(data.stageId || '')},`,
+        `    stageKey: ${JSON.stringify(data.stageKey || 'new')},`,
+        `    notes: interpolate(${JSON.stringify(data.notes || '')}, ctx),`,
+        `  };`,
+        `  ctx.session.crm = Object.assign({}, ctx.session.crm || {}, { cardId: crmMove.cardId, move: crmMove });`,
+        `  setPathValue(ctx.session, 'crm.cardId', crmMove.cardId);`,
+        `  setPathValue(ctx.session, 'crm.move', crmMove);`,
+        `  setPathValue(ctx.session, ${JSON.stringify(variableName)}, crmMove);`,
+      ]
+    }
+
+    const variableName = String(data.saveToVariable || 'crm.card').trim() || 'crm.card'
+    const mappings = Array.isArray(data.fieldMappings) ? data.fieldMappings : []
+    return [
+      '  // CRM node: local export stores a preview payload in session variables.',
+      `  const crmFieldMappings = ${JSON.stringify(mappings)};`,
+      `  const crmFieldValues = Object.fromEntries(crmFieldMappings.map((item) => [String(item.fieldKey || '').trim(), interpolate(String(item.value || ''), ctx)]).filter(([key]) => key));`,
+      `  const crmCard = {`,
+      `    id: 'local-crm-card',`,
+      `    title: interpolate(${JSON.stringify(data.title || 'Заявка от {{user.firstName}}')}, ctx),`,
+      `    externalKey: interpolate(${JSON.stringify(typeof data.externalKey === 'string' ? data.externalKey : '{{user.id}}')}, ctx),`,
+      `    stageKey: ${JSON.stringify(data.stageKey || 'new')},`,
+      `    fieldValues: crmFieldValues,`,
+      `    tags: interpolate(${JSON.stringify(data.tags || '')}, ctx).split(',').map((tag) => tag.trim()).filter(Boolean),`,
+      `    notes: interpolate(${JSON.stringify(data.notes || '')}, ctx),`,
+      `  };`,
+      `  ctx.session.crm = Object.assign({}, ctx.session.crm || {}, { card: crmCard, cardId: crmCard.id });`,
+      `  setPathValue(ctx.session, 'crm.card', crmCard);`,
+      `  setPathValue(ctx.session, 'crm.cardId', crmCard.id);`,
+      `  setPathValue(ctx.session, ${JSON.stringify(variableName)}, ${variableName === 'crm.card' ? 'crmCard' : '{ card: crmCard, cardId: crmCard.id }'});`,
+    ]
+  }
+
   private generateHttpHandler(data: HttpNodeData | WebhookNodeData): string[] {
     const lines: string[] = []
 
@@ -895,7 +1014,7 @@ import asyncio
 import hashlib
 import uuid
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 from dotenv import load_dotenv
@@ -919,6 +1038,7 @@ with WORKFLOW_PATH.open("r", encoding="utf-8") as f:
 
 NODES = {str(node.get("id")): node for node in WORKFLOW.get("nodes", []) if node.get("id")}
 EDGES = [edge for edge in WORKFLOW.get("edges", []) if edge.get("source") and edge.get("target")]
+BOT_METADATA = WORKFLOW.get("metadata") if isinstance(WORKFLOW.get("metadata"), dict) else {}
 
 OUTGOING: Dict[str, list] = {}
 for edge in EDGES:
@@ -1015,11 +1135,74 @@ def interpolate(text: Any, variables: Dict[str, Any]) -> str:
         value = resolve_path(variables, variable_path)
         if value is None:
             return match.group(0)
+        if isinstance(value, dict) and isinstance(value.get("__text"), str):
+            return value["__text"]
         if isinstance(value, (dict, list)):
             return json.dumps(value, ensure_ascii=False)
         return str(value)
 
     return re.sub(r"\\{\\{([^}]+)\\}\\}", replace, raw)
+
+
+def normalize_database_row_id(value: Any, fallback: str) -> str:
+    raw = str(value or "").strip()
+    raw = re.sub(r"[.\\[\\]{}]", "_", raw)
+    raw = re.sub(r"\\s+", "_", raw)
+    raw = re.sub(r"_+", "_", raw)[:64].strip("_")
+    return raw or fallback
+
+
+def get_bot_database_entries() -> List[Dict[str, str]]:
+    database = BOT_METADATA.get("database") if isinstance(BOT_METADATA, dict) else {}
+    if not isinstance(database, dict):
+        return []
+    raw_rows = database.get("rows")
+    entries: List[Dict[str, str]] = []
+    if isinstance(raw_rows, list):
+        for index, item in enumerate(raw_rows):
+            row = item if isinstance(item, dict) else {}
+            entries.append({
+                "id": normalize_database_row_id(row.get("id"), f"row_{index + 1}"),
+                "text": str(row.get("text") or ""),
+            })
+    entries = [entry for entry in entries if entry.get("id") or entry.get("text", "").strip()]
+    if entries:
+        return entries
+    legacy_text = str(database.get("text") or "")
+    return [{"id": "main", "text": legacy_text}] if legacy_text.strip() else []
+
+
+def serialize_bot_database_entries(entries: List[Dict[str, str]]) -> str:
+    return "\\n\\n".join([str(entry.get("text") or "").strip() for entry in entries if str(entry.get("text") or "").strip()])
+
+
+def build_database_variable(entries: List[Dict[str, str]], result: str, query: str) -> Dict[str, Any]:
+    all_text = serialize_bot_database_entries(entries)
+    value: Dict[str, Any] = {str(entry.get("id")): str(entry.get("text") or "") for entry in entries}
+    value.update({
+        "__text": all_text,
+        "all": all_text,
+        "ids": ", ".join([str(entry.get("id")) for entry in entries]),
+        "result": result,
+        "query": query,
+    })
+    return value
+
+
+def query_bot_database(entries: List[Dict[str, str]], query: str, max_matches: int = 5) -> str:
+    normalized_query = str(query or "").strip().lower()
+    if not entries:
+        return ""
+    if not normalized_query:
+        return serialize_bot_database_entries(entries)
+    matches = [
+        entry
+        for entry in entries
+        if normalized_query in str(entry.get("id") or "").lower()
+        or normalized_query in str(entry.get("text") or "").lower()
+    ]
+    limit = max(1, min(20, int(max_matches or 5)))
+    return serialize_bot_database_entries(matches[:limit])
 
 
 def to_bool(value: Any, default: bool = False) -> bool:
@@ -1770,6 +1953,63 @@ async def execute_node_chain(
             current_node_id = get_default_next_node_id(node_id)
             continue
 
+        if node_type == "database":
+            mode = str(data.get("mode") or "search").strip() or "search"
+            query = interpolate(data.get("query") or "", runtime_variables)
+            max_matches = int(to_float(data.get("maxMatches"), 5))
+            database_entries = get_bot_database_entries()
+            result = serialize_bot_database_entries(database_entries) if mode == "all" else query_bot_database(database_entries, query, max_matches)
+            fallback = interpolate(data.get("fallbackText") or "", runtime_variables)
+            value = result or fallback
+            save_to_variable = str(data.get("saveToVariable") or "database.result").strip() or "database.result"
+            session["variables"]["database"] = build_database_variable(database_entries, value, query)
+            set_path(session["variables"], save_to_variable, value)
+            set_path(session["variables"], "database.result", value)
+            set_path(session["variables"], "database.query", query)
+            current_node_id = get_default_next_node_id(node_id)
+            continue
+
+        if node_type == "crm":
+            if data.get("operation") == "move_stage":
+                crm_move = {
+                    "cardId": interpolate(data.get("cardId") or "{{crm.cardId}}", runtime_variables),
+                    "stageId": str(data.get("stageId") or ""),
+                    "stageKey": str(data.get("stageKey") or "new"),
+                    "notes": interpolate(data.get("notes") or "", runtime_variables),
+                }
+                session["variables"]["crm"] = {**session["variables"].get("crm", {}), "cardId": crm_move["cardId"], "move": crm_move}
+                set_path(session["variables"], "crm.cardId", crm_move["cardId"])
+                set_path(session["variables"], "crm.move", crm_move)
+                save_to_variable = str(data.get("saveToVariable") or "crm.move").strip() or "crm.move"
+                set_path(session["variables"], save_to_variable, crm_move)
+                current_node_id = get_default_next_node_id(node_id)
+                continue
+
+            mappings = data.get("fieldMappings") if isinstance(data.get("fieldMappings"), list) else []
+            field_values = {}
+            for mapping in mappings:
+                if not isinstance(mapping, dict):
+                    continue
+                field_key = str(mapping.get("fieldKey") or "").strip()
+                if field_key:
+                    field_values[field_key] = interpolate(str(mapping.get("value") or ""), runtime_variables)
+            crm_card = {
+                "id": "local-crm-card",
+                "title": interpolate(data.get("title") or "Заявка от {{user.firstName}}", runtime_variables),
+                "externalKey": interpolate(data.get("externalKey") if "externalKey" in data else "{{user.id}}", runtime_variables),
+                "stageKey": str(data.get("stageKey") or "new"),
+                "fieldValues": field_values,
+                "tags": [tag.strip() for tag in interpolate(data.get("tags") or "", runtime_variables).split(",") if tag.strip()],
+                "notes": interpolate(data.get("notes") or "", runtime_variables),
+            }
+            session["variables"]["crm"] = {**session["variables"].get("crm", {}), "card": crm_card, "cardId": crm_card["id"]}
+            set_path(session["variables"], "crm.card", crm_card)
+            set_path(session["variables"], "crm.cardId", crm_card["id"])
+            save_to_variable = str(data.get("saveToVariable") or "crm.card").strip() or "crm.card"
+            set_path(session["variables"], save_to_variable, crm_card if save_to_variable == "crm.card" else session["variables"]["crm"])
+            current_node_id = get_default_next_node_id(node_id)
+            continue
+
         if node_type in ("http", "webhook"):
             try:
                 response_data = execute_http_request(data, runtime_variables)
@@ -1949,6 +2189,13 @@ BOT_TOKEN=your_telegram_bot_token_here
 `
 }
 
-export function generateWorkflowJson(config: BotConfig): string {
-  return JSON.stringify(config, null, 2)
+export function generateWorkflowJson(config: BotConfig, metadata?: Record<string, unknown>): string {
+  return JSON.stringify(
+    {
+      ...config,
+      metadata: metadata || {},
+    },
+    null,
+    2
+  )
 }

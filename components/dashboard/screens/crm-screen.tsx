@@ -1,12 +1,23 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { createPortal } from 'react-dom'
-import { useLocale, useTranslations } from 'next-intl'
-import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
+import {
+  BarChart3,
+  Bot,
+  Check,
+  Clock3,
+  KanbanSquare,
+  Lock,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings2,
+  Tags,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,682 +29,1249 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  getDashboardCrmLeadsAction,
-  getDashboardCrmOverviewAction,
-  getLeadTimelineAction,
-  updateLeadStageAction,
-} from '@/lib/bot-editor/actions/editor-actions'
-import { getCurrentSubscriptionAction } from '@/lib/billing/actions'
-import type {
-  CrmLeadRecord,
-  CrmLeadTimelineEvent,
-  CrmOverview,
-  CrmPeriod,
-  LeadStage,
-} from '@/lib/bot-editor/types/analytics.types'
-import { Copy, ExternalLink, Lock, Megaphone, RefreshCcw, ShieldAlert, X } from 'lucide-react'
 import { AnimatePresence, motion } from '@/components/motion-wrapper'
+import { getCurrentSubscriptionAction } from '@/lib/billing/actions'
+import {
+  deleteCrmFieldAction,
+  deleteCrmStageAction,
+  getCrmCardTimelineAction,
+  getFlexibleCrmBoardAction,
+  moveCrmCardAction,
+  upsertCrmCardAction,
+  upsertCrmFieldAction,
+  upsertCrmStageAction,
+} from '@/lib/bot-editor/actions/editor-actions'
+import type {
+  CrmBoard,
+  CrmCard,
+  CrmCardEvent,
+  CrmField,
+  CrmFieldType,
+  CrmScope,
+  CrmStage,
+} from '@/lib/bot-editor/types/analytics.types'
 
-type StageFilter = LeadStage | 'all'
-type BotOption = { id: string; name: string }
+const FIELD_TYPES: Array<{ value: CrmFieldType; label: string }> = [
+  { value: 'text', label: 'Text' },
+  { value: 'textarea', label: 'Textarea' },
+  { value: 'number', label: 'Number' },
+  { value: 'date', label: 'Date' },
+  { value: 'datetime', label: 'Datetime' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'email', label: 'Email' },
+  { value: 'select', label: 'Select' },
+  { value: 'checkbox', label: 'Checkbox' },
+]
 
-const STAGE_OPTIONS: LeadStage[] = ['new', 'contacted', 'qualified', 'won', 'lost']
-const PERIOD_OPTIONS: CrmPeriod[] = ['24h', '7d', '30d', 'all']
+const STAGE_COLOR_PRESETS = [
+  '#38bdf8',
+  '#8b5cf6',
+  '#f59e0b',
+  '#10b981',
+  '#ef4444',
+  '#ec4899',
+  '#14b8a6',
+  '#f97316',
+  '#a3e635',
+  '#64748b',
+]
 
-function resolveLeadDisplayName(lead: CrmLeadRecord): string {
-  const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(' ').trim()
-  if (fullName) return fullName
-  if (lead.username) return `@${lead.username}`
-  return String(lead.telegramUserId)
+const CRM_REFRESH_TIMEOUT_MS = 4_500
+const CRM_LIVE_REFRESH_INTERVAL_MS = 5_000
+
+const COPY = {
+  ru: {
+    title: 'CRM',
+    subtitle: 'Карточки заявок, броней, заказов и сделок по всем ботам.',
+    allBots: 'Все боты',
+    botScope: 'Конкретный бот',
+    search: 'Поиск карточек',
+    settings: 'Настройка CRM',
+    newCard: 'Новая карточка',
+    empty: 'Карточек пока нет',
+    noAccess: 'CRM недоступна на текущем тарифе',
+    loadError: 'Не удалось загрузить CRM',
+    save: 'Сохранить',
+    cancel: 'Отмена',
+    delete: 'Удалить',
+    stages: 'Этапы',
+    fields: 'Поля карточки',
+    titleField: 'Название',
+    stage: 'Этап',
+    bot: 'Бот',
+    notes: 'Заметки',
+    tags: 'Теги',
+    externalKey: 'External key',
+    timeline: 'История',
+    addStage: 'Добавить этап',
+    addField: 'Добавить поле',
+    fieldKey: 'ID поля',
+    fieldName: 'Название поля',
+    fieldType: 'Тип',
+    color: 'Цвет',
+    order: 'Порядок',
+    created: 'Создано',
+    updated: 'Обновлено',
+    combined: 'объединённая доска',
+  },
+  en: {
+    title: 'CRM',
+    subtitle: 'Cards for leads, bookings, orders, and deals across bots.',
+    allBots: 'All bots',
+    botScope: 'Selected bot',
+    search: 'Search cards',
+    settings: 'CRM settings',
+    newCard: 'New card',
+    empty: 'No cards yet',
+    noAccess: 'CRM is not available on the current plan',
+    loadError: 'Failed to load CRM',
+    save: 'Save',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    stages: 'Stages',
+    fields: 'Card fields',
+    titleField: 'Title',
+    stage: 'Stage',
+    bot: 'Bot',
+    notes: 'Notes',
+    tags: 'Tags',
+    externalKey: 'External key',
+    timeline: 'Timeline',
+    addStage: 'Add stage',
+    addField: 'Add field',
+    fieldKey: 'Field ID',
+    fieldName: 'Field name',
+    fieldType: 'Type',
+    color: 'Color',
+    order: 'Order',
+    created: 'Created',
+    updated: 'Updated',
+    combined: 'combined board',
+  },
 }
 
-export default function DashboardCrmPage() {
-  const t = useTranslations('dashboard.crm')
-  const locale = useLocale()
-  const pathname = usePathname()
-  const isRu = locale !== 'en'
-  const [accessState, setAccessState] = useState<'checking' | 'granted' | 'locked' | 'denied'>('checking')
-  const [overview, setOverview] = useState<CrmOverview | null>(null)
-  const [leads, setLeads] = useState<CrmLeadRecord[]>([])
-  const [selectedLead, setSelectedLead] = useState<CrmLeadRecord | null>(null)
-  const [timeline, setTimeline] = useState<CrmLeadTimelineEvent[]>([])
-  const [isPortalMounted, setIsPortalMounted] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false)
-  const [isSavingLead, setIsSavingLead] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [bots, setBots] = useState<BotOption[]>([])
+type AccessState = 'checking' | 'granted' | 'locked' | 'denied'
 
-  const [botFilter, setBotFilter] = useState<string>('all')
-  const [stageFilter, setStageFilter] = useState<StageFilter>('all')
-  const [periodFilter, setPeriodFilter] = useState<CrmPeriod>('all')
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [pageSize] = useState(25)
-  const [total, setTotal] = useState(0)
+function formatDate(value: string | null | undefined, locale: string): string {
+  if (!value) return '—'
+  const ms = Date.parse(value)
+  if (!Number.isFinite(ms)) return '—'
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(ms))
+}
 
-  const [editStage, setEditStage] = useState<LeadStage>('new')
-  const [editNotes, setEditNotes] = useState('')
-  const [editTags, setEditTags] = useState('')
+function normalizeTagInput(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 16)
+}
 
-  const loadBots = useCallback(async () => {
-    try {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        setBots([])
-        return
-      }
-      const { data, error: botsError } = await supabase
-        .from('bots')
-        .select('id, name')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
+function valueToInput(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
 
-      if (botsError) return
-      const nextBots = (Array.isArray(data) ? data : [])
-        .map((item) => ({
-          id: String((item as Record<string, unknown>).id || ''),
-          name: String((item as Record<string, unknown>).name || ''),
-        }))
-        .filter((item) => item.id)
-      setBots(nextBots)
-    } catch {
-      // ignore
-    }
-  }, [])
+function toCrmErrorMessage(error: unknown): string {
+  const raw = (error instanceof Error ? error.message : String(error || '')).replace(/^Error:\s*/i, '')
+  if (raw.includes('CRM tables are not installed')) {
+    return "CRM-таблицы ещё не применены в Supabase. Запустите миграцию supabase/migrations/20260510175753_create_flexible_crm.sql и в конце выполните notify pgrst, 'reload schema';"
+  }
+  return raw || 'CRM error'
+}
 
-  const loadCrm = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const filters = {
-        botId: botFilter !== 'all' ? botFilter : undefined,
-        stage: stageFilter,
-        period: periodFilter,
-        search: search.trim() || undefined,
-      }
+function StageCard({
+  stage,
+  count,
+  onEdit,
+}: {
+  stage: CrmStage
+  count: number
+  onEdit: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onEdit}
+      className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-zinc-950/50 px-3 py-2 text-left transition hover:border-sky-400/40"
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stage.color }} />
+        <span className="truncate text-sm font-semibold text-white">{stage.name}</span>
+      </span>
+      <span className="rounded-full border border-white/10 px-2 py-0.5 text-xs text-zinc-400">{count}</span>
+    </button>
+  )
+}
 
-      const [overviewResult, leadsResult] = await Promise.all([
-        getDashboardCrmOverviewAction(filters),
-        getDashboardCrmLeadsAction(filters, page, pageSize),
-      ])
+function CrmCardButton({
+  card,
+  fields,
+  onOpen,
+  onDragStart,
+}: {
+  card: CrmCard
+  fields: CrmField[]
+  onOpen: () => void
+  onDragStart: () => void
+}) {
+  const previewFields = fields.slice(0, 3)
+  return (
+    <button
+      type="button"
+      draggable
+      onDragStart={onDragStart}
+      onClick={onOpen}
+      className="group w-full rounded-lg border border-white/10 bg-zinc-950/80 p-3 text-left shadow-lg shadow-black/15 transition hover:-translate-y-0.5 hover:border-sky-400/40 hover:bg-zinc-900/90"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-white">{card.title}</div>
+          {card.botName ? (
+            <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-400">
+              <Bot className="h-3 w-3" />
+              <span className="truncate">{card.botName}</span>
+            </div>
+          ) : null}
+        </div>
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: card.stageColor }} />
+      </div>
 
-      if (!overviewResult.success || !overviewResult.overview) {
-        throw new Error(overviewResult.error || t('loadError'))
-      }
-      if (!leadsResult.success || !leadsResult.result) {
-        throw new Error(leadsResult.error || t('loadError'))
-      }
-
-      setOverview(overviewResult.overview)
-      setLeads(leadsResult.result.items)
-      setTotal(leadsResult.result.total)
-
-      setSelectedLead((current) => {
-        if (current) {
-          const refreshed = leadsResult.result.items.find(
-            (item) => item.botId === current.botId && item.telegramUserId === current.telegramUserId
+      <div className="mt-3 space-y-1.5">
+        {previewFields.map((field) => {
+          const value = card.fieldValues[field.key]
+          if (value == null || value === '') return null
+          return (
+            <div key={field.id} className="flex gap-2 text-xs">
+              <span className="shrink-0 text-zinc-500">{field.name}:</span>
+              <span className="min-w-0 truncate text-zinc-300">{valueToInput(value)}</span>
+            </div>
           )
-          return refreshed || null
-        }
-        return null
-      })
-    } catch (loadError) {
-      setError(String(loadError))
-      setOverview(null)
-      setLeads([])
-      setTotal(0)
-      setSelectedLead(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [botFilter, stageFilter, periodFilter, search, page, pageSize, t])
+        })}
+      </div>
 
-  const loadLeadTimeline = useCallback(async (lead: CrmLeadRecord | null) => {
-    if (!lead) {
-      setTimeline([])
+      {card.tags.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {card.tags.slice(0, 4).map((tag) => (
+            <span key={tag} className="rounded-full bg-sky-400/10 px-2 py-0.5 text-[11px] text-sky-200">
+              {tag}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex items-center justify-between text-[11px] text-zinc-500">
+        <span>{formatDate(card.updatedAt, 'ru')}</span>
+        {card.telegramUserId ? <span>TG {card.telegramUserId}</span> : null}
+      </div>
+    </button>
+  )
+}
+
+interface DashboardCrmPageProps {
+  initialScope?: CrmScope
+  initialBotId?: string | null
+}
+
+export default function DashboardCrmPage({
+  initialScope = 'global',
+  initialBotId = null,
+}: DashboardCrmPageProps = {}) {
+  const locale = useLocale()
+  const copy = locale === 'en' ? COPY.en : COPY.ru
+  const [accessState, setAccessState] = useState<AccessState>('checking')
+  const [board, setBoard] = useState<CrmBoard | null>(null)
+  const [scope, setScope] = useState<CrmScope>(initialScope)
+  const [botId, setBotId] = useState<string>(initialBotId || '')
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [draggedCardId, setDraggedCardId] = useState<string | null>(null)
+  const [selectedCard, setSelectedCard] = useState<CrmCard | null>(null)
+  const [timeline, setTimeline] = useState<CrmCardEvent[]>([])
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [editingStage, setEditingStage] = useState<Partial<CrmStage> | null>(null)
+  const [editingField, setEditingField] = useState<Partial<CrmField> | null>(null)
+  const boardCacheRef = useRef(new Map<string, CrmBoard>())
+  const loadRequestSeqRef = useRef(0)
+  const [draftCard, setDraftCard] = useState<{
+    title: string
+    stageId: string
+    botId: string
+    externalKey: string
+    notes: string
+    tags: string
+    fieldValues: Record<string, string>
+  } | null>(null)
+
+  const cardsByStage = useMemo(() => {
+    const result = new Map<string, CrmCard[]>()
+    for (const stage of board?.stages || []) {
+      result.set(stage.key, [])
+    }
+    for (const card of board?.cards || []) {
+      const key = result.has(card.stageKey) ? card.stageKey : board?.stages[0]?.key || 'new'
+      result.set(key, [...(result.get(key) || []), card])
+    }
+    return result
+  }, [board])
+
+  const openCard = useCallback((card: CrmCard | null) => {
+    if (!board) return
+    setSelectedCard(card)
+    setTimeline([])
+    if (card) {
+      setDraftCard({
+        title: card.title,
+        stageId: card.stageId,
+        botId: card.botId || '',
+        externalKey: card.externalKey,
+        notes: card.notes,
+        tags: card.tags.join(', '),
+        fieldValues: Object.fromEntries(
+          board.fields.map((field) => [field.key, valueToInput(card.fieldValues[field.key])])
+        ),
+      })
+      void getCrmCardTimelineAction(card.id).then((result) => {
+        if (result.success && result.timeline) {
+          setTimeline(result.timeline)
+        }
+      })
       return
     }
-    setIsLoadingTimeline(true)
+
+    setDraftCard({
+      title: copy.newCard,
+      stageId: board.stages[0]?.id || '',
+      botId: scope === 'bot' ? board.botId || botId : '',
+      externalKey: '',
+      notes: '',
+      tags: '',
+      fieldValues: Object.fromEntries(board.fields.map((field) => [field.key, ''])),
+    })
+  }, [board, botId, copy.newCard, scope])
+
+  const loadBoard = useCallback(async (options: { force?: boolean; background?: boolean } = {}) => {
+    if (accessState !== 'granted') return
+    const normalizedSearch = debouncedSearch.trim()
+    const cacheKey = JSON.stringify({
+      scope,
+      botId: scope === 'bot' ? botId || null : null,
+      search: normalizedSearch,
+    })
+    const cachedBoard = boardCacheRef.current.get(cacheKey)
+    if (cachedBoard && !options.force) {
+      setBoard(cachedBoard)
+    }
+    const canRunInBackground = Boolean(options.background && (cachedBoard || board))
+    const requestSeq = loadRequestSeqRef.current + 1
+    loadRequestSeqRef.current = requestSeq
+    setError(null)
+    const request = getFlexibleCrmBoardAction({
+      scope,
+      botId: scope === 'bot' ? botId || null : null,
+      search: normalizedSearch || undefined,
+    })
+    const applyResult = (result: Awaited<typeof request>) => {
+      if (requestSeq !== loadRequestSeqRef.current) return
+      if (!result.success || !result.board) {
+        throw new Error(result.error || copy.loadError)
+      }
+      boardCacheRef.current.set(cacheKey, result.board)
+      setBoard(result.board)
+      if (scope === 'bot' && !botId && result.board.botId) {
+        setBotId(result.board.botId)
+      }
+    }
+
     try {
-      const result = await getLeadTimelineAction(lead.botId, lead.telegramUserId, null, 80)
-      if (!result.success || !result.timeline) {
-        setTimeline([])
+      if (canRunInBackground) {
+        const timeout = new Promise<'timeout'>((resolve) => {
+          window.setTimeout(() => resolve('timeout'), CRM_REFRESH_TIMEOUT_MS)
+        })
+        const result = await Promise.race([request, timeout])
+        if (result === 'timeout') {
+          request
+            .then((lateResult) => {
+              try {
+                applyResult(lateResult)
+              } catch (lateError) {
+                if (requestSeq === loadRequestSeqRef.current) {
+                  setError(toCrmErrorMessage(lateError))
+                }
+              }
+            })
+            .catch((lateError) => {
+              if (requestSeq === loadRequestSeqRef.current) {
+                setError(toCrmErrorMessage(lateError))
+              }
+            })
+          return
+        }
+        applyResult(result)
         return
       }
-      setTimeline(result.timeline)
+
+      applyResult(await request)
+    } catch (loadError) {
+      if (requestSeq !== loadRequestSeqRef.current) return
+      setError(toCrmErrorMessage(loadError))
+      if (!cachedBoard) {
+        setBoard(null)
+      }
     } finally {
-      setIsLoadingTimeline(false)
+      // Background updates keep the current board visible and do not block the UI.
     }
-  }, [])
+  }, [accessState, board, botId, copy.loadError, debouncedSearch, scope])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 320)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
   useEffect(() => {
     let cancelled = false
     const checkAccess = async () => {
       try {
         const result = await getCurrentSubscriptionAction()
-        if (!result.success || !result.subscription) {
+        const subscription = result.success ? result.subscription : null
+        if (!subscription) {
           if (!cancelled) setAccessState('denied')
           return
         }
         if (!cancelled) {
-          setAccessState(
-            result.subscription.isAdmin
-              ? 'granted'
-              : 'locked'
-          )
+          setAccessState(subscription.isAdmin || subscription.entitlements.crm ? 'granted' : 'locked')
         }
       } catch {
         if (!cancelled) setAccessState('denied')
       }
     }
-
     void checkAccess()
-
     return () => {
       cancelled = true
     }
   }, [])
 
   useEffect(() => {
-    if (accessState !== 'granted') return
-    void loadBots()
-  }, [accessState, loadBots])
-
-  useEffect(() => {
-    setIsPortalMounted(true)
-    return () => setIsPortalMounted(false)
-  }, [])
-
-  useEffect(() => {
-    setSelectedLead(null)
-    setTimeline([])
-  }, [pathname])
+    void loadBoard()
+  }, [loadBoard])
 
   useEffect(() => {
     if (accessState !== 'granted') return
-    void loadCrm()
-  }, [accessState, loadCrm])
 
-  useEffect(() => {
-    if (!selectedLead) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [selectedLead])
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      void loadBoard({ force: true, background: true })
+    }, CRM_LIVE_REFRESH_INTERVAL_MS)
 
-  useEffect(() => {
-    if (!selectedLead) return
-    setEditStage(selectedLead.leadStage)
-    setEditNotes(selectedLead.leadNotes || '')
-    setEditTags((selectedLead.leadTags || []).join(', '))
-    void loadLeadTimeline(selectedLead)
-  }, [selectedLead, loadLeadTimeline])
+    return () => window.clearInterval(timer)
+  }, [accessState, loadBoard])
 
-  const stageLabel = useCallback((stage: LeadStage) => t(`stages.${stage}`), [t])
-  const formatDateValue = useCallback((value: string | null) => {
-    if (!value) return '—'
-    const parsed = Date.parse(value)
-    if (!Number.isFinite(parsed)) return '—'
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(parsed))
-  }, [locale])
-
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [pageSize, total])
-
-  const handleSaveLead = useCallback(async () => {
-    if (!selectedLead) return
-    setIsSavingLead(true)
+  const saveCard = useCallback(async () => {
+    if (!board || !draftCard) return
+    setIsSaving(true)
     setError(null)
     try {
-      const tags = editTags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-      const result = await updateLeadStageAction({
-        botId: selectedLead.botId,
-        telegramUserId: selectedLead.telegramUserId,
-        stage: editStage,
-        notes: editNotes,
-        tags,
+      const cardFieldValues = Object.fromEntries(
+        board.fields.map((field) => {
+          const raw = draftCard.fieldValues[field.key] || ''
+          if (field.type === 'checkbox') return [field.key, raw === 'true']
+          if (field.type === 'number') return [field.key, raw ? Number(raw) : null]
+          return [field.key, raw]
+        })
+      )
+      const result = await upsertCrmCardAction({
+        id: selectedCard?.id,
+        scope,
+        botId: draftCard.botId || (scope === 'bot' ? board.botId : null),
+        pipelineId: selectedCard?.pipelineId || board.pipeline.id,
+        stageId: draftCard.stageId,
+        title: draftCard.title,
+        externalKey: draftCard.externalKey,
+        fieldValues: cardFieldValues,
+        notes: draftCard.notes,
+        tags: normalizeTagInput(draftCard.tags),
+        telegramUserId: selectedCard?.telegramUserId || null,
+        telegramChatId: selectedCard?.telegramChatId || null,
       })
-      if (!result.success) {
-        throw new Error(result.error || t('saveError'))
-      }
-      await loadCrm()
-      await loadLeadTimeline({
-        ...selectedLead,
-        leadStage: editStage,
-      })
+      if (!result.success) throw new Error(result.error || 'Save failed')
+      setSelectedCard(null)
+      setDraftCard(null)
+      await loadBoard()
     } catch (saveError) {
-      setError(String(saveError))
+      setError(toCrmErrorMessage(saveError))
     } finally {
-      setIsSavingLead(false)
+      setIsSaving(false)
     }
-  }, [selectedLead, editStage, editNotes, editTags, t, loadCrm, loadLeadTimeline])
+  }, [board, draftCard, loadBoard, scope, selectedCard])
 
-  const copyLeadId = useCallback(async () => {
-    if (!selectedLead) return
-    try {
-      await navigator.clipboard.writeText(String(selectedLead.telegramUserId))
-    } catch {
-      // ignore
+  const moveCard = useCallback(async (stage: CrmStage) => {
+    if (!draggedCardId) return
+    const result = await moveCrmCardAction(draggedCardId, stage.id)
+    setDraggedCardId(null)
+    if (!result.success) {
+      setError(result.error || 'Move failed')
+      return
     }
-  }, [selectedLead])
+    await loadBoard()
+  }, [draggedCardId, loadBoard])
+
+  const saveStage = useCallback(async () => {
+    if (!board || !editingStage) return
+    const result = await upsertCrmStageAction({
+      id: editingStage.id,
+      pipelineId: board.pipeline.id,
+      key: editingStage.key,
+      name: editingStage.name || 'Этап',
+      color: editingStage.color || '#38bdf8',
+      sortOrder: Number(editingStage.sortOrder || (board.stages.length + 1) * 10),
+      isTerminal: Boolean(editingStage.isTerminal),
+    })
+    if (!result.success) {
+      setError(result.error || 'Stage save failed')
+      return
+    }
+    setEditingStage(null)
+    await loadBoard()
+  }, [board, editingStage, loadBoard])
+
+  const saveField = useCallback(async () => {
+    if (!board || !editingField) return
+    const result = await upsertCrmFieldAction({
+      id: editingField.id,
+      pipelineId: board.pipeline.id,
+      key: editingField.key,
+      name: editingField.name || 'Поле',
+      type: editingField.type || 'text',
+      options: Array.isArray(editingField.options) ? editingField.options : [],
+      required: Boolean(editingField.required),
+      sortOrder: Number(editingField.sortOrder || (board.fields.length + 1) * 10),
+    })
+    if (!result.success) {
+      setError(result.error || 'Field save failed')
+      return
+    }
+    setEditingField(null)
+    await loadBoard()
+  }, [board, editingField, loadBoard])
 
   if (accessState === 'checking') {
     return (
-      <div className="p-6">
-        <Card className="bg-zinc-900/60 border-zinc-800 overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-white">
-              {isRu ? 'Проверка доступа...' : 'Checking access...'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-zinc-300">{isRu ? 'Загружаем раздел CRM.' : 'Loading CRM section.'}</p>
-          </CardContent>
-        </Card>
+      <div className="flex min-h-[560px] items-center justify-center text-zinc-400">
+        <RefreshCw className="mr-2 h-5 w-5 animate-spin text-sky-300" />
+        CRM
       </div>
     )
   }
 
-  if (accessState === 'locked') {
+  if (accessState !== 'granted') {
     return (
-      <div className="p-6">
-        <Card className="bg-zinc-900/60 border-amber-500/25 overflow-hidden">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Lock className="h-5 w-5 text-amber-300" />
-              {isRu ? 'CRM скоро для пользователей' : 'CRM is coming soon for users'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-zinc-300">
-            <p>
-              {isRu
-                ? 'Сейчас раздел CRM доступен только администраторам. Для обычных аккаунтов он временно закрыт и появится позже.'
-                : 'CRM is currently available only for admins. For regular accounts this section is temporarily locked and will be available later.'}
-            </p>
-            <Button asChild>
-              <Link href={`/${locale}/dashboard`}>
-                {isRu ? 'Назад в дэшборд' : 'Back to dashboard'}
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (accessState === 'denied') {
-    return (
-      <div className="p-6">
-        <Card className="bg-zinc-900/60 border-zinc-800 overflow-hidden">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <ShieldAlert className="h-5 w-5 text-amber-400" />
-              {isRu ? 'Доступ запрещен' : 'Access denied'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-zinc-300">
-            <p>{isRu ? 'Не удалось подтвердить доступ к разделу CRM.' : 'Unable to confirm access to CRM.'}</p>
-            <Button asChild variant="outline" className="border-white/10 hover:bg-white/5 text-zinc-200">
-              <Link href={`/${locale}/dashboard`}>{isRu ? 'Назад в дэшборд' : 'Back to dashboard'}</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="flex min-h-[560px] items-center justify-center px-6">
+        <div className="max-w-md rounded-2xl border border-white/10 bg-zinc-950/80 p-8 text-center">
+          <Lock className="mx-auto h-10 w-10 text-zinc-500" />
+          <h1 className="mt-4 text-2xl font-semibold text-white">{copy.noAccess}</h1>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white">{t('title')}</h1>
-          <p className="text-zinc-400 mt-1">{t('subtitle')}</p>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-zinc-300 hover:bg-transparent hover:text-white"
-          onClick={() => void loadCrm()}
-          disabled={isLoading}
-          aria-label={t('refresh')}
-          title={t('refresh')}
-        >
-          <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-black text-white">
+      <div className="border-b border-white/10 px-6 py-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">
+              <KanbanSquare className="h-3.5 w-3.5" />
+              {copy.title}
+            </div>
+            <h1 className="mt-3 text-3xl font-semibold">{copy.title}</h1>
+            <p className="mt-2 max-w-2xl text-sm text-zinc-400">{copy.subtitle}</p>
+          </div>
 
-      {error ? (
-        <Card className="border-red-500/30 bg-red-500/10">
-          <CardContent className="p-4 text-sm text-red-200">{error}</CardContent>
-        </Card>
-      ) : null}
-
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-        <Card className="border-white/10 bg-zinc-950/40">
-          <CardContent className="p-3">
-            <div className="text-xs text-zinc-400">{t('kpi.totalLeads')}</div>
-            <div className="text-xl text-white font-semibold">{overview?.totalLeads ?? 0}</div>
-          </CardContent>
-        </Card>
-        {STAGE_OPTIONS.map((stage) => (
-          <Card key={stage} className="border-white/10 bg-zinc-950/40">
-            <CardContent className="p-3">
-              <div className="text-xs text-zinc-400">{stageLabel(stage)}</div>
-              <div className="text-xl text-white font-semibold">{overview?.stageCounts?.[stage] ?? 0}</div>
-            </CardContent>
-          </Card>
-        ))}
-        <Card className="border-white/10 bg-zinc-950/40">
-          <CardContent className="p-3">
-            <div className="text-xs text-zinc-400">{t('kpi.activeDialogs24h')}</div>
-            <div className="text-xl text-white font-semibold">{overview?.activeDialogs24h ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-white/10 bg-zinc-950/40">
-          <CardContent className="p-3">
-            <div className="text-xs text-zinc-400">{t('kpi.inbound24h')}</div>
-            <div className="text-xl text-white font-semibold">{overview?.inbound24h ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-white/10 bg-zinc-950/40">
-          <CardContent className="p-3">
-            <div className="text-xs text-zinc-400">{t('kpi.outbound24h')}</div>
-            <div className="text-xl text-white font-semibold">{overview?.outbound24h ?? 0}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex flex-col xl:flex-row gap-6">
-        <div className="flex-1 space-y-6">
-          <Card className="border-white/10 bg-zinc-950/40">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-white text-base">{t('filters.title')}</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-zinc-400">{t('filters.bot')}</Label>
-                <Select value={botFilter} onValueChange={(value) => { setPage(1); setBotFilter(value) }}>
-                  <SelectTrigger><SelectValue placeholder={t('filters.botAll')} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('filters.botAll')}</SelectItem>
-                    {bots.map((botOption) => (
-                      <SelectItem key={botOption.id} value={botOption.id}>
-                        {botOption.name || botOption.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-zinc-400">{t('filters.stage')}</Label>
-                <Select value={stageFilter} onValueChange={(value) => { setPage(1); setStageFilter(value as StageFilter) }}>
-                  <SelectTrigger><SelectValue placeholder={t('filters.stageAll')} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('filters.stageAll')}</SelectItem>
-                    {STAGE_OPTIONS.map((stage) => (
-                      <SelectItem key={stage} value={stage}>{stageLabel(stage)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-zinc-400">{t('filters.period')}</Label>
-                <Select value={periodFilter} onValueChange={(value) => { setPage(1); setPeriodFilter(value as CrmPeriod) }}>
-                  <SelectTrigger><SelectValue placeholder="24h" /></SelectTrigger>
-                  <SelectContent>
-                    {PERIOD_OPTIONS.map((period) => (
-                      <SelectItem key={period} value={period}>{t(`period.${period}`)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-zinc-400">{t('filters.search')}</Label>
-                <Input
-                  value={search}
-                  onChange={(event) => { setPage(1); setSearch(event.target.value) }}
-                  placeholder={t('filters.searchPlaceholder')}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-white/10 bg-zinc-950/40">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-white text-base">{t('table.title')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="overflow-auto rounded-lg border border-white/10">
-                <table className="w-full text-sm">
-                  <thead className="bg-zinc-900/70 text-zinc-400">
-                    <tr>
-                      <th className="text-left p-3">{t('table.lead')}</th>
-                      <th className="text-left p-3">{t('table.bot')}</th>
-                      <th className="text-left p-3">{t('table.stage')}</th>
-                      <th className="text-left p-3">{t('table.lastInteraction')}</th>
-                      <th className="text-left p-3">{t('table.messages')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leads.length ? (
-                      leads.map((lead) => {
-                        const isActive = selectedLead?.botId === lead.botId && selectedLead?.telegramUserId === lead.telegramUserId
-                        return (
-                          <tr
-                            key={`${lead.botId}_${lead.telegramUserId}`}
-                            className={`border-t border-white/5 cursor-pointer ${isActive ? 'bg-[#24A1DE]/10' : 'hover:bg-white/5'}`}
-                            onClick={() => setSelectedLead(lead)}
-                          >
-                            <td className="p-3 text-white">
-                              <div>{resolveLeadDisplayName(lead)}</div>
-                              <div className="text-xs text-zinc-500">ID: {lead.telegramUserId}</div>
-                            </td>
-                            <td className="p-3 text-zinc-300">{lead.botName}</td>
-                            <td className="p-3 text-zinc-300">{stageLabel(lead.leadStage)}</td>
-                            <td className="p-3 text-zinc-300">{formatDateValue(lead.lastSeenAt || lead.lastIncomingAt || lead.lastOutgoingAt)}</td>
-                            <td className="p-3 text-zinc-300">{lead.inboundCount}/{lead.outboundCount}</td>
-                          </tr>
-                        )
-                      })
-                    ) : (
-                      <tr>
-                        <td className="p-6 text-zinc-500" colSpan={5}>{t('table.empty')}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-zinc-500">
-                  {t('pagination.page', { page, total: totalPages })}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    className="border-white/10 text-zinc-300"
-                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                    disabled={page <= 1 || isLoading}
-                  >
-                    {t('pagination.prev')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="border-white/10 text-zinc-300"
-                    onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={page >= totalPages || isLoading}
-                  >
-                    {t('pagination.next')}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-white/10 bg-gradient-to-br from-[#24A1DE]/10 to-[#8B5CF6]/10">
-            <CardContent className="p-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <div className="text-white font-semibold">{t('broadcastSoonTitle')}</div>
-                <div className="text-sm text-zinc-300 mt-1">{t('broadcastSoonDesc')}</div>
-              </div>
-              <Button disabled className="bg-white/10 text-zinc-300 border border-white/10 cursor-not-allowed">
-                <Megaphone className="w-4 h-4 mr-2" />
-                {t('broadcastSoonCta')}
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              className="border-white/10 bg-zinc-950 text-white hover:bg-zinc-900"
+              onClick={() => setIsSettingsOpen(true)}
+            >
+              <Settings2 className="mr-2 h-4 w-4" />
+              {copy.settings}
+            </Button>
+            <Button
+              className="bg-sky-500 text-white hover:bg-sky-400"
+              onClick={() => openCard(null)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {copy.newCard}
+            </Button>
+          </div>
         </div>
 
+        <div className="mt-5 grid grid-cols-1 gap-3 xl:grid-cols-[auto_240px_minmax(320px,1fr)] xl:items-center">
+          <div className="flex h-12 rounded-xl border border-white/10 bg-zinc-950 p-1">
+            {(['global', 'bot'] as CrmScope[]).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setScope(item)}
+                className={`rounded-lg px-4 py-2 text-sm transition ${
+                  scope === item ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                {item === 'global' ? copy.allBots : copy.botScope}
+              </button>
+            ))}
+          </div>
+
+          {scope === 'bot' ? (
+            <Select value={botId || board?.botId || ''} onValueChange={setBotId}>
+              <SelectTrigger className="h-12 w-full border-white/10 bg-zinc-950 text-white">
+                <SelectValue placeholder={copy.bot} />
+              </SelectTrigger>
+              <SelectContent>
+                {(board?.bots || []).map((bot) => (
+                  <SelectItem key={bot.id} value={bot.id}>{bot.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex h-12 items-center rounded-xl border border-white/10 bg-zinc-950 px-4 text-sm text-zinc-400">
+              {copy.combined}
+            </div>
+          )}
+
+          <div className="relative min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={copy.search}
+              className="h-12 border-white/10 bg-zinc-950 pl-9 text-white"
+            />
+          </div>
+
+        </div>
+
+        {error ? (
+          <div className="mt-4 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
       </div>
-      {isPortalMounted
-        ? createPortal(
-            <AnimatePresence>
-              {selectedLead && (
-                <>
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setSelectedLead(null)}
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120]"
+
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden px-5 py-5">
+        <div className="flex min-h-[620px] h-[calc(100vh-300px)] min-w-max gap-4">
+          {(board?.stages || []).map((stage) => {
+            const cards = cardsByStage.get(stage.key) || []
+            return (
+              <section
+                key={stage.id}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => void moveCard(stage)}
+                className="flex h-full w-[320px] shrink-0 flex-col rounded-xl border border-white/10 bg-zinc-950/50"
+              >
+                <div className="border-b border-white/10 p-3">
+                  <StageCard
+                    stage={stage}
+                    count={cards.length}
+                    onEdit={() => {
+                      setEditingStage(stage)
+                      setIsSettingsOpen(true)
+                    }}
                   />
-                  <motion.div
-                    initial={{ x: '100%' }}
-                    animate={{ x: 0 }}
-                    exit={{ x: '100%' }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] bg-zinc-950 border-l border-white/10 p-6 z-[130] overflow-y-auto shadow-2xl flex flex-col"
-                  >
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-bold text-white">{t('leadCard.title')}</h2>
-                      <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-white/10 rounded-full" onClick={() => setSelectedLead(null)}>
-                        <X className="w-5 h-5" />
-                      </Button>
+                </div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+                  {cards.map((card) => (
+                    <CrmCardButton
+                      key={card.id}
+                      card={card}
+                      fields={board?.fields || []}
+                      onOpen={() => openCard(card)}
+                      onDragStart={() => setDraggedCardId(card.id)}
+                    />
+                  ))}
+                  {cards.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-white/10 px-4 py-8 text-center text-sm text-zinc-500">
+                      {copy.empty}
                     </div>
+                  ) : null}
+                </div>
+              </section>
+            )
+          })}
+        </div>
+      </div>
 
-                    <div className="space-y-6 flex-1">
-                      <div className="rounded-xl border border-white/10 p-5 bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 shadow-inner">
-                        <div className="text-lg text-white font-medium">{resolveLeadDisplayName(selectedLead)}</div>
-                        <div className="text-sm text-zinc-400 mt-1">{selectedLead.botName}</div>
-                        {selectedLead.username ? (
-                          <Link
-                            href={`https://t.me/${selectedLead.username}`}
-                            target="_blank"
-                            className="inline-flex items-center mt-3 text-sm text-[#24A1DE] hover:text-sky-400 font-medium transition-colors"
-                          >
-                            {t('leadCard.openTelegram')}
-                            <ExternalLink className="w-4 h-4 ml-1.5" />
-                          </Link>
-                        ) : (
-                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/5 pt-3">
-                            <span className="text-sm text-zinc-400">{t('leadCard.telegramId')}: <span className="text-zinc-200">{selectedLead.telegramUserId}</span></span>
-                            <Button size="sm" variant="ghost" className="h-8 hover:bg-white/10 text-zinc-300" onClick={() => void copyLeadId()}>
-                              <Copy className="w-4 h-4 mr-2" />
-                              {t('leadCard.copyId')}
-                            </Button>
+      <AnimatePresence>
+        {draftCard && board ? (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => {
+              setSelectedCard(null)
+              setDraftCard(null)
+            }}
+          >
+            <motion.aside
+              className="ml-auto flex h-full w-full max-w-2xl flex-col border-l border-white/10 bg-zinc-950 shadow-2xl"
+              initial={{ x: 48, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 48, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">CRM card</div>
+                  <h2 className="mt-1 text-xl font-semibold">{draftCard.title || copy.newCard}</h2>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  onClick={() => {
+                    setSelectedCard(null)
+                    setDraftCard(null)
+                  }}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <Label>{copy.titleField}</Label>
+                    <Input
+                      value={draftCard.title}
+                      onChange={(event) => setDraftCard((current) => current && { ...current, title: event.target.value })}
+                      className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label>{copy.stage}</Label>
+                    <Select
+                      value={draftCard.stageId}
+                      onValueChange={(value) => setDraftCard((current) => current && { ...current, stageId: value })}
+                    >
+                      <SelectTrigger className="mt-1.5 border-white/10 bg-zinc-900 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {board.stages.map((stage) => (
+                          <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>{copy.bot}</Label>
+                    <Select
+                      value={draftCard.botId || 'global'}
+                      onValueChange={(value) => setDraftCard((current) => current && { ...current, botId: value === 'global' ? '' : value })}
+                    >
+                      <SelectTrigger className="mt-1.5 border-white/10 bg-zinc-900 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="global">{copy.allBots}</SelectItem>
+                        {board.bots.map((bot) => (
+                          <SelectItem key={bot.id} value={bot.id}>{bot.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>{copy.externalKey}</Label>
+                    <Input
+                      value={draftCard.externalKey}
+                      onChange={(event) => setDraftCard((current) => current && { ...current, externalKey: event.target.value })}
+                      className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                      placeholder="{{user.id}}"
+                    />
+                  </div>
+
+                  {board.fields.map((field) => (
+                    <div key={field.id} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
+                      <Label>{field.name}</Label>
+                      {field.type === 'textarea' ? (
+                        <Textarea
+                          value={draftCard.fieldValues[field.key] || ''}
+                          onChange={(event) => setDraftCard((current) => current && {
+                            ...current,
+                            fieldValues: { ...current.fieldValues, [field.key]: event.target.value },
+                          })}
+                          className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                          rows={3}
+                        />
+                      ) : field.type === 'checkbox' ? (
+                        <Select
+                          value={draftCard.fieldValues[field.key] || 'false'}
+                          onValueChange={(value) => setDraftCard((current) => current && {
+                            ...current,
+                            fieldValues: { ...current.fieldValues, [field.key]: value },
+                          })}
+                        >
+                          <SelectTrigger className="mt-1.5 border-white/10 bg-zinc-900 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="false">No</SelectItem>
+                            <SelectItem value="true">Yes</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text'}
+                          value={draftCard.fieldValues[field.key] || ''}
+                          onChange={(event) => setDraftCard((current) => current && {
+                            ...current,
+                            fieldValues: { ...current.fieldValues, [field.key]: event.target.value },
+                          })}
+                          className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                        />
+                      )}
+                    </div>
+                  ))}
+
+                  <div className="md:col-span-2">
+                    <Label>{copy.tags}</Label>
+                    <Input
+                      value={draftCard.tags}
+                      onChange={(event) => setDraftCard((current) => current && { ...current, tags: event.target.value })}
+                      className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                      placeholder="vip, booking, delivery"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>{copy.notes}</Label>
+                    <Textarea
+                      value={draftCard.notes}
+                      onChange={(event) => setDraftCard((current) => current && { ...current, notes: event.target.value })}
+                      className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+
+                {selectedCard ? (
+                  <div className="mt-6 rounded-xl border border-white/10 bg-black/30 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                      <Clock3 className="h-4 w-4 text-sky-300" />
+                      {copy.timeline}
+                    </div>
+                    <div className="space-y-2">
+                      {timeline.length > 0 ? timeline.map((event) => (
+                        <div key={event.id} className="rounded-lg border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-medium text-zinc-200">{event.eventType}</span>
+                            <span className="text-xs text-zinc-500">{formatDate(event.createdAt, locale)}</span>
                           </div>
-                        )}
-                      </div>
-
-                      <div className="grid gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-zinc-400 font-medium">{t('leadCard.stage')}</Label>
-                          <Select value={editStage} onValueChange={(value) => setEditStage(value as LeadStage)}>
-                            <SelectTrigger className="bg-zinc-900/50 border-white/10"><SelectValue placeholder={stageLabel(editStage)} /></SelectTrigger>
-                            <SelectContent>
-                              {STAGE_OPTIONS.map((stage) => (
-                                <SelectItem key={stage} value={stage}>{stageLabel(stage)}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                         </div>
+                      )) : (
+                        <div className="text-sm text-zinc-500">—</div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-zinc-400 font-medium">{t('leadCard.tags')}</Label>
-                          <Input
-                            value={editTags}
-                            onChange={(event) => setEditTags(event.target.value)}
-                            placeholder={t('leadCard.tagsPlaceholder')}
-                            className="bg-zinc-900/50 border-white/10 focus-visible:ring-[#24A1DE]/40"
-                          />
-                        </div>
+              <div className="flex justify-end gap-3 border-t border-white/10 px-5 py-4">
+                <Button
+                  variant="outline"
+                  className="border-white/10 bg-transparent text-white hover:bg-white/10"
+                  onClick={() => {
+                    setSelectedCard(null)
+                    setDraftCard(null)
+                  }}
+                >
+                  {copy.cancel}
+                </Button>
+                <Button className="bg-sky-500 text-white hover:bg-sky-400" onClick={() => void saveCard()} disabled={isSaving}>
+                  <Check className="mr-2 h-4 w-4" />
+                  {copy.save}
+                </Button>
+              </div>
+            </motion.aside>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-                        <div className="space-y-2">
-                          <Label className="text-zinc-400 font-medium">{t('leadCard.notes')}</Label>
-                          <Textarea
-                            value={editNotes}
-                            onChange={(event) => setEditNotes(event.target.value)}
-                            placeholder={t('leadCard.notesPlaceholder')}
-                            rows={4}
-                            className="bg-zinc-900/50 border-white/10 focus-visible:ring-[#24A1DE]/40 resize-none"
-                          />
-                        </div>
-                      </div>
+      <AnimatePresence>
+        {isSettingsOpen && board ? (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => setIsSettingsOpen(false)}
+          >
+            <motion.div
+              className="mx-auto mt-10 flex max-h-[calc(100vh-80px)] w-[min(1100px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-950 shadow-2xl"
+              initial={{ y: 24, scale: 0.98, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 24, scale: 0.98, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">{copy.settings}</div>
+                  <h2 className="mt-1 text-xl font-semibold">{board.pipeline.name}</h2>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  onClick={() => setIsSettingsOpen(false)}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-                      <Button
-                        className="w-full bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:opacity-90 transition-opacity text-white h-11 rounded-lg font-medium shadow-lg shadow-black/20"
-                        onClick={() => void handleSaveLead()}
-                        disabled={isSavingLead}
+              <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_380px]">
+                <section className="rounded-xl border border-white/10 bg-black/25 p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <BarChart3 className="h-4 w-4 text-sky-300" />
+                      {copy.stages}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-white/10 bg-zinc-900 text-white"
+                      onClick={() => {
+                        setEditingField(null)
+                        setEditingStage({ color: '#38bdf8', sortOrder: (board.stages.length + 1) * 10 })
+                      }}
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      {copy.addStage}
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {board.stages.map((stage) => (
+                      <div
+                        key={stage.id}
+                        className={`flex items-center gap-2 rounded-lg border p-2 transition ${
+                          editingStage?.id === stage.id
+                            ? 'border-sky-300/70 bg-sky-400/10'
+                            : 'border-white/10 bg-zinc-950/80 hover:border-white/20'
+                        }`}
                       >
-                        {isSavingLead ? t('leadCard.saving') : t('leadCard.save')}
-                      </Button>
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                          onClick={() => {
+                            setEditingField(null)
+                            setEditingStage(stage)
+                          }}
+                        >
+                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: stage.color }} />
+                          <span className="truncate text-sm text-white">{stage.name}</span>
+                          <span className="text-xs text-zinc-500">{stage.key}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-zinc-400 hover:bg-sky-500/10 hover:text-sky-200"
+                          onClick={() => {
+                            setEditingField(null)
+                            setEditingStage(stage)
+                          }}
+                          aria-label="Редактировать этап"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
+                          onClick={() => void deleteCrmStageAction(stage.id).then(() => loadBoard())}
+                          aria-label="Удалить этап"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
 
-                      <div className="pt-2">
-                        <div className="text-sm font-medium text-zinc-400 mb-4">{t('leadCard.timeline')}</div>
-                        <div className="space-y-3 pb-8">
-                          {isLoadingTimeline ? (
-                            <div className="text-sm text-zinc-500 flex items-center justify-center p-8">
-                              <RefreshCcw className="w-5 h-5 animate-spin text-zinc-600 mr-2" />
-                              {t('loading')}
-                            </div>
-                          ) : timeline.length ? (
-                            timeline.map((event) => (
-                              <div key={event.id} className="relative pl-6">
-                                <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full border border-zinc-700 bg-zinc-900" />
-                                <div className="absolute left-1 top-4 bottom-[-16px] w-[1px] bg-white/5 last:bg-transparent" />
-                                <div className="rounded-lg border border-white/5 p-3 bg-zinc-900/30">
-                                  <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 mb-1.5 flex justify-between items-center">
-                                    <span>{event.direction === 'inbound' ? t('timeline.inbound') : t('timeline.outbound')}</span>
-                                    <span>{formatDateValue(event.createdAt)}</span>
-                                  </div>
-                                  <div className="text-sm text-zinc-200 leading-relaxed font-light break-words">
-                                    {event.messageText || <span className="text-zinc-500 italic">({event.eventKind})</span>}
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-sm text-zinc-500 text-center p-8 bg-zinc-900/20 rounded-xl border border-white/5 border-dashed">
-                              {t('leadCard.timelineEmpty')}
-                            </div>
-                          )}
+                <section className="rounded-xl border border-white/10 bg-black/25 p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <Tags className="h-4 w-4 text-sky-300" />
+                      {copy.fields}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-white/10 bg-zinc-900 text-white"
+                      onClick={() => {
+                        setEditingStage(null)
+                        setEditingField({ type: 'text', sortOrder: (board.fields.length + 1) * 10 })
+                      }}
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      {copy.addField}
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {board.fields.map((field) => (
+                      <div
+                        key={field.id}
+                        className={`flex items-center gap-2 rounded-lg border p-2 transition ${
+                          editingField?.id === field.id
+                            ? 'border-sky-300/70 bg-sky-400/10'
+                            : 'border-white/10 bg-zinc-950/80 hover:border-white/20'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => {
+                            setEditingStage(null)
+                            setEditingField(field)
+                          }}
+                        >
+                          <div className="truncate text-sm text-white">{field.name}</div>
+                          <div className="text-xs text-zinc-500">{field.key} · {field.type}</div>
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-zinc-400 hover:bg-sky-500/10 hover:text-sky-200"
+                          onClick={() => {
+                            setEditingStage(null)
+                            setEditingField(field)
+                          }}
+                          aria-label="Редактировать поле"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
+                          onClick={() => void deleteCrmFieldAction(field.id).then(() => loadBoard())}
+                          aria-label="Удалить поле"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <aside className="rounded-xl border border-white/10 bg-black/30 p-4">
+                  <div className="mb-4">
+                    <div className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                      {editingStage ? copy.stages : editingField ? copy.fields : copy.settings}
+                    </div>
+                    <h3 className="mt-1 text-lg font-semibold text-white">
+                      {editingStage
+                        ? (editingStage.id ? 'Редактировать этап' : 'Новый этап')
+                        : editingField
+                          ? (editingField.id ? 'Редактировать поле' : 'Новое поле')
+                          : 'Выберите элемент'}
+                    </h3>
+                  </div>
+
+                  {editingStage ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label>{copy.stage}</Label>
+                        <Input
+                          value={editingStage.name || ''}
+                          onChange={(event) => setEditingStage((current) => current && { ...current, name: event.target.value })}
+                          className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label>ID</Label>
+                        <Input
+                          value={editingStage.key || ''}
+                          onChange={(event) => setEditingStage((current) => current && { ...current, key: event.target.value })}
+                          className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label>{copy.color}</Label>
+                        <div className="mt-1.5 rounded-xl border border-white/10 bg-zinc-900 p-3">
+                          <div className="grid grid-cols-5 gap-2">
+                            {STAGE_COLOR_PRESETS.map((color) => {
+                              const isSelected = (editingStage.color || '#38bdf8').toLowerCase() === color.toLowerCase()
+                              return (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  aria-label={color}
+                                  className={`h-9 rounded-lg border transition ${
+                                    isSelected
+                                      ? 'border-white/80 shadow-[0_0_0_2px_rgba(255,255,255,0.12)]'
+                                      : 'border-white/10 hover:border-white/35'
+                                  }`}
+                                  style={{ backgroundColor: color }}
+                                  onClick={() => setEditingStage((current) => current && { ...current, color })}
+                                />
+                              )
+                            })}
+                          </div>
+                          <div className="mt-3 flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={editingStage.color || '#38bdf8'}
+                              onChange={(event) => setEditingStage((current) => current && { ...current, color: event.target.value })}
+                              className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-white/10 bg-transparent p-1"
+                              aria-label={copy.color}
+                            />
+                            <Input
+                              value={editingStage.color || '#38bdf8'}
+                              onChange={(event) => setEditingStage((current) => current && { ...current, color: event.target.value })}
+                              className="border-white/10 bg-zinc-950 text-white"
+                              placeholder="#38bdf8"
+                            />
+                          </div>
                         </div>
+                      </div>
+                      <div>
+                        <Label>{copy.order}</Label>
+                        <Input
+                          type="number"
+                          value={String(editingStage.sortOrder || 0)}
+                          onChange={(event) => setEditingStage((current) => current && { ...current, sortOrder: Number(event.target.value) })}
+                          className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label>Финальный этап</Label>
+                        <Select
+                          value={editingStage.isTerminal ? 'true' : 'false'}
+                          onValueChange={(value) => setEditingStage((current) => current && { ...current, isTerminal: value === 'true' })}
+                        >
+                          <SelectTrigger className="mt-1.5 border-white/10 bg-zinc-900 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="false">Нет</SelectItem>
+                            <SelectItem value="true">Да</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>,
-            document.body
-          )
-        : null}
+                  ) : null}
+
+                  {editingField ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label>{copy.fieldName}</Label>
+                        <Input
+                          value={editingField.name || ''}
+                          onChange={(event) => setEditingField((current) => current && { ...current, name: event.target.value })}
+                          className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label>{copy.fieldKey}</Label>
+                        <Input
+                          value={editingField.key || ''}
+                          onChange={(event) => setEditingField((current) => current && { ...current, key: event.target.value })}
+                          className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label>{copy.fieldType}</Label>
+                        <Select
+                          value={editingField.type || 'text'}
+                          onValueChange={(value) => setEditingField((current) => current && { ...current, type: value as CrmFieldType })}
+                        >
+                          <SelectTrigger className="mt-1.5 border-white/10 bg-zinc-900 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FIELD_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {editingField.type === 'select' ? (
+                        <div>
+                          <Label>Варианты</Label>
+                          <Input
+                            value={(Array.isArray(editingField.options) ? editingField.options : []).join(', ')}
+                            onChange={(event) => setEditingField((current) => current && {
+                              ...current,
+                              options: event.target.value.split(',').map((item) => item.trim()).filter(Boolean),
+                            })}
+                            placeholder="Новый, VIP, Повторный"
+                            className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                          />
+                        </div>
+                      ) : null}
+                      <div>
+                        <Label>{copy.order}</Label>
+                        <Input
+                          type="number"
+                          value={String(editingField.sortOrder || 0)}
+                          onChange={(event) => setEditingField((current) => current && { ...current, sortOrder: Number(event.target.value) })}
+                          className="mt-1.5 border-white/10 bg-zinc-900 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label>Обязательное поле</Label>
+                        <Select
+                          value={editingField.required ? 'true' : 'false'}
+                          onValueChange={(value) => setEditingField((current) => current && { ...current, required: value === 'true' })}
+                        >
+                          <SelectTrigger className="mt-1.5 border-white/10 bg-zinc-900 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="false">Нет</SelectItem>
+                            <SelectItem value="true">Да</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {!editingStage && !editingField ? (
+                    <div className="rounded-lg border border-dashed border-white/10 px-4 py-8 text-sm leading-6 text-zinc-500">
+                      Нажмите на этап или поле, чтобы изменить название, ID, цвет, тип и порядок.
+                    </div>
+                  ) : (
+                    <div className="mt-5 flex justify-end gap-3">
+                      <Button
+                        variant="outline"
+                        className="border-white/10 bg-transparent text-white"
+                        onClick={() => {
+                          setEditingStage(null)
+                          setEditingField(null)
+                        }}
+                      >
+                        {copy.cancel}
+                      </Button>
+                      <Button
+                        className="bg-sky-500 text-white hover:bg-sky-400"
+                        onClick={() => editingStage ? void saveStage() : void saveField()}
+                      >
+                        {copy.save}
+                      </Button>
+                    </div>
+                  )}
+                </aside>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   )
 }

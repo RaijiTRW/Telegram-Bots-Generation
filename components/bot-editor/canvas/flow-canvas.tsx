@@ -18,6 +18,7 @@ import ReactFlow, {
   ReactFlowProvider,
   Background as BackgroundComponent,
   OnSelectionChangeParams,
+  type EdgeMouseHandler,
   type NodeMouseHandler,
   type NodeDragHandler,
   type OnConnectStart,
@@ -42,6 +43,10 @@ import {
   GitBranch,
   Database,
   CreditCard,
+  Check,
+  ChevronDown,
+  Monitor,
+  Send,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -459,6 +464,53 @@ const migrateLegacyHttpActionNode = (node: Node): Node => {
   }
 }
 
+const migrateLegacyDataNodeType = (node: Node): Node => {
+  if (node.type !== 'message') {
+    return node
+  }
+
+  const data = (node.data || {}) as Record<string, unknown>
+  const label = String(data.__label || '').trim().toLowerCase()
+  const saveToVariable = String(data.saveToVariable || '').trim()
+
+  if (
+    label === 'crm' ||
+    data.operation === 'create_or_update' ||
+    Array.isArray(data.fieldMappings) ||
+    saveToVariable.startsWith('crm.')
+  ) {
+    return {
+      ...node,
+      type: 'crm',
+      data: {
+        ...mergeTemplateData('crm'),
+        ...data,
+        __label: data.__label || 'CRM',
+        __description: data.__description || 'Create or update CRM card',
+      },
+    }
+  }
+
+  if (
+    label === 'database' ||
+    label === 'база данных' ||
+    saveToVariable.startsWith('database.')
+  ) {
+    return {
+      ...node,
+      type: 'database',
+      data: {
+        ...mergeTemplateData('database'),
+        ...data,
+        __label: data.__label || 'Database',
+        __description: data.__description || 'Read bot database text',
+      },
+    }
+  }
+
+  return node
+}
+
 // Get available variable names from nodes
 const extractVariableNames = (nodes: Node[]): string[] => {
   const variables: string[] = []
@@ -486,6 +538,19 @@ const extractVariableNames = (nodes: Node[]): string[] => {
       const data = node.data as { variableName?: string }
       if (data.variableName) {
         variables.push(data.variableName)
+      }
+    }
+    if (node.type === 'database') {
+      const data = node.data as { saveToVariable?: string }
+      if (data.saveToVariable) {
+        variables.push(data.saveToVariable)
+      }
+    }
+    if (node.type === 'crm') {
+      variables.push('crm.cardId', 'crm.card', 'crm.move')
+      const data = node.data as { saveToVariable?: string }
+      if (data.saveToVariable) {
+        variables.push(data.saveToVariable)
       }
     }
     if (node.type === 'http' || node.type === 'webhook') {
@@ -550,7 +615,7 @@ const PALETTE_CATEGORY_META: Record<PaletteCategoryId, PaletteCategoryMeta> = {
     id: 'ai',
     label: 'AI',
     shortLabel: 'AI',
-    hint: 'AI-ноды: intent, AI message, AI logic',
+    hint: 'AI-узлы появятся скоро',
     icon: Sparkles,
   },
   logic: {
@@ -647,6 +712,8 @@ function getNodeTemplateDescription(
     script: 'nodeTemplateDescriptions.script',
     action: 'nodeTemplateDescriptions.action',
     'set-variable': 'nodeTemplateDescriptions.setVariable',
+    database: 'nodeTemplateDescriptions.database',
+    crm: 'nodeTemplateDescriptions.crm',
     input: 'nodeTemplateDescriptions.input',
     http: 'nodeTemplateDescriptions.http',
     comment: 'nodeTemplateDescriptions.comment',
@@ -686,6 +753,8 @@ function getNodeTemplateShortDescription(
     script: 'nodeTemplateShortDescriptions.script',
     action: 'nodeTemplateShortDescriptions.action',
     'set-variable': 'nodeTemplateShortDescriptions.setVariable',
+    database: 'nodeTemplateShortDescriptions.database',
+    crm: 'nodeTemplateShortDescriptions.crm',
     input: 'nodeTemplateShortDescriptions.input',
     http: 'nodeTemplateShortDescriptions.http',
     comment: 'nodeTemplateShortDescriptions.comment',
@@ -725,6 +794,8 @@ function getNodeTemplateHelpSteps(
     script: 'nodeTemplateHelpSteps.script',
     action: 'nodeTemplateHelpSteps.action',
     'set-variable': 'nodeTemplateHelpSteps.setVariable',
+    database: 'nodeTemplateHelpSteps.database',
+    crm: 'nodeTemplateHelpSteps.crm',
     input: 'nodeTemplateHelpSteps.input',
     http: 'nodeTemplateHelpSteps.http',
     comment: 'nodeTemplateHelpSteps.comment',
@@ -772,6 +843,8 @@ function getNodeTemplateDocsHref(docsBasePath: string, template: NodeTemplate): 
     wait: 'nodes-reference',
     action: 'node-action',
     'set-variable': 'node-set-variable',
+    database: 'node-database',
+    crm: 'nodes-reference',
     http: 'node-http',
     webhook: 'node-http',
     script: 'node-script',
@@ -819,19 +892,19 @@ function FlowCanvasInner({
   onSave,
   isTestActive = false,
   isTestButtonDisabled = false,
-  isAdmin = false,
   executionTrace = null,
   suppressTelegramTokenIssue = false,
 }: FlowCanvasProps) {
   const t = useTranslations('editor.canvas')
+  const tEditorShell = useTranslations('editor.shell')
   const translateCanvas = t as unknown as (key: string, values?: Record<string, unknown>) => string
   const locale = useLocale()
-  const { bot, setActiveSection } = useBotState()
+  const { bot, setActiveSection, testLaunchMode, setTestLaunchMode } = useBotState()
   const docsBasePath = `/${locale}/dashboard/docs`
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
-  const { screenToFlowPosition, getZoom, zoomTo } = useReactFlow()
+  const { screenToFlowPosition, flowToScreenPosition, getZoom, zoomTo } = useReactFlow()
   const preparedInitialNodes = useMemo(
-    () => initialNodes.map(migrateLegacyHttpActionNode).map(applyNodeWrapperStyle),
+    () => initialNodes.map(migrateLegacyHttpActionNode).map(migrateLegacyDataNodeType).map(applyNodeWrapperStyle),
     [initialNodes]
   )
   const preparedInitialEdges = useMemo(
@@ -842,6 +915,7 @@ function FlowCanvasInner({
   const [nodes, setNodes, onNodesChange] = useNodesState(preparedInitialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(preparedInitialEdges)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
+  const [selectedEdgeIdForToolbar, setSelectedEdgeIdForToolbar] = useState<string | null>(null)
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
   const [settingsDetailedModeRequestKey, setSettingsDetailedModeRequestKey] = useState(0)
   const [pinnedPaletteCategory, setPinnedPaletteCategory] = useState<PaletteCategoryId | null>(null)
@@ -852,6 +926,9 @@ function FlowCanvasInner({
   const [isSelectionModifierPressed, setIsSelectionModifierPressed] = useState(false)
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false)
   const [isPaletteIssueExpanded, setIsPaletteIssueExpanded] = useState(false)
+  const [isTestLaunchMenuOpen, setIsTestLaunchMenuOpen] = useState(false)
+  const [viewportVersion, setViewportVersion] = useState(0)
+  const [canvasBounds, setCanvasBounds] = useState<{ left: number; top: number } | null>(null)
   const historyRef = useRef<CanvasHistorySnapshot[]>([])
   const historyIndexRef = useRef(-1)
   const skipNextHistoryCaptureRef = useRef(false)
@@ -863,6 +940,7 @@ function FlowCanvasInner({
   const rightClickOriginRef = useRef<{ x: number; y: number } | null>(null)
   const suppressNextCanvasContextMenuRef = useRef(false)
   const issueCollapseTimerRef = useRef<number | null>(null)
+  const testLaunchMenuCloseTimeoutRef = useRef<number | null>(null)
   const connectionStartRef = useRef<{
     nodeId: string
     handleId: string | null
@@ -885,8 +963,69 @@ function FlowCanvasInner({
 
   const handleEdgesChange = useCallback((changes: Parameters<typeof onEdgesChange>[0]) => {
     if (isTestActive) return
-    onEdgesChange(changes)
+    const workflowChanges = changes.filter((change) => change.type !== 'select')
+    if (workflowChanges.length === 0) {
+      return
+    }
+    onEdgesChange(workflowChanges)
   }, [isTestActive, onEdgesChange])
+
+  const clearEdgeDeleteButtons = useCallback(() => {
+    setSelectedEdgeIdForToolbar(null)
+  }, [])
+
+  const handleEdgeClick = useCallback<EdgeMouseHandler>((event, clickedEdge) => {
+    if (isTestActive) return
+
+    event.stopPropagation()
+    setSelectedEdgeIdForToolbar(clickedEdge.id)
+    setSelectedNode(null)
+    setSettingsPanelOpen(false)
+  }, [isTestActive])
+
+  const selectedEdgeDeletePosition = useMemo(() => {
+    void viewportVersion
+    if (!selectedEdgeIdForToolbar) return null
+    if (!canvasBounds) return null
+
+    const edge = edges.find((item) => item.id === selectedEdgeIdForToolbar)
+    if (!edge) return null
+
+    const sourceNode = nodes.find((node) => node.id === edge.source)
+    const targetNode = nodes.find((node) => node.id === edge.target)
+    if (!sourceNode || !targetNode) return null
+
+    const sourceWidth = getNodeWidth(sourceNode)
+    const sourceHeight = getNodeHeight(sourceNode)
+    const targetWidth = getNodeWidth(targetNode)
+    const targetHeight = getNodeHeight(targetNode)
+    const sourceCenter = {
+      x: sourceNode.position.x + sourceWidth / 2,
+      y: sourceNode.position.y + sourceHeight / 2,
+    }
+    const targetCenter = {
+      x: targetNode.position.x + targetWidth / 2,
+      y: targetNode.position.y + targetHeight / 2,
+    }
+    const screenPosition = flowToScreenPosition({
+      x: (sourceCenter.x + targetCenter.x) / 2,
+      y: (sourceCenter.y + targetCenter.y) / 2,
+    })
+
+    return {
+      x: screenPosition.x - canvasBounds.left,
+      y: screenPosition.y - canvasBounds.top,
+    }
+  }, [canvasBounds, edges, flowToScreenPosition, nodes, selectedEdgeIdForToolbar, viewportVersion])
+
+  const handleDeleteSelectedEdge = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!selectedEdgeIdForToolbar || isTestActive) return
+
+    setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== selectedEdgeIdForToolbar))
+    setSelectedEdgeIdForToolbar(null)
+  }, [isTestActive, selectedEdgeIdForToolbar, setEdges])
 
   const hasTelegramToken = Boolean(
     (bot?.metadata && typeof bot.metadata === 'object' && (bot.metadata as Record<string, unknown>).hasTelegramToken) ||
@@ -914,6 +1053,87 @@ function FlowCanvasInner({
   }, [hasTelegramToken, suppressTelegramTokenIssue, t])
 
   const primaryEditorIssue = editorIssues[0] || null
+  const activeTestLaunchLabel =
+    testLaunchMode === 'telegram'
+      ? tEditorShell('testLaunchTelegram')
+      : tEditorShell('testLaunchLivePreview')
+  const activeTestLaunchShortLabel =
+    testLaunchMode === 'telegram'
+      ? 'Telegram'
+      : 'Preview'
+  const ActiveTestLaunchIcon = testLaunchMode === 'telegram' ? Send : Monitor
+  const testLaunchOptions = useMemo(
+    () => [
+      {
+        id: 'telegram' as const,
+        label: tEditorShell('testLaunchTelegram'),
+        description: tEditorShell('testLaunchTelegramDesc'),
+        icon: Send,
+      },
+      {
+        id: 'live-preview' as const,
+        label: tEditorShell('testLaunchLivePreview'),
+        description: tEditorShell('testLaunchLivePreviewDesc'),
+        icon: Monitor,
+      },
+    ],
+    [tEditorShell]
+  )
+
+  const openTestLaunchMenu = useCallback(() => {
+    if (testLaunchMenuCloseTimeoutRef.current !== null) {
+      window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
+      testLaunchMenuCloseTimeoutRef.current = null
+    }
+    setIsTestLaunchMenuOpen(true)
+  }, [])
+
+  const closeTestLaunchMenu = useCallback(() => {
+    if (testLaunchMenuCloseTimeoutRef.current !== null) {
+      window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
+      testLaunchMenuCloseTimeoutRef.current = null
+    }
+    setIsTestLaunchMenuOpen(false)
+  }, [])
+
+  const closeTestLaunchMenuWithDelay = useCallback(() => {
+    if (testLaunchMenuCloseTimeoutRef.current !== null) {
+      window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
+    }
+
+    testLaunchMenuCloseTimeoutRef.current = window.setTimeout(() => {
+      setIsTestLaunchMenuOpen(false)
+      testLaunchMenuCloseTimeoutRef.current = null
+    }, 160)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (testLaunchMenuCloseTimeoutRef.current !== null) {
+        window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const wrapper = canvasWrapperRef.current
+    if (!wrapper) return
+
+    const updateCanvasBounds = () => {
+      const rect = wrapper.getBoundingClientRect()
+      setCanvasBounds({ left: rect.left, top: rect.top })
+    }
+
+    updateCanvasBounds()
+    const resizeObserver = new ResizeObserver(updateCanvasBounds)
+    resizeObserver.observe(wrapper)
+    window.addEventListener('resize', updateCanvasBounds)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', updateCanvasBounds)
+    }
+  }, [])
 
   useEffect(() => {
     const nextChangeKey = JSON.stringify({
@@ -1017,10 +1237,11 @@ function FlowCanvasInner({
   }, [isTestActive, setNodes, setEdges, selectedNode])
 
   const applyRuntimeNodeData = useCallback((node: Node): Node => {
-    const existingData = (node.data || {}) as Record<string, unknown>
+    const migratedNode = migrateLegacyDataNodeType(node)
+    const existingData = (migratedNode.data || {}) as Record<string, unknown>
 
     return applyNodeWrapperStyle({
-      ...node,
+      ...migratedNode,
       data: {
         ...existingData,
         onDelete: (id: string) => handleDeleteNode(id),
@@ -1133,7 +1354,7 @@ function FlowCanvasInner({
     const activeEdgeId = executionTrace?.activeEdgeId || null
     const hasTraceState = Boolean(activeEdgeId || recentExecutionEdgeIds.size > 0)
 
-    if (!hasTraceState) {
+    if (!hasTraceState && !selectedEdgeIdForToolbar) {
       return normalizedEdges
     }
 
@@ -1150,8 +1371,15 @@ function FlowCanvasInner({
         typeof existingData.__executionState === 'string'
           ? String(existingData.__executionState)
           : undefined
+      const shouldShowDeleteButton = selectedEdgeIdForToolbar === edge.id
+      const currentlyShowsDeleteButton = Boolean(existingData.__showDeleteButton)
 
-      if (!nextExecutionState && !currentExecutionState) {
+      if (
+        !nextExecutionState &&
+        !currentExecutionState &&
+        !shouldShowDeleteButton &&
+        !currentlyShowsDeleteButton
+      ) {
         return edge
       }
 
@@ -1160,6 +1388,11 @@ function FlowCanvasInner({
         nextData.__executionState = nextExecutionState
       } else {
         delete nextData.__executionState
+      }
+      if (shouldShowDeleteButton) {
+        nextData.__showDeleteButton = true
+      } else {
+        delete nextData.__showDeleteButton
       }
 
       return applyRuntimeEdgeStyle({
@@ -1176,7 +1409,7 @@ function FlowCanvasInner({
         },
       })
     })
-  }, [edges, executionTrace?.activeEdgeId, recentExecutionEdgeIds])
+  }, [edges, executionTrace?.activeEdgeId, recentExecutionEdgeIds, selectedEdgeIdForToolbar])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     if (isTestActive) {
@@ -1265,7 +1498,7 @@ function FlowCanvasInner({
         }
       }
 
-      if (!isAdmin && isAiTemplateCandidate(template)) {
+      if (isAiTemplateCandidate(template)) {
         return
       }
 
@@ -1300,14 +1533,14 @@ function FlowCanvasInner({
         return [...nds, applyNodeWrapperStyle(newNode)]
       })
     },
-    [setNodes, handleDeleteNode, screenToFlowPosition, isAdmin, isTestActive]
+    [setNodes, handleDeleteNode, screenToFlowPosition, isTestActive]
   )
 
   const handleAddNode = useCallback((template: NodeTemplate, targetPosition?: { x: number; y: number }) => {
     if (isTestActive) {
       return
     }
-    if (!isAdmin && isAiTemplateCandidate(template)) {
+    if (isAiTemplateCandidate(template)) {
       return
     }
 
@@ -1341,7 +1574,7 @@ function FlowCanvasInner({
 
       return [...nds, applyNodeWrapperStyle(newNode)]
     })
-  }, [setNodes, handleDeleteNode, getVisibleCanvasCenterPosition, isAdmin, isTestActive])
+  }, [setNodes, handleDeleteNode, getVisibleCanvasCenterPosition, isTestActive])
 
   const handleClearCanvas = useCallback(() => {
     if (isTestActive) return
@@ -1378,7 +1611,13 @@ function FlowCanvasInner({
     )
   }, [isTestActive, setNodes, handleDeleteNode])
 
-  const onSelectionChange = useCallback(({ nodes: selectedNodes }: OnSelectionChangeParams) => {
+  const onSelectionChange = useCallback(({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+    if (selectedEdges.length === 1) {
+      setSelectedEdgeIdForToolbar(selectedEdges[0].id)
+    } else if (selectedNodes.length > 0 || selectedEdges.length === 0) {
+      setSelectedEdgeIdForToolbar(null)
+    }
+
     if (selectedNodes.length !== 1) {
       setSelectedNode(null)
       setSettingsPanelOpen(false)
@@ -1394,6 +1633,7 @@ function FlowCanvasInner({
       return
     }
     closeGroupCommentMenu()
+    setSelectedEdgeIdForToolbar(null)
     if (event.shiftKey) {
       setSelectedNode(null)
       setSettingsPanelOpen(false)
@@ -1833,7 +2073,7 @@ function FlowCanvasInner({
       .map((categoryId) => {
         const templates = grouped.get(categoryId) || []
         if (templates.length === 0) return null
-        const isLocked = categoryId === 'ai' && !isAdmin
+        const isLocked = categoryId === 'ai'
         return {
           ...PALETTE_CATEGORY_META[categoryId],
           label: getPaletteCategoryLabel(translateCanvas, categoryId),
@@ -1844,7 +2084,7 @@ function FlowCanvasInner({
         }
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
-  }, [translateCanvas, isAdmin, t])
+  }, [translateCanvas, t])
 
   const contextMenuCategories = useMemo(() => {
     if (!contextMenu?.insertIntent) {
@@ -2112,7 +2352,7 @@ function FlowCanvasInner({
   const handleContextMenuAddNode = useCallback((template: NodeTemplate) => {
     if (isTestActive) return
     if (!contextMenu) return
-    if (!isAdmin && isAiTemplateCandidate(template)) return
+    if (isAiTemplateCandidate(template)) return
 
     if (contextMenu.insertIntent) {
       if (!isTemplateInsertableInChain(template)) {
@@ -2163,7 +2403,7 @@ function FlowCanvasInner({
 
     handleAddNode(template, contextMenu.flowPosition)
     closeContextMenu()
-  }, [applyRuntimeNodeData, closeContextMenu, contextMenu, edges, handleAddNode, isAdmin, isTestActive, nodes, setEdges, setNodes])
+  }, [applyRuntimeNodeData, closeContextMenu, contextMenu, edges, handleAddNode, isTestActive, nodes, setEdges, setNodes])
 
   const validPinnedPaletteCategory =
     pinnedPaletteCategory &&
@@ -2222,7 +2462,7 @@ function FlowCanvasInner({
         event.preventDefault()
         return
       }
-      if (!isAdmin && isAiTemplateCandidate(template)) {
+      if (isAiTemplateCandidate(template)) {
         event.preventDefault()
         return
       }
@@ -2238,7 +2478,7 @@ function FlowCanvasInner({
       )
       event.dataTransfer.effectAllowed = 'move'
     },
-    [isAdmin, isTestActive]
+    [isTestActive]
   )
 
   const alignDraggedNode = useCallback((draggedNode: Node) => {
@@ -2293,7 +2533,7 @@ function FlowCanvasInner({
     >
       {/* Canvas Area */}
       <div
-        className="flex-1"
+        className="relative flex-1"
         ref={canvasWrapperRef}
         onMouseDownCapture={handleCanvasMouseDownCapture}
         onMouseMoveCapture={handleCanvasMouseMoveCapture}
@@ -2305,6 +2545,7 @@ function FlowCanvasInner({
           edges={renderedEdges}
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
+          onEdgeClick={handleEdgeClick}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
           onConnect={onConnect}
@@ -2316,9 +2557,13 @@ function FlowCanvasInner({
           onNodeDoubleClick={handleNodeDoubleClick}
           onDragOver={onDragOver}
           onDrop={onDrop}
+          onMove={() => {
+            setViewportVersion((current) => current + 1)
+          }}
           onPaneClick={() => {
             closeContextMenu()
             closeGroupCommentMenu()
+            clearEdgeDeleteButtons()
           }}
           onPaneContextMenu={handlePaneContextMenu}
           nodeTypes={nodeTypes}
@@ -2376,6 +2621,8 @@ function FlowCanvasInner({
                 wait: '#14B8A6',
                 action: '#8B5CF6',
                 setVariable: '#10B981',
+                database: '#38BDF8',
+                crm: '#22C55E',
                 input: '#10B981',
                 http: '#F43F5E',
                 webhook: '#EF4444',
@@ -2403,8 +2650,88 @@ function FlowCanvasInner({
                 notes={[t('helpNote')]}
                 docsHref={`${docsBasePath}/getting-started#quick-start`}
                 compact={false}
-                className="h-8 w-8 bg-zinc-900/80 backdrop-blur-xl"
+                className="h-8 w-8"
               />
+              <div
+                className="relative z-[90]"
+                onMouseEnter={openTestLaunchMenu}
+                onMouseLeave={closeTestLaunchMenuWithDelay}
+              >
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={isTestLaunchMenuOpen}
+                  title={activeTestLaunchLabel}
+                  className="flex h-8 min-w-[132px] items-center justify-between gap-2 rounded-lg border border-white/10 bg-zinc-900/80 px-2.5 text-xs font-medium text-zinc-300 shadow-lg shadow-black/20 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    openTestLaunchMenu()
+                  }}
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <ActiveTestLaunchIcon className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                    <span className="truncate">{activeTestLaunchShortLabel}</span>
+                  </span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform ${isTestLaunchMenuOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {isTestLaunchMenuOpen && (
+                  <div className="absolute left-0 top-full z-[95] h-3 w-[320px]" />
+                )}
+
+                <div
+                  className={`absolute left-0 top-[calc(100%+8px)] z-[100] w-[320px] origin-top-left rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl transition-all duration-200 ${
+                    isTestLaunchMenuOpen
+                      ? 'translate-y-0 opacity-100 pointer-events-auto'
+                      : '-translate-y-1 opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <div className="px-2 pb-1 pt-0.5 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                    {tEditorShell('testLaunchMode')}
+                  </div>
+                  <div className="space-y-1">
+                    {testLaunchOptions.map((option) => {
+                      const Icon = option.icon
+                      const isSelected = testLaunchMode === option.id
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => {
+                            setTestLaunchMode(option.id)
+                            closeTestLaunchMenu()
+                          }}
+                          className={`flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                            isSelected
+                              ? 'border-[#24A1DE]/35 bg-[#24A1DE]/10'
+                              : 'border-transparent bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                            isSelected
+                              ? 'border-[#24A1DE]/50 bg-[#24A1DE]/20 text-[#7fd6ff]'
+                              : 'border-white/10 bg-white/5 text-transparent'
+                          }`}>
+                            <Check className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-3.5 w-3.5 text-zinc-400" />
+                              <div className="text-sm font-medium text-white">{option.label}</div>
+                            </div>
+                            <div className="mt-1 text-xs leading-5 text-zinc-500">
+                              {option.description}
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -2603,7 +2930,7 @@ function FlowCanvasInner({
                                           steps={helpSteps}
                                           docsHref={getNodeTemplateDocsHref(docsBasePath, node)}
                                           compact
-                                          className="h-4 w-4 border-white/25 text-zinc-400 hover:text-zinc-100 hover:border-white/45"
+                                          className="h-4 w-4 text-zinc-400 hover:text-zinc-100"
                                           iconClassName="h-3 w-3"
                                         />
                                       </span>
@@ -2865,6 +3192,22 @@ function FlowCanvasInner({
             </Panel>
           )}
         </ReactFlow>
+        {selectedEdgeDeletePosition ? (
+          <button
+            type="button"
+            aria-label={locale === 'en' ? 'Delete connection' : 'Удалить связь'}
+            title={locale === 'en' ? 'Delete connection' : 'Удалить связь'}
+            className="nodrag nopan absolute z-[120] flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-red-300/45 bg-red-500/25 text-red-100 shadow-[0_14px_36px_rgba(0,0,0,0.5)] backdrop-blur-xl transition hover:border-red-200/80 hover:bg-red-500/40 hover:text-white"
+            style={{
+              left: selectedEdgeDeletePosition.x,
+              top: selectedEdgeDeletePosition.y,
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={handleDeleteSelectedEdge}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
 
       {/* Settings Panel */}

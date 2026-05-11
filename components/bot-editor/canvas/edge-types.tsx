@@ -84,6 +84,14 @@ const CanvasEdge = memo(function CanvasEdge({
     data && typeof data === 'object' && !Array.isArray(data)
       ? String((data as Record<string, unknown>).__executionState || '')
       : ''
+  const shouldShowDeleteButton =
+    selected ||
+    Boolean(
+      data &&
+      typeof data === 'object' &&
+      !Array.isArray(data) &&
+      (data as Record<string, unknown>).__showDeleteButton
+    )
   const executionGlowStyle =
     executionState === 'active'
       ? { stroke: '#67E8F9', strokeWidth: 7, opacity: 0.16 }
@@ -107,10 +115,10 @@ const CanvasEdge = memo(function CanvasEdge({
         />
       ) : null}
       <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} />
-      {selected ? (
+      {shouldShowDeleteButton ? (
         <EdgeLabelRenderer>
           <div
-            className="pointer-events-none absolute left-0 top-0"
+            className="pointer-events-none absolute left-0 top-0 z-[1000]"
             style={{
               transform: `translate(-50%, -50%) translate(${deleteButtonPosition.x}px, ${deleteButtonPosition.y}px)`,
             }}
@@ -119,11 +127,11 @@ const CanvasEdge = memo(function CanvasEdge({
               type="button"
               title={deleteLabel}
               aria-label={deleteLabel}
-              className="pointer-events-auto nodrag nopan rounded bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 transition-colors p-1 shadow-[0_4px_18px_rgba(0,0,0,0.35)]"
+              className="pointer-events-auto nodrag nopan flex h-8 w-8 items-center justify-center rounded-full border border-red-400/40 bg-red-500/20 text-red-200 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-md transition hover:border-red-300/70 hover:bg-red-500/35 hover:text-white"
               onMouseDown={(event) => event.stopPropagation()}
               onClick={handleDelete}
             >
-              <Trash2 className="w-2.5 h-2.5 text-red-400" />
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </EdgeLabelRenderer>

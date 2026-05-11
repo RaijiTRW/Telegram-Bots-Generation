@@ -1,5 +1,3 @@
-import HomeScreen from '@/components/dashboard/screens/home-screen'
+import { DashboardWorkspaceEntryPage } from '@/components/bot-editor/workspace/dashboard-workspace-entry-page'
 
-export default function DashboardPage() {
-  return <HomeScreen />
-}
+export default DashboardWorkspaceEntryPage

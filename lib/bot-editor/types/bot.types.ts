@@ -185,6 +185,57 @@ export type AiAgentOperation =
       features: Record<string, unknown>
     }
   | {
+      type: 'upsertCrmCard'
+      id?: string
+      scope?: 'global' | 'bot'
+      botId?: string | null
+      pipelineId?: string | null
+      stageId?: string | null
+      stageKey?: string | null
+      title: string
+      externalKey?: string | null
+      telegramUserId?: number | null
+      telegramChatId?: number | null
+      fieldValues?: Record<string, unknown>
+      tags?: string[]
+      notes?: string | null
+    }
+  | {
+      type: 'moveCrmCard'
+      cardId: string
+      stageId?: string | null
+      stageKey?: string | null
+    }
+  | {
+      type: 'upsertCrmStage'
+      id?: string
+      pipelineId?: string
+      key?: string
+      name: string
+      color: string
+      sortOrder?: number
+      isTerminal?: boolean
+    }
+  | {
+      type: 'deleteCrmStage'
+      stageId: string
+    }
+  | {
+      type: 'upsertCrmField'
+      id?: string
+      pipelineId?: string
+      key?: string
+      name: string
+      fieldType: 'text' | 'textarea' | 'number' | 'date' | 'datetime' | 'phone' | 'email' | 'select' | 'checkbox'
+      options?: string[]
+      required?: boolean
+      sortOrder?: number
+    }
+  | {
+      type: 'deleteCrmField'
+      fieldId: string
+    }
+  | {
       type: 'finishRun'
       summary?: string
     }
@@ -317,7 +368,14 @@ export interface QuickStartAiDraft {
 
 export type QuickStartDraft = QuickStartTemplateDraft | QuickStartAiDraft
 
-export type EditorSection = 'ai-chat' | 'ai-agents' | 'canvas' | 'settings' | 'system' | 'statistics'
+export type EditorSection =
+  | 'ai-chat'
+  | 'ai-agents'
+  | 'canvas'
+  | 'settings'
+  | 'database'
+  | 'system'
+  | 'statistics'
 
 export type NodeType =
   | 'message'
@@ -329,6 +387,8 @@ export type NodeType =
   | 'script'
   | 'action'
   | 'setVariable'
+  | 'database'
+  | 'crm'
   | 'http'
   | 'webhook'
   | 'paymentYookassa'
@@ -351,9 +411,20 @@ export interface Bot {
 }
 
 export interface BotMetadata {
+  industry?: 'restaurant' | string
+  restaurantTemplateId?: string
   telegramToken?: string
   webhookUrl?: string
   botUsername?: string
+  database?: {
+    text?: string
+    rows?: Array<{
+      id: string
+      text: string
+    }>
+    updatedAt?: string
+    sourceName?: string
+  }
   fastStart?: QuickStartDraft
   aiChat?: AiChatState
   aiAgent?: {

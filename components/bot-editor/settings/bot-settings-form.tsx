@@ -220,7 +220,7 @@ export function BotSettingsForm() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       <div className="rounded-xl border border-white/10 bg-zinc-950/50 px-4 py-3">
         <div className="text-xs font-medium uppercase tracking-[0.2em] text-[#24A1DE]">
           {t('launchEssentialsTitle')}

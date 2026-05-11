@@ -5,6 +5,7 @@ import { RotateCcw, Send, Smartphone, X } from 'lucide-react'
 import { AnimatePresence, motion } from '@/components/motion-wrapper'
 import { cn } from '@/lib/utils'
 import type { BotConfig, BotMetadata } from '@/lib/bot-editor/types/bot.types'
+import { moveCrmCardAction, upsertCrmCardAction } from '@/lib/bot-editor/actions/editor-actions'
 
 type PreviewMessage = {
   id: string
@@ -38,6 +39,7 @@ type ReplyKeyboardPreviewConfig = {
 }
 
 interface LivePreviewPhoneProps {
+  botId: string
   config: BotConfig
   metadata?: BotMetadata
   isOpen: boolean
@@ -237,9 +239,87 @@ function interpolateTemplate(value: unknown, variables?: Record<string, unknown>
     const directValue = variables[path]
     const resolvedValue = directValue !== undefined ? directValue : resolvePath(variables, path)
     if (resolvedValue === undefined || resolvedValue === null) return match
-    if (typeof resolvedValue === 'object') return JSON.stringify(resolvedValue)
+    if (typeof resolvedValue === 'object') {
+      const textValue = (resolvedValue as Record<string, unknown>).__text
+      return typeof textValue === 'string' ? textValue : JSON.stringify(resolvedValue)
+    }
     return String(resolvedValue)
   })
+}
+
+type PreviewDatabaseEntry = {
+  id: string
+  text: string
+}
+
+function normalizeDatabaseEntryId(value: unknown, fallback: string) {
+  return String(value || '')
+    .trim()
+    .replace(/[.[\]{}]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 64)
+    .replace(/^_+|_+$/g, '') || fallback
+}
+
+function readBotDatabaseEntries(metadata?: BotMetadata): PreviewDatabaseEntry[] {
+  const raw =
+    metadata?.database && typeof metadata.database === 'object' && !Array.isArray(metadata.database)
+      ? (metadata.database as Record<string, unknown>)
+      : null
+  const rawRows = Array.isArray(raw?.rows) ? raw.rows : []
+  const rows = rawRows
+    .map((item, index) => {
+      const record = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+      return {
+        id: normalizeDatabaseEntryId(record.id, `row_${index + 1}`),
+        text: String(record.text || ''),
+      }
+    })
+    .filter((row) => row.id || row.text.trim())
+
+  if (rows.length) {
+    return rows
+  }
+
+  const legacyText = String(raw?.text || '')
+  return legacyText.trim() ? [{ id: 'main', text: legacyText }] : []
+}
+
+function serializeBotDatabaseEntries(entries: PreviewDatabaseEntry[]): string {
+  return entries.map((entry) => entry.text.trim()).filter(Boolean).join('\n\n')
+}
+
+function buildDatabaseVariable(entries: PreviewDatabaseEntry[], result: string, query: string): Record<string, unknown> {
+  const allText = serializeBotDatabaseEntries(entries)
+  const rowValues = entries.reduce<Record<string, string>>((acc, entry) => {
+    acc[entry.id] = entry.text
+    return acc
+  }, {})
+
+  return {
+    ...rowValues,
+    __text: allText,
+    all: allText,
+    ids: entries.map((entry) => entry.id).join(', '),
+    result,
+    query,
+  }
+}
+
+function queryBotDatabaseEntries(entries: PreviewDatabaseEntry[], query: string, maxMatches: number): string {
+  const normalizedQuery = String(query || '').trim().toLowerCase()
+  const limit = Math.max(1, Math.min(20, maxMatches || 5))
+
+  if (!entries.length) return ''
+  if (!normalizedQuery) return serializeBotDatabaseEntries(entries)
+
+  const matches = entries.filter((entry) => (
+    entry.id.toLowerCase().includes(normalizedQuery) ||
+    entry.text.toLowerCase().includes(normalizedQuery)
+  ))
+
+  return matches.slice(0, limit).map((entry) => entry.text.trim()).filter(Boolean).join('\n\n')
 }
 
 function resolveActionConfig(data: Record<string, unknown>): Record<string, unknown> | null {
@@ -312,6 +392,7 @@ function findStartNode(config: BotConfig, input?: { text?: string; callbackData?
 }
 
 export function LivePreviewPhone({
+  botId,
   config,
   metadata,
   isOpen,
@@ -435,6 +516,154 @@ export function LivePreviewPhone({
         continue
       }
 
+      if (node.type === 'database') {
+        const mode = textOf(data.mode || 'search') || 'search'
+        const query = interpolateTemplate(data.query || '', localContext)
+        const maxMatches = Math.max(1, Math.min(20, Number(data.maxMatches || 5)))
+        const databaseEntries = readBotDatabaseEntries(metadata)
+        const result =
+          mode === 'all'
+            ? serializeBotDatabaseEntries(databaseEntries)
+            : queryBotDatabaseEntries(databaseEntries, query, maxMatches)
+        const fallback = interpolateTemplate(data.fallbackText || '', localContext)
+        const value = result || fallback
+        const key = textOf(data.saveToVariable || 'database.result') || 'database.result'
+        const databaseVariable = buildDatabaseVariable(databaseEntries, value, query)
+
+        localVariables.database = databaseVariable
+        localContext.database = databaseVariable
+        localVariables[key] = value
+        setPathValue(localVariables, key, value)
+        setPathValue(localVariables, 'database.result', value)
+        setPathValue(localVariables, 'database.query', query)
+        setPathValue(localContext, key, value)
+        setPathValue(localContext, 'database.result', value)
+        setPathValue(localContext, 'database.query', query)
+        currentNodeId = getNextNodeId(config, node.id)
+        continue
+      }
+
+      if (node.type === 'crm') {
+        const operation = textOf(data.operation || 'create_or_update') || 'create_or_update'
+        if (operation === 'move_stage') {
+          const rawCardTarget = interpolateTemplate(data.cardId || '{{crm.cardId}}', localContext).trim()
+          const cardId = rawCardTarget.includes('{{')
+            ? interpolateTemplate('{{user.id}}', localContext).trim()
+            : rawCardTarget
+          const stageId = textOf(data.stageId) || textOf(data.stageKey || 'new') || 'new'
+          const previousCrm = localVariables.crm && typeof localVariables.crm === 'object'
+            ? localVariables.crm as Record<string, unknown>
+            : {}
+          const previewCard = {
+            ...((previousCrm.card && typeof previousCrm.card === 'object') ? previousCrm.card as Record<string, unknown> : {}),
+            id: cardId || 'preview-crm-card',
+            stageId,
+            stageKey: textOf(data.stageKey || stageId) || stageId,
+          }
+          const moveVariable = {
+            card: previewCard,
+            cardId: previewCard.id,
+            stageId: previewCard.stageId,
+            stageKey: previewCard.stageKey,
+          }
+
+          if (botId && cardId && stageId) {
+            void moveCrmCardAction(cardId, stageId).then((result) => {
+              if (!result.success) {
+                pushMessage({
+                  role: 'system',
+                  text: `CRM: ${('error' in result ? result.error : '') || 'не удалось перенести карточку'}`,
+                })
+              }
+            }).catch((error) => {
+              pushMessage({
+                role: 'system',
+                text: `CRM: ${error instanceof Error ? error.message : String(error)}`,
+              })
+            })
+          }
+
+          const key = textOf(data.saveToVariable || 'crm.move') || 'crm.move'
+          localVariables.crm = { ...previousCrm, card: previewCard, cardId: previewCard.id, move: moveVariable }
+          localContext.crm = localVariables.crm
+          setPathValue(localVariables, 'crm.card', previewCard)
+          setPathValue(localVariables, 'crm.cardId', previewCard.id)
+          setPathValue(localVariables, 'crm.move', moveVariable)
+          setPathValue(localContext, 'crm.card', previewCard)
+          setPathValue(localContext, 'crm.cardId', previewCard.id)
+          setPathValue(localContext, 'crm.move', moveVariable)
+          setPathValue(localVariables, key, moveVariable)
+          setPathValue(localContext, key, moveVariable)
+          currentNodeId = getNextNodeId(config, node.id)
+          continue
+        }
+
+        const mappings = Array.isArray(data.fieldMappings) ? data.fieldMappings : []
+        const fieldValues = mappings.reduce<Record<string, unknown>>((acc, mapping) => {
+          if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) return acc
+          const record = mapping as Record<string, unknown>
+          const fieldKey = textOf(record.fieldKey)
+          if (!fieldKey) return acc
+          acc[fieldKey] = interpolateTemplate(record.value || '', localContext)
+          return acc
+        }, {})
+        const card = {
+          id: 'preview-crm-card',
+          title: interpolateTemplate(data.title || 'Заявка от {{user.firstName}}', localContext),
+          externalKey: interpolateTemplate(
+            typeof data.externalKey === 'string' ? data.externalKey : '{{user.id}}',
+            localContext
+          ),
+          stageKey: textOf(data.stageKey || 'new') || 'new',
+          fieldValues,
+          tags: interpolateTemplate(data.tags || '', localContext)
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+          notes: interpolateTemplate(data.notes || '', localContext),
+        }
+        if (botId) {
+          void upsertCrmCardAction({
+            scope: textOf(data.scope || 'bot') === 'global' ? 'global' : 'bot',
+            botId: textOf(data.scope || 'bot') === 'global' ? null : botId,
+            pipelineId: textOf(data.pipelineId) || null,
+            stageId: textOf(data.stageId) || null,
+            stageKey: textOf(data.stageKey || 'new') || 'new',
+            title: card.title,
+            externalKey: card.externalKey,
+            telegramUserId: 10001,
+            telegramChatId: 10001,
+            fieldValues,
+            tags: card.tags,
+            notes: card.notes,
+          }).then((result) => {
+            if (!result.success) {
+              pushMessage({
+                role: 'system',
+                text: `CRM: ${('error' in result ? result.error : '') || 'не удалось сохранить карточку'}`,
+              })
+            }
+          }).catch((error) => {
+            pushMessage({
+              role: 'system',
+              text: `CRM: ${error instanceof Error ? error.message : String(error)}`,
+            })
+          })
+        }
+        const crmVariable = { card, cardId: card.id }
+        const key = textOf(data.saveToVariable || 'crm.card') || 'crm.card'
+        localVariables.crm = crmVariable
+        localContext.crm = crmVariable
+        setPathValue(localVariables, 'crm.card', card)
+        setPathValue(localVariables, 'crm.cardId', card.id)
+        setPathValue(localContext, 'crm.card', card)
+        setPathValue(localContext, 'crm.cardId', card.id)
+        setPathValue(localVariables, key, key === 'crm.card' ? card : crmVariable)
+        setPathValue(localContext, key, key === 'crm.card' ? card : crmVariable)
+        currentNodeId = getNextNodeId(config, node.id)
+        continue
+      }
+
       if (node.type === 'replyKeyboard') {
         const mode = textOf(data.mode || 'system') || 'system'
         if (mode === 'clear') {
@@ -481,7 +710,7 @@ export function LivePreviewPhone({
     }
 
     setVariables({ ...localVariables })
-  }, [config, metadata, nodeMap, onExecutionVisit, pushMessage, replyKeyboardMode, replyKeyboardVariantKey, variables])
+  }, [botId, config, metadata, nodeMap, onExecutionVisit, pushMessage, replyKeyboardMode, replyKeyboardVariantKey, variables])
 
   useEffect(() => {
     const scrollContainer = messagesScrollRef.current

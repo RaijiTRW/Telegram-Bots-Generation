@@ -646,6 +646,8 @@
       "statisticsDesc": "Errors, events, and subscribers",
       "settings": "Bot",
       "settingsDesc": "Profile and connection",
+      "database": "Database",
+      "databaseDesc": "Text data for workflows",
       "botEditor": "Bot Editor",
       "helpSummary": "The editor now starts with an AI-first business entry, while the advanced manual workflow mode stays right below it.",
       "helpStep1": "Start with Business Start when you want to describe the bot in business terms and let AI draft the first version.",
@@ -661,6 +663,26 @@
       "soonLocked": "This section is coming soon",
       "adminOnly": "Admins only",
       "adminOnlyBadge": "Admin"
+    },
+    "database": {
+      "textTitle": "Data table",
+      "textDesc": "Create separate rows with an ID and text. Workflows can read one row by ID or fetch the whole database.",
+      "importTxt": "Import TXT",
+      "addRow": "Add row",
+      "rowId": "ID",
+      "rowText": "Data",
+      "rowIdPlaceholder": "price or faq",
+      "rowTextPlaceholder": "Enter this database row text",
+      "deleteRow": "Delete row",
+      "emptyRows": "No rows yet. Add the first database row.",
+      "rowsCount": "{count} rows",
+      "placeholder": "For example:\nService: Consultation\nPrice: $50\nDescription: ...\n\nFAQ:\nQuestion: ...\nAnswer: ...",
+      "chars": "{count} characters",
+      "updatedAt": "Updated: {value}",
+      "neverUpdated": "not updated yet",
+      "txtOnly": "Only .txt files can be imported.",
+      "readError": "Could not read the file.",
+      "usageHint": "In the workflow, add the Database node from Data. After it runs, use '{{database.price}}' for the row with ID price or '{{database}}' to output the whole database."
     },
     "statistics": {
       "description": "Technical metrics for the selected bot.",
@@ -886,7 +908,7 @@
           },
           "ai": {
             "label": "AI",
-            "hint": "AI nodes: intent, AI message, AI logic"
+            "hint": "AI nodes are coming soon"
           },
           "logic": {
             "label": "Logic",
@@ -894,7 +916,7 @@
           },
           "data": {
             "label": "Data",
-            "hint": "Variables, HTTP"
+            "hint": "Variables, HTTP, database"
           },
           "payments": {
             "label": "Payments",
@@ -910,7 +932,7 @@
           }
         },
         "aiSoonBadge": "soon",
-        "aiLockedHint": "AI section is currently unavailable for regular users."
+        "aiLockedHint": "AI section is temporarily closed and coming soon."
       },
       "nodeTemplateDescriptions": {
         "triggerCommand": "Start workflow when user sends a command",
@@ -929,6 +951,8 @@
         "script": "Run JavaScript or Python transform code",
         "action": "Perform custom actions",
         "setVariable": "Assign a value to a variable",
+        "database": "Search the bot text database",
+        "crm": "Create or update a CRM card",
         "input": "Request user input or data",
         "http": "Make HTTP requests to external APIs",
         "comment": "Add an internal note to document the flow",
@@ -954,6 +978,8 @@
         "script": "JS/Python code",
         "action": "Set data",
         "setVariable": "Variable",
+        "database": "Database",
+        "crm": "CRM card",
         "input": "Wait input",
         "http": "API request",
         "comment": "Internal note",
@@ -1042,6 +1068,16 @@
           "step1": "Set the variable name that should be updated.",
           "step2": "Enter a static value or a template like '{{callback.data}}'.",
           "step3": "Connect the next node that uses the updated value."
+        },
+        "database": {
+          "step1": "Add text in the bot settings section called Database.",
+          "step2": "Choose the mode in the node: search by query or return all text.",
+          "step3": "After the node runs, use '{{database.price}}' for the row with ID price or '{{database}}' for the whole database."
+        },
+        "crm": {
+          "step1": "Configure card title and external key to update one request or create new cards.",
+          "step2": "Map CRM fields to workflow variables, such as name, phone, or comment.",
+          "step3": "After the node runs, use '{{crm.cardId}}' or '{{crm.card}}' in the next steps."
         },
         "input": {
           "step1": "Set the question prompt sent to the user.",
@@ -1585,12 +1621,12 @@
       "cancelRunError": "Failed to stop the AI agent.",
       "nodesAddedOne": "Added 1 node to canvas",
       "nodesAddedMany": "Added {count} nodes to canvas",
-      "emptyIntro": "Hello! I can help turn your business task into a Telegram bot:",
-      "emptyHelp1": "Flows for leads, bookings, menus, support, and consultations",
-      "emptyHelp2": "Conditions, actions, variables, and customer data storage",
-      "emptyHelp3": "HTTP requests and integrations with external services",
-      "emptyHelp4": "Logic review, fallback messages, and node debugging",
-      "emptyQuestion": "Describe the bot your business needs.",
+      "emptyIntro": "Hello! I can quickly build a Telegram bot for a restaurant:",
+      "emptyHelp1": "Menus, dish categories, prices, promotions, and FAQ",
+      "emptyHelp2": "Table booking and guest contact collection",
+      "emptyHelp3": "Delivery, pickup, order capture, and manager handoff",
+      "emptyHelp4": "Restaurant database, buttons, and flow testing",
+      "emptyQuestion": "Choose a quick scenario below or describe your restaurant bot.",
       "lockedTitle": "AI Chat is available",
       "lockedDescription": "AI Chat is available on every plan. When the limit is over, the app shows a notice above the input.",
       "backToEditor": "Back to editor",
@@ -1654,13 +1690,35 @@
           "firstName": "User first name from Telegram profile.",
           "lastName": "User last name from Telegram profile, if present.",
           "languageCode": "Telegram client language code (for example: ru, en, de).",
-          "callbackData": "Latest callback_data value from the pressed inline button. Updates automatically on every new callback."
+          "callbackData": "Latest callback_data value from the pressed inline button. Updates automatically on every new callback.",
+          "crmCardId": "ID of the latest CRM card created or updated by a CRM node.",
+          "crmCard": "The full latest CRM card: stage, fields, tags, and metadata.",
+          "crmMove": "Result of the latest CRM card stage move."
         }
       }
     },
     "modals": {
       "createBot": "Create Bot",
       "createBotDesc": "Create a new bot",
+      "restaurantCreateTitle": "What bot does your restaurant need?",
+      "restaurantCreateSubtitle": "Choose a template, name the bot, and add details if needed.",
+      "restaurantTemplateTitle": "What bot does your restaurant need?",
+      "restaurantTemplateDesc": "The template is saved with the bot and helps AI build the right flow faster.",
+      "templateMenu": "Menu",
+      "templateMenuDesc": "Categories, dishes, prices, and help choosing.",
+      "templateMenuPrompt": "I need a Telegram bot for a restaurant menu: dish categories, prices, descriptions, help choosing, and order handoff to the manager.",
+      "templateBooking": "Booking",
+      "templateBookingDesc": "Date, time, guests, name, phone, and confirmation.",
+      "templateBookingPrompt": "I need a Telegram bot for table booking: ask for date, time, number of guests, name and phone, confirm the request, and send the booking to the manager.",
+      "templateDelivery": "Delivery",
+      "templateDeliveryDesc": "Order, address or pickup, phone, and summary.",
+      "templateDeliveryPrompt": "I need a Telegram bot for delivery and pickup: show the menu, collect the order, address or pickup choice, customer phone, and send the summary to the manager.",
+      "templatePromosFaq": "Promos and FAQ",
+      "templatePromosFaqDesc": "Opening hours, address, promotions, and answers.",
+      "templatePromosFaqPrompt": "I need a Telegram bot for restaurant FAQ: opening hours, address, promotions, common questions, and quick answers for guests.",
+      "templateLead": "Lead",
+      "templateLeadDesc": "Collect guest contact and request for the manager.",
+      "templateLeadPrompt": "I need a Telegram bot for restaurant customer requests: understand the guest request, collect name, phone, comment, and send the lead to the manager.",
       "editBot": "Edit Bot",
       "editBotDesc": "Edit bot details",
       "botName": "Bot Name",
@@ -1740,6 +1798,7 @@
           "scheduler": "Double-check timezone for delays/date-time, especially in multi-region bots.",
           "reply-keyboard": "Reply Keyboard sends plain text. Handle presses via Text Trigger.",
           "action": "After Action, verify output in the next Message node or runtime logs.",
+          "crm": "CRM node creates or updates a card. Use external key to avoid accidental duplicates.",
           "script": "Keep scripts short and deterministic: input/context/vars in, result out.",
           "http": "Set timeout and error handling for HTTP calls to avoid blocked flows.",
           "webhook": "Webhook/HTTP steps need a stable endpoint and response validation.",
@@ -1872,13 +1931,25 @@
         "retry": "Retry",
         "retryCountLabel": "Retry count"
       },
+      "database": {
+        "modeLabel": "Mode",
+        "modeSearch": "Search database",
+        "modeAll": "All text",
+        "queryLabel": "Search query",
+        "queryPlaceholder": "'{{message.text}}' or custom text",
+        "saveToVariableLabel": "Save result to variable",
+        "maxMatchesLabel": "Maximum matches",
+        "fallbackLabel": "Fallback when nothing is found",
+        "fallbackPlaceholder": "For example: I could not find data for this query.",
+        "hint": "This node reads rows from the Database section. Use '{{database.price}}' for the row with ID price, '{{database}}' for the whole database, or '{{database.result}}' for the search result."
+      },
       "webhook": {
         "urlLabel": "URL",
         "urlPlaceholder": "https://api.example.com/endpoint",
         "methodLabel": "Method",
         "bodyTypeLabel": "Request body type",
         "bodyLabel": "Request body",
-        "bodyPlaceholder": "{\"key\": \"value\"}",
+        "bodyPlaceholder": "'{\"key\": \"value\"}'",
         "saveResponseLabel": "Save response to",
         "saveResponsePlaceholder": "api_response"
       },

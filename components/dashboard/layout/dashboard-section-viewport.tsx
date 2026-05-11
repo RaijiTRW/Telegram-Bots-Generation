@@ -74,7 +74,7 @@ function readCachedDashboardSection(section: DashboardSection) {
 }
 
 function canWarmSection(section: DashboardSection, viewerAccess: ViewerAccess) {
-  if (section === 'admin' || section === 'crm') {
+  if (section === 'admin') {
     return viewerAccess.isAdmin
   }
 
@@ -146,7 +146,7 @@ export function DashboardSectionViewport({
       return
     }
 
-    if (section === initialSection) {
+    if (section === initialSection && hasStableInitialContent) {
       rememberMountedSection(section)
       return
     }
@@ -161,7 +161,7 @@ export function DashboardSectionViewport({
     const LoadedSection = await preloadDashboardSection(section)
     rememberMountedSection(section)
     setLoadedSections((prev) => (prev[section] ? prev : { ...prev, [section]: LoadedSection }))
-  }, [initialSection, viewerAccess])
+  }, [hasStableInitialContent, initialSection, viewerAccess])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

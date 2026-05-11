@@ -7,5 +7,5 @@ export default async function LegacyQuickStartPage({
 }) {
   const { locale, botId } = await params
 
-  redirect(`/${locale}/dashboard/bots/${botId}/editor/ai-chat`)
+  redirect(`/${locale}/workspace/bots/${botId}/editor/ai-chat`)
 }

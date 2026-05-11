@@ -22,10 +22,10 @@ export function UserMenuDropdown({ userName, userEmail, avatarUrl }: UserMenuDro
   const router = useRouter()
   const supabase = createClient()
   const t = useTranslations('header.userMenu')
-  const dashboardHref = `/${locale}/dashboard`
-  const subscriptionHref = `/${locale}/dashboard/subscription`
-  const profileHref = `/${locale}/dashboard/profile`
-  const settingsHref = `/${locale}/dashboard/settings`
+  const dashboardHref = `/${locale}/workspace`
+  const subscriptionHref = `/${locale}/workspace?globalSettings=subscription`
+  const profileHref = `/${locale}/workspace?globalSettings=profile`
+  const settingsHref = `/${locale}/workspace?globalSettings=settings`
 
   const initials = userName
     .split(' ')

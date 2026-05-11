@@ -16,7 +16,7 @@ export function EditorOnboardingTour({ botId }: EditorOnboardingTourProps) {
   const locale = useLocale()
   const isRu = locale !== 'en'
   const [isSeen, setIsSeen] = useState<boolean | null>(null)
-  const editorRoot = `/${locale}/dashboard/bots/${botId}/editor`
+  const editorRoot = `/${locale}/workspace/bots/${botId}/editor`
 
   const steps = useMemo<GuidedTourStep[]>(
     () => isRu

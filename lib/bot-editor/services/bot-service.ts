@@ -23,6 +23,7 @@ export interface CreateBotInput {
   name: string
   description?: string
   userId: string
+  metadata?: BotMetadata
 }
 
 export interface UpdateBotInput {
@@ -119,6 +120,7 @@ export class BotService {
         description: input.description || null,
         user_id: input.userId,
         status: 'draft',
+        metadata: input.metadata || {},
       })
       .select()
       .single()

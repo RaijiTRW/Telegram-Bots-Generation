@@ -300,21 +300,28 @@ export function Header() {
                       )}
                     </div>
                     <Link
-                      href={`/${locale}/dashboard`}
+                      href={`/${locale}/workspace`}
                       className="block px-4 py-2 text-zinc-300 hover:text-white hover:bg-white/5 transition-colors rounded-lg"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       {t('userMenu.dashboard')}
                     </Link>
                     <Link
-                      href={`/${locale}/dashboard/profile`}
+                      href={`/${locale}/workspace?globalSettings=subscription`}
+                      className="block px-4 py-2 text-zinc-300 hover:text-white hover:bg-white/5 transition-colors rounded-lg"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {t('userMenu.subscription')}
+                    </Link>
+                    <Link
+                      href={`/${locale}/workspace?globalSettings=profile`}
                       className="block px-4 py-2 text-zinc-300 hover:text-white hover:bg-white/5 transition-colors rounded-lg"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       {t('userMenu.profile')}
                     </Link>
                     <Link
-                      href={`/${locale}/dashboard/settings`}
+                      href={`/${locale}/workspace?globalSettings=settings`}
                       className="block px-4 py-2 text-zinc-300 hover:text-white hover:bg-white/5 transition-colors rounded-lg"
                       onClick={() => setIsMenuOpen(false)}
                     >

@@ -10,9 +10,9 @@ export default function AiAgentsScreen() {
 
   if (!isAdmin) {
     return (
-      <div className="flex h-full flex-col bg-[#05070A]">
+      <div className="flex h-full w-full min-w-0 flex-col bg-[#05070A]">
         <header className="shrink-0 border-b border-white/8 bg-[#06080D]/90 px-6 backdrop-blur-xl">
-          <div className="flex h-16 items-center gap-3">
+          <div className="flex h-16 min-w-0 items-center gap-3">
             <Bot className="h-4 w-4 shrink-0 text-[#24A1DE]" />
             <h1 className="truncate font-semibold text-white">{tNav('aiAgents')}</h1>
             <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-400">
@@ -35,9 +35,9 @@ export default function AiAgentsScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#05070A]">
+    <div className="flex h-full w-full min-w-0 flex-col bg-[#05070A]">
       <header className="shrink-0 border-b border-white/8 bg-[#06080D]/90 px-6 backdrop-blur-xl">
-        <div className="flex h-16 items-center gap-3">
+        <div className="flex h-16 min-w-0 items-center gap-3">
           <Bot className="h-4 w-4 shrink-0 text-[#24A1DE]" />
           <h1 className="truncate font-semibold text-white">{tNav('aiAgents')}</h1>
         </div>

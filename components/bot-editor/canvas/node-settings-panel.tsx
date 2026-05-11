@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Keyboard,
   GitBranch,
+  Database,
   Zap,
   Variable,
   Webhook,
@@ -27,6 +28,7 @@ import {
   Copy,
   Check,
   RefreshCw,
+  KanbanSquare,
   type LucideIcon,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -51,6 +53,8 @@ import type {
   RouterNodeData,
   ActionNodeData,
   SetVariableNodeData,
+  DatabaseNodeData,
+  CrmNodeData,
   ScriptNodeData,
   HttpNodeData,
   WebhookNodeData,
@@ -63,6 +67,8 @@ import type {
   SchedulerNodeData,
   ReplyKeyboardNodeData,
   CommentNodeData,
+  ActionPayload,
+  KeyboardData,
   ParseMode,
   MessageAttachmentType,
   ComparisonOperator,
@@ -71,7 +77,11 @@ import type {
 } from '@/lib/bot-editor/types/component-schemas'
 import { NODE_CONFIGS } from '@/lib/bot-editor/types/component-schemas'
 import type { NodeType } from '@/lib/bot-editor/types/bot.types'
-import { uploadBotMessageAttachmentAction } from '@/lib/bot-editor/actions/editor-actions'
+import {
+  getFlexibleCrmBoardAction,
+  uploadBotMessageAttachmentAction,
+} from '@/lib/bot-editor/actions/editor-actions'
+import type { CrmField, CrmStage } from '@/lib/bot-editor/types/analytics.types'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import {
   TemplateVariableTextarea,
@@ -101,6 +111,8 @@ const ICONS: Record<string, LucideIcon> = {
   router: GitBranch,
   action: Zap,
   setVariable: Variable,
+  database: Database,
+  crm: KanbanSquare,
   http: Globe,
   webhook: Webhook,
   paymentYookassa: CreditCard,
@@ -130,6 +142,8 @@ function getNodeHelpDocsHref(args: { locale: string; nodeType: NodeType }): stri
     scheduler: 'node-date-scheduler',
     replyKeyboard: 'node-reply-keyboard-node',
     action: 'node-action',
+    database: 'node-database',
+    crm: 'nodes-reference',
     http: 'node-http',
     webhook: 'node-http',
     paymentYookassa: 'node-payment-yookassa',
@@ -162,6 +176,8 @@ const TEMPLATE_ID_TO_CANVAS_TRANSLATION_KEY: Record<string, string> = {
   scheduler: 'scheduler',
   'reply-keyboard': 'replyKeyboard',
   action: 'action',
+  database: 'database',
+  crm: 'crm',
   script: 'script',
   http: 'http',
   webhook: 'http',
@@ -334,6 +350,7 @@ export function NodeSettingsPanel({
 }: NodeSettingsPanelProps) {
   const t = useTranslations('editor.nodeSettings')
   const tCanvas = useTranslations('editor.canvas')
+  const tNodeSettings = t as unknown as TranslationFn
   const locale = useLocale()
   const { isDirty, bot } = useBotState()
   const [data, setData] = useState<Partial<NodeData>>({})
@@ -432,7 +449,7 @@ export function NodeSettingsPanel({
   const Icon = ICONS[nodeType] || Settings
   const replyKeyboardVariantOptions = getReplyKeyboardVariantOptionsFromMetadata(
     (bot?.metadata || null) as Record<string, unknown> | null,
-    t as any
+    tNodeSettings
   )
   const nodeHelpDocsHref = getNodeHelpDocsHref({ locale, nodeType })
   const nodeHelp = getNodeHelpContent({
@@ -606,7 +623,7 @@ export function NodeSettingsPanel({
             data={data as MessageNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'input' && (
@@ -614,7 +631,7 @@ export function NodeSettingsPanel({
             data={data as InputNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'condition' && (
@@ -622,7 +639,7 @@ export function NodeSettingsPanel({
             data={data as ConditionNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'router' && (
@@ -630,7 +647,7 @@ export function NodeSettingsPanel({
             data={data as RouterNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'action' && (
@@ -638,7 +655,7 @@ export function NodeSettingsPanel({
             data={data as ActionNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'setVariable' && (
@@ -646,7 +663,23 @@ export function NodeSettingsPanel({
             data={data as SetVariableNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
+          />
+        )}
+        {nodeType === 'database' && (
+          <DatabaseSettings
+            data={data as DatabaseNodeData}
+            onUpdate={handleUpdate}
+            variables={variables}
+            t={tNodeSettings}
+          />
+        )}
+        {nodeType === 'crm' && (
+          <CrmSettings
+            data={data as CrmNodeData}
+            onUpdate={handleUpdate}
+            variables={variables}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'script' && (
@@ -654,7 +687,7 @@ export function NodeSettingsPanel({
             data={data as ScriptNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'http' && (
@@ -662,7 +695,7 @@ export function NodeSettingsPanel({
             data={data as HttpNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'webhook' && (
@@ -670,7 +703,7 @@ export function NodeSettingsPanel({
             data={data as WebhookNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {(nodeType === 'paymentYookassa' ||
@@ -687,14 +720,14 @@ export function NodeSettingsPanel({
             defaultStripeCancelUrl={stripeAutoCancelUrl}
             defaultRobokassaSuccessUrl={robokassaAutoSuccessUrl}
             defaultRobokassaFailUrl={robokassaAutoFailUrl}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'trigger' && (
           <TriggerSettings
             data={data as TriggerNodeData}
             onUpdate={handleUpdate}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'wait' && (
@@ -702,7 +735,7 @@ export function NodeSettingsPanel({
             data={data as WaitNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'scheduler' && (
@@ -710,7 +743,7 @@ export function NodeSettingsPanel({
             data={data as SchedulerNodeData}
             onUpdate={handleUpdate}
             variables={variables}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'replyKeyboard' && (
@@ -719,14 +752,14 @@ export function NodeSettingsPanel({
             onUpdate={handleUpdate}
             variables={variables}
             variantOptions={replyKeyboardVariantOptions}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
         {nodeType === 'comment' && (
           <CommentSettings
             data={data as CommentNodeData}
             onUpdate={handleUpdate}
-            t={t as any}
+            t={tNodeSettings}
           />
         )}
       </div>
@@ -1210,7 +1243,7 @@ function MessageSettings({
             <button
               ref={formatHintButtonRef}
               type="button"
-              className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/25 text-zinc-400 hover:text-white hover:border-white/40 transition-colors"
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-transparent p-0 text-zinc-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24A1DE]/70"
               aria-label={tm('formattingHelpLabel')}
               onMouseEnter={openFormatHint}
               onMouseLeave={() => setIsFormatHintVisible(false)}
@@ -1883,9 +1916,14 @@ function ActionSettings({
   t: (key: string, values?: Record<string, unknown>) => string
 }) {
   const ta = (key: string, values?: Record<string, unknown>) => t(`action.${key}`, values)
-  const actionType = data.action?.type || 'setVariable'
+  const action = (data.action || {}) as ActionPayload
+  const actionType = String(action.type || 'setVariable')
+  const actionNumber = (key: string, fallback: number) => {
+    const value = Number(action[key] ?? fallback)
+    return Number.isFinite(value) ? value : fallback
+  }
 
-  const createActionConfigByType = (value: string) => {
+  const createActionConfigByType = (value: string): ActionPayload => {
     if (value === 'delay') {
       return { type: 'delay', duration: 1000 }
     }
@@ -1912,7 +1950,7 @@ function ActionSettings({
             value={actionType}
             onValueChange={(value) =>
               onUpdate({
-                action: createActionConfigByType(value) as any,
+                action: createActionConfigByType(value),
               })
             }
           >
@@ -1934,10 +1972,10 @@ function ActionSettings({
               <Label htmlFor="setvar-name">{ta('variableNameLabel')}</Label>
               <VariableAutocompleteInput
                 id="setvar-name"
-                value={(data.action as any)?.variableName || ''}
+                value={String(action.variableName || '')}
                 onValueChange={(value) =>
                   onUpdate({
-                    action: { ...(data.action as any), variableName: value } as any,
+                    action: { ...action, variableName: value },
                   })
                 }
                 placeholder={ta('variableNamePlaceholder')}
@@ -1949,10 +1987,10 @@ function ActionSettings({
               <Label htmlFor="setvar-value">{ta('valueLabel')}</Label>
               <TemplateVariableTextarea
                 id="setvar-value"
-                value={(data.action as any)?.value || ''}
+                value={String(action.value || '')}
                 onValueChange={(value) =>
                   onUpdate({
-                    action: { ...(data.action as any), value } as any,
+                    action: { ...action, value },
                   })
                 }
                 placeholder={ta('valuePlaceholder')}
@@ -1970,10 +2008,10 @@ function ActionSettings({
             <Input
               id="delay-duration"
               type="number"
-              value={(data.action as any)?.duration || 1000}
+              value={actionNumber('duration', 1000)}
               onChange={(e) =>
                 onUpdate({
-                  action: { ...(data.action as any), duration: Number(e.target.value) } as any,
+                  action: { ...action, duration: Number(e.target.value) },
                 })
               }
               className="mt-1.5 bg-zinc-800/50 border-white/10"
@@ -1987,10 +2025,10 @@ function ActionSettings({
             <Input
               id="delete-delay"
               type="number"
-              value={(data.action as any)?.delay || 0}
+              value={actionNumber('delay', 0)}
               onChange={(e) =>
                 onUpdate({
-                  action: { ...(data.action as any), delay: Number(e.target.value) } as any,
+                  action: { ...action, delay: Number(e.target.value) },
                 })
               }
               placeholder={ta('deleteDelayPlaceholder')}
@@ -2008,21 +2046,21 @@ function ActionSettings({
                 type="number"
                 min={0}
                 max={100}
-                value={Math.min(100, Math.max(0, Number((data.action as any)?.aPercent ?? 50)))}
+                value={Math.min(100, Math.max(0, actionNumber('aPercent', 50)))}
                 onChange={(e) =>
                   onUpdate({
                     action: {
-                      ...(data.action as any),
+                      ...action,
                       aPercent: Math.min(100, Math.max(0, Number(e.target.value || 0))),
-                    } as any,
+                    },
                   })
                 }
                 className="mt-1.5 bg-zinc-800/50 border-white/10"
               />
               <p className="text-xs text-zinc-500 mt-1">
                 {ta('randomSplitHint', {
-                  a: String(Math.min(100, Math.max(0, Number((data.action as any)?.aPercent ?? 50)))),
-                  b: String(100 - Math.min(100, Math.max(0, Number((data.action as any)?.aPercent ?? 50)))),
+                  a: String(Math.min(100, Math.max(0, actionNumber('aPercent', 50)))),
+                  b: String(100 - Math.min(100, Math.max(0, actionNumber('aPercent', 50)))),
                 })}
               </p>
             </div>
@@ -2031,10 +2069,10 @@ function ActionSettings({
               <Label htmlFor="random-savevar">{ta('randomSaveResultLabel')}</Label>
               <VariableAutocompleteInput
                 id="random-savevar"
-                value={String((data.action as any)?.saveToVariable || '')}
+                value={String(action.saveToVariable || '')}
                 onValueChange={(value) =>
                   onUpdate({
-                    action: { ...(data.action as any), saveToVariable: value } as any,
+                    action: { ...action, saveToVariable: value },
                   })
                 }
                 placeholder={ta('randomSaveResultPlaceholder')}
@@ -2127,6 +2165,540 @@ function SetVariableSettings({
       <p className="rounded-lg border border-emerald-400/15 bg-emerald-400/5 px-3 py-2 text-xs leading-5 text-emerald-100/75">
         Значение можно писать обычным текстом или через переменные, например {'{{callback.data}}'}.
       </p>
+    </div>
+  )
+}
+
+function DatabaseSettings({
+  data,
+  onUpdate,
+  variables,
+  t,
+}: {
+  data: DatabaseNodeData
+  onUpdate: (data: Partial<DatabaseNodeData>) => void
+  variables: string[]
+  t: (key: string, values?: Record<string, unknown>) => string
+}) {
+  const td = (key: string, values?: Record<string, unknown>) => t(`database.${key}`, values)
+  const mode = data.mode || 'search'
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="database-mode">{td('modeLabel')}</Label>
+        <Select
+          value={mode}
+          onValueChange={(value) => onUpdate({ mode: value as DatabaseNodeData['mode'] })}
+        >
+          <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="search">{td('modeSearch')}</SelectItem>
+            <SelectItem value="all">{td('modeAll')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {mode === 'search' ? (
+        <div>
+          <Label htmlFor="database-query">{td('queryLabel')}</Label>
+          <TemplateVariableTextarea
+            id="database-query"
+            value={data.query || ''}
+            onValueChange={(value) => onUpdate({ query: value })}
+            placeholder={td('queryPlaceholder')}
+            rows={3}
+            className="mt-1.5 bg-zinc-800/50 border-white/10"
+            variables={variables}
+          />
+        </div>
+      ) : null}
+
+      <div>
+        <Label htmlFor="database-save-variable">{td('saveToVariableLabel')}</Label>
+        <VariableAutocompleteInput
+          id="database-save-variable"
+          value={data.saveToVariable || ''}
+          onValueChange={(value) => onUpdate({ saveToVariable: value })}
+          placeholder="database.result"
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+      </div>
+
+      {mode === 'search' ? (
+        <div>
+          <Label htmlFor="database-max-matches">{td('maxMatchesLabel')}</Label>
+          <Input
+            id="database-max-matches"
+            type="number"
+            min={1}
+            max={20}
+            value={Math.min(20, Math.max(1, Number(data.maxMatches || 5)))}
+            onChange={(event) => onUpdate({ maxMatches: Math.min(20, Math.max(1, Number(event.target.value || 1))) })}
+            className="mt-1.5 bg-zinc-800/50 border-white/10"
+          />
+        </div>
+      ) : null}
+
+      <div>
+        <Label htmlFor="database-fallback">{td('fallbackLabel')}</Label>
+        <Textarea
+          id="database-fallback"
+          value={data.fallbackText || ''}
+          onChange={(event) => onUpdate({ fallbackText: event.target.value })}
+          placeholder={td('fallbackPlaceholder')}
+          rows={2}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+        />
+      </div>
+
+      <p className="rounded-lg border border-sky-400/15 bg-sky-400/5 px-3 py-2 text-xs leading-5 text-sky-100/75">
+        {td('hint')}
+      </p>
+    </div>
+  )
+}
+
+type CrmStageOption = Pick<CrmStage, 'id' | 'key' | 'name' | 'color'>
+type CrmFieldOption = Pick<CrmField, 'id' | 'key' | 'name' | 'type'>
+
+const FALLBACK_CRM_STAGE_OPTIONS: CrmStageOption[] = [
+  { id: '', key: 'new', name: 'Новая', color: '#38bdf8' },
+  { id: '', key: 'in_progress', name: 'В работе', color: '#8b5cf6' },
+  { id: '', key: 'waiting', name: 'Ожидает', color: '#f59e0b' },
+  { id: '', key: 'won', name: 'Успешно', color: '#10b981' },
+  { id: '', key: 'lost', name: 'Потеряно', color: '#ef4444' },
+]
+
+const FALLBACK_CRM_FIELD_OPTIONS: CrmFieldOption[] = [
+  { id: '', key: 'name', name: 'Имя', type: 'text' },
+  { id: '', key: 'phone', name: 'Телефон', type: 'phone' },
+  { id: '', key: 'comment', name: 'Комментарий', type: 'textarea' },
+  { id: '', key: 'date_time', name: 'Дата/время', type: 'datetime' },
+  { id: '', key: 'sum', name: 'Сумма', type: 'number' },
+]
+
+function useCrmStageOptions(scope: CrmNodeData['scope'], botId?: string | null) {
+  const [stages, setStages] = useState<CrmStageOption[]>(FALLBACK_CRM_STAGE_OPTIONS)
+  const normalizedScope = scope || 'bot'
+  const shouldUseFallback = normalizedScope === 'bot' && !botId
+
+  useEffect(() => {
+    if (shouldUseFallback) return
+
+    let cancelled = false
+
+    async function loadStages() {
+      const result = await getFlexibleCrmBoardAction({
+        scope: normalizedScope,
+        botId: normalizedScope === 'bot' ? botId || null : null,
+      }).catch(() => null)
+
+      if (cancelled) return
+
+      if (!result?.success) {
+        setStages(FALLBACK_CRM_STAGE_OPTIONS)
+        return
+      }
+
+      const board = result.board
+
+      if (!board?.stages.length) {
+        setStages(FALLBACK_CRM_STAGE_OPTIONS)
+        return
+      }
+
+      setStages(board.stages.map((stage) => ({
+        id: stage.id,
+        key: stage.key,
+        name: stage.name,
+        color: stage.color,
+      })))
+    }
+
+    void loadStages()
+
+    return () => {
+      cancelled = true
+    }
+  }, [botId, normalizedScope, shouldUseFallback])
+
+  return shouldUseFallback ? FALLBACK_CRM_STAGE_OPTIONS : stages
+}
+
+function useCrmFieldOptions(scope: CrmNodeData['scope'], botId?: string | null) {
+  const [fields, setFields] = useState<CrmFieldOption[]>(FALLBACK_CRM_FIELD_OPTIONS)
+  const normalizedScope = scope || 'bot'
+  const shouldUseFallback = normalizedScope === 'bot' && !botId
+
+  useEffect(() => {
+    if (shouldUseFallback) return
+
+    let cancelled = false
+
+    async function loadFields() {
+      const result = await getFlexibleCrmBoardAction({
+        scope: normalizedScope,
+        botId: normalizedScope === 'bot' ? botId || null : null,
+      }).catch(() => null)
+
+      if (cancelled) return
+
+      if (!result?.success || !result.board?.fields.length) {
+        setFields(FALLBACK_CRM_FIELD_OPTIONS)
+        return
+      }
+
+      setFields(result.board.fields.map((field) => ({
+        id: field.id,
+        key: field.key,
+        name: field.name,
+        type: field.type,
+      })))
+    }
+
+    void loadFields()
+
+    return () => {
+      cancelled = true
+    }
+  }, [botId, normalizedScope, shouldUseFallback])
+
+  return shouldUseFallback ? FALLBACK_CRM_FIELD_OPTIONS : fields
+}
+
+function CrmSettings({
+  data,
+  onUpdate,
+  variables,
+}: {
+  data: CrmNodeData
+  onUpdate: (data: Partial<CrmNodeData>) => void
+  variables: string[]
+  t: (key: string, values?: Record<string, unknown>) => string
+}) {
+  const { bot } = useBotState()
+  const operation = data.operation || 'create_or_update'
+  const mappings = useMemo(
+    () => Array.isArray(data.fieldMappings) ? data.fieldMappings : [],
+    [data.fieldMappings]
+  )
+  const loadedStageOptions = useCrmStageOptions(data.scope || 'bot', bot?.id)
+  const loadedFieldOptions = useCrmFieldOptions(data.scope || 'bot', bot?.id)
+  const stageOptions = useMemo(() => {
+    const currentKey = (data.stageKey || 'new').trim()
+    if (!currentKey || loadedStageOptions.some((stage) => stage.key === currentKey)) {
+      return loadedStageOptions
+    }
+
+    return [
+      { id: data.stageId || '', key: currentKey, name: currentKey, color: '#71717a' },
+      ...loadedStageOptions,
+    ]
+  }, [data.stageId, data.stageKey, loadedStageOptions])
+  const fieldOptionsByMapping = useMemo(() => {
+    return mappings.map((mapping) => {
+      const currentKey = (mapping.fieldKey || '').trim()
+      if (!currentKey || loadedFieldOptions.some((field) => field.key === currentKey)) {
+        return loadedFieldOptions
+      }
+
+      return [
+        { id: '', key: currentKey, name: currentKey, type: 'text' as const },
+        ...loadedFieldOptions,
+      ]
+    })
+  }, [loadedFieldOptions, mappings])
+
+  const updateMapping = (index: number, patch: Partial<{ fieldKey: string; value: string }>) => {
+    onUpdate({
+      fieldMappings: mappings.map((mapping, mappingIndex) => (
+        mappingIndex === index ? { ...mapping, ...patch } : mapping
+      )),
+    })
+  }
+  const updateOperation = (value: CrmNodeData['operation']) => {
+    onUpdate({
+      operation: value,
+      ...(value === 'move_stage'
+        ? {
+            cardId: data.cardId || '{{crm.cardId}}',
+            saveToVariable: 'crm.move',
+          }
+        : {
+            saveToVariable: 'crm.card',
+          }),
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="crm-operation">Действие</Label>
+        <Select
+          value={operation}
+          onValueChange={(value) => updateOperation(value as CrmNodeData['operation'])}
+        >
+          <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="create_or_update">Создать или обновить карточку</SelectItem>
+            <SelectItem value="move_stage">Перенести карточку по этапам</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="crm-scope">CRM</Label>
+        <Select
+          value={data.scope || 'bot'}
+          onValueChange={(value) => onUpdate({ scope: value as CrmNodeData['scope'] })}
+        >
+          <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="bot">CRM выбранного бота</SelectItem>
+            <SelectItem value="global">Общая CRM</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {operation === 'move_stage' ? (
+        <>
+          <div>
+            <Label htmlFor="crm-card-id">Карточка</Label>
+            <TemplateVariableTextarea
+              id="crm-card-id"
+              value={data.cardId || ''}
+              onValueChange={(value) => onUpdate({ cardId: value })}
+              placeholder="{{crm.cardId}}"
+              rows={2}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+              variables={variables}
+            />
+            <p className="mt-1.5 text-xs text-zinc-500">
+              Обычно это crm.cardId из предыдущего CRM-узла. Если его ещё нет, бот попробует найти карточку по external key пользователя.
+            </p>
+          </div>
+
+          <div>
+            <div>
+              <Label>Новый этап</Label>
+              <Select
+                value={data.stageKey || 'new'}
+                onValueChange={(value) => {
+                  const selectedStage = stageOptions.find((stage) => stage.key === value)
+                  onUpdate({
+                    stageKey: value,
+                    stageId: selectedStage?.id || undefined,
+                  })
+                }}
+              >
+                <SelectTrigger className="mt-1.5 h-11 bg-zinc-800/50 border-white/10">
+                  <SelectValue placeholder="new" />
+                </SelectTrigger>
+                <SelectContent className="z-[4000]">
+                  {stageOptions.map((stage) => (
+                    <SelectItem key={`${stage.id || stage.key}-${stage.key}`} value={stage.key}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: stage.color }}
+                        />
+                        <span className="truncate">{stage.name}</span>
+                        <code className="shrink-0 text-xs text-zinc-500">{stage.key}</code>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="crm-notes">Комментарий</Label>
+            <TemplateVariableTextarea
+              id="crm-notes"
+              value={data.notes || ''}
+              onValueChange={(value) => onUpdate({ notes: value })}
+              placeholder="Перенесено после ответа: {{message.text}}"
+              rows={3}
+              className="mt-1.5 bg-zinc-800/50 border-white/10"
+              variables={variables}
+            />
+          </div>
+
+          <p className="rounded-lg border border-emerald-400/15 bg-emerald-400/5 px-3 py-2 text-xs leading-5 text-emerald-100/75">
+            Узел переносит найденную карточку на выбранный этап.
+          </p>
+        </>
+      ) : (
+        <>
+
+      <div>
+        <Label htmlFor="crm-title">Название карточки</Label>
+        <TemplateVariableTextarea
+          id="crm-title"
+          value={data.title || ''}
+          onValueChange={(value) => onUpdate({ title: value })}
+          placeholder="Заявка от {{user.firstName}}"
+          rows={2}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+      </div>
+
+      <div>
+        <div>
+          <Label>Этап</Label>
+          <Select
+            value={data.stageKey || 'new'}
+            onValueChange={(value) => {
+              const selectedStage = stageOptions.find((stage) => stage.key === value)
+              onUpdate({
+                stageKey: value,
+                stageId: selectedStage?.id || undefined,
+              })
+            }}
+          >
+            <SelectTrigger className="mt-1.5 h-11 bg-zinc-800/50 border-white/10">
+              <SelectValue placeholder="new" />
+            </SelectTrigger>
+            <SelectContent className="z-[4000]">
+              {stageOptions.map((stage) => (
+                <SelectItem key={`${stage.id || stage.key}-${stage.key}`} value={stage.key}>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: stage.color }}
+                    />
+                    <span className="truncate">{stage.name}</span>
+                    <code className="shrink-0 text-xs text-zinc-500">{stage.key}</code>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="crm-external-key">External key</Label>
+        <TemplateVariableTextarea
+          id="crm-external-key"
+          value={data.externalKey || ''}
+          onValueChange={(value) => onUpdate({ externalKey: value })}
+          placeholder="{{user.id}}"
+          rows={2}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+        <p className="mt-1.5 text-xs text-zinc-500">
+          Если ключ одинаковый, карточка обновится. Пустой ключ создаёт новую карточку каждый раз.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <Label>Поля карточки</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-white/10 bg-zinc-800/50"
+            onClick={() => onUpdate({
+              fieldMappings: [...mappings, { fieldKey: '', value: '' }],
+            })}
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Поле
+          </Button>
+        </div>
+
+        {mappings.length === 0 ? (
+          <div className="rounded-lg border border-white/10 bg-zinc-900/40 px-3 py-3 text-sm text-zinc-500">
+            Добавьте соответствия: ID поля CRM и значение из переменных сценария.
+          </div>
+        ) : null}
+
+        {mappings.map((mapping, index) => (
+          <div key={`${index}-${mapping.fieldKey}`} className="rounded-lg border border-white/10 bg-zinc-900/40 p-3">
+            <div className="flex gap-2">
+              <Select
+                value={mapping.fieldKey || ''}
+                onValueChange={(value) => updateMapping(index, { fieldKey: value })}
+              >
+                <SelectTrigger className="h-11 bg-zinc-800/50 border-white/10">
+                  <SelectValue placeholder="Выберите поле" />
+                </SelectTrigger>
+                <SelectContent className="z-[4000]">
+                  {(fieldOptionsByMapping[index] || loadedFieldOptions).map((field) => (
+                    <SelectItem key={`${field.id || field.key}-${field.key}`} value={field.key}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate">{field.name}</span>
+                        <code className="shrink-0 text-xs text-zinc-500">{field.key}</code>
+                        <span className="shrink-0 text-xs text-zinc-600">{field.type}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-zinc-400 hover:text-red-300"
+                onClick={() => onUpdate({ fieldMappings: mappings.filter((_, mappingIndex) => mappingIndex !== index) })}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <TemplateVariableTextarea
+              value={mapping.value || ''}
+              onValueChange={(value) => updateMapping(index, { value })}
+              placeholder="{{message.text}}"
+              rows={2}
+              className="mt-2 bg-zinc-800/50 border-white/10"
+              variables={variables}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <Label htmlFor="crm-tags">Теги</Label>
+        <Input
+          id="crm-tags"
+          value={data.tags || ''}
+          onChange={(event) => onUpdate({ tags: event.target.value })}
+          placeholder="booking, telegram"
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="crm-notes">Заметки</Label>
+        <TemplateVariableTextarea
+          id="crm-notes"
+          value={data.notes || ''}
+          onValueChange={(value) => onUpdate({ notes: value })}
+          placeholder="Комментарий клиента: {{message.text}}"
+          rows={3}
+          className="mt-1.5 bg-zinc-800/50 border-white/10"
+          variables={variables}
+        />
+      </div>
+
+      <p className="rounded-lg border border-emerald-400/15 bg-emerald-400/5 px-3 py-2 text-xs leading-5 text-emerald-100/75">
+        Узел создаёт или обновляет карточку CRM из данных сценария.
+      </p>
+        </>
+      )}
     </div>
   )
 }
@@ -4148,7 +4720,7 @@ function WaitSettings({
         <Label htmlFor="wait-for">{tw('waitForLabel')}</Label>
         <Select
           value={data.waitFor || 'message'}
-          onValueChange={(value) => onUpdate({ waitFor: value as any })}
+          onValueChange={(value) => onUpdate({ waitFor: value })}
         >
           <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
             <SelectValue />
@@ -4223,7 +4795,7 @@ function CommentSettings({
         <Label htmlFor="comment-color">{tco('colorLabel')}</Label>
         <Select
           value={data.color || 'default'}
-          onValueChange={(value) => onUpdate({ color: value as any })}
+          onValueChange={(value) => onUpdate({ color: value })}
         >
           <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
             <SelectValue />
@@ -4259,7 +4831,7 @@ interface InlineKeyboardEditorProps {
       }>
     }>
   }
-  onChange: (keyboard: any) => void
+  onChange: (keyboard: KeyboardData) => void
   t: (key: string) => string
 }
 
