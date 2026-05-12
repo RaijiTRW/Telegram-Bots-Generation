@@ -582,10 +582,6 @@ export function BotSettingsForm() {
           </div>
         </div>
       </section>
-
-      <div className="rounded-lg border border-white/10 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-400">
-        <span dangerouslySetInnerHTML={{ __html: t('changesSavedBy', { button: `<span class="text-white">${t('save')}</span>` }) }} />
-      </div>
     </div>
   )
 }

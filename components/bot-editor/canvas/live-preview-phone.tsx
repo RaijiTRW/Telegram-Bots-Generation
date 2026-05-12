@@ -413,6 +413,16 @@ export function LivePreviewPhone({
   const messagesScrollRef = useRef<HTMLDivElement | null>(null)
 
   const nodeMap = useMemo(() => new Map(config.nodes.map((node) => [node.id, node])), [config.nodes])
+  const resetSession = useCallback(() => {
+    setMessages([])
+    setInput('')
+    setWaitingNodeId(null)
+    setVariables({})
+    setIsStarted(false)
+    setReplyKeyboardMode('system')
+    setReplyKeyboardVariantKey('base')
+    setReplyKeyboardRows([])
+  }, [])
   const pushMessage = useCallback((message: Omit<PreviewMessage, 'id'>) => {
     setMessages((current) => [...current, { ...message, id: createPreviewMessageId() }])
   }, [])
@@ -713,6 +723,12 @@ export function LivePreviewPhone({
   }, [botId, config, metadata, nodeMap, onExecutionVisit, pushMessage, replyKeyboardMode, replyKeyboardVariantKey, variables])
 
   useEffect(() => {
+    if (isOnline) return
+    const timer = window.setTimeout(() => resetSession(), 0)
+    return () => window.clearTimeout(timer)
+  }, [isOnline, resetSession])
+
+  useEffect(() => {
     const scrollContainer = messagesScrollRef.current
     if (!scrollContainer) return
 
@@ -737,8 +753,9 @@ export function LivePreviewPhone({
   }, [config, onOnlineChange, pushMessage, runFrom])
 
   const startPreviewTest = useCallback(() => {
+    if (!isOnline) return
     restart()
-  }, [restart])
+  }, [isOnline, restart])
 
   useEffect(() => {
     if (!isOpen || startSignal <= 0) return
@@ -751,6 +768,11 @@ export function LivePreviewPhone({
   const sendUserText = useCallback((text: string, callbackData?: string, options?: { silentUserMessage?: boolean }) => {
     const value = text.trim()
     if (!value) return
+    if (!isOnline) {
+      pushMessage({ role: 'system', text: 'Тест остановлен. Нажмите Test, чтобы запустить бота заново.' })
+      setInput('')
+      return
+    }
     if (!options?.silentUserMessage) {
       pushMessage({ role: 'user', text: value })
     }
@@ -783,7 +805,7 @@ export function LivePreviewPhone({
     } else {
       pushMessage({ role: 'system', text: 'В этом сценарии нет подходящего триггера для такого сообщения.' })
     }
-  }, [config, nodeMap, pushMessage, runFrom, variables, waitingNodeId])
+  }, [config, isOnline, nodeMap, pushMessage, runFrom, variables, waitingNodeId])
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[90]">
@@ -823,7 +845,12 @@ export function LivePreviewPhone({
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                      <button onClick={startPreviewTest} className="rounded-full p-2 text-zinc-300 hover:bg-white/10" title="Перезапустить">
+                      <button
+                        onClick={startPreviewTest}
+                        disabled={!isOnline}
+                        className="rounded-full p-2 text-zinc-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        title={isOnline ? 'Перезапустить' : 'Сначала нажмите Test'}
+                      >
                       <RotateCcw className="h-4 w-4" />
                     </button>
                     <button onClick={() => onOpenChange(false)} className="rounded-full p-2 text-zinc-300 hover:bg-white/10" title="Закрыть">
@@ -838,7 +865,11 @@ export function LivePreviewPhone({
                 >
                   {!isStarted ? (
                     <div className="flex h-full items-end justify-center pb-4">
-                      <button onClick={startPreviewTest} className="rounded-full bg-[#2AABEE] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-950/50">
+                      <button
+                        onClick={startPreviewTest}
+                        disabled={!isOnline}
+                        className="rounded-full bg-[#2AABEE] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-950/50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:shadow-none"
+                      >
                         START
                       </button>
                     </div>

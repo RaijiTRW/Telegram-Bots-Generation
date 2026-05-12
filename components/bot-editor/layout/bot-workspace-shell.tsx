@@ -249,7 +249,19 @@ function getRequestedGlobalSection(value: string | null): DashboardSection | nul
   return value as DashboardSection
 }
 
-function BotSettingsContent({ section }: { section: BotSettingsSection }) {
+function BotSettingsContent({
+  section,
+  onSave,
+  isSaving,
+  saveLabel,
+  savingLabel,
+}: {
+  section: BotSettingsSection
+  onSave: () => void
+  isSaving: boolean
+  saveLabel: string
+  savingLabel: string
+}) {
   const content =
     section === 'database' ? <BotDatabaseScreen />
     : section === 'system' ? <SystemScreen />
@@ -258,8 +270,22 @@ function BotSettingsContent({ section }: { section: BotSettingsSection }) {
     : <BotSettingsScreen />
 
   return (
-    <div className="h-full w-full min-w-0 overflow-hidden">
+    <div className="relative h-full w-full min-w-0 overflow-hidden">
       {content}
+      <div className="pointer-events-none absolute bottom-5 right-6 z-40">
+        <Button
+          type="button"
+          onClick={onSave}
+          disabled={isSaving}
+          className={cn(
+            'pointer-events-auto h-11 min-w-[148px] gap-2 rounded-xl bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] px-5 text-sm font-semibold text-white shadow-xl shadow-[#24A1DE]/20',
+            'hover:from-[#24A1DE]/90 hover:to-[#8B5CF6]/90 disabled:cursor-not-allowed disabled:opacity-70'
+          )}
+        >
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {isSaving ? savingLabel : saveLabel}
+        </Button>
+      </div>
     </div>
   )
 }
@@ -627,6 +653,64 @@ export function BotWorkspaceShell({
           ...(savedBot.config || config),
           nodes: serialNodes as typeof savedBot.config.nodes,
           edges: serialEdges as typeof savedBot.config.edges,
+          variables: config.variables,
+          version: config.version || savedBot.config?.version || '1.0.0',
+        },
+      })
+      setIsDirty(false)
+      return true
+    } catch (error) {
+      setActionError(String(error))
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }, [bot, config, setBot, setIsDirty, tEditorShell])
+
+  const saveBotSettingsOnly = useCallback(async (): Promise<boolean> => {
+    if (!bot?.id) {
+      setActionError(tEditorShell('botNotLoaded'))
+      return false
+    }
+
+    try {
+      setActionError(null)
+      setIsSaving(true)
+
+      const settingsResult = await saveBotSettingsAction(bot.id, {
+        name: bot.name || '',
+        description: bot.description || '',
+        status: bot.status,
+        telegramToken: String(bot.metadata?.telegramToken || ''),
+        webhookUrl: String(bot.metadata?.webhookUrl || ''),
+        metadataPatch: {
+          features:
+            bot.metadata?.features && typeof bot.metadata.features === 'object'
+              ? (bot.metadata.features as Record<string, unknown>)
+              : undefined,
+          profileStyle:
+            bot.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
+              ? (bot.metadata.profileStyle as Record<string, unknown>)
+              : undefined,
+          database:
+            bot.metadata?.database && typeof bot.metadata.database === 'object'
+              ? (bot.metadata.database as Record<string, unknown>)
+              : undefined,
+        },
+      })
+
+      const savedBot = settingsResult.success && 'bot' in settingsResult ? settingsResult.bot : null
+      if (!settingsResult.success || !savedBot) {
+        setActionError(('error' in settingsResult ? settingsResult.error : null) || tEditorShell('settingsError'))
+        return false
+      }
+
+      setBot({
+        ...savedBot,
+        config: {
+          ...(savedBot.config || config),
+          nodes: config.nodes,
+          edges: config.edges,
           variables: config.variables,
           version: config.version || savedBot.config?.version || '1.0.0',
         },
@@ -1310,7 +1394,13 @@ export function BotWorkspaceShell({
                   </div>
                 </nav>
                 <div className="min-h-0 min-w-0 overflow-hidden">
-                  <BotSettingsContent section={botSettingsSection} />
+                  <BotSettingsContent
+                    section={botSettingsSection}
+                    onSave={() => void saveBotSettingsOnly()}
+                    isSaving={isSaving}
+                    saveLabel={tEditorShell('save')}
+                    savingLabel={tEditorShell('saving')}
+                  />
                 </div>
               </div>
             </motion.aside>

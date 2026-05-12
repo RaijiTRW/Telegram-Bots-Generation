@@ -6,6 +6,7 @@ import {
   Bot,
   CalendarDays,
   ClipboardList,
+  FilePlus2,
   HelpCircle,
   Loader2,
   ShoppingBag,
@@ -27,6 +28,8 @@ export type RestaurantBotTemplateId =
   | 'restaurant-promos-faq'
   | 'restaurant-lead'
 
+type TemplateSelectionId = RestaurantBotTemplateId | 'empty-project'
+
 export type CreateBotModalData = {
   name: string
   description: string
@@ -34,14 +37,20 @@ export type CreateBotModalData = {
 }
 
 type RestaurantBotTemplate = {
-  id: RestaurantBotTemplateId
+  id: TemplateSelectionId
   icon: LucideIcon
   labelKey: string
   descriptionKey: string
-  promptKey: string
+  promptKey?: string
 }
 
 const RESTAURANT_BOT_TEMPLATES: RestaurantBotTemplate[] = [
+  {
+    id: 'empty-project',
+    icon: FilePlus2,
+    labelKey: 'templateEmpty',
+    descriptionKey: 'templateEmptyDesc',
+  },
   {
     id: 'restaurant-menu',
     icon: Utensils,
@@ -90,18 +99,18 @@ export function CreateBotModal({ isOpen, onClose, onCreate, isLoading = false }:
   const t = useTranslations('editor.modals')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [selectedTemplateId, setSelectedTemplateId] = useState<RestaurantBotTemplateId>('restaurant-menu')
+  const [selectedTemplateId, setSelectedTemplateId] = useState<TemplateSelectionId>('restaurant-menu')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
     const selectedTemplate = RESTAURANT_BOT_TEMPLATES.find((item) => item.id === selectedTemplateId)
-    const templatePrompt = selectedTemplate ? t(selectedTemplate.promptKey) : ''
+    const templatePrompt = selectedTemplate?.promptKey ? t(selectedTemplate.promptKey) : ''
 
     await onCreate({
       name: name.trim(),
       description: description.trim() || templatePrompt,
-      restaurantTemplateId: selectedTemplateId,
+      restaurantTemplateId: selectedTemplateId === 'empty-project' ? undefined : selectedTemplateId,
     })
     setName('')
     setDescription('')
@@ -118,11 +127,11 @@ export function CreateBotModal({ isOpen, onClose, onCreate, isLoading = false }:
   const handleTemplateSelect = (template: RestaurantBotTemplate) => {
     const previousTemplate = RESTAURANT_BOT_TEMPLATES.find((item) => item.id === selectedTemplateId)
     const currentDescription = description.trim()
-    const previousPrompt = previousTemplate ? t(previousTemplate.promptKey) : ''
+    const previousPrompt = previousTemplate?.promptKey ? t(previousTemplate.promptKey) : ''
 
     setSelectedTemplateId(template.id)
     if (!currentDescription || currentDescription === previousPrompt) {
-      setDescription(t(template.promptKey))
+      setDescription(template.promptKey ? t(template.promptKey) : '')
     }
   }
 

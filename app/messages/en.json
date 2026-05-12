@@ -1704,6 +1704,8 @@
       "restaurantCreateSubtitle": "Choose a template, name the bot, and add details if needed.",
       "restaurantTemplateTitle": "What bot does your restaurant need?",
       "restaurantTemplateDesc": "The template is saved with the bot and helps AI build the right flow faster.",
+      "templateEmpty": "Empty project",
+      "templateEmptyDesc": "No template: clean canvas, empty database, and manual setup.",
       "templateMenu": "Menu",
       "templateMenuDesc": "Categories, dishes, prices, and help choosing.",
       "templateMenuPrompt": "I need a Telegram bot for a restaurant menu: dish categories, prices, descriptions, help choosing, and order handoff to the manager.",
