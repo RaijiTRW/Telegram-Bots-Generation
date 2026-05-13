@@ -296,6 +296,31 @@ type SecretsClient = Parameters<typeof createBotSecretsService>[0]
 type AuditClient = Parameters<typeof appendBotAuditEventSafe>[0]
 type SubscribersClient = Parameters<typeof getBotSubscribersStats>[0]
 
+const BOT_SECRET_ACTION_TIMEOUT_MS = 12_000
+
+function createAdminBotSecretsService() {
+  return createBotSecretsService(createAdminClient() as unknown as SecretsClient)
+}
+
+async function withBotSecretTimeout<T>(operation: Promise<T>, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`${label}: Supabase не ответил за ${BOT_SECRET_ACTION_TIMEOUT_MS / 1000} сек.`))
+        }, BOT_SECRET_ACTION_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
 const ALLOWED_NODE_TYPES = new Set<WorkflowNode['type']>([
   'message',
   'input',
@@ -1052,21 +1077,43 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
   try {
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
-    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
     const bot = await botService.getBot(botId)
 
     if (!bot) {
       return { success: false, error: 'Bot not found' }
     }
 
+    const botSecretsService = createAdminBotSecretsService()
     const requestedToken = input.telegramToken.trim()
     const webhookUrl = input.webhookUrl.trim()
-    const existingToken = await botSecretsService.getTelegramToken(botId)
-    const effectiveToken = requestedToken || existingToken || ''
+    let hasTelegramToken = Boolean(bot.metadata?.hasTelegramToken)
+    let metadataTokenFallback: string | null = null
+    let tokenStorage: 'encrypted' | 'metadata_fallback' | 'unchanged' = 'unchanged'
 
-    if (effectiveToken) {
-      // Migrates legacy metadata token into encrypted storage on first save too.
-      await botSecretsService.setTelegramToken(botId, effectiveToken)
+    if (requestedToken) {
+      try {
+        await withBotSecretTimeout(
+          botSecretsService.setTelegramToken(botId, requestedToken),
+          'Сохранение Telegram token'
+        )
+        tokenStorage = 'encrypted'
+      } catch (error) {
+        console.error('Failed to save encrypted Telegram token, falling back to bot metadata:', error)
+        metadataTokenFallback = requestedToken
+        tokenStorage = 'metadata_fallback'
+      }
+      hasTelegramToken = true
+    } else if (bot.metadata?.telegramTokenStorage === 'metadata_fallback') {
+      try {
+        metadataTokenFallback = String(
+          await withBotSecretTimeout(
+            botSecretsService.getTelegramToken(botId),
+            'Чтение сохранённого Telegram token'
+          ) || ''
+        ).trim() || null
+      } catch (error) {
+        console.error('Failed to preserve metadata fallback Telegram token:', error)
+      }
     }
 
     const safeMetadataBase = removeSecretFieldsFromMetadata(
@@ -1107,9 +1154,15 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
         ...(mergedFeatures ? { features: mergedFeatures } : {}),
         ...(mergedProfileStyle ? { profileStyle: mergedProfileStyle } : {}),
         ...(databasePatch ? { database: databasePatch } : {}),
+        ...(metadataTokenFallback
+          ? {
+              telegramToken: metadataTokenFallback,
+              telegramTokenStorage: 'metadata_fallback',
+            }
+          : {}),
         webhookUrl,
-        hasTelegramToken: Boolean(effectiveToken),
-        testActive: requestedToken && requestedToken !== existingToken ? false : bot.metadata?.testActive,
+        hasTelegramToken,
+        testActive: requestedToken ? false : bot.metadata?.testActive,
       },
     })
 
@@ -1120,8 +1173,9 @@ export async function saveBotSettingsAction(botId: string, input: SaveSettingsIn
       eventType: 'settings.saved',
       payload: {
         status: input.status,
-        hasTelegramToken: Boolean(effectiveToken),
+        hasTelegramToken,
         tokenUpdated: Boolean(requestedToken),
+        tokenStorage,
         webhookUrlSet: Boolean(webhookUrl),
       },
     })
@@ -1172,14 +1226,19 @@ export async function checkTelegramUsernameAvailabilityAction(botId: string, use
   try {
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
-    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
     const bot = await botService.getBot(normalizedBotId)
 
     if (!bot) {
       return { success: false, error: 'Bot not found' as const }
     }
 
-    const token = String(await botSecretsService.getTelegramToken(normalizedBotId) || '').trim()
+    const botSecretsService = createAdminBotSecretsService()
+    const token = String(
+      await withBotSecretTimeout(
+        botSecretsService.getTelegramToken(normalizedBotId),
+        'Чтение Telegram token'
+      ) || ''
+    ).trim()
     if (!token) {
       return { success: false, error: 'Bot token is missing' as const }
     }
@@ -1266,14 +1325,19 @@ export async function syncTelegramBotStyleAction(
   try {
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
-    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
     const bot = await botService.getBot(normalizedBotId)
 
     if (!bot) {
       return { success: false, error: 'Bot not found' as const }
     }
 
-    const token = String(await botSecretsService.getTelegramToken(normalizedBotId) || '').trim()
+    const botSecretsService = createAdminBotSecretsService()
+    const token = String(
+      await withBotSecretTimeout(
+        botSecretsService.getTelegramToken(normalizedBotId),
+        'Чтение Telegram token'
+      ) || ''
+    ).trim()
     if (!token) {
       return { success: false, error: 'Bot token is missing' as const }
     }
@@ -1464,19 +1528,24 @@ export async function startBotTestAction(
   try {
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
-    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
     const bot = await botService.getBot(botId)
 
     if (!bot) {
       return { success: false, error: 'Bot not found' }
     }
 
+    const botSecretsService = createAdminBotSecretsService()
     const testRunId = randomUUID()
     setBotTestLogRunContext(botId, testRunId)
     clearBotTestLogs(botId)
     appendBotTestLog(botId, 'system', 'Запуск теста бота...')
 
-    const token = String(await botSecretsService.getTelegramToken(botId) || '').trim()
+    const token = String(
+      await withBotSecretTimeout(
+        botSecretsService.getTelegramToken(botId),
+        'Чтение Telegram token'
+      ) || ''
+    ).trim()
     if (!token) {
       appendBotTestLog(
         botId,
@@ -1487,7 +1556,7 @@ export async function startBotTestAction(
       setBotTestLogRunContext(botId, null)
       return {
         success: false,
-        error: 'Укажите Bot Token в Settings -> Telegram Integration, затем сохраните настройки.',
+        error: 'Укажите Bot Token в настройках Telegram и запуск, затем сохраните настройки.',
       }
     }
 
@@ -1535,7 +1604,10 @@ export async function startBotTestAction(
 
       const webhookUrl = `${baseUrl}/api/telegram/webhook/${botId}`
       const webhookSecret = randomUUID()
-      await botSecretsService.setWebhookSecret(botId, webhookSecret)
+      await withBotSecretTimeout(
+        botSecretsService.setWebhookSecret(botId, webhookSecret),
+        'Сохранение webhook secret'
+      )
 
       await callTelegramApi(token, 'setWebhook', {
         url: webhookUrl,
@@ -1590,7 +1662,10 @@ export async function startBotTestAction(
       drop_pending_updates: true,
     })
     appendBotTestLog(botId, 'telegram', 'Webhook отключен. Переход в polling-режим.')
-    await botSecretsService.setWebhookSecret(botId, null)
+    await withBotSecretTimeout(
+      botSecretsService.setWebhookSecret(botId, null),
+      'Очистка webhook secret'
+    )
 
     const pollingRuntimeMetadata = {
       ...removeSecretFieldsFromMetadata((bot.metadata || {}) as Record<string, unknown>),
@@ -1680,13 +1755,13 @@ export async function stopBotTestAction(
   try {
     const supabase = await createServerClientWrapper()
     const botService = createBotService(supabase)
-    const botSecretsService = createBotSecretsService(supabase as unknown as SecretsClient)
     const bot = await botService.getBot(botId)
 
     if (!bot) {
       return { success: false, error: 'Bot not found' }
     }
 
+    const botSecretsService = createAdminBotSecretsService()
     const stopSource = String(input?.source || 'unknown').trim() || 'unknown'
 
     setBotTestLogRunContext(botId, String(bot.metadata?.testRunId || ''))
@@ -1695,7 +1770,17 @@ export async function stopBotTestAction(
     stopTelegramPolling(botId)
     clearRuntimeSessionsForBot(botId)
 
-    const token = String(await botSecretsService.getTelegramToken(botId) || '').trim()
+    let token = ''
+    try {
+      token = String(
+        await withBotSecretTimeout(
+          botSecretsService.getTelegramToken(botId),
+          'Чтение Telegram token'
+        ) || ''
+      ).trim()
+    } catch (error) {
+      appendBotTestLog(botId, 'telegram', `Не удалось быстро прочитать token при остановке: ${getErrorMessage(error)}`, 'warn')
+    }
     if (token) {
       try {
         await callTelegramApi(token, 'deleteWebhook', {
@@ -1707,7 +1792,14 @@ export async function stopBotTestAction(
       }
     }
 
-    await botSecretsService.setWebhookSecret(botId, null)
+    try {
+      await withBotSecretTimeout(
+        botSecretsService.setWebhookSecret(botId, null),
+        'Очистка webhook secret'
+      )
+    } catch (error) {
+      appendBotTestLog(botId, 'telegram', `Не удалось быстро очистить webhook secret: ${getErrorMessage(error)}`, 'warn')
+    }
 
     await botService.updateBot(botId, {
       metadata: {

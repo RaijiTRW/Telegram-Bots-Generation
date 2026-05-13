@@ -753,9 +753,8 @@ export function LivePreviewPhone({
   }, [config, onOnlineChange, pushMessage, runFrom])
 
   const startPreviewTest = useCallback(() => {
-    if (!isOnline) return
     restart()
-  }, [isOnline, restart])
+  }, [restart])
 
   useEffect(() => {
     if (!isOpen || startSignal <= 0) return
@@ -847,9 +846,8 @@ export function LivePreviewPhone({
                   <div className="flex items-center gap-1">
                       <button
                         onClick={startPreviewTest}
-                        disabled={!isOnline}
-                        className="rounded-full p-2 text-zinc-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                        title={isOnline ? 'Перезапустить' : 'Сначала нажмите Test'}
+                        className="rounded-full p-2 text-zinc-300 hover:bg-white/10"
+                        title={isOnline ? 'Перезапустить' : 'Запустить preview'}
                       >
                       <RotateCcw className="h-4 w-4" />
                     </button>
@@ -867,8 +865,7 @@ export function LivePreviewPhone({
                     <div className="flex h-full items-end justify-center pb-4">
                       <button
                         onClick={startPreviewTest}
-                        disabled={!isOnline}
-                        className="rounded-full bg-[#2AABEE] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-950/50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:shadow-none"
+                        className="rounded-full bg-[#2AABEE] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-950/50 transition hover:bg-[#1f9edc]"
                       >
                         START
                       </button>

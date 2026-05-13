@@ -126,6 +126,8 @@ const LAST_WORKSPACE_MODE_COOKIE = 'cbtooll:lastWorkspaceMode'
 const AUTO_STOP_TEST_ENDPOINT = '/api/bot-tests/stop-on-exit'
 const CHAT_SIDEBAR_WIDTH = 292
 const CHAT_SIDEBAR_COLLAPSED_WIDTH = 58
+const WORKSPACE_SAVE_TIMEOUT_MS = 20_000
+const WORKSPACE_SAVE_TIMEOUT = Symbol('workspace-save-timeout')
 const GLOBAL_SETTINGS_SECTIONS = new Set<DashboardSection>([
   'statistics',
   'subscription',
@@ -249,18 +251,37 @@ function getRequestedGlobalSection(value: string | null): DashboardSection | nul
   return value as DashboardSection
 }
 
+async function withWorkspaceSaveTimeout<T>(operation: Promise<T>): Promise<T | typeof WORKSPACE_SAVE_TIMEOUT> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<typeof WORKSPACE_SAVE_TIMEOUT>((resolve) => {
+        timeoutId = setTimeout(() => resolve(WORKSPACE_SAVE_TIMEOUT), WORKSPACE_SAVE_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
 function BotSettingsContent({
   section,
   onSave,
   isSaving,
   saveLabel,
   savingLabel,
+  error,
 }: {
   section: BotSettingsSection
   onSave: () => void
   isSaving: boolean
   saveLabel: string
   savingLabel: string
+  error?: string | null
 }) {
   const content =
     section === 'database' ? <BotDatabaseScreen />
@@ -272,7 +293,12 @@ function BotSettingsContent({
   return (
     <div className="relative h-full w-full min-w-0 overflow-hidden">
       {content}
-      <div className="pointer-events-none absolute bottom-5 right-6 z-40">
+      <div className="pointer-events-none absolute bottom-5 right-6 z-40 flex max-w-[calc(100%-3rem)] items-end gap-3">
+        {error ? (
+          <div className="pointer-events-auto max-w-[360px] rounded-xl border border-red-500/35 bg-red-500/12 px-3 py-2 text-xs leading-5 text-red-200 shadow-xl shadow-black/30">
+            {error}
+          </div>
+        ) : null}
         <Button
           type="button"
           onClick={onSave}
@@ -606,39 +632,53 @@ export function BotWorkspaceShell({
       const serialVariables = config.variables as unknown[]
       const configVersion = config.version
 
-      const canvasResult = await saveCanvasAction(bot.id, {
-        nodes: serialNodes as CanvasNode[],
-        edges: serialEdges as CanvasEdge[],
-        variables: serialVariables as CanvasVariable[],
-        version: configVersion,
-      })
+      const canvasResult = await withWorkspaceSaveTimeout(
+        saveCanvasAction(bot.id, {
+          nodes: serialNodes as CanvasNode[],
+          edges: serialEdges as CanvasEdge[],
+          variables: serialVariables as CanvasVariable[],
+          version: configVersion,
+        })
+      )
+
+      if (canvasResult === WORKSPACE_SAVE_TIMEOUT) {
+        setActionError(isRu ? 'Сохранение заняло слишком долго. Попробуйте ещё раз.' : 'Saving took too long. Try again.')
+        return false
+      }
 
       if (!canvasResult.success) {
         setActionError(('error' in canvasResult ? canvasResult.error : null) || tEditorShell('saveError'))
         return false
       }
 
-      const settingsResult = await saveBotSettingsAction(bot.id, {
-        name: bot.name || '',
-        description: bot.description || '',
-        status: bot.status,
-        telegramToken: String(bot.metadata?.telegramToken || ''),
-        webhookUrl: '',
-        metadataPatch: {
-          features:
-            bot.metadata?.features && typeof bot.metadata.features === 'object'
-              ? (bot.metadata.features as Record<string, unknown>)
-              : undefined,
-          profileStyle:
-            bot.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
-              ? (bot.metadata.profileStyle as Record<string, unknown>)
-              : undefined,
-          database:
-            bot.metadata?.database && typeof bot.metadata.database === 'object'
-              ? (bot.metadata.database as Record<string, unknown>)
-              : undefined,
-        },
-      })
+      const settingsResult = await withWorkspaceSaveTimeout(
+        saveBotSettingsAction(bot.id, {
+          name: bot.name || '',
+          description: bot.description || '',
+          status: bot.status,
+          telegramToken: String(bot.metadata?.telegramToken || ''),
+          webhookUrl: '',
+          metadataPatch: {
+            features:
+              bot.metadata?.features && typeof bot.metadata.features === 'object'
+                ? (bot.metadata.features as Record<string, unknown>)
+                : undefined,
+            profileStyle:
+              bot.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
+                ? (bot.metadata.profileStyle as Record<string, unknown>)
+                : undefined,
+            database:
+              bot.metadata?.database && typeof bot.metadata.database === 'object'
+                ? (bot.metadata.database as Record<string, unknown>)
+                : undefined,
+          },
+        })
+      )
+
+      if (settingsResult === WORKSPACE_SAVE_TIMEOUT) {
+        setActionError(isRu ? 'Сохранение настроек заняло слишком долго. Попробуйте ещё раз.' : 'Settings save took too long. Try again.')
+        return false
+      }
 
       const savedBot = settingsResult.success && 'bot' in settingsResult ? settingsResult.bot : null
 
@@ -665,7 +705,7 @@ export function BotWorkspaceShell({
     } finally {
       setIsSaving(false)
     }
-  }, [bot, config, setBot, setIsDirty, tEditorShell])
+  }, [bot, config, isRu, setBot, setIsDirty, tEditorShell])
 
   const saveBotSettingsOnly = useCallback(async (): Promise<boolean> => {
     if (!bot?.id) {
@@ -677,27 +717,34 @@ export function BotWorkspaceShell({
       setActionError(null)
       setIsSaving(true)
 
-      const settingsResult = await saveBotSettingsAction(bot.id, {
-        name: bot.name || '',
-        description: bot.description || '',
-        status: bot.status,
-        telegramToken: String(bot.metadata?.telegramToken || ''),
-        webhookUrl: String(bot.metadata?.webhookUrl || ''),
-        metadataPatch: {
-          features:
-            bot.metadata?.features && typeof bot.metadata.features === 'object'
-              ? (bot.metadata.features as Record<string, unknown>)
-              : undefined,
-          profileStyle:
-            bot.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
-              ? (bot.metadata.profileStyle as Record<string, unknown>)
-              : undefined,
-          database:
-            bot.metadata?.database && typeof bot.metadata.database === 'object'
-              ? (bot.metadata.database as Record<string, unknown>)
-              : undefined,
-        },
-      })
+      const settingsResult = await withWorkspaceSaveTimeout(
+        saveBotSettingsAction(bot.id, {
+          name: bot.name || '',
+          description: bot.description || '',
+          status: bot.status,
+          telegramToken: String(bot.metadata?.telegramToken || ''),
+          webhookUrl: String(bot.metadata?.webhookUrl || ''),
+          metadataPatch: {
+            features:
+              bot.metadata?.features && typeof bot.metadata.features === 'object'
+                ? (bot.metadata.features as Record<string, unknown>)
+                : undefined,
+            profileStyle:
+              bot.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
+                ? (bot.metadata.profileStyle as Record<string, unknown>)
+                : undefined,
+            database:
+              bot.metadata?.database && typeof bot.metadata.database === 'object'
+                ? (bot.metadata.database as Record<string, unknown>)
+                : undefined,
+          },
+        })
+      )
+
+      if (settingsResult === WORKSPACE_SAVE_TIMEOUT) {
+        setActionError(isRu ? 'Сохранение настроек заняло слишком долго. Попробуйте ещё раз.' : 'Settings save took too long. Try again.')
+        return false
+      }
 
       const savedBot = settingsResult.success && 'bot' in settingsResult ? settingsResult.bot : null
       if (!settingsResult.success || !savedBot) {
@@ -723,7 +770,7 @@ export function BotWorkspaceShell({
     } finally {
       setIsSaving(false)
     }
-  }, [bot, config, setBot, setIsDirty, tEditorShell])
+  }, [bot, config, isRu, setBot, setIsDirty, tEditorShell])
 
   const handleDeployHosted = async () => {
     if (!bot?.id) return
@@ -1400,6 +1447,7 @@ export function BotWorkspaceShell({
                     isSaving={isSaving}
                     saveLabel={tEditorShell('save')}
                     savingLabel={tEditorShell('saving')}
+                    error={actionError}
                   />
                 </div>
               </div>

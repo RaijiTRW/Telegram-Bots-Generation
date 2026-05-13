@@ -23,6 +23,11 @@ const SUPPORTED_PROFILE_IMAGE_TYPES = new Set([
   'image/gif',
 ])
 const MAX_PROFILE_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+const STORED_TOKEN_MASK = '••••••••••••••••••••••••••••••••'
+
+function stripStoredTokenMask(value: string) {
+  return value.replace(/[•●*]/g, '').trim()
+}
 
 export function BotSettingsForm() {
   const t = useTranslations('editor.settings')
@@ -50,6 +55,8 @@ export function BotSettingsForm() {
   const status: BotStatus = bot?.status || 'draft'
   const telegramToken = String(bot?.metadata?.telegramToken || '')
   const hasStoredTelegramToken = Boolean((bot?.metadata as Record<string, unknown> | undefined)?.hasTelegramToken)
+  const tokenInputValue = telegramToken || (hasStoredTelegramToken ? STORED_TOKEN_MASK : '')
+  const isStoredTokenMasked = hasStoredTelegramToken && !telegramToken
   const profileStyleRaw =
     bot?.metadata?.profileStyle && typeof bot.metadata.profileStyle === 'object'
       ? (bot.metadata.profileStyle as Record<string, unknown>)
@@ -529,15 +536,39 @@ export function BotSettingsForm() {
               <Input
                 id="telegram-token"
                 type={showToken ? 'text' : 'password'}
-                value={telegramToken}
-                onChange={(e) =>
+                value={tokenInputValue}
+                onFocus={(e) => {
+                  if (hasStoredTelegramToken && !telegramToken) {
+                    e.currentTarget.select()
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (!isStoredTokenMasked) return
+                  if (e.key !== 'Backspace' && e.key !== 'Delete') return
+
+                  e.preventDefault()
                   updateBotDraft({
                     metadata: {
                       ...(bot?.metadata || {}),
-                      telegramToken: e.target.value,
+                      telegramToken: '',
+                      hasTelegramToken: false,
                     },
                   })
-                }
+                }}
+                onChange={(e) => {
+                  const rawValue = e.target.value
+                  const nextToken =
+                    hasStoredTelegramToken && !telegramToken
+                      ? stripStoredTokenMask(rawValue)
+                      : rawValue
+
+                  updateBotDraft({
+                    metadata: {
+                      ...(bot?.metadata || {}),
+                      telegramToken: nextToken,
+                    },
+                  })
+                }}
                 placeholder={
                   hasStoredTelegramToken && !telegramToken
                     ? t('botTokenReplacePlaceholder')
@@ -550,8 +581,13 @@ export function BotSettingsForm() {
               />
               <button
                 type="button"
-                onClick={() => setShowToken(!showToken)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
+                onClick={() => {
+                  if (isStoredTokenMasked) return
+                  setShowToken(!showToken)
+                }}
+                disabled={isStoredTokenMasked}
+                title={isStoredTokenMasked ? 'Сохранённый токен скрыт. Введите новый токен, чтобы увидеть ввод.' : undefined}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-zinc-400 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-zinc-400"
               >
                 {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>

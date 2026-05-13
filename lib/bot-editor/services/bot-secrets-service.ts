@@ -47,6 +47,22 @@ type SecretRow = {
   updated_at?: string
 }
 
+function formatSecretStoreError(error: unknown): string {
+  if (!error) return 'Unknown error'
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object') {
+    const record = error as Record<string, unknown>
+    const parts = [
+      typeof record.message === 'string' ? record.message : '',
+      typeof record.details === 'string' ? record.details : '',
+      typeof record.hint === 'string' ? record.hint : '',
+      typeof record.code === 'string' ? `code=${record.code}` : '',
+    ].filter(Boolean)
+    if (parts.length > 0) return parts.join(' ')
+  }
+  return String(error)
+}
+
 function getEncryptionSource(): string | null {
   return (
     process.env.BOT_SECRETS_ENCRYPTION_KEY ||
@@ -119,7 +135,11 @@ async function fetchSecretRows(supabase: SupabaseLike, botId: string): Promise<S
     .select('bot_id, secret_name, algorithm, key_version, iv, ciphertext, auth_tag')) as SelectManyQuery
   const { data, error } = await query.eq('bot_id', botId)
 
-  if (error || !Array.isArray(data)) {
+  if (error) {
+    throw new Error(`Failed to load secret row(s): ${formatSecretStoreError(error)}`)
+  }
+
+  if (!Array.isArray(data)) {
     return []
   }
 
@@ -173,7 +193,20 @@ export class BotSecretsService {
   constructor(private readonly supabase: SupabaseLike) {}
 
   async getSecret(botId: string, secretName: SecretName): Promise<string | null> {
-    const rows = await fetchSecretRows(this.supabase, botId)
+    let rows: SecretRow[] = []
+    try {
+      rows = await fetchSecretRows(this.supabase, botId)
+    } catch (error) {
+      // Keep old installations usable if the encrypted secret table is missing,
+      // temporarily unavailable, or blocked by policies. New saves still prefer
+      // encrypted storage, but runtime can fall back to legacy metadata.
+      const legacySecret = await fallbackFromBotMetadata(this.supabase, botId, secretName)
+      if (legacySecret) {
+        return legacySecret
+      }
+      throw error
+    }
+
     const row = rows.find((item) => item.secret_name === secretName)
 
     if (row) {
@@ -205,7 +238,7 @@ export class BotSecretsService {
         .eq('bot_id', botId)
         .eq('secret_name', secretName)
       if (error) {
-        throw new Error(`Failed to delete secret row(s): ${String(error)}`)
+        throw new Error(`Failed to delete secret row(s): ${formatSecretStoreError(error)}`)
       }
       return
     }
@@ -225,7 +258,7 @@ export class BotSecretsService {
       )
 
     if (error) {
-      throw new Error(`Failed to save secret: ${String(error)}`)
+      throw new Error(`Failed to save secret: ${formatSecretStoreError(error)}`)
     }
   }
 
