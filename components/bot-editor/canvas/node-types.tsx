@@ -18,7 +18,6 @@ import {
   Clock,
   CreditCard,
   Star,
-  Trash2,
   Settings,
   Plus,
   Variable,
@@ -202,7 +201,7 @@ const getTriggerNodeLabel = (data: Record<string, unknown>): string => {
   }
 }
 
-type InsertMenuDirection = 'top' | 'bottom' | 'right'
+type InsertMenuDirection = 'top' | 'bottom' | 'left' | 'right'
 
 type InsertMenuRequest = {
   clientX: number
@@ -215,6 +214,10 @@ type InsertMenuRequest = {
 type InsertMenuOpener = (request: InsertMenuRequest) => void
 const CONNECTION_HANDLE_POINTER_DOWN_EVENT = 'bot-flow-connection-handle-pointer-down'
 const DEFAULT_HANDLE_KEY = '__default__'
+const ADAPTIVE_TARGET_LEFT_HANDLE = 'adaptive-target:left'
+const ADAPTIVE_TARGET_RIGHT_HANDLE = 'adaptive-target:right'
+const ADAPTIVE_SOURCE_LEFT_HANDLE = 'adaptive-source:left'
+const ADAPTIVE_SOURCE_RIGHT_HANDLE = 'adaptive-source:right'
 
 function getHandleKey(handleId?: string | null): string {
   return handleId && handleId.trim() ? handleId : DEFAULT_HANDLE_KEY
@@ -239,7 +242,17 @@ function getInsertButtonPositionStyle(
     return {
       ...baseStyle,
       left: '100%',
+      top: baseStyle.top ?? '50%',
       transform: 'translate(10px, -50%)',
+    }
+  }
+
+  if (direction === 'left') {
+    return {
+      ...baseStyle,
+      left: 0,
+      top: baseStyle.top ?? '50%',
+      transform: 'translate(calc(-100% - 10px), -50%)',
     }
   }
 
@@ -261,7 +274,9 @@ interface HandleInsertButtonProps {
   onOpen?: InsertMenuOpener
   style?: CSSProperties
   sourceHandle?: string | null
+  targetHandle?: string | null
   isConnected?: boolean
+  isHidden?: boolean
 }
 
 function HandleInsertButton({
@@ -274,26 +289,32 @@ function HandleInsertButton({
   onOpen,
   style,
   sourceHandle,
+  targetHandle,
   isConnected = false,
+  isHidden = false,
 }: HandleInsertButtonProps) {
   if (!onOpen) {
     return null
   }
 
+  const handleStateClassName = isHidden
+    ? '!h-[10px] !w-[10px] !border-transparent !bg-transparent !text-transparent !opacity-0 !pointer-events-none'
+    : isConnected
+      ? '!h-[10px] !w-[10px] !border-cyan-300/70 !bg-cyan-300 !text-transparent !shadow-[0_0_0_3px_rgba(34,211,238,0.12),0_0_12px_rgba(34,211,238,0.38)]'
+      : '!h-[18px] !w-[18px] !border-white/15 !bg-black/90 !text-white/75 !shadow-[0_6px_18px_rgba(0,0,0,0.28)] hover:!scale-105 hover:!text-white'
+
   return (
     <Handle
       type={handleType}
       position={handlePosition}
-      id={handleType === 'source' ? sourceHandle || undefined : undefined}
+      id={handleType === 'source' ? sourceHandle || undefined : targetHandle || undefined}
       isConnectable={true}
-      className={`!absolute !z-30 !flex !items-center !justify-center !rounded-full !border !transition-all !duration-150 ${
-        isConnected
-          ? '!h-[10px] !w-[10px] !border-cyan-300/70 !bg-cyan-300 !text-transparent !shadow-[0_0_0_3px_rgba(34,211,238,0.12),0_0_12px_rgba(34,211,238,0.38)]'
-          : '!h-[18px] !w-[18px] !border-white/15 !bg-black/90 !text-white/75 !shadow-[0_6px_18px_rgba(0,0,0,0.28)] hover:!scale-105 hover:!text-white'
-      }`}
+      className={`!absolute !z-30 !flex !items-center !justify-center !rounded-full !border !transition-all !duration-150 ${handleStateClassName}`}
       style={{
         ...getInsertButtonPositionStyle(direction, style),
-        boxShadow: isConnected
+        boxShadow: isHidden
+          ? 'none'
+          : isConnected
           ? `0 0 0 3px ${nodeColor}18, 0 0 12px ${nodeColor}55`
           : `0 0 0 1px ${nodeColor}25, 0 8px 20px rgba(0, 0, 0, 0.28)`,
       }}
@@ -302,13 +323,13 @@ function HandleInsertButton({
         window.dispatchEvent(new CustomEvent(CONNECTION_HANDLE_POINTER_DOWN_EVENT, {
           detail: {
             nodeId,
-            handleId: handleType === 'source' ? (sourceHandle || null) : null,
+            handleId: handleType === 'source' ? (sourceHandle || null) : (targetHandle || null),
             handleType,
           },
         }))
       }}
       onClick={(event) => {
-        if (isConnected) {
+        if (isConnected || isHidden) {
           return
         }
 
@@ -324,7 +345,7 @@ function HandleInsertButton({
         })
       }}
     >
-      {isConnected ? null : <Plus className="pointer-events-none h-2.5 w-2.5" />}
+      {isConnected || isHidden ? null : <Plus className="pointer-events-none h-2.5 w-2.5" />}
     </Handle>
   )
 }
@@ -391,6 +412,14 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     connectedSourceHandles.has(getHandleKey(handleId))
   const isTargetHandleConnected = (handleId?: string | null) =>
     connectedTargetHandles.has(getHandleKey(handleId))
+  const isAdaptiveTargetLeftConnected = isTargetHandleConnected(ADAPTIVE_TARGET_LEFT_HANDLE)
+  const isAdaptiveTargetRightConnected = isTargetHandleConnected(ADAPTIVE_TARGET_RIGHT_HANDLE)
+  const isAdaptiveSourceLeftConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_LEFT_HANDLE)
+  const isAdaptiveSourceRightConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_RIGHT_HANDLE)
+  const connectedHandlesSignature = [
+    ...Array.from(connectedSourceHandles).sort().map((handle) => `s:${handle}`),
+    ...Array.from(connectedTargetHandles).sort().map((handle) => `t:${handle}`),
+  ].join('|')
   const executionState = String(dataRecord.__executionState || '').trim()
   const isExecutionActive = executionState === 'active' || executionState === 'waiting'
   const isExecutionRecent = executionState === 'recent'
@@ -463,6 +492,10 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     }
   }, [id, normalizedType, routerCases, routerCasesSignature, updateNodeInternals])
 
+  useLayoutEffect(() => {
+    updateNodeInternals(id)
+  }, [connectedHandlesSignature, id, normalizedType, updateNodeInternals])
+
   if (isGroupComment) {
     return (
       <div
@@ -479,17 +512,6 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
           {commentPreview || 'Комментарий'}
         </div>
 
-        {selected && (
-          <div className="absolute right-2 top-2 z-20 flex gap-1">
-            <button
-              type="button"
-              className="p-1 rounded bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 transition-colors"
-              onClick={() => data.onDelete?.(id)}
-            >
-              <Trash2 className="w-2.5 h-2.5 text-red-400" />
-            </button>
-          </div>
-        )}
       </div>
     )
   }
@@ -522,6 +544,36 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
           ariaLabel={tCanvas('insertNodeHere')}
           onOpen={openInsertMenu}
           isConnected={isTargetHandleConnected(null)}
+        />
+      )}
+
+      {type !== 'trigger' && type !== 'comment' && (
+        <HandleInsertButton
+          nodeId={id}
+          direction="left"
+          handleType="target"
+          handlePosition={Position.Left}
+          nodeColor={nodeColor}
+          ariaLabel={tCanvas('insertNodeHere')}
+          onOpen={openInsertMenu}
+          targetHandle={ADAPTIVE_TARGET_LEFT_HANDLE}
+          isConnected={isAdaptiveTargetLeftConnected}
+          isHidden={!isAdaptiveTargetLeftConnected}
+        />
+      )}
+
+      {type !== 'trigger' && type !== 'comment' && (
+        <HandleInsertButton
+          nodeId={id}
+          direction="right"
+          handleType="target"
+          handlePosition={Position.Right}
+          nodeColor={nodeColor}
+          ariaLabel={tCanvas('insertNodeHere')}
+          onOpen={openInsertMenu}
+          targetHandle={ADAPTIVE_TARGET_RIGHT_HANDLE}
+          isConnected={isAdaptiveTargetRightConnected}
+          isHidden={!isAdaptiveTargetRightConnected}
         />
       )}
 
@@ -577,24 +629,6 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
         </div>
       )}
 
-      {/* Actions */}
-      {selected && (
-        <div
-          className={
-            normalizedType === 'router'
-              ? 'absolute -right-6 top-3 flex flex-col gap-1'
-              : 'absolute -right-6 top-1/2 -translate-y-1/2 flex flex-col gap-1'
-          }
-        >
-          <button
-            className="p-1 rounded bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 transition-colors"
-            onClick={() => data.onDelete?.(id)}
-          >
-            <Trash2 className="w-2.5 h-2.5 text-red-400" />
-          </button>
-        </div>
-      )}
-
       {/* Output Handle */}
       {type !== 'router' && type !== 'condition' && type !== 'comment' && !isRandomSplitAction && (
         <HandleInsertButton
@@ -606,6 +640,36 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
           ariaLabel={tCanvas('insertNodeHere')}
           onOpen={openInsertMenu}
           isConnected={isSourceHandleConnected(null)}
+        />
+      )}
+
+      {type !== 'router' && type !== 'condition' && type !== 'comment' && !isRandomSplitAction && (
+        <HandleInsertButton
+          nodeId={id}
+          direction="left"
+          handleType="source"
+          handlePosition={Position.Left}
+          nodeColor={nodeColor}
+          ariaLabel={tCanvas('insertNodeHere')}
+          onOpen={openInsertMenu}
+          sourceHandle={ADAPTIVE_SOURCE_LEFT_HANDLE}
+          isConnected={isAdaptiveSourceLeftConnected}
+          isHidden={!isAdaptiveSourceLeftConnected}
+        />
+      )}
+
+      {type !== 'router' && type !== 'condition' && type !== 'comment' && !isRandomSplitAction && (
+        <HandleInsertButton
+          nodeId={id}
+          direction="right"
+          handleType="source"
+          handlePosition={Position.Right}
+          nodeColor={nodeColor}
+          ariaLabel={tCanvas('insertNodeHere')}
+          onOpen={openInsertMenu}
+          sourceHandle={ADAPTIVE_SOURCE_RIGHT_HANDLE}
+          isConnected={isAdaptiveSourceRightConnected}
+          isHidden={!isAdaptiveSourceRightConnected}
         />
       )}
 
@@ -1228,30 +1292,35 @@ export const nodeTemplates: NodeTemplate[] = [
       __description: 'Create redirect payment link',
     },
   },
-  {
-    id: 'payment-stripe',
-    type: 'paymentStripe',
-    label: 'Stripe',
-    description: 'Create Checkout Session link via Stripe',
-    color: '#6366F1',
-    gradient: 'from-indigo-500/20 to-violet-500/10',
-    border: 'border-indigo-500/30',
-    icon: CreditCard,
-    data: {
-      secretKey: '',
-      amount: '100.00',
-      currency: 'usd',
-      productName: 'Order payment',
-      description: '',
-      successUrl: '',
-      cancelUrl: '',
-      saveToVariable: 'payment',
-      autoSendPaymentLink: true,
-      messageTemplate: 'Complete payment here: {{payment.url}}',
-      __label: 'Stripe',
-      __description: 'Create hosted checkout link',
-    },
-  },
+  /*
+   * Stripe is temporarily hidden from the node palette.
+   * Keep the template here so the payment node can be restored quickly later.
+   *
+   * {
+   *   id: 'payment-stripe',
+   *   type: 'paymentStripe',
+   *   label: 'Stripe',
+   *   description: 'Create Checkout Session link via Stripe',
+   *   color: '#6366F1',
+   *   gradient: 'from-indigo-500/20 to-violet-500/10',
+   *   border: 'border-indigo-500/30',
+   *   icon: CreditCard,
+   *   data: {
+   *     secretKey: '',
+   *     amount: '100.00',
+   *     currency: 'usd',
+   *     productName: 'Order payment',
+   *     description: '',
+   *     successUrl: '',
+   *     cancelUrl: '',
+   *     saveToVariable: 'payment',
+   *     autoSendPaymentLink: true,
+   *     messageTemplate: 'Complete payment here: {{payment.url}}',
+   *     __label: 'Stripe',
+   *     __description: 'Create hosted checkout link',
+   *   },
+   * },
+   */
   {
     id: 'payment-robokassa',
     type: 'paymentRobokassa',

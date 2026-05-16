@@ -248,7 +248,7 @@ export function getPricingFeatureGroups(locale: string): PricingFeatureGroup[] {
           base: { kind: 'excluded' },
           business: { kind: 'included' },
           enterprise: { kind: 'included' },
-        }, { soon: true }),
+        }),
       ],
     },
     {

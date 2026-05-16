@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { DocsInlineText } from '@/components/docs/docs-inline-text'
 import { useEditorHelpGuides } from '@/components/bot-editor/providers/editor-help-guides-provider'
+import { AnimatePresence, motion } from '@/components/motion-wrapper'
 
 type HelpGuideButtonProps = {
   guideKey: string
@@ -160,102 +161,123 @@ export function HelpGuideButton({
         <CircleHelp className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${iconClassName}`} />
       </button>
 
-      {open && typeof document !== 'undefined'
+      {typeof document !== 'undefined'
         ? createPortal(
-            <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4">
-              <button
-                type="button"
-                className="absolute inset-0 bg-black/65 backdrop-blur-sm"
-                onClick={() => setOpen(false)}
-                aria-label={t('close')}
-              />
-
-              <div className="relative w-full max-w-xl rounded-2xl border border-white/10 bg-zinc-900/95 shadow-2xl shadow-black/60">
-                <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wide text-zinc-500">{t('modalTag')}</p>
-                    <h3 className="text-lg font-semibold text-white mt-1">{safeTitle}</h3>
-                  </div>
-                  <button
+            <AnimatePresence>
+              {open ? (
+                <motion.div
+                  key="help-guide-modal"
+                  className="fixed inset-0 z-[5000] flex items-center justify-center p-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                >
+                  <motion.button
                     type="button"
+                    className="absolute inset-0 bg-black/65 backdrop-blur-sm"
                     onClick={() => setOpen(false)}
-                    className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/5"
                     aria-label={t('close')}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                  />
+
+                  <motion.div
+                    className="relative w-full max-w-xl rounded-2xl border border-white/10 bg-zinc-900/95 shadow-2xl shadow-black/60"
+                    initial={{ opacity: 0, y: 18, scale: 0.97, filter: 'blur(10px)' }}
+                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: 14, scale: 0.98, filter: 'blur(8px)' }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                  {safeSummary ? (
-                    <p className="text-sm text-zinc-300 leading-relaxed">
-                      <DocsInlineText text={safeSummary} />
-                    </p>
-                  ) : null}
-
-                  {safeSteps.length > 0 ? (
-                    <div>
-                      <div className="text-xs uppercase tracking-wide text-zinc-500 mb-2">
-                        {t('stepsTitle')}
+                    <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-zinc-500">{t('modalTag')}</p>
+                        <h3 className="text-lg font-semibold text-white mt-1">{safeTitle}</h3>
                       </div>
-                      <ol className="space-y-2">
-                        {safeSteps.map((step, index) => (
-                          <li key={`${step}-${index}`} className="text-sm text-zinc-200 flex items-start gap-2">
-                            <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#24A1DE]/15 text-[#7dd3fc] text-[11px] font-semibold">
-                              {index + 1}
-                            </span>
-                            <span className="leading-relaxed">
-                              <DocsInlineText text={step} />
-                            </span>
-                          </li>
-                        ))}
-                      </ol>
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/5"
+                        aria-label={t('close')}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                  ) : null}
 
-                  {safeNotes.length > 0 ? (
-                    <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2.5">
-                      <div className="text-xs uppercase tracking-wide text-amber-200/90 mb-2">
-                        {t('notesTitle')}
-                      </div>
-                      <div className="space-y-1.5">
-                        {safeNotes.map((note, index) => (
-                          <p key={`${note}-${index}`} className="text-xs text-amber-100/90 leading-relaxed">
-                            <DocsInlineText text={note} />
-                          </p>
-                        ))}
-                      </div>
+                    <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                      {safeSummary ? (
+                        <p className="text-sm text-zinc-300 leading-relaxed">
+                          <DocsInlineText text={safeSummary} />
+                        </p>
+                      ) : null}
+
+                      {safeSteps.length > 0 ? (
+                        <div>
+                          <div className="text-xs uppercase tracking-wide text-zinc-500 mb-2">
+                            {t('stepsTitle')}
+                          </div>
+                          <ol className="space-y-2">
+                            {safeSteps.map((step, index) => (
+                              <li key={`${step}-${index}`} className="text-sm text-zinc-200 flex items-start gap-2">
+                                <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#24A1DE]/15 text-[#7dd3fc] text-[11px] font-semibold">
+                                  {index + 1}
+                                </span>
+                                <span className="leading-relaxed">
+                                  <DocsInlineText text={step} />
+                                </span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      ) : null}
+
+                      {safeNotes.length > 0 ? (
+                        <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2.5">
+                          <div className="text-xs uppercase tracking-wide text-amber-200/90 mb-2">
+                            {t('notesTitle')}
+                          </div>
+                          <div className="space-y-1.5">
+                            {safeNotes.map((note, index) => (
+                              <p key={`${note}-${index}`} className="text-xs text-amber-100/90 leading-relaxed">
+                                <DocsInlineText text={note} />
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
-                </div>
 
-                <div className="px-5 py-4 border-t border-white/10 flex items-center justify-between gap-3">
-                  <div className="text-xs text-zinc-500">{t('footerHint')}</div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setOpen(false)}
-                      className="border-white/10"
-                    >
-                      {t('close')}
-                    </Button>
-                    {resolvedDocsHref ? (
-                      <Button asChild className="bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/85 hover:to-[#8B5CF6]/85">
-                        <Link
-                          href={resolvedDocsHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                    <div className="px-5 py-4 border-t border-white/10 flex items-center justify-between gap-3">
+                      <div className="text-xs text-zinc-500">{t('footerHint')}</div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setOpen(false)}
+                          className="border-white/10"
                         >
-                          {t('openDocs')}
-                          <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                        </Link>
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>,
+                          {t('close')}
+                        </Button>
+                        {resolvedDocsHref ? (
+                          <Button asChild className="bg-gradient-to-r from-[#24A1DE] to-[#8B5CF6] hover:from-[#24A1DE]/85 hover:to-[#8B5CF6]/85">
+                            <Link
+                              href={resolvedDocsHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {t('openDocs')}
+                              <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>,
             document.body
           )
         : null}

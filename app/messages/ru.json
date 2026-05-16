@@ -920,7 +920,7 @@
           },
           "payments": {
             "label": "Оплата",
-            "hint": "Платежные узлы: YooKassa, Stripe, Robokassa, Telegram Stars"
+            "hint": "Платежные узлы: YooKassa, Robokassa, Telegram Stars"
           },
           "advanced": {
             "label": "Действия",
@@ -1770,7 +1770,23 @@
       "exitConfirm": "Выйти из редактора?",
       "exitDesc": "У вас есть несохранённые изменения. При выходе они будут потеряны.",
       "stay": "Остаться",
-      "exit": "Выйти"
+      "exit": "Выйти",
+      "livePreviewTitle": "Telegram Preview",
+      "livePreviewBotOnline": "бот онлайн",
+      "livePreviewBotOffline": "бот офлайн",
+      "livePreviewRestart": "Перезапустить",
+      "livePreviewStartTitle": "Запустить preview",
+      "livePreviewClose": "Закрыть",
+      "livePreviewStartButton": "START",
+      "livePreviewMessagePlaceholder": "Сообщение",
+      "livePreviewDefaultMessage": "Сообщение",
+      "livePreviewInputQuestion": "Введите данные",
+      "livePreviewUserFirstName": "Алексей",
+      "livePreviewDefaultCrmTitle": "Заявка от {{user.firstName}}",
+      "livePreviewTestStopped": "Тест остановлен. Нажмите Test, чтобы запустить бота заново.",
+      "livePreviewNoMatchingTrigger": "В этом сценарии нет подходящего триггера для такого сообщения.",
+      "livePreviewCrmMoveError": "не удалось перенести карточку",
+      "livePreviewCrmSaveError": "не удалось сохранить карточку"
     },
     "nodeSettings": {
       "selectNode": "Выберите компонент для редактирования",
@@ -2193,6 +2209,7 @@
     "nav": {
       "features": "Возможности",
       "templates": "Шаблоны",
+      "scenarios": "Сценарии",
       "pricing": "Цены",
       "docs": "Документация"
     },

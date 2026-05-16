@@ -48,6 +48,7 @@ import {
   Monitor,
   Send,
   X,
+  PencilLine,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -125,6 +126,8 @@ type CanvasContextMenuState = {
 type GroupCommentContextMenuState = {
   clientX: number
   clientY: number
+  targetNodeId: string
+  canCreateComment: boolean
 }
 
 type EditorIssue = {
@@ -250,6 +253,11 @@ const CANVAS_WHEEL_ZOOM_STEP = 0.12
 const OPEN_INSERT_MENU_EVENT = 'bot-flow-open-insert-menu'
 const CONNECTION_HANDLE_POINTER_DOWN_EVENT = 'bot-flow-connection-handle-pointer-down'
 const DEFAULT_HANDLE_KEY = '__default__'
+const ADAPTIVE_TARGET_LEFT_HANDLE = 'adaptive-target:left'
+const ADAPTIVE_TARGET_RIGHT_HANDLE = 'adaptive-target:right'
+const ADAPTIVE_SOURCE_LEFT_HANDLE = 'adaptive-source:left'
+const ADAPTIVE_SOURCE_RIGHT_HANDLE = 'adaptive-source:right'
+const ADAPTIVE_HANDLE_MIN_HORIZONTAL_GAP = 36
 const AI_NODE_TEMPLATE_IDS = new Set(['trigger-ai', 'message-ai', 'condition-ai'])
 const EXECUTION_ACTIVE_EDGE_STYLE = {
   stroke: '#67E8F9',
@@ -315,6 +323,90 @@ function getNodeWidth(node: Node): number {
 
 function getNodeHeight(node: Node): number {
   return typeof node.height === 'number' ? node.height : INSERTED_NODE_APPROX_HEIGHT
+}
+
+function getAdaptiveSideForNodes(sourceNode: Node | undefined, targetNode: Node | undefined): 'left' | 'right' | null {
+  if (!sourceNode || !targetNode) {
+    return null
+  }
+
+  const sourceCenterX = sourceNode.position.x + getNodeWidth(sourceNode) / 2
+  const sourceCenterY = sourceNode.position.y + getNodeHeight(sourceNode) / 2
+  const targetWidth = getNodeWidth(targetNode)
+  const targetHeight = getNodeHeight(targetNode)
+  const targetCenterX = targetNode.position.x + targetWidth / 2
+  const targetCenterY = targetNode.position.y + targetHeight / 2
+  const dx = sourceCenterX - targetCenterX
+  const dy = sourceCenterY - targetCenterY
+  const horizontalGap = Math.abs(dx) - targetWidth / 2
+
+  if (
+    horizontalGap <= ADAPTIVE_HANDLE_MIN_HORIZONTAL_GAP ||
+    Math.abs(dx) <= Math.abs(dy) * 0.75
+  ) {
+    return null
+  }
+
+  return dx < 0 ? 'left' : 'right'
+}
+
+function getAdaptiveTargetHandle(edge: Edge, nodesById: Map<string, Node>): string | null {
+  const sourceNode = nodesById.get(edge.source)
+  const targetNode = nodesById.get(edge.target)
+  if (targetNode?.type === 'trigger' || targetNode?.type === 'comment') {
+    return null
+  }
+
+  const side = getAdaptiveSideForNodes(sourceNode, targetNode)
+
+  if (side === 'left') {
+    return ADAPTIVE_TARGET_LEFT_HANDLE
+  }
+
+  if (side === 'right') {
+    return ADAPTIVE_TARGET_RIGHT_HANDLE
+  }
+
+  return null
+}
+
+function getAdaptiveSourceHandle(edge: Edge, nodesById: Map<string, Node>): string | null {
+  if (edge.sourceHandle && !edge.sourceHandle.startsWith('adaptive-source:')) {
+    return edge.sourceHandle
+  }
+
+  const sourceNode = nodesById.get(edge.source)
+  const targetNode = nodesById.get(edge.target)
+  const side = getAdaptiveSideForNodes(targetNode, sourceNode)
+
+  if (!sourceNode || sourceNode.type === 'router' || sourceNode.type === 'condition' || sourceNode.type === 'comment') {
+    return edge.sourceHandle ?? null
+  }
+
+  if (side === 'left') {
+    return ADAPTIVE_SOURCE_LEFT_HANDLE
+  }
+
+  if (side === 'right') {
+    return ADAPTIVE_SOURCE_RIGHT_HANDLE
+  }
+
+  return null
+}
+
+function applyAdaptiveEdgeHandles(edge: Edge, nodesById: Map<string, Node>): Edge {
+  const sourceHandle = getAdaptiveSourceHandle(edge, nodesById)
+  const targetHandle = getAdaptiveTargetHandle(edge, nodesById)
+
+  if ((edge.sourceHandle ?? null) === sourceHandle && (edge.targetHandle ?? null) === targetHandle) {
+    return edge
+  }
+
+  return {
+    ...edge,
+    sourceHandle,
+    targetHandle,
+  }
 }
 
 function getAlignedNodePosition(draggedNode: Node, allNodes: Node[]) {
@@ -636,7 +728,7 @@ const PALETTE_CATEGORY_META: Record<PaletteCategoryId, PaletteCategoryMeta> = {
     id: 'payments',
     label: 'Оплата',
     shortLabel: 'Оплата',
-    hint: 'Платежные ссылки: YooKassa, Stripe, Robokassa, Telegram Stars',
+    hint: 'Платежные ссылки: YooKassa, Robokassa, Telegram Stars',
     icon: CreditCard,
   },
   advanced: {
@@ -917,7 +1009,10 @@ function FlowCanvasInner({
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [selectedEdgeIdForToolbar, setSelectedEdgeIdForToolbar] = useState<string | null>(null)
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
-  const [settingsDetailedModeRequestKey, setSettingsDetailedModeRequestKey] = useState(0)
+  const [settingsPanelModeRequest, setSettingsPanelModeRequest] = useState<{
+    key: number
+    mode: 'side' | 'detailed'
+  }>({ key: 0, mode: 'side' })
   const [pinnedPaletteCategory, setPinnedPaletteCategory] = useState<PaletteCategoryId | null>(null)
   const [hoveredPaletteCategory, setHoveredPaletteCategory] = useState<PaletteCategoryId | null>(null)
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null)
@@ -972,6 +1067,15 @@ function FlowCanvasInner({
 
   const clearEdgeDeleteButtons = useCallback(() => {
     setSelectedEdgeIdForToolbar(null)
+  }, [])
+
+  const openNodeSettingsPanel = useCallback((node: Node, mode: 'side' | 'detailed' = 'side') => {
+    setSelectedNode(node)
+    setSettingsPanelOpen(true)
+    setSettingsPanelModeRequest((current) => ({
+      key: current.key + 1,
+      mode,
+    }))
   }, [])
 
   const handleEdgeClick = useCallback<EdgeMouseHandler>((event, clickedEdge) => {
@@ -1265,11 +1369,16 @@ function FlowCanvasInner({
     [executionTrace?.recentEdgeIds]
   )
 
+  const adaptiveEdges = useMemo(() => {
+    const nodesById = new Map(nodes.map((node) => [node.id, node]))
+    return edges.map((edge) => applyAdaptiveEdgeHandles(edge, nodesById))
+  }, [edges, nodes])
+
   const renderedNodes = useMemo(() => {
     const connectedSourceHandlesByNode = new Map<string, Set<string>>()
     const connectedTargetHandlesByNode = new Map<string, Set<string>>()
 
-    edges.forEach((edge) => {
+    adaptiveEdges.forEach((edge) => {
       if (edge.source) {
         const sourceHandles = connectedSourceHandlesByNode.get(edge.source) || new Set<string>()
         sourceHandles.add(getHandleKey(edge.sourceHandle ?? null))
@@ -1341,16 +1450,16 @@ function FlowCanvasInner({
       })
     })
   }, [
+    adaptiveEdges,
     executionTrace?.activeNodeId,
     executionTrace?.activeNodeState,
-    edges,
     handleDeleteNode,
     nodes,
     recentExecutionNodeIds,
   ])
 
   const renderedEdges = useMemo(() => {
-    const normalizedEdges = edges.map(applyRuntimeEdgeStyle)
+    const normalizedEdges = adaptiveEdges.map(applyRuntimeEdgeStyle)
     const activeEdgeId = executionTrace?.activeEdgeId || null
     const hasTraceState = Boolean(activeEdgeId || recentExecutionEdgeIds.size > 0)
 
@@ -1409,7 +1518,7 @@ function FlowCanvasInner({
         },
       })
     })
-  }, [edges, executionTrace?.activeEdgeId, recentExecutionEdgeIds, selectedEdgeIdForToolbar])
+  }, [adaptiveEdges, executionTrace?.activeEdgeId, recentExecutionEdgeIds, selectedEdgeIdForToolbar])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     if (isTestActive) {
@@ -1640,28 +1749,29 @@ function FlowCanvasInner({
       return
     }
 
-    setSelectedNode(node as Node)
-    setSettingsPanelOpen(true)
-  }, [closeGroupCommentMenu, isTestActive])
+    openNodeSettingsPanel(node as Node, 'side')
+  }, [closeGroupCommentMenu, isTestActive, openNodeSettingsPanel])
 
   const handleNodeContextMenu = useCallback<NodeMouseHandler>((event, node) => {
     if (isTestActive) return
 
+    const clickedNode = node as Node
+    const clickedNodeIsComment = isGroupCommentNode(clickedNode)
     const selectedWorkflowNodes = nodes.filter((item) => item.selected && !isGroupCommentNode(item))
-    const nodeIsInSelection = selectedWorkflowNodes.some((item) => item.id === node.id)
-    const targetNodes =
-      selectedWorkflowNodes.length > 0 && nodeIsInSelection
+    const nodeIsInSelection = selectedWorkflowNodes.some((item) => item.id === clickedNode.id)
+    const commentableNodes =
+      !clickedNodeIsComment && selectedWorkflowNodes.length > 0 && nodeIsInSelection
         ? selectedWorkflowNodes
-        : (!isGroupCommentNode(node as Node) ? [node as Node] : [])
-
-    if (targetNodes.length === 0) {
-      return
-    }
+        : (!clickedNodeIsComment ? [clickedNode] : [])
 
     event.preventDefault()
     event.stopPropagation()
     setContextMenu(null)
-    const targetNodeIds = new Set(targetNodes.map((item) => item.id))
+    const targetNodeIds = new Set(
+      commentableNodes.length > 0
+        ? commentableNodes.map((item) => item.id)
+        : [clickedNode.id]
+    )
     setNodes((currentNodes) =>
       currentNodes.map((item) => ({
         ...item,
@@ -1671,6 +1781,8 @@ function FlowCanvasInner({
     setGroupCommentMenu({
       clientX: event.clientX,
       clientY: event.clientY,
+      targetNodeId: clickedNode.id,
+      canCreateComment: commentableNodes.length > 0,
     })
   }, [isTestActive, nodes, setNodes])
 
@@ -1742,6 +1854,59 @@ function FlowCanvasInner({
     closeGroupCommentMenu()
   }, [applyRuntimeNodeData, closeGroupCommentMenu, handleDeleteNode, isTestActive, nodes, setNodes])
 
+  const renameContextMenuNode = useCallback(() => {
+    if (isTestActive || !groupCommentMenu?.targetNodeId) return
+
+    const targetNode = nodes.find((node) => node.id === groupCommentMenu.targetNodeId)
+    if (!targetNode) {
+      closeGroupCommentMenu()
+      return
+    }
+
+    const targetData = (targetNode.data || {}) as Partial<NodeData>
+    const configLabel =
+      typeof targetNode.type === 'string' && targetNode.type in NODE_CONFIGS
+        ? NODE_CONFIGS[targetNode.type as keyof typeof NODE_CONFIGS]?.label
+        : ''
+    const currentLabel = String(targetData.__label || configLabel || targetNode.type || '').trim()
+    const nextLabel = window.prompt(
+      locale === 'en' ? 'Node name' : 'Название узла',
+      currentLabel || (locale === 'en' ? 'Node' : 'Узел')
+    )
+
+    if (nextLabel === null) {
+      closeGroupCommentMenu()
+      return
+    }
+
+    const trimmedLabel = nextLabel.trim().slice(0, 64)
+    if (!trimmedLabel) {
+      closeGroupCommentMenu()
+      return
+    }
+
+    handleNodeUpdate(targetNode.id, { __label: trimmedLabel })
+    setSelectedNode((currentNode) =>
+      currentNode?.id === targetNode.id
+        ? {
+            ...currentNode,
+            data: {
+              ...(currentNode.data || {}),
+              __label: trimmedLabel,
+            },
+          }
+        : currentNode
+    )
+    closeGroupCommentMenu()
+  }, [closeGroupCommentMenu, groupCommentMenu, handleNodeUpdate, isTestActive, locale, nodes])
+
+  const deleteContextMenuNode = useCallback(() => {
+    if (isTestActive || !groupCommentMenu?.targetNodeId) return
+
+    handleDeleteNode(groupCommentMenu.targetNodeId)
+    closeGroupCommentMenu()
+  }, [closeGroupCommentMenu, groupCommentMenu, handleDeleteNode, isTestActive])
+
   const handleNodeDoubleClick = useCallback<NodeMouseHandler>((event, node) => {
     event.preventDefault()
     event.stopPropagation()
@@ -1750,10 +1915,8 @@ function FlowCanvasInner({
       return
     }
 
-    setSelectedNode(node as Node)
-    setSettingsPanelOpen(true)
-    setSettingsDetailedModeRequestKey((current) => current + 1)
-  }, [isTestActive])
+    openNodeSettingsPanel(node as Node, 'detailed')
+  }, [isTestActive, openNodeSettingsPanel])
 
   const restoreSnapshot = useCallback((snapshot: CanvasHistorySnapshot) => {
     skipNextHistoryCaptureRef.current = true
@@ -1929,15 +2092,14 @@ function FlowCanvasInner({
     ])
 
     if (pastedNodes.length === 1) {
-      setSelectedNode(pastedNodes[0])
-      setSettingsPanelOpen(true)
+      openNodeSettingsPanel(pastedNodes[0], 'side')
     } else {
       setSelectedNode(null)
       setSettingsPanelOpen(false)
     }
 
     return true
-  }, [applyRuntimeNodeData, edges, isTestActive, nodes, setEdges, setNodes])
+  }, [applyRuntimeNodeData, edges, isTestActive, nodes, openNodeSettingsPanel, setEdges, setNodes])
 
   const undoCanvasChange = useCallback(() => {
     if (isTestActive) return
@@ -2395,15 +2557,14 @@ function FlowCanvasInner({
 
       setNodes((currentNodes) => [...currentNodes, newNode])
       setEdges((currentEdges) => [...currentEdges, nextEdge])
-      setSelectedNode(newNode)
-      setSettingsPanelOpen(true)
+      openNodeSettingsPanel(newNode, 'side')
       closeContextMenu()
       return
     }
 
     handleAddNode(template, contextMenu.flowPosition)
     closeContextMenu()
-  }, [applyRuntimeNodeData, closeContextMenu, contextMenu, edges, handleAddNode, isTestActive, nodes, setEdges, setNodes])
+  }, [applyRuntimeNodeData, closeContextMenu, contextMenu, edges, handleAddNode, isTestActive, nodes, openNodeSettingsPanel, setEdges, setNodes])
 
   const validPinnedPaletteCategory =
     pinnedPaletteCategory &&
@@ -2900,10 +3061,10 @@ function FlowCanvasInner({
                                 draggable={!isTestActive}
                                 onDragStart={(event) => handleTemplateDragStart(event, node)}
                                 onClick={() => handleAddNode(node)}
-                                className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} transition-transform ${
+                                className={`p-2 rounded-lg bg-gradient-to-r ${node.gradient} ${node.border} transition-colors ${
                                   isTestActive
                                     ? 'cursor-not-allowed opacity-55'
-                                    : 'cursor-grab hover:scale-[1.02] active:cursor-grabbing'
+                                    : 'cursor-grab hover:bg-white/[0.03] active:cursor-grabbing'
                                 }`}
                               >
                                 <div className="flex items-start gap-2">
@@ -3119,7 +3280,7 @@ function FlowCanvasInner({
                           key={template.id}
                           type="button"
                           onClick={() => handleContextMenuAddNode(template)}
-                          className={`w-full text-left p-2 rounded-lg bg-gradient-to-r ${template.gradient} ${template.border} hover:scale-[1.01] transition-transform`}
+                          className={`w-full text-left p-2 rounded-lg bg-gradient-to-r ${template.gradient} ${template.border} transition-colors hover:bg-white/[0.03]`}
                         >
                           <div className="flex items-start gap-2">
                             <div
@@ -3154,11 +3315,11 @@ function FlowCanvasInner({
                   event.preventDefault()
                   closeGroupCommentMenu()
                 }}
-                aria-label="Закрыть меню комментария"
+                aria-label={locale === 'en' ? 'Close node menu' : 'Закрыть меню узла'}
               />
 
               <div
-                className="absolute w-[220px] overflow-hidden rounded-xl border border-white/10 bg-zinc-900/95 p-1.5 shadow-2xl shadow-black/60 backdrop-blur-xl"
+                className="absolute w-[230px] overflow-hidden rounded-xl border border-white/10 bg-zinc-900/95 p-1.5 shadow-2xl shadow-black/60 backdrop-blur-xl"
                 style={{
                   left: `${groupCommentMenu.clientX}px`,
                   top: `${groupCommentMenu.clientY}px`,
@@ -3168,11 +3329,33 @@ function FlowCanvasInner({
               >
                 <button
                   type="button"
-                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
-                  onClick={createGroupCommentForSelection}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
+                  onClick={renameContextMenuNode}
                 >
-                  Создать комментарий
+                  <PencilLine className="h-3.5 w-3.5 text-zinc-400" />
+                  {locale === 'en' ? 'Rename' : 'Переименовать'}
                 </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-red-300 transition-colors hover:bg-red-500/12"
+                  onClick={deleteContextMenuNode}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {locale === 'en' ? 'Delete node' : 'Удалить узел'}
+                </button>
+                {groupCommentMenu.canCreateComment && (
+                  <>
+                    <div className="my-1 h-px bg-white/10" />
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
+                      onClick={createGroupCommentForSelection}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 text-zinc-400" />
+                      {locale === 'en' ? 'Create comment' : 'Создать комментарий'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -3222,7 +3405,8 @@ function FlowCanvasInner({
             setSelectedNode(null)
           }}
           variables={availableVariables}
-          detailedModeRequestKey={settingsDetailedModeRequestKey}
+          modeRequestKey={settingsPanelModeRequest.key}
+          modeRequestMode={settingsPanelModeRequest.mode}
         />
       )}
     </div>

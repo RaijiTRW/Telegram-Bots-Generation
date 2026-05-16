@@ -148,8 +148,8 @@ export function Header() {
 
   const navItems = [
     { key: 'nav.features', href: `/${locale}#business-advantage` },
-    { key: 'nav.templates', href: `/${locale}#templates` },
-    { key: 'nav.pricing', href: `/${locale}/pricing` },
+    { key: 'nav.scenarios', href: `/${locale}#scenarios` },
+    { key: 'nav.pricing', href: `/${locale}#pricing` },
     { key: 'nav.docs', href: `/${locale}/docs` },
   ];
 

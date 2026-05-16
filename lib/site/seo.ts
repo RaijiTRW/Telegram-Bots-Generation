@@ -239,21 +239,21 @@ export function getHomeMetadata(locale: Locale) {
     locale,
     title:
       locale === 'ru'
-        ? 'Создание Telegram-ботов для бизнеса без кода | CBTooll'
-        : 'Telegram Bot Builder for Business | CBTooll',
+        ? 'Telegram-боты для ресторанов: меню, бронь и CRM | CBTooll'
+        : 'Telegram Bots for Restaurants: Menu, Booking, CRM | CBTooll',
     description:
       locale === 'ru'
-        ? 'Создавайте Telegram-ботов для заявок, записи, FAQ, оплат и автоворонок без кода. Конструктор ботов для бизнеса с быстрым запуском, аналитикой и хостингом.'
-        : 'Build Telegram bots for leads, booking, FAQ, payments, and funnels without code. A fast Telegram bot builder for business with analytics and hosting.',
+        ? 'Создавайте Telegram-ботов для ресторанов, кафе и доставки: меню, бронирование столиков, заказы, акции, FAQ и заявки в CRM без кода.'
+        : 'Build Telegram bots for restaurants, cafés, and delivery: menus, table reservations, orders, offers, FAQ, and CRM requests without code.',
     keywords:
       locale === 'ru'
         ? [
-            'создание чат ботов для тг',
-            'создание ботов тг',
-            'создать бота тг для бизнеса',
-            'конструктор тг ботов',
+            'telegram бот для ресторана',
+            'бот для меню ресторана',
+            'бот для бронирования столиков',
+            'конструктор тг ботов для кафе',
           ]
-        : ['telegram bot builder', 'create telegram bot', 'telegram bot for business', 'no-code telegram bot'],
+        : ['telegram bot for restaurant', 'restaurant chatbot builder', 'telegram menu bot', 'restaurant reservation bot'],
   })
 }
 
@@ -312,4 +312,3 @@ export function getInfoPageMetadata(locale: Locale, infoPage: (typeof INFO_PAGE_
     type: 'article',
   })
 }
-

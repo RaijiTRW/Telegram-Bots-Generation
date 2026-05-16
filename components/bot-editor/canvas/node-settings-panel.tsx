@@ -100,7 +100,8 @@ interface NodeSettingsPanelProps {
   onSave?: () => Promise<boolean> | boolean
   onClose: () => void
   variables?: string[] // Available variable names
-  detailedModeRequestKey?: number
+  modeRequestKey?: number
+  modeRequestMode?: 'side' | 'detailed'
 }
 
 // Icons map
@@ -346,7 +347,8 @@ export function NodeSettingsPanel({
   onSave,
   onClose,
   variables = [],
-  detailedModeRequestKey = 0,
+  modeRequestKey = 0,
+  modeRequestMode = 'side',
 }: NodeSettingsPanelProps) {
   const t = useTranslations('editor.nodeSettings')
   const tCanvas = useTranslations('editor.canvas')
@@ -360,6 +362,7 @@ export function NodeSettingsPanel({
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [labelDraft, setLabelDraft] = useState('')
   const labelInputRef = useRef<HTMLInputElement | null>(null)
+  const selectedNodeId = node?.id
 
   useEffect(() => {
     if (node) {
@@ -383,12 +386,12 @@ export function NodeSettingsPanel({
 
   useEffect(() => {
     setIsDetailedMode(false)
-  }, [node?.id])
+  }, [selectedNodeId])
 
   useEffect(() => {
-    if (!node || detailedModeRequestKey <= 0) return
-    setIsDetailedMode(true)
-  }, [detailedModeRequestKey, node])
+    if (!selectedNodeId || modeRequestKey <= 0) return
+    setIsDetailedMode(modeRequestMode === 'detailed')
+  }, [modeRequestKey, modeRequestMode, selectedNodeId])
 
   useEffect(() => {
     if (!isDetailedMode || typeof document === 'undefined') {

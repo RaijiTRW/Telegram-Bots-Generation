@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RotateCcw, Send, Smartphone, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { AnimatePresence, motion } from '@/components/motion-wrapper'
 import { cn } from '@/lib/utils'
 import type { BotConfig, BotMetadata } from '@/lib/bot-editor/types/bot.types'
@@ -402,6 +403,7 @@ export function LivePreviewPhone({
   onOnlineChange,
   onOpenChange,
 }: LivePreviewPhoneProps) {
+  const tShell = useTranslations('editor.shell')
   const [messages, setMessages] = useState<PreviewMessage[]>([])
   const [input, setInput] = useState('')
   const [waitingNodeId, setWaitingNodeId] = useState<string | null>(null)
@@ -439,7 +441,7 @@ export function LivePreviewPhone({
       ...localVariables,
       callback: Object.keys(callback).length ? callback : undefined,
       message: { text: localVariables['message.text'] || '' },
-      user: { firstName: 'Алексей', username: 'preview_user' },
+      user: { firstName: tShell('livePreviewUserFirstName'), username: 'preview_user' },
       chat: { id: 10001 },
     }
     let localKeyboardMode = replyKeyboardMode
@@ -472,7 +474,7 @@ export function LivePreviewPhone({
       }
 
       if (node.type === 'message') {
-        const text = textOf(interpolateTemplate(data.text || data.__label || 'Сообщение', localContext))
+        const text = textOf(interpolateTemplate(data.text || data.__label || tShell('livePreviewDefaultMessage'), localContext))
         pushMessage({ role: 'bot', text, buttons: resolveButtons(data, localContext) })
         syncReplyKeyboard()
         currentNodeId = getNextNodeId(config, node.id)
@@ -482,7 +484,7 @@ export function LivePreviewPhone({
       if (node.type === 'input') {
         pushMessage({
           role: 'bot',
-          text: textOf(interpolateTemplate(data.question || 'Введите данные', localContext)),
+          text: textOf(interpolateTemplate(data.question || tShell('livePreviewInputQuestion'), localContext)),
           buttons: resolveButtons(data, localContext),
         })
         syncReplyKeyboard()
@@ -582,7 +584,7 @@ export function LivePreviewPhone({
               if (!result.success) {
                 pushMessage({
                   role: 'system',
-                  text: `CRM: ${('error' in result ? result.error : '') || 'не удалось перенести карточку'}`,
+                  text: `CRM: ${('error' in result ? result.error : '') || tShell('livePreviewCrmMoveError')}`,
                 })
               }
             }).catch((error) => {
@@ -619,7 +621,7 @@ export function LivePreviewPhone({
         }, {})
         const card = {
           id: 'preview-crm-card',
-          title: interpolateTemplate(data.title || 'Заявка от {{user.firstName}}', localContext),
+          title: interpolateTemplate(data.title || tShell('livePreviewDefaultCrmTitle'), localContext),
           externalKey: interpolateTemplate(
             typeof data.externalKey === 'string' ? data.externalKey : '{{user.id}}',
             localContext
@@ -650,7 +652,7 @@ export function LivePreviewPhone({
             if (!result.success) {
               pushMessage({
                 role: 'system',
-                text: `CRM: ${('error' in result ? result.error : '') || 'не удалось сохранить карточку'}`,
+                text: `CRM: ${('error' in result ? result.error : '') || tShell('livePreviewCrmSaveError')}`,
               })
             }
           }).catch((error) => {
@@ -720,7 +722,7 @@ export function LivePreviewPhone({
     }
 
     setVariables({ ...localVariables })
-  }, [botId, config, metadata, nodeMap, onExecutionVisit, pushMessage, replyKeyboardMode, replyKeyboardVariantKey, variables])
+  }, [botId, config, metadata, nodeMap, onExecutionVisit, pushMessage, replyKeyboardMode, replyKeyboardVariantKey, tShell, variables])
 
   useEffect(() => {
     if (isOnline) return
@@ -768,7 +770,7 @@ export function LivePreviewPhone({
     const value = text.trim()
     if (!value) return
     if (!isOnline) {
-      pushMessage({ role: 'system', text: 'Тест остановлен. Нажмите Test, чтобы запустить бота заново.' })
+      pushMessage({ role: 'system', text: tShell('livePreviewTestStopped') })
       setInput('')
       return
     }
@@ -802,9 +804,9 @@ export function LivePreviewPhone({
       setVariables(nextVariables)
       runFrom(trigger.id, nextVariables)
     } else {
-      pushMessage({ role: 'system', text: 'В этом сценарии нет подходящего триггера для такого сообщения.' })
+      pushMessage({ role: 'system', text: tShell('livePreviewNoMatchingTrigger') })
     }
-  }, [config, isOnline, nodeMap, pushMessage, runFrom, variables, waitingNodeId])
+  }, [config, isOnline, nodeMap, pushMessage, runFrom, tShell, variables, waitingNodeId])
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[90]">
@@ -817,7 +819,7 @@ export function LivePreviewPhone({
           'hover:w-9 hover:border-[#24A1DE]/75 hover:bg-[#0C1621] hover:text-white',
           isOpen ? 'border-[#24A1DE]/80 bg-[#0C1621] text-white' : ''
         )}
-        title="Live Preview"
+        title={tShell('testLaunchLivePreview')}
       >
         <Smartphone className="h-4 w-4" strokeWidth={2.2} />
       </button>
@@ -838,20 +840,20 @@ export function LivePreviewPhone({
               <div className="flex h-[640px] max-h-[72vh] flex-col">
                 <div className="flex shrink-0 items-center justify-between border-b border-white/8 bg-[#17212B] px-4 pb-3 pt-8">
                   <div>
-                    <div className="text-sm font-semibold text-white">Telegram Preview</div>
+                    <div className="text-sm font-semibold text-white">{tShell('livePreviewTitle')}</div>
                     <div className={cn('text-[11px]', isOnline ? 'text-[#7FA7C4]' : 'text-zinc-500')}>
-                      {isOnline ? 'бот онлайн' : 'бот офлайн'}
+                      {tShell(isOnline ? 'livePreviewBotOnline' : 'livePreviewBotOffline')}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
                       <button
                         onClick={startPreviewTest}
                         className="rounded-full p-2 text-zinc-300 hover:bg-white/10"
-                        title={isOnline ? 'Перезапустить' : 'Запустить preview'}
+                        title={tShell(isOnline ? 'livePreviewRestart' : 'livePreviewStartTitle')}
                       >
                       <RotateCcw className="h-4 w-4" />
                     </button>
-                    <button onClick={() => onOpenChange(false)} className="rounded-full p-2 text-zinc-300 hover:bg-white/10" title="Закрыть">
+                    <button onClick={() => onOpenChange(false)} className="rounded-full p-2 text-zinc-300 hover:bg-white/10" title={tShell('livePreviewClose')}>
                       <X className="h-4 w-4" />
                     </button>
                   </div>
@@ -867,7 +869,7 @@ export function LivePreviewPhone({
                         onClick={startPreviewTest}
                         className="rounded-full bg-[#2AABEE] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-950/50 transition hover:bg-[#1f9edc]"
                       >
-                        START
+                        {tShell('livePreviewStartButton')}
                       </button>
                     </div>
                   ) : messages.map((message) => (
@@ -913,7 +915,7 @@ export function LivePreviewPhone({
                   <input
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
-                    placeholder="Сообщение"
+                    placeholder={tShell('livePreviewMessagePlaceholder')}
                     className="min-w-0 flex-1 rounded-full border border-white/8 bg-[#0E1621] px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#2AABEE]/50"
                   />
                   <button type="submit" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2AABEE] text-white">

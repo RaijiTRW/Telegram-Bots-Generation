@@ -920,7 +920,7 @@
           },
           "payments": {
             "label": "Payments",
-            "hint": "Payment nodes: YooKassa, Stripe, Robokassa, Telegram Stars"
+            "hint": "Payment nodes: YooKassa, Robokassa, Telegram Stars"
           },
           "advanced": {
             "label": "Actions",
@@ -1770,7 +1770,23 @@
       "exitConfirm": "Exit editor?",
       "exitDesc": "You have unsaved changes. They will be lost if you exit.",
       "stay": "Stay",
-      "exit": "Exit"
+      "exit": "Exit",
+      "livePreviewTitle": "Telegram Preview",
+      "livePreviewBotOnline": "bot online",
+      "livePreviewBotOffline": "bot offline",
+      "livePreviewRestart": "Restart",
+      "livePreviewStartTitle": "Start preview",
+      "livePreviewClose": "Close",
+      "livePreviewStartButton": "START",
+      "livePreviewMessagePlaceholder": "Message",
+      "livePreviewDefaultMessage": "Message",
+      "livePreviewInputQuestion": "Enter data",
+      "livePreviewUserFirstName": "Alexey",
+      "livePreviewDefaultCrmTitle": "Request from {{user.firstName}}",
+      "livePreviewTestStopped": "The test is stopped. Click Test to start the bot again.",
+      "livePreviewNoMatchingTrigger": "This scenario has no matching trigger for this message.",
+      "livePreviewCrmMoveError": "failed to move the card",
+      "livePreviewCrmSaveError": "failed to save the card"
     },
     "nodeSettings": {
       "selectNode": "Select a component to edit",
@@ -2193,6 +2209,7 @@
     "nav": {
       "features": "Features",
       "templates": "Templates",
+      "scenarios": "Scenarios",
       "pricing": "Pricing",
       "docs": "Documentation"
     },
