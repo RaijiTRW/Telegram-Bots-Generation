@@ -216,6 +216,8 @@ const CONNECTION_HANDLE_POINTER_DOWN_EVENT = 'bot-flow-connection-handle-pointer
 const DEFAULT_HANDLE_KEY = '__default__'
 const ADAPTIVE_TARGET_LEFT_HANDLE = 'adaptive-target:left'
 const ADAPTIVE_TARGET_RIGHT_HANDLE = 'adaptive-target:right'
+const ADAPTIVE_TARGET_BOTTOM_HANDLE = 'adaptive-target:bottom'
+const ADAPTIVE_SOURCE_TOP_HANDLE = 'adaptive-source:top'
 const ADAPTIVE_SOURCE_LEFT_HANDLE = 'adaptive-source:left'
 const ADAPTIVE_SOURCE_RIGHT_HANDLE = 'adaptive-source:right'
 
@@ -414,6 +416,8 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     connectedTargetHandles.has(getHandleKey(handleId))
   const isAdaptiveTargetLeftConnected = isTargetHandleConnected(ADAPTIVE_TARGET_LEFT_HANDLE)
   const isAdaptiveTargetRightConnected = isTargetHandleConnected(ADAPTIVE_TARGET_RIGHT_HANDLE)
+  const isAdaptiveTargetBottomConnected = isTargetHandleConnected(ADAPTIVE_TARGET_BOTTOM_HANDLE)
+  const isAdaptiveSourceTopConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_TOP_HANDLE)
   const isAdaptiveSourceLeftConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_LEFT_HANDLE)
   const isAdaptiveSourceRightConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_RIGHT_HANDLE)
   const connectedHandlesSignature = [
@@ -577,6 +581,21 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
         />
       )}
 
+      {type !== 'trigger' && type !== 'comment' && (
+        <HandleInsertButton
+          nodeId={id}
+          direction="bottom"
+          handleType="target"
+          handlePosition={Position.Bottom}
+          nodeColor={nodeColor}
+          ariaLabel={tCanvas('insertNodeHere')}
+          onOpen={openInsertMenu}
+          targetHandle={ADAPTIVE_TARGET_BOTTOM_HANDLE}
+          isConnected={isAdaptiveTargetBottomConnected}
+          isHidden={!isAdaptiveTargetBottomConnected}
+        />
+      )}
+
       {/* Node Header */}
       <div className="flex items-center gap-1.5">
         <div
@@ -640,6 +659,21 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
           ariaLabel={tCanvas('insertNodeHere')}
           onOpen={openInsertMenu}
           isConnected={isSourceHandleConnected(null)}
+        />
+      )}
+
+      {type !== 'router' && type !== 'condition' && type !== 'comment' && !isRandomSplitAction && (
+        <HandleInsertButton
+          nodeId={id}
+          direction="top"
+          handleType="source"
+          handlePosition={Position.Top}
+          nodeColor={nodeColor}
+          ariaLabel={tCanvas('insertNodeHere')}
+          onOpen={openInsertMenu}
+          sourceHandle={ADAPTIVE_SOURCE_TOP_HANDLE}
+          isConnected={isAdaptiveSourceTopConnected}
+          isHidden={!isAdaptiveSourceTopConnected}
         />
       )}
 

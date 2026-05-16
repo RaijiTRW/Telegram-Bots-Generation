@@ -255,9 +255,12 @@ const CONNECTION_HANDLE_POINTER_DOWN_EVENT = 'bot-flow-connection-handle-pointer
 const DEFAULT_HANDLE_KEY = '__default__'
 const ADAPTIVE_TARGET_LEFT_HANDLE = 'adaptive-target:left'
 const ADAPTIVE_TARGET_RIGHT_HANDLE = 'adaptive-target:right'
+const ADAPTIVE_TARGET_BOTTOM_HANDLE = 'adaptive-target:bottom'
+const ADAPTIVE_SOURCE_TOP_HANDLE = 'adaptive-source:top'
 const ADAPTIVE_SOURCE_LEFT_HANDLE = 'adaptive-source:left'
 const ADAPTIVE_SOURCE_RIGHT_HANDLE = 'adaptive-source:right'
 const ADAPTIVE_HANDLE_MIN_HORIZONTAL_GAP = 36
+const ADAPTIVE_HANDLE_MIN_VERTICAL_GAP = 36
 const AI_NODE_TEMPLATE_IDS = new Set(['trigger-ai', 'message-ai', 'condition-ai'])
 const EXECUTION_ACTIVE_EDGE_STYLE = {
   stroke: '#67E8F9',
@@ -325,7 +328,10 @@ function getNodeHeight(node: Node): number {
   return typeof node.height === 'number' ? node.height : INSERTED_NODE_APPROX_HEIGHT
 }
 
-function getAdaptiveSideForNodes(sourceNode: Node | undefined, targetNode: Node | undefined): 'left' | 'right' | null {
+function getAdaptiveSideForNodes(
+  sourceNode: Node | undefined,
+  targetNode: Node | undefined
+): 'left' | 'right' | 'top' | 'bottom' | null {
   if (!sourceNode || !targetNode) {
     return null
   }
@@ -339,15 +345,23 @@ function getAdaptiveSideForNodes(sourceNode: Node | undefined, targetNode: Node 
   const dx = sourceCenterX - targetCenterX
   const dy = sourceCenterY - targetCenterY
   const horizontalGap = Math.abs(dx) - targetWidth / 2
+  const verticalGap = Math.abs(dy) - targetHeight / 2
 
   if (
-    horizontalGap <= ADAPTIVE_HANDLE_MIN_HORIZONTAL_GAP ||
-    Math.abs(dx) <= Math.abs(dy) * 0.75
+    horizontalGap > ADAPTIVE_HANDLE_MIN_HORIZONTAL_GAP &&
+    Math.abs(dx) > Math.abs(dy) * 0.75
   ) {
-    return null
+    return dx < 0 ? 'left' : 'right'
   }
 
-  return dx < 0 ? 'left' : 'right'
+  if (
+    verticalGap > ADAPTIVE_HANDLE_MIN_VERTICAL_GAP &&
+    Math.abs(dy) > Math.abs(dx) * 0.75
+  ) {
+    return dy < 0 ? 'top' : 'bottom'
+  }
+
+  return null
 }
 
 function getAdaptiveTargetHandle(edge: Edge, nodesById: Map<string, Node>): string | null {
@@ -365,6 +379,10 @@ function getAdaptiveTargetHandle(edge: Edge, nodesById: Map<string, Node>): stri
 
   if (side === 'right') {
     return ADAPTIVE_TARGET_RIGHT_HANDLE
+  }
+
+  if (side === 'bottom') {
+    return ADAPTIVE_TARGET_BOTTOM_HANDLE
   }
 
   return null
@@ -389,6 +407,10 @@ function getAdaptiveSourceHandle(edge: Edge, nodesById: Map<string, Node>): stri
 
   if (side === 'right') {
     return ADAPTIVE_SOURCE_RIGHT_HANDLE
+  }
+
+  if (side === 'top') {
+    return ADAPTIVE_SOURCE_TOP_HANDLE
   }
 
   return null
@@ -994,7 +1016,7 @@ function FlowCanvasInner({
   const { bot, setActiveSection, testLaunchMode, setTestLaunchMode } = useBotState()
   const docsBasePath = `/${locale}/dashboard/docs`
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
-  const { screenToFlowPosition, flowToScreenPosition, getZoom, zoomTo } = useReactFlow()
+  const { screenToFlowPosition, getZoom, zoomTo } = useReactFlow()
   const preparedInitialNodes = useMemo(
     () => initialNodes.map(migrateLegacyHttpActionNode).map(migrateLegacyDataNodeType).map(applyNodeWrapperStyle),
     [initialNodes]
@@ -1022,8 +1044,6 @@ function FlowCanvasInner({
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false)
   const [isPaletteIssueExpanded, setIsPaletteIssueExpanded] = useState(false)
   const [isTestLaunchMenuOpen, setIsTestLaunchMenuOpen] = useState(false)
-  const [viewportVersion, setViewportVersion] = useState(0)
-  const [canvasBounds, setCanvasBounds] = useState<{ left: number; top: number } | null>(null)
   const historyRef = useRef<CanvasHistorySnapshot[]>([])
   const historyIndexRef = useRef(-1)
   const skipNextHistoryCaptureRef = useRef(false)
@@ -1086,50 +1106,6 @@ function FlowCanvasInner({
     setSelectedNode(null)
     setSettingsPanelOpen(false)
   }, [isTestActive])
-
-  const selectedEdgeDeletePosition = useMemo(() => {
-    void viewportVersion
-    if (!selectedEdgeIdForToolbar) return null
-    if (!canvasBounds) return null
-
-    const edge = edges.find((item) => item.id === selectedEdgeIdForToolbar)
-    if (!edge) return null
-
-    const sourceNode = nodes.find((node) => node.id === edge.source)
-    const targetNode = nodes.find((node) => node.id === edge.target)
-    if (!sourceNode || !targetNode) return null
-
-    const sourceWidth = getNodeWidth(sourceNode)
-    const sourceHeight = getNodeHeight(sourceNode)
-    const targetWidth = getNodeWidth(targetNode)
-    const targetHeight = getNodeHeight(targetNode)
-    const sourceCenter = {
-      x: sourceNode.position.x + sourceWidth / 2,
-      y: sourceNode.position.y + sourceHeight / 2,
-    }
-    const targetCenter = {
-      x: targetNode.position.x + targetWidth / 2,
-      y: targetNode.position.y + targetHeight / 2,
-    }
-    const screenPosition = flowToScreenPosition({
-      x: (sourceCenter.x + targetCenter.x) / 2,
-      y: (sourceCenter.y + targetCenter.y) / 2,
-    })
-
-    return {
-      x: screenPosition.x - canvasBounds.left,
-      y: screenPosition.y - canvasBounds.top,
-    }
-  }, [canvasBounds, edges, flowToScreenPosition, nodes, selectedEdgeIdForToolbar, viewportVersion])
-
-  const handleDeleteSelectedEdge = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
-    event.preventDefault()
-    event.stopPropagation()
-    if (!selectedEdgeIdForToolbar || isTestActive) return
-
-    setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== selectedEdgeIdForToolbar))
-    setSelectedEdgeIdForToolbar(null)
-  }, [isTestActive, selectedEdgeIdForToolbar, setEdges])
 
   const hasTelegramToken = Boolean(
     (bot?.metadata && typeof bot.metadata === 'object' && (bot.metadata as Record<string, unknown>).hasTelegramToken) ||
@@ -1216,26 +1192,6 @@ function FlowCanvasInner({
       if (testLaunchMenuCloseTimeoutRef.current !== null) {
         window.clearTimeout(testLaunchMenuCloseTimeoutRef.current)
       }
-    }
-  }, [])
-
-  useEffect(() => {
-    const wrapper = canvasWrapperRef.current
-    if (!wrapper) return
-
-    const updateCanvasBounds = () => {
-      const rect = wrapper.getBoundingClientRect()
-      setCanvasBounds({ left: rect.left, top: rect.top })
-    }
-
-    updateCanvasBounds()
-    const resizeObserver = new ResizeObserver(updateCanvasBounds)
-    resizeObserver.observe(wrapper)
-    window.addEventListener('resize', updateCanvasBounds)
-
-    return () => {
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', updateCanvasBounds)
     }
   }, [])
 
@@ -2718,9 +2674,6 @@ function FlowCanvasInner({
           onNodeDoubleClick={handleNodeDoubleClick}
           onDragOver={onDragOver}
           onDrop={onDrop}
-          onMove={() => {
-            setViewportVersion((current) => current + 1)
-          }}
           onPaneClick={() => {
             closeContextMenu()
             closeGroupCommentMenu()
@@ -3375,22 +3328,6 @@ function FlowCanvasInner({
             </Panel>
           )}
         </ReactFlow>
-        {selectedEdgeDeletePosition ? (
-          <button
-            type="button"
-            aria-label={locale === 'en' ? 'Delete connection' : 'Удалить связь'}
-            title={locale === 'en' ? 'Delete connection' : 'Удалить связь'}
-            className="nodrag nopan absolute z-[120] flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-red-300/45 bg-red-500/25 text-red-100 shadow-[0_14px_36px_rgba(0,0,0,0.5)] backdrop-blur-xl transition hover:border-red-200/80 hover:bg-red-500/40 hover:text-white"
-            style={{
-              left: selectedEdgeDeletePosition.x,
-              top: selectedEdgeDeletePosition.y,
-            }}
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={handleDeleteSelectedEdge}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        ) : null}
       </div>
 
       {/* Settings Panel */}
