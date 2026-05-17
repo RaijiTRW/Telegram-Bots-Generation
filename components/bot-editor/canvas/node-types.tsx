@@ -439,12 +439,10 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const isAdaptiveSourceRightConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_RIGHT_HANDLE)
   const isDefaultTargetConnected = isTargetHandleConnected(null)
   const isDefaultSourceConnected = isSourceHandleConnected(null)
-  const hasAnyTargetConnection = connectedTargetHandles.size > 0
-  const hasAnySourceConnection = connectedSourceHandles.size > 0
   const shouldHideDefaultTargetHandle =
-    !isDefaultTargetConnected && (hasAnyTargetConnection || isAdaptiveSourceTopConnected)
+    !isDefaultTargetConnected && isAdaptiveSourceTopConnected
   const shouldHideDefaultSourceHandle =
-    !isDefaultSourceConnected && (hasAnySourceConnection || isAdaptiveTargetBottomConnected)
+    !isDefaultSourceConnected && isAdaptiveTargetBottomConnected
   const connectedHandlesSignature = [
     ...Array.from(connectedSourceHandles).sort().map((handle) => `s:${handle}`),
     ...Array.from(connectedTargetHandles).sort().map((handle) => `t:${handle}`),
