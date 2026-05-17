@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Node } from 'reactflow'
+import type { Node as FlowNode } from 'reactflow'
 import {
   MessageSquare,
   Keyboard,
@@ -94,7 +94,7 @@ import {
 import { resolveNodeHelpTemplateId } from '@/lib/bot-editor/help/node-help-guides'
 
 interface NodeSettingsPanelProps {
-  node: Node | null
+  node: FlowNode | null
   onUpdate: (nodeId: string, data: Partial<NodeData>) => void
   onSave?: () => Promise<boolean> | boolean
   onClose: () => void
@@ -820,14 +820,12 @@ export function NodeSettingsPanel({
 type MessageFormatAction = {
   id: string
   label: string
-  apply: (selectedText: string) => string
+  command: 'bold' | 'italic' | 'underline' | 'strikeThrough' | 'code' | 'spoiler'
 }
 
 type MessageFormatMenuState = {
   x: number
   y: number
-  selectionStart: number
-  selectionEnd: number
   hasSelection: boolean
 }
 
@@ -859,13 +857,158 @@ function inferMessageParseMode(value: string, previous?: ParseMode): ParseMode {
 
 function getMessageFormattingActions(tm: (key: string) => string): MessageFormatAction[] {
   return [
-    { id: 'bold', label: tm('formatBold'), apply: (text) => `<b>${escapeTelegramHtmlText(text)}</b>` },
-    { id: 'italic', label: tm('formatItalic'), apply: (text) => `<i>${escapeTelegramHtmlText(text)}</i>` },
-    { id: 'underline', label: tm('formatUnderline'), apply: (text) => `<u>${escapeTelegramHtmlText(text)}</u>` },
-    { id: 'strike', label: tm('formatStrike'), apply: (text) => `<s>${escapeTelegramHtmlText(text)}</s>` },
-    { id: 'code', label: tm('formatCode'), apply: (text) => `<code>${escapeTelegramHtmlText(text)}</code>` },
-    { id: 'spoiler', label: tm('formatSpoiler'), apply: (text) => `<tg-spoiler>${escapeTelegramHtmlText(text)}</tg-spoiler>` },
+    { id: 'bold', label: tm('formatBold'), command: 'bold' },
+    { id: 'italic', label: tm('formatItalic'), command: 'italic' },
+    { id: 'underline', label: tm('formatUnderline'), command: 'underline' },
+    { id: 'strike', label: tm('formatStrike'), command: 'strikeThrough' },
+    { id: 'code', label: tm('formatCode'), command: 'code' },
+    { id: 'spoiler', label: tm('formatSpoiler'), command: 'spoiler' },
   ]
+}
+
+function telegramHtmlToEditableHtml(value: string): string {
+  const source = value || ''
+  return escapeHtml(source)
+    .replace(/&lt;(\/?)(?:b|strong)&gt;/gi, '<$1b>')
+    .replace(/&lt;(\/?)(?:i|em)&gt;/gi, '<$1i>')
+    .replace(/&lt;(\/?)u&gt;/gi, '<$1u>')
+    .replace(/&lt;(\/?)(?:s|strike|del)&gt;/gi, '<$1s>')
+    .replace(/&lt;(\/?)code&gt;/gi, '<$1code>')
+    .replace(/&lt;(\/?)pre&gt;/gi, '<$1pre>')
+    .replace(
+      /&lt;tg-spoiler&gt;/gi,
+      '<span data-telegram-spoiler="true" class="rounded bg-zinc-700/70 px-1 text-zinc-100">'
+    )
+    .replace(/&lt;\/tg-spoiler&gt;/gi, '</span>')
+    .replace(
+      /&lt;a\s+href=&quot;([^"]*)&quot;&gt;/gi,
+      '<a href="$1" class="text-sky-300 underline decoration-sky-300/50 underline-offset-2">'
+    )
+    .replace(/&lt;\/a&gt;/gi, '</a>')
+    .replace(/\n/g, '<br>')
+}
+
+function serializeEditableNode(node: globalThis.Node): string {
+  if (node.nodeType === globalThis.Node.TEXT_NODE) {
+    return escapeTelegramHtmlText(node.textContent || '')
+  }
+
+  if (node.nodeType !== globalThis.Node.ELEMENT_NODE) {
+    return ''
+  }
+
+  const element = node as HTMLElement
+  const tag = element.tagName.toLowerCase()
+  const content = Array.from(element.childNodes).map(serializeEditableNode).join('')
+
+  if (tag === 'br') return '\n'
+  if (tag === 'div' || tag === 'p') return `${content}\n`
+  if (tag === 'b' || tag === 'strong') return `<b>${content}</b>`
+  if (tag === 'i' || tag === 'em') return `<i>${content}</i>`
+  if (tag === 'u') return `<u>${content}</u>`
+  if (tag === 's' || tag === 'strike' || tag === 'del') return `<s>${content}</s>`
+  if (tag === 'code') return `<code>${content}</code>`
+  if (tag === 'pre') return `<pre>${content}</pre>`
+  if (tag === 'a') {
+    const href = element.getAttribute('href') || ''
+    if (!href.trim()) return content
+    return `<a href="${escapeHtmlAttribute(href)}">${content}</a>`
+  }
+  if (element.dataset.telegramSpoiler === 'true') {
+    return `<tg-spoiler>${content}</tg-spoiler>`
+  }
+
+  return content
+}
+
+function serializeEditableHtml(element: HTMLElement): string {
+  return Array.from(element.childNodes)
+    .map(serializeEditableNode)
+    .join('')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\n$/, '')
+}
+
+function replaceCurrentSelectionWithElement(element: HTMLElement) {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return false
+
+  const range = selection.getRangeAt(0)
+  const selectedContent = range.extractContents()
+  element.appendChild(selectedContent)
+  range.insertNode(element)
+  selection.removeAllRanges()
+
+  const nextRange = document.createRange()
+  nextRange.selectNodeContents(element)
+  selection.addRange(nextRange)
+  return true
+}
+
+function RichMessageEditor({
+  id,
+  value,
+  placeholder,
+  onValueChange,
+  onOpenFormatMenu,
+}: {
+  id: string
+  value: string
+  placeholder: string
+  onValueChange: (value: string) => void
+  onOpenFormatMenu: (event: React.MouseEvent<HTMLDivElement>) => void
+}) {
+  const editorRef = useRef<HTMLDivElement | null>(null)
+  const isFocusedRef = useRef(false)
+
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor || isFocusedRef.current) return
+    const nextHtml = telegramHtmlToEditableHtml(value)
+    if (editor.innerHTML !== nextHtml) {
+      editor.innerHTML = nextHtml
+    }
+  }, [value])
+
+  const syncValue = () => {
+    const editor = editorRef.current
+    if (!editor) return
+    onValueChange(serializeEditableHtml(editor))
+  }
+
+  return (
+    <div className="relative mt-1.5">
+      {!value ? (
+        <div className="pointer-events-none absolute left-3 top-2 z-[1] text-sm text-zinc-500">
+          {placeholder}
+        </div>
+      ) : null}
+      <div
+        ref={editorRef}
+        id={id}
+        role="textbox"
+        aria-multiline="true"
+        contentEditable
+        suppressContentEditableWarning
+        onInput={syncValue}
+        onBlur={() => {
+          isFocusedRef.current = false
+          syncValue()
+        }}
+        onFocus={() => {
+          isFocusedRef.current = true
+        }}
+        onContextMenu={onOpenFormatMenu}
+        onPaste={(event) => {
+          event.preventDefault()
+          const text = event.clipboardData.getData('text/plain')
+          document.execCommand('insertText', false, text)
+          requestAnimationFrame(syncValue)
+        }}
+        className="min-h-[110px] w-full rounded-md border border-white/10 bg-zinc-800/50 px-3 py-2 text-sm leading-6 text-white outline-none transition-colors empty:before:content-[''] focus:border-[#24A1DE] focus:ring-2 focus:ring-[#24A1DE]/45 [&_*]:text-white [&_a]:text-sky-300 [&_a]:underline [&_code]:rounded [&_code]:bg-white/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.92em] [&_div]:m-0 [&_p]:m-0 [&_s]:text-zinc-300 [&_u]:text-white [&_u]:decoration-white/70"
+      />
+    </div>
+  )
 }
 
 function renderMessageRichTextPreview(value: string): string {
@@ -950,7 +1093,6 @@ function getPrimaryMessageAttachment(
 function MessageSettings({
   data,
   onUpdate,
-  variables,
   t,
 }: {
   data: MessageNodeData
@@ -966,10 +1108,9 @@ function MessageSettings({
   }
   const isAiMessage = Boolean(aiMeta.aiEnabled)
   const { bot } = useBotState()
-  const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const lastSelectionRef = useRef<{ start: number; end: number } | null>(null)
+  const richSelectionRangeRef = useRef<Range | null>(null)
   const [formatMenu, setFormatMenu] = useState<MessageFormatMenuState | null>(null)
   const [formatLinkUrl, setFormatLinkUrl] = useState('https://')
   const [isAttachmentDragActive, setIsAttachmentDragActive] = useState(false)
@@ -993,6 +1134,16 @@ function MessageSettings({
   const primaryAttachment = getPrimaryMessageAttachment(data)
   const attachmentType = primaryAttachment?.type ?? 'none'
   const attachmentSource = primaryAttachment?.source ?? ''
+
+  const syncRichMessageFromDom = useCallback(() => {
+    const editor = document.getElementById('msg-text')
+    if (!(editor instanceof HTMLElement)) return
+    const nextText = serializeEditableHtml(editor)
+    onUpdate({
+      text: nextText,
+      parseMode: inferMessageParseMode(nextText, 'HTML'),
+    })
+  }, [onUpdate])
 
   useEffect(() => {
     if (!formatMenu) return
@@ -1024,23 +1175,14 @@ function MessageSettings({
     }
   }, [formatMenu])
 
-  const rememberSelection = (textarea: HTMLTextAreaElement) => {
-    const start = textarea.selectionStart ?? 0
-    const end = textarea.selectionEnd ?? 0
-    lastSelectionRef.current = { start, end }
-  }
-
-  const openFormattingMenu = (event: React.MouseEvent<HTMLTextAreaElement>) => {
+  const openFormattingMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault()
 
-    const textarea = event.currentTarget
-    let selectionStart = textarea.selectionStart ?? 0
-    let selectionEnd = textarea.selectionEnd ?? 0
-
-    if (selectionStart === selectionEnd && lastSelectionRef.current) {
-      selectionStart = lastSelectionRef.current.start
-      selectionEnd = lastSelectionRef.current.end
-    }
+    const selection = window.getSelection()
+    const hasSelection = Boolean(selection && !selection.isCollapsed && event.currentTarget.contains(selection.anchorNode))
+    richSelectionRangeRef.current = hasSelection && selection?.rangeCount
+      ? selection.getRangeAt(0).cloneRange()
+      : null
 
     const menuWidth = 230
     const menuHeight = 350
@@ -1050,46 +1192,51 @@ function MessageSettings({
     setFormatMenu({
       x: Math.max(12, x),
       y: Math.max(12, y),
-      selectionStart,
-      selectionEnd,
-      hasSelection: selectionStart !== selectionEnd,
+      hasSelection,
     })
     setFormatLinkUrl('https://')
   }
 
-  const applyFormatting = (formatter: (selectedText: string) => string) => {
-    if (!formatMenu) return
+  const restoreRichSelection = () => {
+    const range = richSelectionRangeRef.current
+    if (!range) return false
+    const selection = window.getSelection()
+    if (!selection) return false
+    selection.removeAllRanges()
+    selection.addRange(range)
+    return true
+  }
 
-    const sourceText = data.text || ''
-    const selectedText = sourceText.slice(formatMenu.selectionStart, formatMenu.selectionEnd)
-    if (!selectedText) {
+  const applyFormattingCommand = (command: MessageFormatAction['command']) => {
+    if (!formatMenu) return
+    if (!restoreRichSelection()) {
       setFormatMenu(null)
       return
     }
-
-    const replacement = formatter(selectedText)
-    const updatedText = `${sourceText.slice(0, formatMenu.selectionStart)}${replacement}${sourceText.slice(formatMenu.selectionEnd)}`
-
-    onUpdate({ text: updatedText, parseMode: 'HTML' })
+    if (command === 'code' || command === 'spoiler') {
+      const element = document.createElement(command === 'code' ? 'code' : 'span')
+      if (command === 'spoiler') {
+        element.dataset.telegramSpoiler = 'true'
+        element.className = 'rounded bg-zinc-700/70 px-1 text-zinc-100'
+      }
+      replaceCurrentSelectionWithElement(element)
+    } else {
+      document.execCommand(command)
+    }
     setFormatMenu(null)
-
-    requestAnimationFrame(() => {
-      const textarea = textAreaRef.current
-      if (!textarea) return
-      textarea.focus()
-      textarea.setSelectionRange(
-        formatMenu.selectionStart,
-        formatMenu.selectionStart + replacement.length
-      )
-    })
+    requestAnimationFrame(syncRichMessageFromDom)
   }
 
   const applyLinkFormatting = () => {
     const url = formatLinkUrl.trim()
     if (!url || url === 'https://') return
-    applyFormatting((selectedText) => {
-      return `<a href="${escapeHtmlAttribute(url)}">${escapeTelegramHtmlText(selectedText)}</a>`
-    })
+    if (!restoreRichSelection()) {
+      setFormatMenu(null)
+      return
+    }
+    document.execCommand('createLink', false, url)
+    setFormatMenu(null)
+    requestAnimationFrame(syncRichMessageFromDom)
   }
 
   const updatePrimaryAttachment = useCallback((
@@ -1195,8 +1342,7 @@ function MessageSettings({
 
       <div>
         <Label htmlFor="msg-text">{tm('textLabel')}</Label>
-        <TemplateVariableTextarea
-          ref={textAreaRef}
+        <RichMessageEditor
           id="msg-text"
           value={data.text || ''}
           onValueChange={(value) => {
@@ -1206,21 +1352,8 @@ function MessageSettings({
               parseMode: inferMessageParseMode(value, data.parseMode),
             })
           }}
-          onSelect={(e) => rememberSelection(e.currentTarget)}
-          onMouseUp={(e) => rememberSelection(e.currentTarget)}
-          onKeyUp={(e) => rememberSelection(e.currentTarget)}
-          onMouseDownCapture={(e) => {
-            if (e.button === 2) {
-              rememberSelection(e.currentTarget)
-            }
-          }}
-          onContextMenu={openFormattingMenu}
+          onOpenFormatMenu={openFormattingMenu}
           placeholder={tm('textPlaceholder')}
-          rows={4}
-          className="mt-1.5 bg-zinc-800/50 border-white/10"
-          variables={variables}
-          forcePreview={Boolean(data.text)}
-          previewHtml={renderMessageRichTextPreview(data.text || '')}
         />
         <p className="text-xs text-zinc-500 mt-1">
           {tm('variableHint')}
@@ -1391,7 +1524,8 @@ function MessageSettings({
                 <button
                   key={action.id}
                   type="button"
-                  onClick={() => applyFormatting(action.apply)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => applyFormattingCommand(action.command)}
                   className="w-full text-left px-2 py-2 rounded-lg text-sm text-zinc-200 hover:bg-white/5 hover:text-white transition-colors"
                 >
                   {action.label}
@@ -1408,6 +1542,7 @@ function MessageSettings({
                 <Button
                   type="button"
                   size="sm"
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={applyLinkFormatting}
                   className="w-full bg-[#24A1DE] hover:bg-[#24A1DE]/80"
                 >

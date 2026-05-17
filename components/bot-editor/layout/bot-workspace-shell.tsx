@@ -51,6 +51,7 @@ import { DashboardSectionViewport, type DashboardSection } from '@/components/da
 import { EditorOnboardingTour } from '@/components/onboarding/editor-onboarding-tour'
 import { VersionUpdateToast } from '@/components/system/version-update-toast'
 import { SubscriptionEndedModal } from '@/components/billing/subscription-ended-modal'
+import packageJson from '@/package.json'
 import { useBotActivityFavicon } from './use-bot-activity-favicon'
 import { useBotState } from '@/components/bot-editor/providers/bot-state-provider'
 import { cn } from '@/lib/utils'
@@ -73,6 +74,8 @@ import type { Bot, BotStatus, EditorSection } from '@/lib/bot-editor/types/bot.t
 import type { ViewerAccess } from '@/lib/billing/types'
 
 export type WorkspaceMode = 'chat' | 'editor' | 'crm'
+
+const APP_VERSION_LABEL = `V${packageJson.version} - Release`
 
 interface BotWorkspaceShellProps {
   botId: string
@@ -1499,7 +1502,7 @@ export function BotWorkspaceShell({
               </div>
 
               <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 md:grid-cols-[250px_minmax(0,1fr)]">
-                <nav className="min-w-0 border-b border-white/10 bg-[#080B11] p-3 md:border-b-0 md:border-r">
+                <nav className="flex min-w-0 flex-col border-b border-white/10 bg-[#080B11] p-3 md:border-b-0 md:border-r">
                   <div className="grid gap-1">
                     {globalNavItems.map((item) => {
                       const Icon = item.icon
@@ -1521,6 +1524,14 @@ export function BotWorkspaceShell({
                         </button>
                       )
                     })}
+                  </div>
+                  <div className="mt-6 border-t border-white/10 pt-3 md:mt-auto">
+                    <div
+                      className="inline-flex max-w-full items-center rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500"
+                      title={`CBTooll ${APP_VERSION_LABEL}`}
+                    >
+                      <span className="truncate">{APP_VERSION_LABEL}</span>
+                    </div>
                   </div>
                 </nav>
                 <div className="min-h-0 min-w-0 overflow-y-auto p-4 pb-10 [scrollbar-gutter:stable] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5">
