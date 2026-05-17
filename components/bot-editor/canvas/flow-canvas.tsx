@@ -1039,6 +1039,7 @@ function FlowCanvasInner({
   const [hoveredPaletteCategory, setHoveredPaletteCategory] = useState<PaletteCategoryId | null>(null)
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null)
   const [groupCommentMenu, setGroupCommentMenu] = useState<GroupCommentContextMenuState | null>(null)
+  const [inlineRenameRequest, setInlineRenameRequest] = useState<{ nodeId: string; requestId: number } | null>(null)
   const [contextMenuCategory, setContextMenuCategory] = useState<PaletteCategoryId | null>(null)
   const [isSelectionModifierPressed, setIsSelectionModifierPressed] = useState(false)
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false)
@@ -1296,6 +1297,48 @@ function FlowCanvasInner({
     }
   }, [isTestActive, setNodes, setEdges, selectedNode])
 
+  const commitInlineNodeRename = useCallback((nodeId: string, label: string) => {
+    if (isTestActive) return
+
+    const trimmedLabel = label.trim().slice(0, 64)
+    if (!trimmedLabel) {
+      setInlineRenameRequest(null)
+      return
+    }
+
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...(node.data || {}),
+                __label: trimmedLabel,
+              },
+            }
+          : node
+      )
+    )
+    setSelectedNode((currentNode) =>
+      currentNode?.id === nodeId
+        ? {
+            ...currentNode,
+            data: {
+              ...(currentNode.data || {}),
+              __label: trimmedLabel,
+            },
+          }
+        : currentNode
+    )
+    setInlineRenameRequest(null)
+  }, [isTestActive, setNodes])
+
+  const cancelInlineNodeRename = useCallback((nodeId: string) => {
+    setInlineRenameRequest((currentRequest) =>
+      currentRequest?.nodeId === nodeId ? null : currentRequest
+    )
+  }, [])
+
   const applyRuntimeNodeData = useCallback((node: Node): Node => {
     const migratedNode = migrateLegacyDataNodeType(node)
     const existingData = (migratedNode.data || {}) as Record<string, unknown>
@@ -1357,7 +1400,11 @@ function FlowCanvasInner({
           ...existingData,
           __connectedSourceHandles: Array.from(connectedSourceHandlesByNode.get(node.id) || []),
           __connectedTargetHandles: Array.from(connectedTargetHandlesByNode.get(node.id) || []),
+          __renameRequestId:
+            inlineRenameRequest?.nodeId === node.id ? inlineRenameRequest.requestId : undefined,
           onDelete: (id: string) => handleDeleteNode(id),
+          onRenameNode: commitInlineNodeRename,
+          onCancelRename: cancelInlineNodeRename,
           onOpenInsertMenu: (request: {
             clientX: number
             clientY: number
@@ -1407,9 +1454,12 @@ function FlowCanvasInner({
     })
   }, [
     adaptiveEdges,
+    cancelInlineNodeRename,
+    commitInlineNodeRename,
     executionTrace?.activeNodeId,
     executionTrace?.activeNodeState,
     handleDeleteNode,
+    inlineRenameRequest,
     nodes,
     recentExecutionNodeIds,
   ])
@@ -1819,42 +1869,12 @@ function FlowCanvasInner({
       return
     }
 
-    const targetData = (targetNode.data || {}) as Partial<NodeData>
-    const configLabel =
-      typeof targetNode.type === 'string' && targetNode.type in NODE_CONFIGS
-        ? NODE_CONFIGS[targetNode.type as keyof typeof NODE_CONFIGS]?.label
-        : ''
-    const currentLabel = String(targetData.__label || configLabel || targetNode.type || '').trim()
-    const nextLabel = window.prompt(
-      locale === 'en' ? 'Node name' : 'Название узла',
-      currentLabel || (locale === 'en' ? 'Node' : 'Узел')
-    )
-
-    if (nextLabel === null) {
-      closeGroupCommentMenu()
-      return
-    }
-
-    const trimmedLabel = nextLabel.trim().slice(0, 64)
-    if (!trimmedLabel) {
-      closeGroupCommentMenu()
-      return
-    }
-
-    handleNodeUpdate(targetNode.id, { __label: trimmedLabel })
-    setSelectedNode((currentNode) =>
-      currentNode?.id === targetNode.id
-        ? {
-            ...currentNode,
-            data: {
-              ...(currentNode.data || {}),
-              __label: trimmedLabel,
-            },
-          }
-        : currentNode
-    )
+    setInlineRenameRequest({
+      nodeId: targetNode.id,
+      requestId: Date.now(),
+    })
     closeGroupCommentMenu()
-  }, [closeGroupCommentMenu, groupCommentMenu, handleNodeUpdate, isTestActive, locale, nodes])
+  }, [closeGroupCommentMenu, groupCommentMenu, isTestActive, nodes])
 
   const deleteContextMenuNode = useCallback(() => {
     if (isTestActive || !groupCommentMenu?.targetNodeId) return

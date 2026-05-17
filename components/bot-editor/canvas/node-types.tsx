@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType, CSSProperties } from 'react'
 import { Handle, Position, NodeProps, useUpdateNodeInternals } from 'reactflow'
 import { useTranslations } from 'next-intl'
@@ -212,6 +212,8 @@ type InsertMenuRequest = {
 }
 
 type InsertMenuOpener = (request: InsertMenuRequest) => void
+type NodeRenameCommit = (nodeId: string, label: string) => void
+type NodeRenameCancel = (nodeId: string) => void
 const CONNECTION_HANDLE_POINTER_DOWN_EVENT = 'bot-flow-connection-handle-pointer-down'
 const DEFAULT_HANDLE_KEY = '__default__'
 const ADAPTIVE_TARGET_LEFT_HANDLE = 'adaptive-target:left'
@@ -357,8 +359,11 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const tCanvas = useTranslations('editor.canvas')
   const updateNodeInternals = useUpdateNodeInternals()
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const renameInputRef = useRef<HTMLInputElement | null>(null)
   const routerCaseRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [routerCaseHandleTops, setRouterCaseHandleTops] = useState<Record<string, number>>({})
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [draftLabel, setDraftLabel] = useState('')
   const nodeColor = getNodeColor(type || data.type)
   const normalizedType = type || data.type
   const dataRecord = data as Record<string, unknown>
@@ -366,6 +371,18 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
     typeof dataRecord.onOpenInsertMenu === 'function'
       ? (dataRecord.onOpenInsertMenu as InsertMenuOpener)
       : undefined
+  const commitNodeRename =
+    typeof dataRecord.onRenameNode === 'function'
+      ? (dataRecord.onRenameNode as NodeRenameCommit)
+      : undefined
+  const cancelNodeRename =
+    typeof dataRecord.onCancelRename === 'function'
+      ? (dataRecord.onCancelRename as NodeRenameCancel)
+      : undefined
+  const renameRequestId =
+    typeof dataRecord.__renameRequestId === 'number' || typeof dataRecord.__renameRequestId === 'string'
+      ? String(dataRecord.__renameRequestId)
+      : ''
   const actionType =
     normalizedType === 'action' && dataRecord.action && typeof dataRecord.action === 'object'
       ? String((dataRecord.action as Record<string, unknown>).type || '')
@@ -420,6 +437,14 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
   const isAdaptiveSourceTopConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_TOP_HANDLE)
   const isAdaptiveSourceLeftConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_LEFT_HANDLE)
   const isAdaptiveSourceRightConnected = isSourceHandleConnected(ADAPTIVE_SOURCE_RIGHT_HANDLE)
+  const isDefaultTargetConnected = isTargetHandleConnected(null)
+  const isDefaultSourceConnected = isSourceHandleConnected(null)
+  const hasAnyTargetConnection = connectedTargetHandles.size > 0
+  const hasAnySourceConnection = connectedSourceHandles.size > 0
+  const shouldHideDefaultTargetHandle =
+    !isDefaultTargetConnected && (hasAnyTargetConnection || isAdaptiveSourceTopConnected)
+  const shouldHideDefaultSourceHandle =
+    !isDefaultSourceConnected && (hasAnySourceConnection || isAdaptiveTargetBottomConnected)
   const connectedHandlesSignature = [
     ...Array.from(connectedSourceHandles).sort().map((handle) => `s:${handle}`),
     ...Array.from(connectedTargetHandles).sort().map((handle) => `t:${handle}`),
@@ -443,6 +468,43 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
         : executionState === 'recent'
           ? 'bg-sky-300/90 shadow-[0_0_8px_rgba(56,189,248,0.35)]'
           : ''
+
+  useEffect(() => {
+    if (!renameRequestId) {
+      return
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      setDraftLabel(nodeLabel)
+      setIsRenaming(true)
+
+      window.requestAnimationFrame(() => {
+        const input = renameInputRef.current
+        if (!input) return
+        input.focus()
+        input.select()
+      })
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [nodeLabel, renameRequestId])
+
+  const cancelInlineRename = useCallback(() => {
+    setIsRenaming(false)
+    cancelNodeRename?.(id)
+  }, [cancelNodeRename, id])
+
+  const commitInlineRename = useCallback(() => {
+    const trimmedLabel = draftLabel.trim().slice(0, 64)
+    setIsRenaming(false)
+
+    if (!trimmedLabel || trimmedLabel === nodeLabel) {
+      cancelNodeRename?.(id)
+      return
+    }
+
+    commitNodeRename?.(id, trimmedLabel)
+  }, [cancelNodeRename, commitNodeRename, draftLabel, id, nodeLabel])
 
   const setRouterCaseRowRef = useCallback((caseId: string, element: HTMLDivElement | null) => {
     routerCaseRowRefs.current[caseId] = element
@@ -547,7 +609,8 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
           nodeColor={nodeColor}
           ariaLabel={tCanvas('insertNodeHere')}
           onOpen={openInsertMenu}
-          isConnected={isTargetHandleConnected(null)}
+          isConnected={isDefaultTargetConnected}
+          isHidden={shouldHideDefaultTargetHandle}
         />
       )}
 
@@ -604,9 +667,32 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
         >
           {getNodeIcon(normalizedType)}
         </div>
-        <div className="text-xs font-medium text-white capitalize truncate">
-          {nodeLabel}
-        </div>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            value={draftLabel}
+            onChange={(event) => setDraftLabel(event.target.value)}
+            onBlur={commitInlineRename}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                commitInlineRename()
+              }
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                cancelInlineRename()
+              }
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            className="nodrag nowheel min-w-0 max-w-[132px] flex-1 rounded-md border border-cyan-300/45 bg-black/65 px-1.5 py-0.5 text-xs font-medium text-white outline-none shadow-[0_0_0_2px_rgba(34,211,238,0.12)]"
+            aria-label="Node name"
+          />
+        ) : (
+          <div className="text-xs font-medium text-white capitalize truncate">
+            {nodeLabel}
+          </div>
+        )}
         {(isExecutionActive || isExecutionRecent) && (
           <span className={`ml-auto h-2 w-2 shrink-0 rounded-full ${executionDotClassName}`} />
         )}
@@ -658,7 +744,8 @@ const CustomNode = ({ id, data, type, selected }: NodeProps) => {
           nodeColor={nodeColor}
           ariaLabel={tCanvas('insertNodeHere')}
           onOpen={openInsertMenu}
-          isConnected={isSourceHandleConnected(null)}
+          isConnected={isDefaultSourceConnected}
+          isHidden={shouldHideDefaultSourceHandle}
         />
       )}
 
