@@ -1032,7 +1032,7 @@ function FlowCanvasInner({
   const { bot, setActiveSection, testLaunchMode, setTestLaunchMode } = useBotState()
   const docsBasePath = `/${locale}/dashboard/docs`
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
-  const { screenToFlowPosition, getZoom, zoomTo } = useReactFlow()
+  const { screenToFlowPosition, getZoom, getViewport, setViewport } = useReactFlow()
   const preparedInitialNodes = useMemo(
     () => initialNodes.map(migrateLegacyHttpActionNode).map(migrateLegacyDataNodeType).map(applyNodeWrapperStyle),
     [initialNodes]
@@ -1587,7 +1587,18 @@ function FlowCanvasInner({
         return
       }
 
-      void zoomTo(nextZoom, { duration: CANVAS_WHEEL_ZOOM_DURATION_MS })
+      const viewport = getViewport()
+      const bounds = flowElement.getBoundingClientRect()
+      const cursorX = event.clientX - bounds.left
+      const cursorY = event.clientY - bounds.top
+      const flowX = (cursorX - viewport.x) / currentZoom
+      const flowY = (cursorY - viewport.y) / currentZoom
+
+      void setViewport({
+        x: cursorX - flowX * nextZoom,
+        y: cursorY - flowY * nextZoom,
+        zoom: nextZoom,
+      }, { duration: CANVAS_WHEEL_ZOOM_DURATION_MS })
     }
 
     flowElement.addEventListener('wheel', handleWheel, { passive: false, capture: true })
@@ -1595,7 +1606,7 @@ function FlowCanvasInner({
     return () => {
       flowElement.removeEventListener('wheel', handleWheel, { capture: true })
     }
-  }, [getZoom, zoomTo])
+  }, [getViewport, getZoom, setViewport])
 
   const getVisibleCanvasCenterPosition = useCallback(() => {
     if (!canvasWrapperRef.current) {
