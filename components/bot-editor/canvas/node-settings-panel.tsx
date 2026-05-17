@@ -22,7 +22,6 @@ import {
   X,
   Plus,
   Trash2,
-  CircleHelp,
   Settings,
   Save,
   Copy,
@@ -832,50 +831,69 @@ type MessageFormatMenuState = {
   hasSelection: boolean
 }
 
-function escapeTelegramMarkdownV2(text: string): string {
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1')
+function escapeHtmlAttribute(value: string): string {
+  return escapeHtml(value)
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
-function getMessageFormattingActions(
-  parseMode: ParseMode | 'None',
-  tm: (key: string) => string
-): MessageFormatAction[] {
-  if (parseMode === 'HTML') {
-    return [
-      { id: 'bold', label: tm('formatBold'), apply: (text) => `<b>${text}</b>` },
-      { id: 'italic', label: tm('formatItalic'), apply: (text) => `<i>${text}</i>` },
-      { id: 'underline', label: tm('formatUnderline'), apply: (text) => `<u>${text}</u>` },
-      { id: 'code', label: tm('formatCode'), apply: (text) => `<code>${text}</code>` },
-      { id: 'spoiler', label: tm('formatSpoiler'), apply: (text) => `<tg-spoiler>${text}</tg-spoiler>` },
-      { id: 'link', label: tm('formatLink'), apply: (text) => `<a href="https://example.com">${text}</a>` },
-    ]
-  }
+function escapeTelegramHtmlText(text: string): string {
+  return escapeHtml(text)
+}
 
-  if (parseMode === 'MarkdownV2') {
-    return [
-      { id: 'bold', label: tm('formatBold'), apply: (text) => `*${escapeTelegramMarkdownV2(text)}*` },
-      { id: 'italic', label: tm('formatItalic'), apply: (text) => `_${escapeTelegramMarkdownV2(text)}_` },
-      { id: 'underline', label: tm('formatUnderline'), apply: (text) => `__${escapeTelegramMarkdownV2(text)}__` },
-      { id: 'strike', label: tm('formatStrike'), apply: (text) => `~${escapeTelegramMarkdownV2(text)}~` },
-      { id: 'code', label: tm('formatCode'), apply: (text) => `\`${text.replace(/\\/g, '\\\\').replace(/`/g, '\\`')}\`` },
-      { id: 'spoiler', label: tm('formatSpoiler'), apply: (text) => `||${escapeTelegramMarkdownV2(text)}||` },
-      { id: 'link', label: tm('formatLink'), apply: (text) => `[${escapeTelegramMarkdownV2(text)}](https://example.com)` },
-    ]
-  }
+function hasTelegramHtmlFormatting(value: string): boolean {
+  return /<\/?(?:b|strong|i|em|u|s|strike|del|code|pre|tg-spoiler)\b[^>]*>|<a\s+href=/i.test(value)
+}
 
-  if (parseMode === 'Markdown') {
-    return [
-      { id: 'bold', label: tm('formatBold'), apply: (text) => `*${text}*` },
-      { id: 'italic', label: tm('formatItalic'), apply: (text) => `_${text}_` },
-      { id: 'strike', label: tm('formatStrike'), apply: (text) => `~${text}~` },
-      { id: 'code', label: tm('formatCode'), apply: (text) => `\`${text}\`` },
-      { id: 'link', label: tm('formatLink'), apply: (text) => `[${text}](https://example.com)` },
-    ]
-  }
+function hasMarkdownFormatting(value: string): boolean {
+  return /(^|[\s([{])(?:\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~|`[^`\n]+`|\[[^\]\n]+\]\([^)]+\))/m.test(value)
+}
 
-  return []
+function inferMessageParseMode(value: string, previous?: ParseMode): ParseMode {
+  if (hasTelegramHtmlFormatting(value)) return 'HTML'
+  if ((previous === 'Markdown' || previous === 'MarkdownV2') && hasMarkdownFormatting(value)) {
+    return previous
+  }
+  return 'None'
+}
+
+function getMessageFormattingActions(tm: (key: string) => string): MessageFormatAction[] {
+  return [
+    { id: 'bold', label: tm('formatBold'), apply: (text) => `<b>${escapeTelegramHtmlText(text)}</b>` },
+    { id: 'italic', label: tm('formatItalic'), apply: (text) => `<i>${escapeTelegramHtmlText(text)}</i>` },
+    { id: 'underline', label: tm('formatUnderline'), apply: (text) => `<u>${escapeTelegramHtmlText(text)}</u>` },
+    { id: 'strike', label: tm('formatStrike'), apply: (text) => `<s>${escapeTelegramHtmlText(text)}</s>` },
+    { id: 'code', label: tm('formatCode'), apply: (text) => `<code>${escapeTelegramHtmlText(text)}</code>` },
+    { id: 'spoiler', label: tm('formatSpoiler'), apply: (text) => `<tg-spoiler>${escapeTelegramHtmlText(text)}</tg-spoiler>` },
+  ]
+}
+
+function renderMessageRichTextPreview(value: string): string {
+  const source = value || ''
+  let html = escapeHtml(source)
+    .replace(/&lt;(\/?)(?:b|strong)&gt;/gi, '<$1strong>')
+    .replace(/&lt;(\/?)(?:i|em)&gt;/gi, '<$1em>')
+    .replace(/&lt;(\/?)u&gt;/gi, '<$1u>')
+    .replace(/&lt;(\/?)(?:s|strike|del)&gt;/gi, '<$1s>')
+    .replace(/&lt;(\/?)code&gt;/gi, '<$1code>')
+    .replace(/&lt;(\/?)pre&gt;/gi, '<$1pre>')
+    .replace(
+      /&lt;tg-spoiler&gt;/gi,
+      '<span class="rounded bg-zinc-700/70 px-1 text-zinc-100">'
+    )
+    .replace(/&lt;\/tg-spoiler&gt;/gi, '</span>')
+    .replace(
+      /&lt;a\s+href=&quot;([^"]*)&quot;&gt;/gi,
+      '<a href="$1" class="text-sky-300 underline decoration-sky-300/50 underline-offset-2" target="_blank" rel="noreferrer">'
+    )
+    .replace(/&lt;\/a&gt;/gi, '</a>')
+
+  html = html.replace(
+    /(\{\{[^{}]+\}\})/g,
+    '<span class="rounded-md border border-sky-400/35 bg-sky-400/15 px-1 py-0.5 font-mono text-[0.95em] text-sky-100 shadow-[0_0_0_1px_rgba(56,189,248,0.08)]">$1</span>'
+  )
+
+  return html
 }
 
 function normalizeMessageAttachmentType(
@@ -940,7 +958,7 @@ function MessageSettings({
   variables: string[]
   t: (key: string) => string
 }) {
-  const tm = (key: string) => t(`message.${key}`)
+  const tm = useCallback((key: string) => t(`message.${key}`), [t])
   const aiMeta = data as unknown as {
     aiEnabled?: boolean
     aiPrompt?: string
@@ -951,11 +969,9 @@ function MessageSettings({
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const formatHintButtonRef = useRef<HTMLButtonElement | null>(null)
   const lastSelectionRef = useRef<{ start: number; end: number } | null>(null)
   const [formatMenu, setFormatMenu] = useState<MessageFormatMenuState | null>(null)
-  const [formatHintPosition, setFormatHintPosition] = useState<{ left: number; top: number } | null>(null)
-  const [isFormatHintVisible, setIsFormatHintVisible] = useState(false)
+  const [formatLinkUrl, setFormatLinkUrl] = useState('https://')
   const [isAttachmentDragActive, setIsAttachmentDragActive] = useState(false)
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
   const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null)
@@ -973,8 +989,7 @@ function MessageSettings({
       )
   )
 
-  const currentParseMode = (data.parseMode || 'None') as ParseMode | 'None'
-  const formatActions = getMessageFormattingActions(currentParseMode, tm)
+  const formatActions = useMemo(() => getMessageFormattingActions(tm), [tm])
   const primaryAttachment = getPrimaryMessageAttachment(data)
   const attachmentType = primaryAttachment?.type ?? 'none'
   const attachmentSource = primaryAttachment?.source ?? ''
@@ -1009,27 +1024,6 @@ function MessageSettings({
     }
   }, [formatMenu])
 
-  useEffect(() => {
-    if (!isFormatHintVisible) return
-
-    const closeHint = () => setIsFormatHintVisible(false)
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeHint()
-      }
-    }
-
-    window.addEventListener('scroll', closeHint, true)
-    window.addEventListener('resize', closeHint)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('scroll', closeHint, true)
-      window.removeEventListener('resize', closeHint)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isFormatHintVisible])
-
   const rememberSelection = (textarea: HTMLTextAreaElement) => {
     const start = textarea.selectionStart ?? 0
     const end = textarea.selectionEnd ?? 0
@@ -1049,7 +1043,7 @@ function MessageSettings({
     }
 
     const menuWidth = 230
-    const menuHeight = currentParseMode === 'None' ? 76 : 280
+    const menuHeight = 350
     const x = Math.min(event.clientX, window.innerWidth - menuWidth - 12)
     const y = Math.min(event.clientY, window.innerHeight - menuHeight - 12)
 
@@ -1060,23 +1054,7 @@ function MessageSettings({
       selectionEnd,
       hasSelection: selectionStart !== selectionEnd,
     })
-  }
-
-  const openFormatHint = () => {
-    const trigger = formatHintButtonRef.current
-    if (!trigger || typeof window === 'undefined') return
-
-    const rect = trigger.getBoundingClientRect()
-    const tooltipWidth = Math.min(320, Math.max(220, window.innerWidth - 32))
-    const viewportPadding = 12
-    const left = Math.min(
-      window.innerWidth - tooltipWidth - viewportPadding,
-      Math.max(viewportPadding, rect.right - tooltipWidth)
-    )
-    const top = Math.min(rect.bottom + 8, window.innerHeight - 120)
-
-    setFormatHintPosition({ left, top })
-    setIsFormatHintVisible(true)
+    setFormatLinkUrl('https://')
   }
 
   const applyFormatting = (formatter: (selectedText: string) => string) => {
@@ -1092,7 +1070,7 @@ function MessageSettings({
     const replacement = formatter(selectedText)
     const updatedText = `${sourceText.slice(0, formatMenu.selectionStart)}${replacement}${sourceText.slice(formatMenu.selectionEnd)}`
 
-    onUpdate({ text: updatedText })
+    onUpdate({ text: updatedText, parseMode: 'HTML' })
     setFormatMenu(null)
 
     requestAnimationFrame(() => {
@@ -1106,7 +1084,15 @@ function MessageSettings({
     })
   }
 
-  const updatePrimaryAttachment = (
+  const applyLinkFormatting = () => {
+    const url = formatLinkUrl.trim()
+    if (!url || url === 'https://') return
+    applyFormatting((selectedText) => {
+      return `<a href="${escapeHtmlAttribute(url)}">${escapeTelegramHtmlText(selectedText)}</a>`
+    })
+  }
+
+  const updatePrimaryAttachment = useCallback((
     nextType: MessageAttachmentType | 'none',
     nextSource: string
   ) => {
@@ -1123,7 +1109,7 @@ function MessageSettings({
         },
       ],
     })
-  }
+  }, [onUpdate])
 
   const uploadAttachmentFile = useCallback(async (file: File) => {
     if (!file) return
@@ -1215,7 +1201,10 @@ function MessageSettings({
           value={data.text || ''}
           onValueChange={(value) => {
             setFormatMenu(null)
-            onUpdate({ text: value })
+            onUpdate({
+              text: value,
+              parseMode: inferMessageParseMode(value, data.parseMode),
+            })
           }}
           onSelect={(e) => rememberSelection(e.currentTarget)}
           onMouseUp={(e) => rememberSelection(e.currentTarget)}
@@ -1230,47 +1219,15 @@ function MessageSettings({
           rows={4}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
           variables={variables}
+          forcePreview={Boolean(data.text)}
+          previewHtml={renderMessageRichTextPreview(data.text || '')}
         />
         <p className="text-xs text-zinc-500 mt-1">
           {tm('variableHint')}
         </p>
         <p className="text-xs text-zinc-600 mt-1">
-          {tm('formatContextHint')}
+          {tm('richTextHint')}
         </p>
-      </div>
-
-      <div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="msg-parsemode">{tm('formatting')}</Label>
-          <div className="relative">
-            <button
-              ref={formatHintButtonRef}
-              type="button"
-              className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-transparent p-0 text-zinc-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24A1DE]/70"
-              aria-label={tm('formattingHelpLabel')}
-              onMouseEnter={openFormatHint}
-              onMouseLeave={() => setIsFormatHintVisible(false)}
-              onFocus={openFormatHint}
-              onBlur={() => setIsFormatHintVisible(false)}
-            >
-              <CircleHelp className="h-3 w-3" />
-            </button>
-          </div>
-        </div>
-        <Select
-          value={data.parseMode || 'None'}
-          onValueChange={(value) => onUpdate({ parseMode: value as ParseMode })}
-        >
-          <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="None">{tm('none')}</SelectItem>
-            <SelectItem value="Markdown">{tm('markdown')}</SelectItem>
-            <SelectItem value="MarkdownV2">{tm('markdownV2')}</SelectItem>
-            <SelectItem value="HTML">{tm('html')}</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="rounded-lg border border-white/10 bg-zinc-800/20 p-3">
@@ -1428,10 +1385,6 @@ function MessageSettings({
             <div className="px-2 py-2 text-sm text-zinc-300 bg-white/5 border border-white/10 rounded-lg">
               {tm('formatSelectTextFirst')}
             </div>
-          ) : currentParseMode === 'None' ? (
-            <div className="px-2 py-2 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              {tm('formatEnableFirst')}
-            </div>
           ) : (
             <div className="space-y-1">
               {formatActions.map((action) => (
@@ -1444,21 +1397,25 @@ function MessageSettings({
                   {action.label}
                 </button>
               ))}
+              <div className="pt-2 mt-2 border-t border-white/10 space-y-2">
+                <div className="text-xs text-zinc-400">{tm('formatLink')}</div>
+                <Input
+                  value={formatLinkUrl}
+                  onChange={(event) => setFormatLinkUrl(event.target.value)}
+                  placeholder="https://example.com"
+                  className="h-9 bg-zinc-950/60 border-white/10 text-sm"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={applyLinkFormatting}
+                  className="w-full bg-[#24A1DE] hover:bg-[#24A1DE]/80"
+                >
+                  {tm('formatLinkApply')}
+                </Button>
+              </div>
             </div>
           )}
-        </div>,
-        document.body
-      )}
-
-      {isFormatHintVisible && formatHintPosition && typeof document !== 'undefined' && createPortal(
-        <div
-          className="pointer-events-none fixed z-[10050] w-80 max-w-[calc(100vw-2rem)] rounded-md border border-white/15 bg-zinc-950/95 px-3 py-2 text-xs text-zinc-300 break-words shadow-xl shadow-black/40"
-          style={{
-            left: formatHintPosition.left,
-            top: formatHintPosition.top,
-          }}
-        >
-          {tm('formattingHelpHint')}
         </div>,
         document.body
       )}
@@ -1490,11 +1447,16 @@ function InputSettings({
         <TemplateVariableTextarea
           id="input-question"
           value={data.question || ''}
-          onValueChange={(value) => onUpdate({ question: value })}
+          onValueChange={(value) => onUpdate({
+            question: value,
+            parseMode: inferMessageParseMode(value, data.parseMode),
+          })}
           placeholder={ti('questionPlaceholder')}
           rows={3}
           className="mt-1.5 bg-zinc-800/50 border-white/10"
           variables={variables}
+          forcePreview={Boolean(data.question)}
+          previewHtml={renderMessageRichTextPreview(data.question || '')}
         />
       </div>
 
@@ -1511,24 +1473,6 @@ function InputSettings({
         <p className="text-xs text-zinc-500 mt-1">
           {ti('variableHint')}
         </p>
-      </div>
-
-      <div>
-        <Label htmlFor="input-parsemode">{ti('formatting')}</Label>
-        <Select
-          value={data.parseMode || 'None'}
-          onValueChange={(value) => onUpdate({ parseMode: value as ParseMode })}
-        >
-          <SelectTrigger className="mt-1.5 bg-zinc-800/50 border-white/10">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="None">{t('message.none')}</SelectItem>
-            <SelectItem value="Markdown">{t('message.markdown')}</SelectItem>
-            <SelectItem value="MarkdownV2">{t('message.markdownV2')}</SelectItem>
-            <SelectItem value="HTML">{t('message.html')}</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="space-y-3">

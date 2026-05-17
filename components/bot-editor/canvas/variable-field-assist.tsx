@@ -611,12 +611,16 @@ interface TemplateVariableTextareaProps extends Omit<TextareaProps, 'value' | 'o
   value: string
   onValueChange: (value: string) => void
   variables?: string[]
+  previewHtml?: string
+  forcePreview?: boolean
 }
 
 export const TemplateVariableTextarea = forwardRef<HTMLTextAreaElement, TemplateVariableTextareaProps>(function TemplateVariableTextarea({
   value,
   onValueChange,
   variables,
+  previewHtml,
+  forcePreview = false,
   onKeyUp,
   onClick,
   onFocus,
@@ -635,7 +639,7 @@ export const TemplateVariableTextarea = forwardRef<HTMLTextAreaElement, Template
   const [createOpen, setCreateOpen] = useState(false)
   const [createPrefill, setCreatePrefill] = useState('')
   const [overlayScroll, setOverlayScroll] = useState({ top: 0, left: 0 })
-  const shouldHighlight = hasTemplateVariables(value)
+  const shouldHighlight = forcePreview || hasTemplateVariables(value)
 
   useEffect(() => {
     if (pendingCursorRef.current === null || !textareaRef.current) {
@@ -707,14 +711,25 @@ export const TemplateVariableTextarea = forwardRef<HTMLTextAreaElement, Template
               'selection:bg-transparent'
             )}
           >
-            <div
-              style={{
-                transform: `translate(${-overlayScroll.left}px, ${-overlayScroll.top}px)`,
-              }}
-            >
-              {renderTemplatePreview(value)}
-              {value.endsWith('\n') ? '\u00a0' : null}
-            </div>
+            {previewHtml ? (
+              <div
+                style={{
+                  transform: `translate(${-overlayScroll.left}px, ${-overlayScroll.top}px)`,
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: previewHtml + (value.endsWith('\n') ? '\u00a0' : ''),
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  transform: `translate(${-overlayScroll.left}px, ${-overlayScroll.top}px)`,
+                }}
+              >
+                {renderTemplatePreview(value)}
+                {value.endsWith('\n') ? '\u00a0' : null}
+              </div>
+            )}
           </div>
         ) : null}
         <Textarea
