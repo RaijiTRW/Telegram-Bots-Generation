@@ -249,7 +249,9 @@ const applyNodeWrapperStyle = (node: Node): Node => {
 
 const CANVAS_MIN_ZOOM = 0.2
 const CANVAS_MAX_ZOOM = 2
-const CANVAS_WHEEL_ZOOM_STEP = 0.12
+const CANVAS_WHEEL_ZOOM_BASE_STEP = 0.22
+const CANVAS_WHEEL_ZOOM_MAX_STEP = 0.5
+const CANVAS_WHEEL_ZOOM_DURATION_MS = 36
 const OPEN_INSERT_MENU_EVENT = 'bot-flow-open-insert-menu'
 const CONNECTION_HANDLE_POINTER_DOWN_EVENT = 'bot-flow-connection-handle-pointer-down'
 const DEFAULT_HANDLE_KEY = '__default__'
@@ -312,6 +314,20 @@ function isMouseWheelEvent(event: WheelEvent): boolean {
   }
 
   return absX === 0 && absY >= 80
+}
+
+function getMouseWheelZoomStep(event: WheelEvent): number {
+  const normalizedDelta =
+    event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+      ? Math.abs(event.deltaY) * 400
+      : event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? Math.abs(event.deltaY) * 16
+        : Math.abs(event.deltaY)
+
+  return Math.min(
+    CANVAS_WHEEL_ZOOM_MAX_STEP,
+    Math.max(CANVAS_WHEEL_ZOOM_BASE_STEP, (normalizedDelta / 100) * CANVAS_WHEEL_ZOOM_BASE_STEP)
+  )
 }
 
 const getFallbackNodePosition = (index: number) => {
@@ -1560,17 +1576,18 @@ function FlowCanvasInner({
       event.stopPropagation()
 
       const direction = event.deltaY < 0 ? 1 : -1
+      const zoomStep = getMouseWheelZoomStep(event)
       const currentZoom = getZoom()
       const nextZoom = Math.max(
         CANVAS_MIN_ZOOM,
-        Math.min(CANVAS_MAX_ZOOM, currentZoom + direction * CANVAS_WHEEL_ZOOM_STEP)
+        Math.min(CANVAS_MAX_ZOOM, currentZoom + direction * zoomStep)
       )
 
       if (Math.abs(nextZoom - currentZoom) < Number.EPSILON) {
         return
       }
 
-      void zoomTo(nextZoom, { duration: 80 })
+      void zoomTo(nextZoom, { duration: CANVAS_WHEEL_ZOOM_DURATION_MS })
     }
 
     flowElement.addEventListener('wheel', handleWheel, { passive: false, capture: true })
