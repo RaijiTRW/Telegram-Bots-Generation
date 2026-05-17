@@ -479,6 +479,8 @@
       "mfaSetupHintSimple": "After entering the correct code, 2FA will be enabled immediately for your account.",
       "pushSettingsTitle": "Browser notifications",
       "pushSettingsDesc": "Browser permission, device subscription, and a real test push for this browser",
+      "pushSoon": "Soon",
+      "pushComingSoon": "Browser notifications are coming soon.",
       "pushPermission": "Browser permission",
       "pushPreference": "Account preference",
       "pushBrowserOnlyHint": "When enabled, this device subscribes to web-push and the test is sent from the server through a service worker. Save the settings below to keep browser notifications enabled for this account.",

@@ -101,6 +101,8 @@ type SwitchSectionConfig = {
   items: SwitchItemConfig[]
 }
 
+const BROWSER_PUSH_LOCKED = true
+
 const TIMEZONE_OPTIONS = [
   'UTC',
   'Europe/Moscow',
@@ -446,15 +448,6 @@ export default function SettingsPage() {
 
   const selectedTimezoneLabel = settings.preferences.timezone
   const timezonePreview = formatTimeInZone(currentLocale, settings.preferences.timezone)
-  const pushPermissionLabel =
-    pushPermission === 'granted'
-      ? t('pushPermissionGrantedStatus')
-      : pushPermission === 'denied'
-        ? t('pushPermissionDeniedStatus')
-        : pushPermission === 'default'
-          ? t('pushPermissionDefaultStatus')
-          : t('pushPermissionUnsupportedStatus')
-
   const switchSections: SwitchSectionConfig[] = [
     {
       key: 'notifications',
@@ -701,6 +694,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (isLoadingAccount) return
+    if (BROWSER_PUSH_LOCKED) return
     if (!settings.notifications.pushNotifications) return
     if (pushPermission !== 'granted') return
 
@@ -714,6 +708,11 @@ export default function SettingsPage() {
   ) => {
     if (sectionKey === 'security' && itemKey === 'twoFactorEnabled') {
       setMfaStatus({ type: 'info', text: t('mfaManagedInCard') })
+      return
+    }
+
+    if (sectionKey === 'notifications' && itemKey === 'pushNotifications' && BROWSER_PUSH_LOCKED) {
+      setPushStatus({ type: 'info', text: t('pushComingSoon') })
       return
     }
 
@@ -749,6 +748,10 @@ export default function SettingsPage() {
 
   const handleSendPushTest = async () => {
     if (isSendingPushTest) return
+    if (BROWSER_PUSH_LOCKED) {
+      setPushStatus({ type: 'info', text: t('pushComingSoon') })
+      return
+    }
 
     setPushStatus(null)
     setIsSendingPushTest(true)
@@ -1523,48 +1526,51 @@ export default function SettingsPage() {
                   <BellRing className="w-5 h-5 text-blue-400" />
                 </div>
                 <div>
-                  {t('pushSettingsTitle')}
-                  <p className="text-sm font-normal text-zinc-500 mt-0.5">{t('pushSettingsDesc')}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>{t('pushSettingsTitle')}</span>
+                    <span className="rounded-full border border-blue-400/30 bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-200">
+                      {t('pushSoon')}
+                    </span>
+                  </div>
+                  <p className="text-sm font-normal text-zinc-500 mt-0.5">{t('pushComingSoon')}</p>
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardContent className={`${compact ? 'p-4' : 'p-6'} space-y-4`}>
+            <CardContent className={`${compact ? 'p-4' : 'p-6'} space-y-4 opacity-75`} aria-disabled="true">
               {renderNotice(pushStatus)}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
                   <p className="text-xs uppercase tracking-wide text-zinc-500">{t('pushPermission')}</p>
-                  <p className="mt-1 text-sm font-medium text-white">{pushPermissionLabel}</p>
+                  <p className="mt-1 text-sm font-medium text-white">{t('pushSoon')}</p>
                 </div>
                 <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
                   <p className="text-xs uppercase tracking-wide text-zinc-500">{t('pushPreference')}</p>
-                  <p className="mt-1 text-sm font-medium text-white">
-                    {settings.notifications.pushNotifications ? t('enabled') : t('disabled')}
-                  </p>
+                  <p className="mt-1 text-sm font-medium text-white">{t('pushSoon')}</p>
                 </div>
               </div>
 
-              <p className="text-xs text-zinc-500">{t('pushBrowserOnlyHint')}</p>
+              <p className="text-xs text-zinc-500">{t('pushComingSoon')}</p>
 
               <div className="flex flex-wrap justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={ensurePushPermission}
-                  disabled={isRequestingPushPermission}
+                  disabled
                   className="border-zinc-700 text-zinc-300"
                 >
                   {isRequestingPushPermission ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
-                  {t('requestPushPermission')}
+                  {t('pushSoon')}
                 </Button>
                 <Button
                   type="button"
                   onClick={handleSendPushTest}
-                  disabled={isSendingPushTest || pushPermission === 'unsupported'}
+                  disabled
                   className="min-w-[180px]"
                 >
                   {isSendingPushTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
-                  {t('sendPushTest')}
+                  {t('pushSoon')}
                 </Button>
               </div>
             </CardContent>
@@ -1691,24 +1697,37 @@ export default function SettingsPage() {
                 <CardContent className={`${compact ? 'p-3' : 'p-4'} space-y-1`}>
                   {section.items.map((item) => {
                     const checked = Boolean(getSwitchValue(section.key, item.key))
+                    const isLockedPushToggle = section.key === 'notifications' && item.key === 'pushNotifications'
 
                     return (
                       <div
                         key={`${section.key}-${String(item.key)}`}
-                        className="flex items-center justify-between gap-4 p-4 rounded-lg hover:bg-white/5 transition-colors group"
+                        className={`flex items-center justify-between gap-4 p-4 rounded-lg transition-colors group ${
+                          isLockedPushToggle ? 'opacity-60' : 'hover:bg-white/5'
+                        }`}
                       >
                         <div>
-                          <Label className="text-zinc-200 cursor-pointer">{item.label}</Label>
-                          <p className="text-sm text-zinc-500 mt-0.5">{item.description}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Label className="text-zinc-200 cursor-pointer">{item.label}</Label>
+                            {isLockedPushToggle && (
+                              <span className="rounded-full border border-blue-400/30 bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-200">
+                                {t('pushSoon')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-zinc-500 mt-0.5">
+                            {isLockedPushToggle ? t('pushComingSoon') : item.description}
+                          </p>
                         </div>
                         <Switch
-                          checked={checked}
+                          checked={isLockedPushToggle ? false : checked}
                           onCheckedChange={(nextChecked) => {
                             void handleSwitchChange(section.key, item.key, nextChecked)
                           }}
                           disabled={
                             isLoadingAccount ||
                             isSavingSettings ||
+                            isLockedPushToggle ||
                             (section.key === 'security' && item.key === 'twoFactorEnabled')
                           }
                         />
